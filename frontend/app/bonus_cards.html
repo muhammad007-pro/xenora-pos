@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bonus Kartalar — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .kpi-row     { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .kpi-card    { background:var(--surface1); border:1px solid var(--border); border-radius:.75rem; padding:1rem 1.25rem; }
+  .kpi-label   { font-size:.75rem; color:var(--text2); margin-bottom:.375rem; }
+  .kpi-value   { font-size:1.5rem; font-weight:800; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .table-wrap  { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .card-number { font-family:monospace; font-size:.9rem; font-weight:700; color:#159a70; letter-spacing:.05em; }
+  .balance-val { font-weight:800; color:#10b981; }
+  .badge-active   { background:#d1fae5; color:#065f46; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .badge-inactive { background:#f3f4f6; color:#6b7280; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .action-btns { display:flex; gap:.375rem; flex-wrap:wrap; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box  { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:580px; width:96%; max-height:92vh; overflow-y:auto; }
+  .modal-title{ font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row   { margin-bottom:.875rem; }
+  .form-label { font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .tx-list    { max-height:320px; overflow-y:auto; }
+  .tx-row     { display:flex; justify-content:space-between; align-items:center; padding:.5rem 0; border-bottom:1px solid var(--border); }
+  .tx-type-earn    { color:#10b981; font-weight:700; }
+  .tx-type-spend   { color:#ef4444; font-weight:700; }
+  .tx-type-manual  { color:#159a70; font-weight:700; }
+  .tx-type-expire  { color:#9ca3af; font-weight:700; }
+  .lookup-bar { display:flex; gap:.5rem; margin-bottom:1.25rem; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🎁 Bonus Kartalar</h1>
+      <button class="btn" id="btnAdd">+ Yangi karta</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Jami karta</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Faol</div>
+        <div class="kpi-value" id="kpiActive" style="color:#10b981">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Jami balans</div>
+        <div class="kpi-value" id="kpiBalance" style="color:#159a70">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Jami to'plangan</div>
+        <div class="kpi-value" id="kpiEarned">—</div>
+      </div>
+    </div>
+
+    <div class="lookup-bar">
+      <input class="inp" id="lookupInput" placeholder="Karta raqami: BC12345678" style="flex:1;max-width:280px">
+      <button class="btn" onclick="lookupCard()">Qidirish</button>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label class="form-label">Holat</label>
+        <select class="inp" id="filterActive" style="width:140px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="true">Faol</option>
+          <option value="false">Nofaol</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Qidirish</label>
+        <input class="inp" id="filterSearch" placeholder="Karta raqami..." style="width:200px" oninput="load()">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Karta raqami</th>
+            <th>Mijoz</th>
+            <th>Balans</th>
+            <th>To'plangan</th>
+            <th>Sarflangan</th>
+            <th>Foiz</th>
+            <th>Holat</th>
+            <th>Amallar</th>
+          </tr>
+        </thead>
+        <tbody id="cardTbody">
+          <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text2)">Yuklanmoqda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" id="modalCreate">
+  <div class="modal-box">
+    <div class="modal-title">Yangi bonus karta</div>
+    <div class="form-row">
+      <label class="form-label">Karta raqami (bo'sh qolsa avtomatik)</label>
+      <input class="inp" id="fCardNum" placeholder="BC12345678 (ixtiyoriy)">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Mijoz (ixtiyoriy)</label>
+      <select class="inp" id="fCustomer"><option value="">— bog'lash shart emas —</option></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Ball to'plash foizi (%) *</label>
+      <input class="inp" type="number" id="fEarnRate" value="1" min="0.1" max="100" step="0.1">
+      <div style="font-size:.75rem;color:var(--text2);margin-top:.25rem">1% = 10,000 so'm xaridga 100 ball</div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalCreate').classList.remove('active')">Bekor</button>
+      <button class="btn" onclick="createCard()">Yaratish</button>
+    </div>
+  </div>
+</div>
+
+<!-- EARN MODAL -->
+<div class="modal-overlay" id="modalEarn">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-title">Ball to'plash — <span id="earnCardNum"></span></div>
+    <input type="hidden" id="earnCardId">
+    <div class="form-row">
+      <label class="form-label">Xarid summasi (so'm) *</label>
+      <input class="inp" type="number" id="earnAmount" placeholder="150000">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Izoh (ixtiyoriy)</label>
+      <input class="inp" id="earnDesc" placeholder="Xarid #1234">
+    </div>
+    <div id="earnPreview" style="background:var(--surface2);border-radius:.5rem;padding:.75rem;margin-bottom:.875rem;font-size:.875rem">
+      Summa kiriting — ball hisoblanadi
+    </div>
+    <div style="display:flex;gap:.75rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalEarn').classList.remove('active')">Bekor</button>
+      <button class="btn" onclick="earnBonus()">Ball qo'shish</button>
+    </div>
+  </div>
+</div>
+
+<!-- SPEND MODAL -->
+<div class="modal-overlay" id="modalSpend">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-title">Ball sarflash — <span id="spendCardNum"></span></div>
+    <input type="hidden" id="spendCardId">
+    <div id="spendBalance" style="font-size:1.5rem;font-weight:800;color:#10b981;margin-bottom:1rem"></div>
+    <div class="form-row">
+      <label class="form-label">Sarflanadigan ball *</label>
+      <input class="inp" type="number" id="spendAmount" placeholder="500">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Izoh (ixtiyoriy)</label>
+      <input class="inp" id="spendDesc" placeholder="To'lov uchun">
+    </div>
+    <div style="display:flex;gap:.75rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalSpend').classList.remove('active')">Bekor</button>
+      <button class="btn btn-danger" onclick="spendBonus()">Sarflash</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal-overlay" id="modalHistory">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-title">Tranzaksiya tarixi — <span id="histCardNum"></span></div>
+    <input type="hidden" id="histCardId">
+    <div class="tx-list" id="txList">
+      <div style="text-align:center;padding:1rem;color:var(--text2)">Yuklanmoqda...</div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalHistory').classList.remove('active')">Yopish</button>
+      <button class="btn" onclick="openAdjust()">Qo'lda to'g'irlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADJUST MODAL -->
+<div class="modal-overlay" id="modalAdjust">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-title">Balansni to'g'irlash</div>
+    <input type="hidden" id="adjustCardId">
+    <div class="form-row">
+      <label class="form-label">Miqdor (manfiy ham bo'lishi mumkin)</label>
+      <input class="inp" type="number" id="adjustAmt" placeholder="+100 yoki -50">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Sabab</label>
+      <input class="inp" id="adjustReason" placeholder="Admin to'g'irlash">
+    </div>
+    <div style="display:flex;gap:.75rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalAdjust').classList.remove('active')">Bekor</button>
+      <button class="btn" onclick="doAdjust()">To'g'irlash</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API }     from '/js/core/api.js';
+import { toast }   from '/js/core/toast.js';
+
+const api = new API();
+await Sidebar.init();
+
+let cards = [];
+let customers = [];
+
+async function loadCustomers() {
+  const res = await api.get('/customers/?page_size=500');
+  customers = res.items || res || [];
+  const sel = document.getElementById('fCustomer');
+  sel.innerHTML = '<option value="">— bog\'lash shart emas —</option>' +
+    customers.map(c=>`<option value="${c.id}">${c.name}${c.phone?' ('+c.phone+')':''}</option>`).join('');
+}
+
+window.load = async function() {
+  const isActive = document.getElementById('filterActive').value;
+  const search   = document.getElementById('filterSearch').value.trim();
+  let url = '/bonus-cards/?page_size=200';
+  if (isActive) url += `&is_active=${isActive}`;
+  if (search)   url += `&search=${encodeURIComponent(search)}`;
+  const res = await api.get(url);
+  cards = res.items || res || [];
+
+  document.getElementById('kpiTotal').textContent   = cards.length;
+  document.getElementById('kpiActive').textContent  = cards.filter(c=>c.is_active).length;
+  document.getElementById('kpiBalance').textContent = cards.reduce((s,c)=>s+(c.balance||0),0).toFixed(0) + ' ball';
+  document.getElementById('kpiEarned').textContent  = cards.reduce((s,c)=>s+(c.total_earned||0),0).toFixed(0) + ' ball';
+
+  document.getElementById('cardTbody').innerHTML = cards.length === 0
+    ? `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text2)">Karta yo'q</td></tr>`
+    : cards.map(c => `
+      <tr>
+        <td><span class="card-number">${c.card_number}</span></td>
+        <td>${escHtml(c.customer_name || '—')}</td>
+        <td><span class="balance-val">${(c.balance||0).toFixed(0)}</span> ball</td>
+        <td>${(c.total_earned||0).toFixed(0)} ball</td>
+        <td>${(c.total_spent||0).toFixed(0)} ball</td>
+        <td>${c.earn_rate}%</td>
+        <td><span class="badge-${c.is_active?'active':'inactive'}">${c.is_active?'Faol':'Nofaol'}</span></td>
+        <td>
+          <div class="action-btns">
+            <button class="btn btn-sm" onclick="openEarn(${c.id},'${escHtml(c.card_number)}')">+Ball</button>
+            <button class="btn btn-sm btn-secondary" onclick="openSpend(${c.id},'${escHtml(c.card_number)}',${c.balance||0})">Sarfla</button>
+            <button class="btn btn-sm" onclick="openHistory(${c.id},'${escHtml(c.card_number)}')">Tarix</button>
+            <button class="btn btn-sm btn-danger" onclick="toggleCard(${c.id},${!c.is_active})">${c.is_active?'Bloklash':'Yoqish'}</button>
+          </div>
+        </td>
+      </tr>`).join('');
+};
+
+function escHtml(s) { return String(s).replace(/[<>"'&]/g, c=>({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c])); }
+
+window.lookupCard = async function() {
+  const num = document.getElementById('lookupInput').value.trim();
+  if (!num) return;
+  try {
+    const c = await api.get(`/bonus-cards/lookup?card_number=${encodeURIComponent(num)}`);
+    alert(`Karta: ${c.card_number}\nMijoz: ${c.customer_name||'Bog\'lanmagan'}\nBalans: ${(c.balance||0).toFixed(0)} ball\nHolat: ${c.is_active?'Faol':'Nofaol'}`);
+  } catch { toast('Karta topilmadi', 'error'); }
+};
+
+window.createCard = async function() {
+  const body = {
+    card_number: document.getElementById('fCardNum').value.trim() || null,
+    customer_id: parseInt(document.getElementById('fCustomer').value) || null,
+    earn_rate:   parseFloat(document.getElementById('fEarnRate').value) || 1,
+  };
+  await api.post('/bonus-cards/', body);
+  toast('Karta yaratildi', 'success');
+  document.getElementById('modalCreate').classList.remove('active');
+  load();
+};
+
+window.openEarn = function(id, num) {
+  document.getElementById('earnCardId').value = id;
+  document.getElementById('earnCardNum').textContent = num;
+  document.getElementById('earnAmount').value = '';
+  document.getElementById('earnDesc').value   = '';
+  document.getElementById('earnPreview').textContent = 'Summa kiriting — ball hisoblanadi';
+  document.getElementById('modalEarn').classList.add('active');
+  const card = cards.find(c=>c.id===id);
+  document.getElementById('earnAmount').oninput = function() {
+    const amt = parseFloat(this.value) || 0;
+    const ball = Math.round(amt * (card?.earn_rate||1) / 100 * 100) / 100;
+    document.getElementById('earnPreview').innerHTML = `<strong>${Number(amt).toLocaleString()} so'm</strong> xarid → <strong style="color:#10b981">+${ball.toFixed(2)} ball</strong>`;
+  };
+};
+
+window.earnBonus = async function() {
+  const id  = document.getElementById('earnCardId').value;
+  const amt = parseFloat(document.getElementById('earnAmount').value);
+  if (!amt) { toast('Summa kiriting', 'error'); return; }
+  const res = await api.post(`/bonus-cards/${id}/earn`, { amount: amt, description: document.getElementById('earnDesc').value||null });
+  toast(`+${res.amount} ball to'plandi`, 'success');
+  document.getElementById('modalEarn').classList.remove('active');
+  load();
+};
+
+window.openSpend = function(id, num, balance) {
+  document.getElementById('spendCardId').value = id;
+  document.getElementById('spendCardNum').textContent = num;
+  document.getElementById('spendBalance').textContent = `Balans: ${balance.toFixed(0)} ball`;
+  document.getElementById('spendAmount').value = '';
+  document.getElementById('spendDesc').value   = '';
+  document.getElementById('modalSpend').classList.add('active');
+};
+
+window.spendBonus = async function() {
+  const id  = document.getElementById('spendCardId').value;
+  const amt = parseFloat(document.getElementById('spendAmount').value);
+  if (!amt) { toast('Miqdor kiriting', 'error'); return; }
+  await api.post(`/bonus-cards/${id}/spend`, { amount: amt, description: document.getElementById('spendDesc').value||null });
+  toast(`${amt} ball sarflandi`, 'success');
+  document.getElementById('modalSpend').classList.remove('active');
+  load();
+};
+
+window.openHistory = async function(id, num) {
+  document.getElementById('histCardId').value = id;
+  document.getElementById('histCardNum').textContent = num;
+  document.getElementById('adjustCardId').value = id;
+  document.getElementById('txList').innerHTML = '<div style="text-align:center;padding:1rem">Yuklanmoqda...</div>';
+  document.getElementById('modalHistory').classList.add('active');
+  const res = await api.get(`/bonus-cards/${id}/transactions?page_size=50`);
+  const txs = res.items || res || [];
+  const typeLabel = { earn:'To\'plash', spend:'Sarflash', manual:'Qo\'lda', expire:'Muddati o\'tgan' };
+  document.getElementById('txList').innerHTML = txs.length === 0
+    ? '<div style="text-align:center;padding:1rem;color:var(--text2)">Tranzaksiya yo\'q</div>'
+    : txs.map(t => `
+      <div class="tx-row">
+        <div>
+          <div class="tx-type-${t.tx_type}">${typeLabel[t.tx_type]||t.tx_type}</div>
+          <div style="font-size:.75rem;color:var(--text2)">${t.description||''}</div>
+          <div style="font-size:.7rem;color:var(--text2)">${t.created_at?.split('T')[0]||''}</div>
+        </div>
+        <div class="tx-type-${t.tx_type}" style="font-size:1rem;font-weight:800">
+          ${t.amount > 0 ? '+' : ''}${t.amount.toFixed(2)} ball
+        </div>
+      </div>`).join('');
+};
+
+window.openAdjust = function() {
+  document.getElementById('adjustAmt').value    = '';
+  document.getElementById('adjustReason').value = '';
+  document.getElementById('modalAdjust').classList.add('active');
+};
+
+window.doAdjust = async function() {
+  const id  = document.getElementById('adjustCardId').value;
+  const amt = parseFloat(document.getElementById('adjustAmt').value);
+  if (isNaN(amt)) { toast('Miqdor kiriting', 'error'); return; }
+  const reason = document.getElementById('adjustReason').value || 'Admin to\'g\'irlash';
+  await api.post(`/bonus-cards/${id}/adjust?amount=${amt}&reason=${encodeURIComponent(reason)}`);
+  toast('Balans to\'g\'irlandi', 'success');
+  document.getElementById('modalAdjust').classList.remove('active');
+  openHistory(id, document.getElementById('histCardNum').textContent);
+  load();
+};
+
+window.toggleCard = async function(id, active) {
+  await api.patch(`/bonus-cards/${id}`, { is_active: active });
+  toast(active ? 'Karta yoqildi' : 'Karta bloklandi', 'success');
+  load();
+};
+
+document.getElementById('btnAdd').onclick = () => document.getElementById('modalCreate').classList.add('active');
+document.getElementById('modalCreate').addEventListener('click', e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('active'); });
+document.getElementById('modalHistory').addEventListener('click', e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('active'); });
+
+await loadCustomers();
+load();
+</script>
+</body>
+</html>

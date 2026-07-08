@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "mode": "mock",
+  "width": 58,
+  "ip": "",
+  "net_port": 9100,
+  "vendor_id": "",
+  "product_id": "",
+  "spooler_port": "COM1",
+  "auto_print": false,
+  "kitchen_print": false,
+  "baud_rate": 9600,
+  "paper_width": 80
+}

@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#03110c">
+<meta name="theme-color" content="#eef4f0" media="(prefers-color-scheme: light)">
+<title>Menyu</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+/* ═══ XENORA zumrad-tilla brend — QR menyu (mijoz sahifasi) ═══ */
+:root{
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --glass:rgba(6,26,20,.82);
+  --border:rgba(212,180,108,.14);--border2:rgba(255,255,255,.06);
+  --gold:#d4b46c;--gold2:#ebd297;--gold-dim:rgba(212,180,108,.12);
+  --emerald:#1fb084;
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --success:#34d399;--danger:#f87171;
+  --ink:#07120d;
+  --r:14px;--r2:9px;--tr:.18s ease;
+}
+body{
+  color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  min-height:100vh;position:relative;
+  background:
+    radial-gradient(1200px 820px at 50% -12%, #0b2e23 0%, transparent 60%),
+    radial-gradient(900px 720px at 108% 108%, #06231a 0%, transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+}
+/* Yengil premium atmosfera — girih mandala + tilla nur (mijoz o'qishiga xalal bermaydi) */
+body::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.55;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(212,180,108,.06), transparent 58%),
+    radial-gradient(circle at 50% 40%, transparent 38%, rgba(212,180,108,.05) 39%, transparent 41%),
+    radial-gradient(circle at 50% 40%, transparent 54%, rgba(31,176,132,.045) 55%, transparent 57%),
+    conic-gradient(from 0deg at 50% 40%, rgba(212,180,108,.05) 0deg, transparent 30deg, rgba(212,180,108,.05) 60deg, transparent 90deg, rgba(212,180,108,.05) 120deg, transparent 150deg, rgba(212,180,108,.05) 180deg, transparent 210deg, rgba(212,180,108,.05) 240deg, transparent 270deg, rgba(212,180,108,.05) 300deg, transparent 330deg);
+  -webkit-mask-image:radial-gradient(circle at 50% 40%, #000 0%, transparent 62%);
+          mask-image:radial-gradient(circle at 50% 40%, #000 0%, transparent 62%);
+}
+body::after{
+  content:"";position:fixed;left:-10%;top:-20%;width:70%;height:70%;z-index:-1;pointer-events:none;
+  background:radial-gradient(closest-side, rgba(31,176,132,.10), transparent 70%);
+  filter:blur(10px);
+}
+
+/* ─── Loading / Error ─── */
+#loading,#error{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:1rem;padding:2rem;text-align:center;
+}
+.spin{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#error h2{font-size:1.25rem;color:var(--text)}
+#error p{color:var(--text3);font-size:.875rem}
+
+/* ─── Header ─── */
+.qm-header{
+  position:sticky;top:0;z-index:30;background:var(--glass);
+  backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 1px 0 rgba(212,180,108,.08),0 6px 22px rgba(0,0,0,.28);
+  padding:.9rem 1rem;display:flex;align-items:center;gap:.75rem;
+}
+.qm-cafe-name{font-size:1.1rem;font-weight:800;flex:1;min-width:0;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:linear-gradient(120deg,var(--gold2),var(--gold) 60%,#c79a4f);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.qm-table-badge{
+  background:linear-gradient(135deg,rgba(212,180,108,.18),rgba(31,176,132,.12));
+  color:var(--gold2);border:1px solid rgba(212,180,108,.32);
+  border-radius:20px;padding:.28rem .8rem;font-size:.75rem;font-weight:700;
+  white-space:nowrap;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+/* ─── Category tabs ─── */
+.qm-cats{
+  display:flex;gap:.5rem;padding:.75rem 1rem;overflow-x:auto;
+  border-bottom:1px solid var(--border2);position:sticky;top:59px;z-index:20;
+  background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  scrollbar-width:none;
+}
+.qm-cats::-webkit-scrollbar{display:none}
+.cat-pill{
+  flex-shrink:0;background:var(--bg3);border:1px solid var(--border2);
+  color:var(--text2);border-radius:20px;padding:.44rem .95rem;font-size:.8125rem;
+  font-weight:600;cursor:pointer;transition:all var(--tr);white-space:nowrap;
+}
+.cat-pill:active{transform:scale(.96)}
+.cat-pill.active{
+  background:linear-gradient(135deg,rgba(212,180,108,.2),rgba(31,176,132,.14));
+  color:var(--gold2);border-color:rgba(212,180,108,.42);
+  box-shadow:0 2px 12px rgba(212,180,108,.15);
+}
+
+/* ─── Products grid ─── */
+.qm-products{
+  padding:1rem;display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;
+  padding-bottom:6rem;
+}
+@media(min-width:480px){.qm-products{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:720px){.qm-products{grid-template-columns:repeat(4,1fr);gap:1rem}}
+
+/* ─── Product card ─── */
+.pm-card{
+  background:linear-gradient(180deg,rgba(11,46,35,.62),rgba(6,26,20,.5));
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  border:1px solid var(--border2);border-radius:var(--r);
+  overflow:hidden;display:flex;flex-direction:column;transition:all var(--tr);
+  box-shadow:0 6px 20px rgba(0,0,0,.28);
+  animation:fadeUp .22s ease backwards;
+}
+.pm-card:hover{border-color:rgba(212,180,108,.32);transform:translateY(-2px);
+  box-shadow:0 10px 28px rgba(0,0,0,.36),0 0 0 1px rgba(212,180,108,.06)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pm-img{
+  width:100%;aspect-ratio:4/3;object-fit:cover;
+  background:radial-gradient(circle at 50% 40%,var(--bg3),var(--bg2));
+  display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:2rem;
+}
+.pm-img img{width:100%;height:100%;object-fit:cover}
+.pm-body{padding:.7rem;flex:1;display:flex;flex-direction:column;gap:.25rem}
+.pm-name{font-size:.8125rem;font-weight:700;line-height:1.35;color:var(--text)}
+.pm-desc{font-size:.6875rem;color:var(--text3);line-height:1.4;flex:1;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pm-price{font-size:.9375rem;font-weight:800;margin-top:.3rem;
+  background:linear-gradient(120deg,var(--gold2),var(--gold));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.pm-footer{padding:.5rem .7rem .7rem;display:flex;align-items:center;justify-content:flex-end}
+.pm-qty{display:flex;align-items:center;gap:.4rem}
+.pm-btn{
+  width:34px;height:34px;border-radius:10px;border:1px solid var(--border2);
+  background:var(--bg3);color:var(--text);font-size:1.1rem;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all var(--tr);
+}
+.pm-btn:active{transform:scale(.9)}
+.pm-btn.add{
+  background:linear-gradient(135deg,rgba(212,180,108,.22),rgba(31,176,132,.16));
+  border-color:rgba(212,180,108,.36);color:var(--gold2);
+}
+.pm-btn.add:hover{background:linear-gradient(135deg,rgba(212,180,108,.34),rgba(31,176,132,.24))}
+.pm-count{min-width:22px;text-align:center;font-size:.9375rem;font-weight:800;color:var(--text)}
+
+/* ─── Cart bar ─── */
+#cartBar{
+  position:fixed;bottom:1rem;left:1rem;right:1rem;z-index:40;
+  background:linear-gradient(135deg,var(--gold2),var(--gold) 55%,#c79a4f);
+  border-radius:16px;padding:.95rem 1.25rem;
+  display:flex;align-items:center;gap:.75rem;cursor:pointer;
+  box-shadow:0 10px 34px rgba(212,180,108,.4),inset 0 1px 0 rgba(255,255,255,.35);
+  animation:slideUp .25s ease;transition:transform .15s ease;
+}
+#cartBar:active{transform:scale(.98)}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.cb-badge{
+  background:rgba(7,18,13,.28);color:var(--ink);border-radius:12px;
+  padding:.22rem .62rem;font-size:.78rem;font-weight:800;
+}
+.cb-label{flex:1;font-size:.9rem;font-weight:800;color:var(--ink)}
+.cb-total{font-size:.95rem;font-weight:900;color:var(--ink)}
+.cb-arrow{font-size:1.15rem;color:var(--ink)}
+
+/* ─── Modal overlay ─── */
+.modal-overlay{
+  position:fixed;inset:0;z-index:50;background:rgba(3,17,12,.72);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  display:flex;align-items:flex-end;animation:fadeBg .2s ease;
+}
+@keyframes fadeBg{from{opacity:0}to{opacity:1}}
+.modal-sheet{
+  background:linear-gradient(180deg,var(--bg2),var(--bg));
+  border:1px solid var(--border);border-bottom:0;border-radius:22px 22px 0 0;width:100%;
+  max-height:90vh;overflow-y:auto;animation:slideSheet .25s ease;
+  box-shadow:0 -12px 40px rgba(0,0,0,.5);
+}
+@keyframes slideSheet{from{transform:translateY(100%)}to{transform:none}}
+
+/* ─── Cart modal ─── */
+.cm-head{
+  display:flex;align-items:center;padding:1.25rem 1rem .875rem;
+  border-bottom:1px solid var(--border2);position:sticky;top:0;
+  background:var(--bg2);z-index:1;
+}
+.cm-title{flex:1;font-size:1.05rem;font-weight:800;color:var(--gold2)}
+.cm-close{
+  width:34px;height:34px;border-radius:50%;background:var(--bg3);border:none;
+  color:var(--text2);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:background var(--tr);
+}
+.cm-close:hover{background:var(--border)}
+.cm-body{padding:.875rem 1rem}
+.cart-item{
+  display:flex;align-items:center;gap:.75rem;padding:.7rem 0;
+  border-bottom:1px solid var(--border2);
+}
+.cart-item:last-child{border-bottom:none}
+.ci-name{flex:1;font-size:.875rem;font-weight:600}
+.ci-qty{display:flex;align-items:center;gap:.5rem}
+.ci-btn{
+  width:30px;height:30px;border-radius:8px;border:1px solid var(--border2);
+  background:var(--bg3);color:var(--text);cursor:pointer;font-size:.95rem;
+  display:flex;align-items:center;justify-content:center;transition:all var(--tr);
+}
+.ci-btn:active{transform:scale(.9)}
+.ci-n{min-width:18px;text-align:center;font-size:.9rem;font-weight:800}
+.ci-price{font-size:.8125rem;color:var(--gold2);font-weight:700;min-width:70px;text-align:right}
+
+.cm-form{padding:.875rem 1rem 0}
+.cm-form label{font-size:.8125rem;color:var(--text2);display:block;margin-bottom:.375rem}
+.cm-input{
+  width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r2);
+  color:var(--text);padding:.7rem .875rem;font-size:.9rem;outline:none;
+  transition:border-color var(--tr);
+}
+.cm-input:focus{border-color:rgba(212,180,108,.45)}
+.cm-total-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:.95rem 1rem;margin-top:.5rem;border-top:1px solid var(--border);
+}
+.cm-total-label{font-size:.9rem;color:var(--text2)}
+.cm-total-val{font-size:1.2rem;font-weight:900;
+  background:linear-gradient(120deg,var(--gold2),var(--gold));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.cm-foot{padding:.875rem 1rem 1.5rem}
+.btn-order{
+  width:100%;background:linear-gradient(135deg,var(--gold2),var(--gold) 55%,#c79a4f);
+  color:var(--ink);border:none;border-radius:14px;
+  padding:.95rem;font-size:.95rem;font-weight:800;cursor:pointer;
+  box-shadow:0 8px 24px rgba(212,180,108,.32),inset 0 1px 0 rgba(255,255,255,.35);
+  transition:all var(--tr);
+}
+.btn-order:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-order:active{transform:scale(.98)}
+.btn-order:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
+
+/* ─── Order success ─── */
+#orderDone{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:2rem;gap:1.25rem;text-align:center;
+}
+.od-check{
+  width:76px;height:76px;border-radius:50%;background:rgba(52,211,153,.12);
+  border:1.5px solid rgba(52,211,153,.32);display:flex;align-items:center;
+  justify-content:center;animation:popIn .4s ease;
+  box-shadow:0 0 30px rgba(52,211,153,.2)}
+@keyframes popIn{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.od-num{font-size:.875rem;color:var(--text2)}
+.od-num span{color:var(--gold2);font-weight:800;font-size:1.125rem}
+.od-status-box{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:1rem 1.5rem;min-width:200px;
+}
+.od-status-label{font-size:.75rem;color:var(--text3);margin-bottom:.375rem}
+.od-status-val{font-size:1rem;font-weight:700;color:var(--text)}
+.od-items{width:100%;max-width:300px;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:var(--r);overflow:hidden}
+.od-item{display:flex;justify-content:space-between;padding:.5rem .875rem;
+  font-size:.8125rem;border-bottom:1px solid var(--border2)}
+.od-item:last-child{border-bottom:none}
+.od-item-qty{color:var(--text3)}
+.btn-refresh{
+  background:var(--bg2);border:1px solid rgba(212,180,108,.32);color:var(--gold2);
+  border-radius:var(--r2);padding:.7rem 1.5rem;font-size:.875rem;font-weight:700;
+  cursor:pointer;transition:all var(--tr);
+}
+.btn-refresh:hover{background:var(--gold-dim)}
+.btn-back{
+  background:transparent;border:1px solid var(--border2);color:var(--text2);
+  border-radius:var(--r2);padding:.6rem 1.25rem;font-size:.8125rem;cursor:pointer;
+}
+
+/* ─── Empty state ─── */
+.qm-empty{
+  grid-column:1/-1;display:flex;flex-direction:column;align-items:center;
+  gap:.875rem;padding:3rem 1rem;color:var(--text3);
+}
+.qm-empty svg{opacity:.2;animation:flt 3s ease-in-out infinite}
+@keyframes flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* ─── Light mode (kunduzi ochilsa — zumrad-krem, ixtiyoriy, JS'siz) ─── */
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#eef4f0;--bg2:#ffffff;--bg3:#e7efe9;
+    --glass:rgba(255,255,255,.86);
+    --border:rgba(17,74,56,.14);--border2:rgba(17,74,56,.08);
+    --gold:#b8923f;--gold2:#9c7a2e;--gold-dim:rgba(184,146,63,.12);
+    --emerald:#0f9d74;
+    --text:#0d251c;--text2:#3f6353;--text3:#7d9a8c;
+    --ink:#221800;
+  }
+  body{background:
+    radial-gradient(1100px 760px at 50% -12%, #dcebe2 0%, transparent 60%),
+    radial-gradient(820px 640px at 108% 108%, #e2efe8 0%, transparent 55%),
+    var(--bg);}
+  body::before{opacity:.35}
+  .qm-header{box-shadow:0 1px 0 rgba(17,74,56,.05),0 6px 18px rgba(17,74,56,.06)}
+  .pm-card{background:linear-gradient(180deg,#ffffff,#f6faf7);box-shadow:0 4px 16px rgba(17,74,56,.08)}
+  .pm-card:hover{box-shadow:0 10px 26px rgba(17,74,56,.12),0 0 0 1px rgba(184,146,63,.12)}
+  #cartBar{background:linear-gradient(135deg,#e9c877,#c79a4f);box-shadow:0 10px 30px rgba(184,146,63,.34),inset 0 1px 0 rgba(255,255,255,.5)}
+  .btn-order{background:linear-gradient(135deg,#e9c877,#c79a4f)}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <p style="color:var(--text2);font-size:.875rem">Menyu yuklanmoqda...</p>
+</div>
+
+<div id="error" style="display:none">
+  <svg width="52" height="52" viewBox="0 0 24 24" fill="none" style="opacity:.3">
+    <circle cx="12" cy="12" r="10" stroke="#d4b46c" stroke-width="1.5"/>
+    <path d="M12 8v4M12 16h.01" stroke="#d4b46c" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  <h2 id="errTitle">Xatolik</h2>
+  <p id="errMsg">Menyu topilmadi</p>
+</div>
+
+<div id="app" style="display:none">
+  <header class="qm-header">
+    <div class="qm-cafe-name" id="cafeName">Restoran</div>
+    <div class="qm-table-badge" id="tableLabel">Stol</div>
+  </header>
+
+  <div class="qm-cats" id="catTabs"></div>
+
+  <div class="qm-products" id="productGrid"></div>
+</div>
+
+<div id="cartBar" style="display:none" onclick="openCart()">
+  <span class="cb-badge" id="cbCount">0</span>
+  <span class="cb-label">Savatcha</span>
+  <span class="cb-total" id="cbTotal">0</span>
+  <span class="cb-arrow">→</span>
+</div>
+
+<div id="cartModal" style="display:none">
+  <div class="modal-overlay" onclick="closeCartModal(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="cm-head">
+        <span class="cm-title">🛒 Savatcha</span>
+        <button class="cm-close" onclick="closeCart()">×</button>
+      </div>
+      <div class="cm-body" id="cartItems"></div>
+      <div class="cm-form">
+        <label>Ismingiz (ixtiyoriy)</label>
+        <input class="cm-input" id="custName" type="text" placeholder="Masalan: Ali">
+        <div style="height:.625rem"></div>
+        <label>Izoh (ixtiyoriy)</label>
+        <textarea class="cm-input" id="custNote" rows="2" placeholder="Alergen, pishirish xohishi..." style="resize:none"></textarea>
+      </div>
+      <div class="cm-total-row">
+        <span class="cm-total-label">Jami:</span>
+        <span class="cm-total-val" id="cmTotal">0 so'm</span>
+      </div>
+      <div class="cm-foot">
+        <button class="btn-order" id="placeBtn" onclick="placeOrder()">Buyurtma berish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="orderDone" style="display:none">
+  <div class="od-check">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+      <path d="M5 13l4 4L19 7" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div>
+    <p style="font-size:1.125rem;font-weight:700">Buyurtma qabul qilindi!</p>
+    <p style="font-size:.875rem;color:var(--text2);margin-top:.25rem">Tez orada xizmat ko'rsatiladi</p>
+  </div>
+  <div class="od-num">Buyurtma raqami: <span id="odNum">—</span></div>
+  <div class="od-status-box">
+    <div class="od-status-label">Holat</div>
+    <div class="od-status-val" id="odStatus">Qabul qilindi</div>
+  </div>
+  <div class="od-items" id="odItemsList"></div>
+  <div style="display:flex;gap:.75rem;margin-top:.5rem">
+    <button class="btn-refresh" onclick="refreshStatus()">↻ Yangilash</button>
+    <button class="btn-back" onclick="backToMenu()">← Menyuga qaytish</button>
+  </div>
+</div>
+
+<script>
+// ─── Init ─────────────────────────────────────────────────────────────────────
+const params    = new URLSearchParams(location.search);
+const cafeCode  = params.get('cafe') || '';
+const tableId   = parseInt(params.get('table') || '0');
+const IS_DEV    = ['localhost','127.0.0.1'].includes(location.hostname);
+const API       = IS_DEV ? 'http://localhost:8000' : '';
+
+let menuData    = null;
+let cart        = [];           // [{id, name, price, qty}]
+let activeCat   = null;
+let orderId     = null;
+let orderNum    = null;
+
+function fmt(n){ return new Intl.NumberFormat('uz-UZ').format(n) + ' so\'m'; }
+
+// ─── Load menu ────────────────────────────────────────────────────────────────
+async function loadMenu() {
+  if (!cafeCode) return showError('URL xato', 'Kafe kodi ko\'rsatilmagan');
+  try {
+    const r = await fetch(`${API}/public/menu/${cafeCode}`);
+    if (!r.ok) throw new Error(r.status === 404 ? 'Kafe topilmadi' : 'Server xatosi');
+    menuData = await r.json();
+    renderApp();
+  } catch(e) {
+    showError('Menyu yuklanmadi', e.message || 'Internet aloqasini tekshiring');
+  }
+}
+
+function showError(title, msg) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('errTitle').textContent = title;
+  document.getElementById('errMsg').textContent   = msg;
+  document.getElementById('error').style.display  = 'flex';
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderApp() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display     = '';
+
+  const cafe = menuData.cafe;
+  document.title = cafe.name + ' — Menyu';
+  document.getElementById('cafeName').textContent  = cafe.name;
+  document.getElementById('tableLabel').textContent = tableId ? `Stol #${tableId}` : 'Olib ketish';
+
+  renderCats();
+  renderProducts(activeCat);
+}
+
+function renderCats() {
+  const tabs = document.getElementById('catTabs');
+  const cats = menuData.menu;
+  tabs.innerHTML = `<button class="cat-pill ${!activeCat?'active':''}" onclick="selectCat(null)">Hammasi</button>` +
+    cats.map(c => `<button class="cat-pill ${activeCat===c.id?'active':''}" onclick="selectCat(${c.id})">${c.icon||''} ${c.name}</button>`).join('');
+}
+
+function selectCat(id) {
+  activeCat = id;
+  renderCats();
+  renderProducts(id);
+}
+
+function renderProducts(catId) {
+  const grid = document.getElementById('productGrid');
+  let products = [];
+  menuData.menu.forEach(c => {
+    if (!catId || c.id === catId) products = products.concat(c.products);
+  });
+
+  if (!products.length) {
+    grid.innerHTML = `<div class="qm-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+        <path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <span>Mahsulot topilmadi</span>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = products.map((p, i) => {
+    const inCart = cart.find(c => c.id === p.id);
+    const qty    = inCart ? inCart.qty : 0;
+    return `<div class="pm-card" style="animation-delay:${i*0.04}s">
+      <div class="pm-img">${p.image_url
+        ? `<img src="${p.image_url}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='🍽️'">`
+        : '🍽️'}</div>
+      <div class="pm-body">
+        <div class="pm-name">${p.name}</div>
+        ${p.description ? `<div class="pm-desc">${p.description}</div>` : ''}
+        <div class="pm-price">${fmt(p.price)}</div>
+      </div>
+      <div class="pm-footer">
+        ${qty === 0
+          ? `<button class="pm-btn add" onclick="addToCart(${p.id},'${esc(p.name)}',${p.price})">+</button>`
+          : `<div class="pm-qty">
+              <button class="pm-btn" onclick="decCart(${p.id})">−</button>
+              <span class="pm-count">${qty}</span>
+              <button class="pm-btn add" onclick="addToCart(${p.id},'${esc(p.name)}',${p.price})">+</button>
+            </div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(s){ return s.replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+// ─── Cart ─────────────────────────────────────────────────────────────────────
+function addToCart(id, name, price) {
+  const existing = cart.find(c => c.id === id);
+  if (existing) existing.qty++;
+  else cart.push({id, name, price, qty:1});
+  renderProducts(activeCat);
+  updateCartBar();
+}
+
+function decCart(id) {
+  const idx = cart.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  if (cart[idx].qty <= 1) cart.splice(idx, 1);
+  else cart[idx].qty--;
+  renderProducts(activeCat);
+  updateCartBar();
+}
+
+function updateCartBar() {
+  const bar   = document.getElementById('cartBar');
+  const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  const count = cart.reduce((s,c) => s + c.qty, 0);
+  document.getElementById('cbCount').textContent = count;
+  document.getElementById('cbTotal').textContent = fmt(total);
+  bar.style.display = count > 0 ? 'flex' : 'none';
+}
+
+function openCart() {
+  renderCartModal();
+  document.getElementById('cartModal').style.display = '';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCart() {
+  document.getElementById('cartModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function closeCartModal(e) {
+  if (e.target === e.currentTarget) closeCart();
+}
+
+function renderCartModal() {
+  const items = document.getElementById('cartItems');
+  const total = cart.reduce((s,c) => s + c.price * c.qty, 0);
+  items.innerHTML = cart.map(c => `
+    <div class="cart-item">
+      <span class="ci-name">${c.name}</span>
+      <div class="ci-qty">
+        <button class="ci-btn" onclick="decCart(${c.id});renderCartModal()">−</button>
+        <span class="ci-n">${c.qty}</span>
+        <button class="ci-btn" onclick="addToCart(${c.id},'${esc(c.name)}',${c.price});renderCartModal()">+</button>
+      </div>
+      <span class="ci-price">${fmt(c.price * c.qty)}</span>
+    </div>`).join('');
+  document.getElementById('cmTotal').textContent = fmt(total);
+}
+
+// ─── Place order ──────────────────────────────────────────────────────────────
+async function placeOrder() {
+  if (!cart.length) return;
+  const btn = document.getElementById('placeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Yuborilmoqda...';
+
+  const body = {
+    table_id:      tableId || null,
+    items:         cart.map(c => ({product_id:c.id, quantity:c.qty})),
+    customer_name: document.getElementById('custName').value.trim() || null,
+    notes:         document.getElementById('custNote').value.trim() || null,
+  };
+
+  try {
+    const r = await fetch(`${API}/public/order/${cafeCode}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(()=>({detail:'Xatolik'}));
+      throw new Error(err.detail || 'Buyurtma yuborishda xatolik');
+    }
+    const data = await r.json();
+    orderId  = data.order_id;
+    orderNum = data.order_number;
+    showOrderDone(data);
+  } catch(e) {
+    alert(e.message);
+    btn.disabled  = false;
+    btn.textContent = 'Buyurtma berish';
+  }
+}
+
+function showOrderDone(data) {
+  closeCart();
+  document.getElementById('app').style.display    = 'none';
+  document.getElementById('cartBar').style.display = 'none';
+  document.getElementById('orderDone').style.display = 'flex';
+
+  document.getElementById('odNum').textContent    = data.order_number;
+  document.getElementById('odStatus').textContent = 'Qabul qilindi';
+
+  const list = document.getElementById('odItemsList');
+  list.innerHTML = cart.map(c => `
+    <div class="od-item">
+      <span>${c.name}</span>
+      <span class="od-item-qty">×${c.qty}</span>
+    </div>`).join('');
+
+  cart = [];
+}
+
+async function refreshStatus() {
+  if (!orderId) return;
+  try {
+    const r = await fetch(`${API}/public/order/${cafeCode}/${orderId}/status`);
+    if (!r.ok) return;
+    const data = await r.json();
+    document.getElementById('odStatus').textContent = data.status_label || data.status;
+  } catch(e) {}
+}
+
+function backToMenu() {
+  document.getElementById('orderDone').style.display = 'none';
+  document.getElementById('app').style.display       = '';
+  orderId = null;
+  orderNum = null;
+}
+
+// ─── Start ────────────────────────────────────────────────────────────────────
+loadMenu();
+</script>
+</body>
+</html>

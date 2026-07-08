@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Sodiqlik dasturi | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--r:.5rem;--r2:.875rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1rem 1.25rem}
+.stat-val{font-size:1.75rem;font-weight:800;color:var(--gold);margin-bottom:.125rem}
+.stat-lbl{font-size:.75rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+/* Rules card */
+.rules{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem;margin-bottom:1.5rem}
+.rules-title{font-size:.8125rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.875rem}
+.rules-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
+@media(max-width:640px){.rules-grid{grid-template-columns:1fr}}
+.rule-item{background:var(--bg3);border-radius:var(--r);padding:.875rem 1rem;text-align:center}
+.rule-icon{font-size:1.5rem;margin-bottom:.375rem}
+.rule-val{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:.125rem}
+.rule-lbl{font-size:.75rem;color:var(--text3)}
+/* Toolbar */
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center}
+.search-inp{flex:1;min-width:200px;padding:.5rem .875rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:.875rem;outline:none;font-family:inherit}
+.search-inp:focus{border-color:var(--gold)}
+/* Tiers */
+.tier-filter{display:flex;gap:.375rem}
+.tier-btn{padding:.35rem .75rem;border-radius:var(--r);font-size:.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:.2s}
+.tier-btn.active,.tier-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+/* Table */
+.tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th{padding:.75rem 1rem;font-size:.75rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:.75rem 1rem;font-size:.875rem;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-flex;align-items:center;padding:.2rem .5rem;border-radius:9999px;font-size:.7rem;font-weight:700}
+.badge-bronze{background:rgba(180,80,40,.15);color:#cd7f32}
+.badge-silver{background:rgba(150,150,160,.15);color:#c0c0c0}
+.badge-gold  {background:var(--gold-dim);color:var(--gold)}
+.badge-plat  {background:rgba(100,200,255,.1);color:#a0e0ff}
+.pts{font-weight:700;color:var(--gold)}
+.total-spent{color:var(--text2);font-size:.8rem}
+.action-btn{padding:.25rem .625rem;border-radius:.25rem;font-size:.75rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.earn-btn  {background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.25)}
+.redeem-btn{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,180,108,.25)}
+.action-btn:hover{filter:brightness(1.2)}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+/* Modal */
+.modal-wrap{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-wrap.open{display:flex}
+.modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal-box{position:relative;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.5rem;width:100%;max-width:400px;z-index:1}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.modal-head h3{font-size:1rem;font-weight:700}
+.close-btn{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center}
+.form-group{margin-bottom:1rem}
+label{display:block;font-size:.8125rem;font-weight:600;color:var(--text2);margin-bottom:.375rem}
+input{width:100%;padding:.5rem .875rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:.875rem;outline:none;font-family:inherit}
+input:focus{border-color:var(--gold)}
+.modal-actions{display:flex;gap:.75rem;margin-top:1.25rem}
+.modal-actions .btn{flex:1;justify-content:center}
+.cust-info{background:var(--bg3);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem}
+.cust-info strong{color:var(--gold)}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:1000;padding:.625rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;animation:fadeIn .3s}
+.toast.ok{background:#10b981;color:#fff}
+.toast.err{background:#ef4444;color:#fff}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+
+<div class="ph">
+  <a class="bk" href="customers.html" title="Orqaga">&#8592;</a>
+  <span class="ph-title">Sodiqlik dasturi</span>
+</div>
+
+<div class="pc">
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="sTotalCust">—</div><div class="stat-lbl">Jami mijozlar</div></div>
+    <div class="stat"><div class="stat-val" id="sTotalPts">—</div><div class="stat-lbl">Jami ballar</div></div>
+    <div class="stat"><div class="stat-val" id="sGoldCust">—</div><div class="stat-lbl">Gold mijozlar</div></div>
+    <div class="stat"><div class="stat-val" id="sAvgPts">—</div><div class="stat-lbl">O'rtacha ball</div></div>
+  </div>
+
+  <!-- Rules -->
+  <div class="rules">
+    <div class="rules-title">Qoidalar</div>
+    <div class="rules-grid">
+      <div class="rule-item">
+        <div class="rule-icon">🎯</div>
+        <div class="rule-val">Har 1000 UZS</div>
+        <div class="rule-lbl">= 1 ball yig'iladi</div>
+      </div>
+      <div class="rule-item">
+        <div class="rule-icon">💰</div>
+        <div class="rule-val">1 ball = 10 UZS</div>
+        <div class="rule-lbl">chegirma qiymati</div>
+      </div>
+      <div class="rule-item">
+        <div class="rule-icon">🏆</div>
+        <div class="rule-val">Min 100 ball</div>
+        <div class="rule-lbl">yechish uchun</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input class="search-inp" id="searchInp" placeholder="Mijoz ismi yoki telefon...">
+    <div class="tier-filter">
+      <button class="tier-btn active" data-tier="">Barchasi</button>
+      <button class="tier-btn" data-tier="bronze">Bronze</button>
+      <button class="tier-btn" data-tier="silver">Silver</button>
+      <button class="tier-btn" data-tier="gold">Gold</button>
+      <button class="tier-btn" data-tier="platinum">Platinum</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Mijoz</th>
+          <th>Daraja</th>
+          <th>Ballar</th>
+          <th>Jami xarid</th>
+          <th>Tashrif</th>
+          <th>Amallar</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">Mijoz topilmadi</div>
+  </div>
+</div>
+
+<!-- Redeem Modal -->
+<div class="modal-wrap" id="redeemModal">
+  <div class="modal-bg" onclick="closeRedeem()"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Ball yechish</h3>
+      <button class="close-btn" onclick="closeRedeem()">&#10005;</button>
+    </div>
+    <div class="cust-info" id="redeemInfo"></div>
+    <div class="form-group">
+      <label>Yechish miqdori (ball)</label>
+      <input type="number" id="redeemAmt" min="100" step="100" placeholder="Min: 100">
+    </div>
+    <div style="font-size:.8125rem;color:var(--text2);margin-bottom:.75rem" id="redeemCalc"></div>
+    <div class="modal-actions">
+      <button class="btn btn-out" onclick="closeRedeem()">Bekor</button>
+      <button class="btn btn-gold" onclick="doRedeem()">Yechish</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _h = window.location.hostname;
+const BASE = (_h==='localhost'||_h==='127.0.0.1'||_h==='')
+  ? 'http://localhost:8000/api/v1'
+  : `${window.location.protocol}//${window.location.host}/api/v1`;
+const tok  = () => localStorage.getItem('access_token') || '';
+const api  = {
+  get:  u    => fetch(`${BASE}${u}`, {headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post: (u,b)=> fetch(`${BASE}${u}`, {method:'POST',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+};
+
+if (!tok()) location.href = '../shared/login.html';
+
+let custs = [];
+let filterTier = '';
+let filterQ    = '';
+let redeemCust = null;
+
+const TIERS = {
+  bronze:   { label:'Bronze',   cls:'badge-bronze', min:0,        max:500000  },
+  silver:   { label:'Silver',   cls:'badge-silver', min:500000,   max:2000000 },
+  gold:     { label:'Gold',     cls:'badge-gold',   min:2000000,  max:5000000 },
+  platinum: { label:'Platinum', cls:'badge-plat',   min:5000000,  max:Infinity},
+};
+
+function getTier(spent) {
+  if (spent >= 5000000) return 'platinum';
+  if (spent >= 2000000) return 'gold';
+  if (spent >= 500000)  return 'silver';
+  return 'bronze';
+}
+
+function fmt(n) { return Math.round(n).toLocaleString('uz-UZ'); }
+
+async function load() {
+  const res = await api.get('/customers/?limit=200').catch(()=>null);
+  custs = res?.items || res || [];
+  renderStats();
+  renderTable();
+}
+
+function renderStats() {
+  document.getElementById('sTotalCust').textContent = custs.length;
+  const totalPts = custs.reduce((s,c) => s + (c.loyalty_points||c.points||0), 0);
+  document.getElementById('sTotalPts').textContent  = fmt(totalPts);
+  const gold = custs.filter(c => getTier(c.total_spent||0) === 'gold' || getTier(c.total_spent||0) === 'platinum').length;
+  document.getElementById('sGoldCust').textContent  = gold;
+  const avg = custs.length ? Math.round(totalPts / custs.length) : 0;
+  document.getElementById('sAvgPts').textContent    = fmt(avg);
+}
+
+function renderTable() {
+  let list = custs;
+  if (filterQ)    list = list.filter(c => (c.name||'').toLowerCase().includes(filterQ) || (c.phone||'').includes(filterQ));
+  if (filterTier) list = list.filter(c => getTier(c.total_spent||0) === filterTier);
+
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty');
+
+  if (!list.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = list.map(c => {
+    const pts   = c.loyalty_points || c.points || 0;
+    const spent = c.total_spent || 0;
+    const tier  = getTier(spent);
+    const t     = TIERS[tier];
+    return `<tr>
+      <td>
+        <div style="font-weight:600">${c.name||'—'}</div>
+        <div style="font-size:.75rem;color:var(--text3)">${c.phone||c.email||'—'}</div>
+      </td>
+      <td><span class="badge ${t.cls}">${t.label}</span></td>
+      <td><span class="pts">${fmt(pts)}</span></td>
+      <td><span class="total-spent">${fmt(spent)} UZS</span></td>
+      <td style="color:var(--text2)">${c.total_visits||0}</td>
+      <td>
+        <div style="display:flex;gap:.375rem">
+          ${pts >= 100 ? `<button class="action-btn redeem-btn" onclick="openRedeem(${c.id},'${(c.name||'').replace(/'/g,'\\'')}',${pts})">Yechish</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Redeem ────────────────────────────────────────────────────────────────────
+function openRedeem(id, name, pts) {
+  redeemCust = { id, name, pts };
+  document.getElementById('redeemInfo').innerHTML =
+    `<strong>${name}</strong> — mavjud: <strong>${fmt(pts)} ball</strong> (≈ ${fmt(pts*10)} UZS)`;
+  document.getElementById('redeemAmt').value = '';
+  document.getElementById('redeemCalc').textContent = '';
+  document.getElementById('redeemModal').classList.add('open');
+}
+function closeRedeem() { document.getElementById('redeemModal').classList.remove('open'); redeemCust = null; }
+
+document.getElementById('redeemAmt').addEventListener('input', e => {
+  const pts = parseInt(e.target.value) || 0;
+  document.getElementById('redeemCalc').textContent =
+    pts >= 100 ? `${fmt(pts)} ball = ${fmt(pts * 10)} UZS chegirma` : 'Minimal 100 ball';
+});
+
+async function doRedeem() {
+  if (!redeemCust) return;
+  const pts = parseInt(document.getElementById('redeemAmt').value) || 0;
+  if (pts < 100) { toast('Minimal 100 ball', false); return; }
+  if (pts > redeemCust.pts) { toast('Ball yetarli emas', false); return; }
+
+  const res = await api.post(`/loyalty/redeem/${redeemCust.id}?points=${pts}`, {});
+  if (res?.discount_amount !== undefined) {
+    toast(`${fmt(pts)} ball yechildi (${fmt(res.discount_amount)} UZS)`, true);
+    closeRedeem();
+    load();
+  } else {
+    toast(res?.detail || 'Xatolik', false);
+  }
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tier-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tier-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    filterTier = btn.dataset.tier;
+    renderTable();
+  });
+});
+let searchTimer;
+document.getElementById('searchInp').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { filterQ = e.target.value.toLowerCase().trim(); renderTable(); }, 300);
+});
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, ok) {
+  const el = document.createElement('div');
+  el.className = `toast ${ok ? 'ok' : 'err'}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+load();
+</script>
+</body>
+</html>

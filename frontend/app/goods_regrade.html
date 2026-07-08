@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peresort — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header  { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title   { font-size:1.25rem; font-weight:700; }
+  .filter-bar   { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .table-wrap   { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .badge-draft   { background:#fef3c7; color:#92400e; }
+  .badge-confirm { background:#d1fae5; color:#065f46; }
+  .badge { display:inline-block; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box  { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:700px; width:96%; max-height:92vh; overflow-y:auto; }
+  .modal-title{ font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row   { margin-bottom:.875rem; }
+  .form-label { font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .regrade-row { display:grid; grid-template-columns:1fr auto 1fr 80px auto; gap:.5rem; align-items:end; margin-bottom:.5rem; }
+  .arrow-label { font-size:1.25rem; padding-bottom:.3rem; text-align:center; color:var(--accent); }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🔄 Peresort (Xato tuzatish)</h1>
+      <button class="btn" id="btnAdd">+ Peresort yaratish</button>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label class="form-label">Holat</label>
+        <select class="inp" id="filterStatus" style="width:140px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="draft">Qoralama</option>
+          <option value="confirmed">Tasdiqlangan</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Dan</label>
+        <input type="date" class="inp" id="filterFrom" style="width:145px" onchange="load()">
+      </div>
+      <div>
+        <label class="form-label">Gacha</label>
+        <input type="date" class="inp" id="filterTo" style="width:145px" onchange="load()">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>#</th><th>Sana</th><th>Izoh</th><th>Tovarlar</th><th>Holat</th><th></th></tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Yangi peresort modali -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-title">Peresort yaratish — xato tovarni tuzatish</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Sana *</label>
+        <input type="date" class="inp" id="fDate">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Izoh</label>
+        <input type="text" class="inp" id="fNotes" placeholder="Sabab, tushuntirish...">
+      </div>
+    </div>
+
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:.5rem;padding:.625rem .875rem;margin-bottom:.875rem;font-size:.8125rem;color:#92400e">
+      ⚠️ <strong>Peresort</strong>: "A" tovardan ayirib, "B" tovarga qo'shiladi. Ombor avtomatik yangilanadi.
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+      <label class="form-label" style="margin:0;font-weight:700">Almashtirish qatorlari</label>
+      <button type="button" class="btn btn-secondary" style="padding:.25rem .625rem;font-size:.8125rem" onclick="addRow()">+ Qo'shish</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr 90px auto;gap:.5rem;margin-bottom:.25rem">
+      <span style="font-size:.75rem;color:var(--text3);padding-left:.25rem">Qaysi tovardan</span>
+      <span></span>
+      <span style="font-size:.75rem;color:var(--text3);padding-left:.25rem">Qaysi tovarga</span>
+      <span style="font-size:.75rem;color:var(--text3)">Miqdor</span>
+      <span></span>
+    </div>
+    <div id="itemRows"></div>
+
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeModal()">Bekor</button>
+      <button class="btn" id="btnSave" onclick="save()">Saqlash (Qoralama)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-box" style="max-width:620px">
+    <div class="modal-title" id="detailTitle">Peresort tafsiloti</div>
+    <div id="detailContent"></div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeDetail()">Yopish</button>
+      <button class="btn" id="btnConfirmReg" style="display:none;background:#10b981" onclick="confirmRegrade()">✓ Tasdiqlash (Inventoryni yangilash)</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API } from '/js/core/api.js';
+Sidebar.init();
+const api = new API();
+let products = [];
+let detailId = null;
+
+async function init() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('fDate').value      = today;
+  document.getElementById('filterFrom').value = today.slice(0,7)+'-01';
+  document.getElementById('filterTo').value   = today;
+  const res = await api.get('/products/?page_size=500');
+  products = res.items || [];
+  load();
+}
+
+window.load = async () => {
+  const p = new URLSearchParams({ page_size: 50 });
+  const s = document.getElementById('filterStatus').value;
+  const f = document.getElementById('filterFrom').value;
+  const t = document.getElementById('filterTo').value;
+  if (s) p.set('status', s);
+  if (f) p.set('date_from', f);
+  if (t) p.set('date_to', t);
+  const res = await api.get(`/goods-regrades/?${p}`);
+  const rows = res.items || [];
+  const tbody = document.getElementById('tableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Peresortlar topilmadi</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(gr => `
+    <tr style="cursor:pointer" onclick="openDetail(${gr.id})">
+      <td style="font-family:monospace;font-weight:700">#${gr.id}</td>
+      <td>${gr.regrade_date}</td>
+      <td style="color:var(--text2)">${gr.notes||'—'}</td>
+      <td>${gr.items?.length||0} qator</td>
+      <td><span class="badge ${gr.status==='confirmed'?'badge-confirm':'badge-draft'}">${gr.status==='confirmed'?'Tasdiqlangan':'Qoralama'}</span></td>
+      <td onclick="event.stopPropagation()">
+        ${gr.status==='draft'?`<button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem;color:#ef4444" onclick="event.stopPropagation();deleteDraft(${gr.id})">O'chirish</button>`:''}
+      </td>
+    </tr>`).join('');
+};
+
+window.openDetail = async (id) => {
+  detailId = id;
+  const gr = await api.get(`/goods-regrades/${id}`);
+  document.getElementById('detailTitle').textContent = `Peresort #${gr.id} — ${gr.regrade_date}`;
+  document.getElementById('detailContent').innerHTML = `
+    ${gr.notes ? `<div style="margin-bottom:.75rem;font-size:.875rem;color:var(--text2)">Izoh: ${gr.notes}</div>` : ''}
+    <div style="margin-bottom:.5rem"><span class="badge ${gr.status==='confirmed'?'badge-confirm':'badge-draft'}">${gr.status==='confirmed'?'Tasdiqlangan':'Qoralama'}</span></div>
+    <table class="data-table">
+      <thead><tr><th>Qaysi tovardan</th><th>→</th><th>Qaysi tovarga</th><th>Miqdor</th></tr></thead>
+      <tbody>${gr.items.map(it=>`<tr>
+        <td style="color:#ef4444;font-weight:600">${it.from_product_name||'#'+it.from_product_id}</td>
+        <td style="text-align:center;font-size:1.25rem">→</td>
+        <td style="color:#10b981;font-weight:600">${it.to_product_name||'#'+it.to_product_id}</td>
+        <td>${it.quantity}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  document.getElementById('btnConfirmReg').style.display = gr.status === 'draft' ? '' : 'none';
+  document.getElementById('detailModal').classList.add('active');
+};
+
+window.confirmRegrade = async () => {
+  const res = await api.post(`/goods-regrades/${detailId}/confirm`, {});
+  if (res.status === 'confirmed') {
+    showToast('Peresort tasdiqlandi, inventory yangilandi', 'success');
+    closeDetail(); load();
+  } else showToast(res.detail||'Xatolik','error');
+};
+
+window.deleteDraft = async (id) => {
+  if (!confirm("Qoralamani o'chirasizmi?")) return;
+  const res = await api.delete(`/goods-regrades/${id}`);
+  if (res.message) { showToast("O'chirildi",'success'); load(); }
+  else showToast(res.detail||'Xatolik','error');
+};
+
+document.getElementById('btnAdd').onclick = () => {
+  document.getElementById('fNotes').value = '';
+  document.getElementById('itemRows').innerHTML = '';
+  addRow();
+  document.getElementById('modal').classList.add('active');
+};
+window.closeModal  = () => document.getElementById('modal').classList.remove('active');
+window.closeDetail = () => document.getElementById('detailModal').classList.remove('active');
+document.getElementById('modal').onclick       = e => { if(e.target===e.currentTarget) closeModal(); };
+document.getElementById('detailModal').onclick = e => { if(e.target===e.currentTarget) closeDetail(); };
+
+window.addRow = () => {
+  const opts = products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  const div  = document.createElement('div');
+  div.style.cssText = 'display:grid;grid-template-columns:1fr auto 1fr 90px auto;gap:.5rem;align-items:end;margin-bottom:.5rem';
+  div.innerHTML = `
+    <div><select class="inp from-sel">${opts}</select></div>
+    <div class="arrow-label">→</div>
+    <div><select class="inp to-sel">${opts}</select></div>
+    <div><input type="number" class="inp qty-inp" value="1" min="0.001" step="0.001"></div>
+    <div><button type="button" class="btn btn-secondary" style="padding:.35rem .625rem;color:#ef4444" onclick="this.closest('div[style]').remove()">✕</button></div>`;
+  // Set second product to next one to avoid same default
+  document.getElementById('itemRows').appendChild(div);
+  const toSel = div.querySelector('.to-sel');
+  if (products.length > 1) toSel.value = products[1].id;
+};
+
+window.save = async () => {
+  const rows = document.getElementById('itemRows').children;
+  if (!rows.length) { showToast('Kamida 1 qator kiriting','error'); return; }
+  const items = [];
+  let valid = true;
+  Array.from(rows).forEach(row => {
+    const fromId = parseInt(row.querySelector('.from-sel').value);
+    const toId   = parseInt(row.querySelector('.to-sel').value);
+    const qty    = parseFloat(row.querySelector('.qty-inp').value);
+    if (!fromId || !toId || !qty) { valid = false; return; }
+    if (fromId === toId) { showToast("Bir xil tovar tanlash mumkin emas",'error'); valid = false; return; }
+    items.push({ from_product_id: fromId, to_product_id: toId, quantity: qty });
+  });
+  if (!valid) return;
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  const res = await api.post('/goods-regrades/', {
+    regrade_date: document.getElementById('fDate').value,
+    notes:        document.getElementById('fNotes').value.trim() || null,
+    items,
+  });
+  btn.disabled = false;
+  if (res.id) { showToast('Peresort saqlandi','success'); closeModal(); load(); }
+  else showToast(res.detail||'Xatolik','error');
+};
+
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.textContent = msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+init();
+</script>
+</body>
+</html>

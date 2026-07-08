@@ -1,0 +1,38 @@
+ext {
+    // Minimum va target SDK versiyalari
+    minSdkVersion = 24
+    compileSdkVersion = 34
+    targetSdkVersion = 34
+    
+    // Kutubxona versiyalari
+    androidxActivityVersion = '1.7.0'
+    androidxAppCompatVersion = '1.6.1'
+    androidxCoordinatorLayoutVersion = '1.2.0'
+    androidxCoreVersion = '1.10.0'
+    androidxFragmentVersion = '1.5.6'
+    coreSplashScreenVersion = '1.0.0'
+    androidxWebkitVersion = '1.6.1'
+    
+    // Kotlin versiyasi
+    kotlinVersion = '1.9.0'
+    
+    // Java versiyasi
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    
+    // Build optimizatsiyasi
+    enableProguardInReleaseBuilds = true
+    enableR8InReleaseBuilds = true
+    enableSeparateBuildPerCPUArchitecture = true
+    enableJetifier = true
+    
+    // Premium sozlamalar
+    versionCode = 1
+    versionName = "1.0.0"
+    applicationId = "uz.premiumpos.pro"
+    
+    // Maxfiy kalitlar (o'zgartirish kerak)
+    keystorePassword = "premiumpos2024"
+    keyAlias = "premiumpos"
+    keyPassword = "premiumpos2024"
+}

@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Ombor | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;
+  --r:.5rem;--r2:.875rem;--r3:1.125rem
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;flex-shrink:0;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit;white-space:nowrap}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-warn{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:var(--yellow)}
+.btn-warn.active{background:rgba(245,158,11,.25)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text3);padding:.35rem .625rem;font-size:.8125rem}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text2)}
+.pc{padding:1.5rem;max-width:1280px;margin:0 auto}
+/* Stats */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.125rem}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.2rem}
+.sv{font-size:1.75rem;font-weight:700}
+.sv.ok{color:var(--green)} .sv.warn{color:var(--yellow)} .sv.bad{color:var(--red)} .sv.gold{color:var(--gold)}
+/* Toolbar */
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;align-items:center}
+.sw{position:relative;flex:1;max-width:360px}
+.sw input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem .5rem 2.25rem;color:var(--text);font-size:.875rem;outline:none;transition:.2s;font-family:inherit}
+.sw input:focus{border-color:var(--gold)}
+.sw svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.cat-sel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text2);font-size:.875rem;outline:none;cursor:pointer;font-family:inherit}
+.cat-sel:focus{border-color:var(--gold)}
+/* Table */
+.tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse}
+.tbl thead th{padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border)}
+.tbl tbody tr:not(:last-child) td{border-bottom:1px solid var(--border)}
+.tbl tbody tr:hover{background:rgba(255,255,255,.02)}
+.tbl td{padding:.75rem 1rem;font-size:.875rem;vertical-align:middle}
+.stk-bar{background:var(--bg3);border-radius:99px;height:5px;margin-top:.3rem;width:80px}
+.stk-fill{border-radius:99px;height:100%;transition:.3s}
+.fill-ok{background:var(--green)} .fill-low{background:var(--yellow)} .fill-out{background:var(--red)}
+.badge{display:inline-flex;align-items:center;padding:.2rem .625rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.b-ok{background:rgba(16,185,129,.12);color:var(--green)}
+.b-low{background:rgba(245,158,11,.12);color:var(--yellow)}
+.b-out{background:rgba(239,68,68,.1);color:var(--red)}
+.acts{display:flex;gap:.375rem}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+/* Modal */
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:460px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}
+.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem;flex-shrink:0}
+.mf .btn{flex:1}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;transition:.2s;font-family:inherit}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold)}
+.fg textarea{resize:vertical;min-height:60px}
+.info-box{background:var(--bg3);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem}
+.info-box span{color:var(--gold);font-weight:600}
+@media(max-width:768px){.sg{grid-template-columns:repeat(2,1fr)}.tbl thead th:nth-child(4),.tbl td:nth-child(4){display:none}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+
+/* ═══════════════════════════════════════════════════════════════
+   OMBOR PREMIUM — YENGIL atmosfera + glass + empty + skeleton.
+   Vizual only. JS/DOM/id/class tegilmaydi. Ish ekrani — tinch (POS darajasi).
+   ═══════════════════════════════════════════════════════════════ */
+/* light mode o'zgaruvchilari (sahifada yo'q edi — himoya uchun qo'shildi) */
+[data-theme="light"]{
+  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.12);
+  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
+}
+
+/* tinch zumrad-qora fon ramp */
+body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0a2419 0%,#05150e 50%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+
+/* content atmosfera ustида */
+.ph{z-index:30}
+.pc{position:relative;z-index:1}
+
+/* ── Atmosfera qatlami — fixed, ortда, faqat shaffof joylardan ── */
+.inv-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.ia-mandala{position:absolute;top:38%;left:66%;width:110vmin;height:110vmin;transform:translate(-50%,-50%);opacity:.03;animation:iaSpin 240s linear infinite}
+.ia-mandala svg{width:100%;height:100%;display:block}
+@keyframes iaSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.ia-glow{position:absolute;border-radius:50%;filter:blur(80px);mix-blend-mode:screen;opacity:.2}
+.ia-glow.g1{width:46vmin;height:46vmin;top:-10%;left:-6%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:iaBreathe 32s ease-in-out infinite}
+.ia-glow.g2{width:40vmin;height:40vmin;bottom:-12%;right:-4%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:iaBreathe 38s ease-in-out infinite 5s}
+@keyframes iaBreathe{0%,100%{transform:scale(.95);opacity:.14}50%{transform:scale(1.08);opacity:.25}}
+[data-theme="light"] .ia-glow{mix-blend-mode:normal;opacity:.1;filter:blur(90px)}
+[data-theme="light"] .ia-mandala{opacity:.04}
+
+/* ── Glass panellar ── */
+.tbl-wrap{
+  background:linear-gradient(180deg,rgba(11,46,35,.72),rgba(8,34,26,.78));
+  backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);
+  border-color:rgba(212,180,108,.16);box-shadow:0 4px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(212,180,108,.06);
+}
+[data-theme="light"] .tbl-wrap{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,249,250,.9))}
+.sc{background:rgba(11,46,35,.55)}
+[data-theme="light"] .sc{background:rgba(255,255,255,.66)}
+.tbl thead th{background:rgba(212,180,108,.05)}
+/* skaner/qidiruv fokus — tilla glow */
+.sw input:focus{box-shadow:0 0 0 3px rgba(212,180,108,.16),0 0 14px rgba(212,180,108,.14)}
+#scanInput:focus{box-shadow:0 0 0 3px rgba(212,180,108,.24),0 0 16px rgba(212,180,108,.2)}
+/* kirim modali glass */
+.mc{background:linear-gradient(180deg,rgba(13,42,32,.92),rgba(9,30,23,.95));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+[data-theme="light"] .mc{background:rgba(255,255,255,.95)}
+/* checkout/saqlash tugma sheen */
+.btn-gold{position:relative;overflow:hidden}
+.btn-gold::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%);transform:translateX(-130%);transition:transform .6s ease}
+.btn-gold:hover::after{transform:translateX(130%)}
+.btn:active{transform:scale(.97)}
+
+/* ── EMPTY STATE (chiroyli — ikonка + matn + maslahat) ── */
+.empty{padding:3.5rem 1.5rem;color:var(--text2);font-size:.95rem;font-weight:600;line-height:1.4}
+.empty::before{
+  content:'';display:block;width:62px;height:62px;margin:0 auto 1rem;opacity:.55;
+  background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4b46c' stroke-width='1.3' stroke-linejoin='round'%3E%3Cpath d='M3 7l9-4 9 4v10l-9 4-9-4z'/%3E%3Cpath d='M3 7l9 4 9-4M12 11v10'/%3E%3C/svg%3E");
+  animation:_flt 3.5s ease-in-out infinite;
+}
+.empty::after{
+  content:'Skaner qiling yoki "+ Kirim" tugmasini bosing';
+  display:block;margin-top:.5rem;font-size:.8125rem;font-weight:400;color:var(--text3);
+}
+
+/* ── SKELETON (yuklanish — shimmer) ── */
+@keyframes _shimmer{0%{background-position:-450px 0}100%{background-position:450px 0}}
+.sk-line{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(212,180,108,.13) 37%,rgba(255,255,255,.04) 63%);background-size:800px 100%;animation:_shimmer 1.4s linear infinite}
+.sk-row td{padding:.85rem 1rem;border-bottom:1px solid var(--border)}
+
+/* ── Micro: jadval qatorlari yengil paydo bo'lish (stagger) ── */
+.tbl tbody tr:not(.sk-row){animation:_pgIn .25s ease backwards}
+.tbl tbody tr:not(.sk-row):nth-child(2){animation-delay:.03s}
+.tbl tbody tr:not(.sk-row):nth-child(3){animation-delay:.06s}
+.tbl tbody tr:not(.sk-row):nth-child(4){animation-delay:.09s}
+.tbl tbody tr:not(.sk-row):nth-child(5){animation-delay:.12s}
+.tbl tbody tr:not(.sk-row):nth-child(6){animation-delay:.15s}
+.tbl tbody tr:not(.sk-row):nth-child(7){animation-delay:.18s}
+.tbl tbody tr:not(.sk-row):nth-child(8){animation-delay:.21s}
+/* skaner status topganda yengil pulse (vizual observer qo'shadi) */
+@keyframes _scanPulse{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+#scanStatus.pulse{display:inline-block;animation:_scanPulse .4s ease}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion:reduce){
+  .ia-mandala,.ia-glow,.empty::before,.sk-line,.btn-gold::after,#scanStatus.pulse,.tbl tbody tr:not(.sk-row){animation:none!important;transition:none!important}
+}
+/* ── Mobil: og'ir qatlam yengil ── */
+@media (max-width:768px){
+  .ia-mandala{display:none}
+  .ia-glow{filter:blur(50px);opacity:.14}
+  .tbl-wrap{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+</style>
+</head>
+<body>
+<!-- ── OMBOR atmosfera (yengil vizual qatlam, panellar ortida) ── -->
+<div class="inv-atmos" aria-hidden="true">
+  <div class="ia-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="iaPetal" d="M300 300 L311 165 L300 92 L289 165 Z" fill="none" stroke="#d4b46c" stroke-width="1"/></defs>
+      <g fill="none" stroke="#d4b46c" stroke-width="1">
+        <circle cx="300" cy="300" r="240"/><circle cx="300" cy="300" r="170"/><circle cx="300" cy="300" r="100"/>
+        <polygon points="300,96 477,300 300,504 123,300"/>
+        <rect x="180" y="180" width="240" height="240" transform="rotate(45 300 300)"/>
+      </g>
+      <g>
+        <use href="#iaPetal" transform="rotate(0 300 300)"/><use href="#iaPetal" transform="rotate(45 300 300)"/>
+        <use href="#iaPetal" transform="rotate(90 300 300)"/><use href="#iaPetal" transform="rotate(135 300 300)"/>
+        <use href="#iaPetal" transform="rotate(180 300 300)"/><use href="#iaPetal" transform="rotate(225 300 300)"/>
+        <use href="#iaPetal" transform="rotate(270 300 300)"/><use href="#iaPetal" transform="rotate(315 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="ia-glow g1"></div>
+  <div class="ia-glow g2"></div>
+</div>
+
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Ombor</h1>
+  <button class="btn btn-warn btn-sm" id="lowBtn">Kam qolgan</button>
+  <button class="btn btn-gold" id="addBtn">+ Kirim</button>
+</header>
+
+<div class="pc">
+  <div class="sg">
+    <div class="sc"><div class="sl">Jami mahsulotlar</div><div class="sv gold" id="stTotal">—</div></div>
+    <div class="sc"><div class="sl">Kam qolgan</div><div class="sv warn" id="stLow">—</div></div>
+    <div class="sc"><div class="sl">Tugagan</div><div class="sv bad" id="stOut">—</div></div>
+    <div class="sc"><div class="sl">Normal holat</div><div class="sv ok" id="stOk">—</div></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="sw">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" placeholder="Mahsulot qidirish...">
+    </div>
+    <select class="cat-sel" id="catSel"><option value="">Barcha kategoriyalar</option></select>
+    <!-- Barkod skaner (faqat barcode flagi yoqilganda ko'rinadi) -->
+    <div class="sw" id="scanBox" style="display:none;max-width:280px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <input type="text" id="scanInput" placeholder="Barkod skaner (F2)..." autocomplete="off">
+    </div>
+    <span id="scanStatus" style="font-size:.8125rem;font-weight:600;align-self:center"></span>
+  </div>
+
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Mahsulot</th>
+          <th>Kategoriya</th>
+          <th>Qoldiq</th>
+          <th>Min qoldiq</th>
+          <th>Holat</th>
+          <th>Oxirgi kirim</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <!-- Skeleton (yuklanish) — load()→render() bu qatorlarni almashtiradi -->
+        <tr class="sk-row"><td><span class="sk-line" style="width:68%"></span><span class="sk-line" style="width:38%;height:8px;margin-top:.4rem"></span></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:46%"></span><span class="sk-line" style="width:80px;height:5px;margin-top:.45rem"></span></td><td><span class="sk-line" style="width:34%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><span class="sk-line" style="width:74%"></span><span class="sk-line" style="width:30%;height:8px;margin-top:.4rem"></span></td><td><span class="sk-line" style="width:54%"></span></td><td><span class="sk-line" style="width:52%"></span><span class="sk-line" style="width:80px;height:5px;margin-top:.45rem"></span></td><td><span class="sk-line" style="width:30%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:48%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><span class="sk-line" style="width:62%"></span><span class="sk-line" style="width:42%;height:8px;margin-top:.4rem"></span></td><td><span class="sk-line" style="width:64%"></span></td><td><span class="sk-line" style="width:40%"></span><span class="sk-line" style="width:80px;height:5px;margin-top:.45rem"></span></td><td><span class="sk-line" style="width:36%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:56%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><span class="sk-line" style="width:70%"></span><span class="sk-line" style="width:34%;height:8px;margin-top:.4rem"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:48%"></span><span class="sk-line" style="width:80px;height:5px;margin-top:.45rem"></span></td><td><span class="sk-line" style="width:32%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><span class="sk-line" style="width:66%"></span><span class="sk-line" style="width:40%;height:8px;margin-top:.4rem"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:44%"></span><span class="sk-line" style="width:80px;height:5px;margin-top:.45rem"></span></td><td><span class="sk-line" style="width:28%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:54%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add stock modal -->
+<div class="modal" id="addModal">
+  <div class="mc">
+    <div class="mh">
+      <h3 id="addTitle">Kirim qilish</h3>
+      <div class="mc-x" onclick="closeModal('addModal')">×</div>
+    </div>
+    <div class="mb">
+      <div class="info-box" id="addInfo" style="display:none">
+        Mahsulot: <span id="addProdName">—</span> · Joriy qoldiq: <span id="addCurQty">—</span>
+      </div>
+      <div class="fg" id="prodSelectRow">
+        <label>Mahsulot *</label>
+        <select id="prodSel"><option value="">Tanlang...</option></select>
+      </div>
+      <div class="fg">
+        <label>Kirim miqdori *</label>
+        <input type="number" id="addQty" step="0.01" min="0.01" placeholder="0">
+      </div>
+      <div class="fg"><label>Izoh</label><textarea id="addNote" placeholder="Yetkazib beruvchi, sabab..."></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="closeModal('addModal')">Bekor</button>
+      <button class="btn btn-gold" id="addSaveBtn" onclick="saveStock()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit min_threshold modal -->
+<div class="modal" id="editModal">
+  <div class="mc" style="max-width:360px">
+    <div class="mh">
+      <h3>Sozlamalar</h3>
+      <div class="mc-x" onclick="closeModal('editModal')">×</div>
+    </div>
+    <div class="mb">
+      <div class="info-box">Mahsulot: <span id="editProdName" style="color:var(--gold);font-weight:600">—</span></div>
+      <div class="fg">
+        <label>Minimal qoldiq (ogohlantirish chegarasi)</label>
+        <input type="number" id="editMin" step="0.01" min="0" placeholder="0">
+      </div>
+      <input type="hidden" id="editInvId">
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="closeModal('editModal')">Bekor</button>
+      <button class="btn btn-gold" onclick="saveMin()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Yangi tovar modali (skaner topilmaganda) -->
+<div class="modal" id="npModal">
+  <div class="mc">
+    <div class="mh">
+      <h3>🆕 Yangi tovar (skaner)</h3>
+      <div class="mc-x" onclick="closeModal('npModal')">×</div>
+    </div>
+    <div class="mb">
+      <div class="fg"><label>Barkod</label><input type="text" id="npBarcode" readonly style="opacity:.75"></div>
+      <div class="fg"><label>Nomi *</label><input type="text" id="npName" placeholder="Tovar nomi"></div>
+      <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:0">
+        <div style="margin-bottom:1rem"><label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem">Sotuv narxi *</label><input type="number" id="npPrice" min="0" step="1" placeholder="0"></div>
+        <div style="margin-bottom:1rem"><label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem">Tan narxi</label><input type="number" id="npCost" min="0" step="1" placeholder="0"></div>
+      </div>
+      <div class="fg"><label>Kategoriya *</label><select id="npCat"></select></div>
+      <div class="fg" id="npNewCatRow" style="display:none"><label>Yangi kategoriya nomi *</label><input type="text" id="npNewCat" placeholder="Masalan: Ichimliklar"></div>
+      <div class="fg">
+        <label>Rasm (ixtiyoriy)</label>
+        <input type="file" id="npImage" accept="image/*">
+        <img id="npImagePreview" alt="" style="display:none;margin-top:.5rem;max-height:96px;border-radius:.5rem;border:1px solid var(--border)">
+      </div>
+      <div class="fg">
+        <label>Boshlang'ich qoldiq (ixtiyoriy)</label>
+        <input type="number" id="npStock" min="0" step="0.01" placeholder="0">
+        <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem">Kiritilsa — ombor kirimi sifatida yoziladi</div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="closeModal('npModal')">Bekor</button>
+      <button class="btn btn-gold" id="npSaveBtn" onclick="saveNewProduct()">Saqlash + kirim</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+import { features }        from '../js/core/features.js';
+AuthGuard.check();
+initErrorHandler();
+// Barkod skaner UI ni faqat barcode flagi yoqilgan tenantlarga ko'rsatish
+(async () => {
+  try { await features.init(); } catch {}
+  if (features.has('barcode') || features.has('multi_barcode')) {
+    const box = document.getElementById('scanBox');
+    if (box) box.style.display = '';
+  }
+})();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok  = () => localStorage.getItem('access_token');
+const api  = {
+  get:  u     => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post: (u,b) => fetch(`${BASE}${u}`,{method:'POST', headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b) => fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+};
+
+function fmtN(n){ return Number(n||0).toFixed(n%1?2:0)+' '; }
+
+let items=[], products=[], categories=[], showLow=false;
+let addingInventoryId = null;
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function load() {
+  const [invRes, prodRes, catRes] = await Promise.all([
+    api.get('/inventory/?page_size=500').catch(()=>null),
+    api.get('/products/all').catch(()=>null),
+    api.get('/categories/all').catch(()=>null),
+  ]);
+  items      = invRes?.items ?? (Array.isArray(invRes)?invRes:invRes?.data?.items??[]);
+  products   = prodRes?.data ?? (Array.isArray(prodRes)?prodRes:[]);
+  categories = catRes?.data  ?? (Array.isArray(catRes)?catRes:[]);
+
+  // Populate category filter
+  const catSel = document.getElementById('catSel');
+  catSel.innerHTML = '<option value="">Barcha kategoriyalar</option>' +
+    categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+
+  // Populate product select (only those not yet in inventory)
+  const existIds = items.map(i=>i.product_id);
+  const avail = products.filter(p=>!existIds.includes(p.id));
+  document.getElementById('prodSel').innerHTML =
+    '<option value="">Mahsulot tanlang...</option>' +
+    avail.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+
+  updateStats();
+  render();
+}
+
+function updateStats() {
+  const low = items.filter(i=>i.quantity>0 && i.quantity<=i.min_threshold).length;
+  const out = items.filter(i=>i.quantity<=0).length;
+  document.getElementById('stTotal').textContent = items.length;
+  document.getElementById('stLow').textContent   = low;
+  document.getElementById('stOut').textContent   = out;
+  document.getElementById('stOk').textContent    = items.length - low - out;
+}
+
+function itemStatus(i) {
+  if (i.quantity <= 0)              return { text:'Tugagan',     cls:'b-out',  fill:'fill-out', pct:0 };
+  if (i.quantity <= i.min_threshold) return { text:'Kam qolgan', cls:'b-low',  fill:'fill-low', pct: Math.min(i.quantity/i.min_threshold*50,50) };
+  return { text:'Normal', cls:'b-ok', fill:'fill-ok', pct: Math.min(i.quantity/((i.min_threshold||1)*3)*100,100) };
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const q     = document.getElementById('searchInput').value.toLowerCase().trim();
+  const catId = document.getElementById('catSel').value;
+
+  let list = showLow ? items.filter(i=>i.quantity<=i.min_threshold) : [...items];
+  if (q)     list = list.filter(i=>(i.product?.name||prodName(i.product_id)).toLowerCase().includes(q));
+  if (catId) list = list.filter(i=>{const p=products.find(x=>x.id===i.product_id); return p?.category_id==catId;});
+
+  const tbody = document.getElementById('tbody');
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">${showLow?'Kam qolgan mahsulotlar yo\'q':'Ombor bo\'sh'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map(i=>{
+    const p   = products.find(x=>x.id===i.product_id);
+    const cat = categories.find(c=>c.id===p?.category_id);
+    const st  = itemStatus(i);
+    const qty = Number(i.quantity||0);
+    return `<tr>
+      <td><div style="font-weight:600">${p?.name||'—'}</div>${p?.unit?`<div style="font-size:.75rem;color:var(--text3)">${p.unit}</div>`:''}</td>
+      <td>${cat?.name||'—'}</td>
+      <td>
+        <div>${qty%1?qty.toFixed(2):qty} ${i.unit||p?.unit||''}</div>
+        <div class="stk-bar"><div class="stk-fill ${st.fill}" style="width:${st.pct}%"></div></div>
+      </td>
+      <td>${i.min_threshold||0}</td>
+      <td><span class="badge ${st.cls}">${st.text}</span></td>
+      <td style="color:var(--text3);font-size:.8125rem">${i.last_restock?new Date(i.last_restock).toLocaleDateString('uz-UZ'):'—'}</td>
+      <td><div class="acts">
+        <button class="btn btn-ghost btn-sm" onclick="openAdd(${i.id})" title="Kirim">+</button>
+        <button class="btn btn-ghost btn-sm" onclick="openEdit(${i.id})" title="Sozlamalar">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function prodName(id) { return products.find(p=>p.id===id)?.name||''; }
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function openAdd(invId=null) {
+  addingInventoryId = invId;
+  document.getElementById('addQty').value = '';
+  document.getElementById('addNote').value = '';
+  if (invId) {
+    const inv = items.find(i=>i.id===invId);
+    const p   = products.find(x=>x.id===inv?.product_id);
+    document.getElementById('addTitle').textContent = 'Kirim qilish';
+    document.getElementById('addInfo').style.display = '';
+    document.getElementById('addProdName').textContent = p?.name||'—';
+    document.getElementById('addCurQty').textContent = (inv?.quantity||0) + ' ' + (inv?.unit||p?.unit||'');
+    document.getElementById('prodSelectRow').style.display = 'none';
+  } else {
+    document.getElementById('addTitle').textContent = 'Yangi kirim';
+    document.getElementById('addInfo').style.display = 'none';
+    document.getElementById('prodSelectRow').style.display = '';
+  }
+  openModal('addModal');
+}
+
+async function saveStock() {
+  const qty = parseFloat(document.getElementById('addQty').value);
+  if (!qty || qty <= 0) { showT('Miqdor kiriting', 'warning'); return; }
+  const note = document.getElementById('addNote').value;
+  const btn  = document.getElementById('addSaveBtn');
+  btn.disabled=true; btn.textContent='...';
+  try {
+    if (addingInventoryId) {
+      await api.post(`/inventory/${addingInventoryId}/add-stock`, { quantity: qty, notes: note });
+    } else {
+      const prodId = parseInt(document.getElementById('prodSel').value);
+      if (!prodId) { showT('Mahsulot tanlang', 'warning'); return; }
+      await api.post('/inventory/', { product_id: prodId, quantity: qty, notes: note });
+    }
+    showT('Kirim saqlandi', 'success');
+    closeModal('addModal');
+    await load();
+  } catch { showT('Xatolik yuz berdi', 'error'); }
+  finally { btn.disabled=false; btn.textContent='Saqlash'; }
+}
+
+function openEdit(invId) {
+  const inv = items.find(i=>i.id===invId);
+  const p   = products.find(x=>x.id===inv?.product_id);
+  document.getElementById('editInvId').value = invId;
+  document.getElementById('editProdName').textContent = p?.name||'—';
+  document.getElementById('editMin').value = inv?.min_threshold||0;
+  openModal('editModal');
+}
+
+async function saveMin() {
+  const invId = parseInt(document.getElementById('editInvId').value);
+  const min   = parseFloat(document.getElementById('editMin').value)||0;
+  try {
+    await api.patch(`/inventory/${invId}`, { min_threshold: min });
+    showT('Yangilandi', 'success');
+    closeModal('editModal');
+    await load();
+  } catch { showT('Xatolik', 'error'); }
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+document.getElementById('addBtn').addEventListener('click', ()=>openAdd());
+document.getElementById('lowBtn').addEventListener('click', ()=>{
+  showLow=!showLow;
+  document.getElementById('lowBtn').classList.toggle('active',showLow);
+  render();
+});
+document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('catSel').addEventListener('change', render);
+
+['addModal','editModal','npModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target===document.getElementById(id))closeModal(id);});
+});
+
+// ── Barkod skaner (POS handleBarcodeScan namunasi) ──────────────────────────────
+const _scanInput = document.getElementById('scanInput');
+if (_scanInput) {
+  _scanInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const code = _scanInput.value.trim(); _scanInput.value=''; if (code) handleInvScan(code); }
+  });
+}
+// F2 → skaner inputiga fokus
+document.addEventListener('keydown', e => {
+  if (e.key === 'F2' && document.getElementById('scanBox')?.style.display !== 'none') {
+    e.preventDefault(); _scanInput?.focus();
+  }
+});
+
+async function handleInvScan(code) {
+  const st = document.getElementById('scanStatus');
+  if (st) { st.textContent = 'Qidirilmoqda...'; st.style.color = 'var(--text3)'; }
+  // 1) Xotiradagi mahsulotlardan (offline-first)
+  let prod = products.find(p => p.barcode === code);
+  // 2) Ko'p barcode tizimi orqali (multi-barcode + tarozi PLU)
+  if (!prod) {
+    try { const r = await api.get(`/barcodes/lookup/${encodeURIComponent(code)}`); if (r && r.id) prod = r; } catch {}
+  }
+  if (!prod) {
+    if (st) { st.textContent = `✕ Topilmadi: ${code}`; st.style.color = 'var(--red)'; }
+    onProductNotFound(code);   // 2-bosqich: yangi tovar formasi
+    return;
+  }
+  if (st) { st.textContent = `✓ ${prod.name}`; st.style.color = 'var(--green)'; }
+  // Omborda bormi? → bor bo'lsa shu qatorga kirim, yo'q bo'lsa yangi kirim (preselect)
+  const inv = items.find(i => i.product_id === prod.id);
+  if (inv) {
+    openAdd(inv.id);
+  } else {
+    openAdd();
+    const sel = document.getElementById('prodSel');
+    if (sel) sel.value = prod.id;
+  }
+  setTimeout(() => document.getElementById('addQty')?.focus(), 120);
+}
+
+// ── Yangi tovar (skaner topilmaganda) ───────────────────────────────────────────
+window.onProductNotFound = (barcode) => openNewProduct(barcode);
+
+let npImageFile = null;
+
+function openNewProduct(barcode) {
+  document.getElementById('npBarcode').value = barcode || '';
+  document.getElementById('npName').value  = '';
+  document.getElementById('npPrice').value = '';
+  document.getElementById('npCost').value  = '';
+  document.getElementById('npNewCat').value = '';
+  document.getElementById('npNewCatRow').style.display = 'none';
+  npImageFile = null;
+  document.getElementById('npImage').value = '';
+  document.getElementById('npStock').value = '';
+  const pv = document.getElementById('npImagePreview'); pv.style.display='none'; pv.src='';
+  // Kategoriya dropdown (mavjud + "yangi yaratish")
+  const sel = document.getElementById('npCat');
+  sel.innerHTML = '<option value="">— tanlang —</option>'
+    + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
+    + '<option value="__new__">➕ Yangi kategoriya...</option>';
+  openModal('npModal');
+  setTimeout(() => document.getElementById('npName').focus(), 120);
+}
+
+document.getElementById('npCat').addEventListener('change', function () {
+  document.getElementById('npNewCatRow').style.display = this.value === '__new__' ? '' : 'none';
+  if (this.value === '__new__') setTimeout(() => document.getElementById('npNewCat').focus(), 60);
+});
+
+// Rasm tanlash → preview (yuklash mahsulot yaratilgach amalga oshadi)
+document.getElementById('npImage').addEventListener('change', function () {
+  const f = this.files && this.files[0];
+  npImageFile = f || null;
+  const pv = document.getElementById('npImagePreview');
+  if (f) { pv.src = URL.createObjectURL(f); pv.style.display = ''; }
+  else   { pv.style.display = 'none'; pv.src = ''; }
+});
+
+// Mahsulot rasmini yuklash (mahsulot allaqachon yaratilgan bo'lishi kerak)
+async function uploadProductImage(productId, file) {
+  const fd = new FormData(); fd.append('file', file);
+  const r = await fetch(`${BASE}/products/${productId}/image`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + tok() }, body: fd,
+  });
+  return r.ok ? r.json() : null;
+}
+
+async function saveNewProduct() {
+  const name  = document.getElementById('npName').value.trim();
+  const price = parseFloat(document.getElementById('npPrice').value);
+  if (!name)               { showT('Nom kiriting', 'warning'); return; }
+  if (!price || price <= 0) { showT('Sotuv narxini kiriting', 'warning'); return; }
+
+  const btn = document.getElementById('npSaveBtn');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    // Kategoriya — majburiy (mavjud yoki yangi yaratiladi)
+    let catId = document.getElementById('npCat').value;
+    if (catId === '__new__') {
+      const cname = document.getElementById('npNewCat').value.trim();
+      if (!cname) { showT('Yangi kategoriya nomini kiriting', 'warning'); return; }
+      const cat = await api.post('/categories/', { name: cname });
+      if (!cat || !cat.id) throw new Error(cat?.detail || 'Kategoriya yaratilmadi');
+      catId = cat.id;
+      categories.push(cat);
+    }
+    if (!catId) { showT('Kategoriya tanlang', 'warning'); return; }
+
+    const payload = {
+      name, price,
+      cost_price:  parseFloat(document.getElementById('npCost').value) || 0,
+      barcode:     document.getElementById('npBarcode').value || null,
+      category_id: parseInt(catId),
+    };
+    const prod = await api.post('/products/', payload);
+    if (!prod || !prod.id) throw new Error(prod?.detail || 'Mahsulot yaratilmadi');
+
+    // Rasm tanlangan bo'lsa — mahsulot yaratilgach yuklaymiz
+    if (npImageFile) {
+      const img = await uploadProductImage(prod.id, npImageFile);
+      if (img && img.image_url) prod.image_url = img.image_url;
+    }
+
+    // Boshlang'ich qoldiq — kiritilsa omborga kirim sifatida yoziladi
+    const startStock = parseFloat(document.getElementById('npStock').value) || 0;
+    if (startStock > 0) {
+      await api.post('/inventory/', { product_id: prod.id, quantity: startStock, notes: 'Boshlang\'ich qoldiq' });
+    }
+
+    products.push(prod);
+    closeModal('npModal');
+    showT(startStock > 0 ? `Tovar qo'shildi (+${startStock} qoldiq)` : 'Tovar qo\'shildi', 'success');
+    await load();   // ro'yxat va statistikani yangilaymiz
+  } catch (e) {
+    showT(e.message || 'Xatolik', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Saqlash + kirim';
+  }
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showT(msg,type='info'){
+  const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b',info:'#1fb084'};
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${c[type]};color:${c[type]};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4)`;
+  el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),3000);
+}
+
+load();
+</script>
+
+<!-- Skaner status o'zgarganda yengil pulse (vizual only, scan'ga tegmaydi) -->
+<script>
+(function(){
+  var el = document.getElementById('scanStatus');
+  if (!el || window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  var last = el.textContent;
+  new MutationObserver(function(){
+    if (el.textContent === last) return;
+    last = el.textContent;
+    el.classList.remove('pulse');
+    void el.offsetWidth;            // reflow → animatsiyani qayta ishga tushiradi
+    el.classList.add('pulse');
+  }).observe(el, { childList:true, characterData:true, subtree:true });
+})();
+</script>
+</body>
+</html>

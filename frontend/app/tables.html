@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Stollar | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;--r:.5rem;--r2:.875rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-red{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1rem 1.25rem}
+.stat-val{font-size:1.75rem;font-weight:800;margin-bottom:.125rem}
+.stat-lbl{font-size:.75rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+.stat.free  .stat-val{color:var(--green)}
+.stat.occ   .stat-val{color:var(--red)}
+.stat.res   .stat-val{color:var(--yellow)}
+.stat.clean .stat-val{color:var(--blue)}
+/* Toolbar */
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center}
+.toolbar-left{display:flex;gap:.5rem;flex:1;flex-wrap:wrap}
+.filter-btn{padding:.375rem .875rem;border-radius:var(--r);font-size:.8125rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:.2s}
+.filter-btn.active,.filter-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.sec-inp{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.4rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit}
+.sec-inp:focus{border-color:var(--gold)}
+/* Floor plan */
+.sections{display:flex;flex-direction:column;gap:1.5rem}
+.section-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.section-title{font-size:.8125rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem}
+.tables-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.75rem}
+/* Table card */
+.tbl{border-radius:var(--r2);padding:1rem;cursor:pointer;border:2px solid transparent;transition:.2s;text-align:center;position:relative}
+.tbl:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.tbl.free    {background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25)}
+.tbl.occupied{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25)}
+.tbl.reserved{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25)}
+.tbl.cleaning{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.25)}
+.tbl-num{font-size:1.5rem;font-weight:800;margin-bottom:.25rem}
+.tbl.free     .tbl-num{color:var(--green)}
+.tbl.occupied .tbl-num{color:var(--red)}
+.tbl.reserved .tbl-num{color:var(--yellow)}
+.tbl.cleaning .tbl-num{color:var(--blue)}
+.tbl-cap{font-size:.75rem;color:var(--text3);margin-bottom:.375rem}
+.tbl-status{font-size:.6875rem;font-weight:600;padding:.15rem .5rem;border-radius:9999px}
+.tbl.free     .tbl-status{background:rgba(16,185,129,.15);color:var(--green)}
+.tbl.occupied .tbl-status{background:rgba(239,68,68,.15);color:var(--red)}
+.tbl.reserved .tbl-status{background:rgba(245,158,11,.15);color:var(--yellow)}
+.tbl.cleaning .tbl-status{background:rgba(59,130,246,.15);color:var(--blue)}
+.tbl-order{position:absolute;top:.4rem;right:.4rem;background:rgba(0,0,0,.5);border-radius:.25rem;padding:.1rem .35rem;font-size:.625rem;color:var(--text2)}
+/* Modal */
+.modal-wrap{position:fixed;inset:0;z-index:500;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-wrap.open{display:flex}
+.modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal-box{position:relative;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.5rem;width:100%;max-width:440px;z-index:1}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.modal-head h3{font-size:1.125rem;font-weight:700}
+.close-btn{width:32px;height:32px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:.2s}
+.close-btn:hover{border-color:var(--red);color:var(--red)}
+.form-group{margin-bottom:1rem}
+label{display:block;font-size:.8125rem;font-weight:600;color:var(--text2);margin-bottom:.375rem}
+input,select{width:100%;padding:.5rem .875rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+input:focus,select:focus{border-color:var(--gold)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.modal-actions{display:flex;gap:.75rem;margin-top:1.5rem}
+.modal-actions .btn{flex:1;justify-content:center}
+/* Detail modal */
+.detail-info{display:grid;gap:.75rem;margin-bottom:1.25rem}
+.di-row{display:flex;justify-content:space-between;align-items:center;padding:.625rem .875rem;background:var(--bg3);border-radius:var(--r)}
+.di-lbl{font-size:.8125rem;color:var(--text3)}
+.di-val{font-size:.875rem;font-weight:600}
+.status-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-bottom:1rem}
+.status-btn{padding:.5rem;border-radius:var(--r);font-size:.8125rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.status-btn.free    {background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.status-btn.occupied{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.status-btn.reserved{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
+.status-btn.cleaning{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.status-btn:hover{filter:brightness(1.15)}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+
+<div class="ph">
+  <a class="bk" href="pos.html" title="POS ga qaytish">&#8592;</a>
+  <span class="ph-title">Stollar boshqaruvi</span>
+  <button class="btn btn-gold" id="addBtn">+ Stol qo'shish</button>
+</div>
+
+<div class="pc">
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat free">
+      <div class="stat-val" id="statFree">0</div>
+      <div class="stat-lbl">Bo'sh</div>
+    </div>
+    <div class="stat occ">
+      <div class="stat-val" id="statOcc">0</div>
+      <div class="stat-lbl">Band</div>
+    </div>
+    <div class="stat res">
+      <div class="stat-val" id="statRes">0</div>
+      <div class="stat-lbl">Bron</div>
+    </div>
+    <div class="stat clean">
+      <div class="stat-val" id="statClean">0</div>
+      <div class="stat-lbl">Tozalanmoqda</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="filter-btn active" data-status="">Barchasi</button>
+      <button class="filter-btn" data-status="free">Bo'sh</button>
+      <button class="filter-btn" data-status="occupied">Band</button>
+      <button class="filter-btn" data-status="reserved">Bron</button>
+      <button class="filter-btn" data-status="cleaning">Tozalanmoqda</button>
+    </div>
+    <input class="sec-inp" id="secFilter" placeholder="Bo'lim bo'yicha qidirish..." style="max-width:200px">
+  </div>
+
+  <!-- Sections + Tables -->
+  <div class="sections" id="sectionsWrap"></div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-wrap" id="editModal">
+  <div class="modal-bg" onclick="closeEdit()"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="editTitle">Yangi stol</h3>
+      <button class="close-btn" onclick="closeEdit()">&#10005;</button>
+    </div>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Stol raqami *</label>
+        <input type="number" id="editNum" min="1" placeholder="1">
+      </div>
+      <div class="form-group">
+        <label>Sig'im (kishi) *</label>
+        <input type="number" id="editCap" min="1" placeholder="4">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Bo'lim</label>
+      <input type="text" id="editSec" placeholder="Asosiy zal, Terassa, VIP...">
+    </div>
+    <div class="form-group">
+      <label>Holat</label>
+      <select id="editStatus">
+        <option value="free">Bo'sh</option>
+        <option value="occupied">Band</option>
+        <option value="reserved">Bron</option>
+        <option value="cleaning">Tozalanmoqda</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-out" onclick="closeEdit()">Bekor</button>
+      <button class="btn btn-gold" onclick="saveTable()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-wrap" id="detailModal">
+  <div class="modal-bg" onclick="closeDetail()"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="detailTitle">Stol #1</h3>
+      <button class="close-btn" onclick="closeDetail()">&#10005;</button>
+    </div>
+    <div class="detail-info" id="detailInfo"></div>
+    <div style="font-size:.8125rem;font-weight:600;color:var(--text2);margin-bottom:.5rem">Holat o'zgartirish:</div>
+    <div class="status-btns">
+      <button class="status-btn free"     onclick="changeStatus('free')">Bo'sh</button>
+      <button class="status-btn occupied" onclick="changeStatus('occupied')">Band</button>
+      <button class="status-btn reserved" onclick="changeStatus('reserved')">Bron</button>
+      <button class="status-btn cleaning" onclick="changeStatus('cleaning')">Tozalanmoqda</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-red btn-sm" onclick="deleteTable()">O'chirish</button>
+      <button class="btn btn-out"        onclick="closeDetail();openEdit(detailId)">Tahrirlash</button>
+      <button class="btn btn-gold"       onclick="closeDetail()">Yopish</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _h = window.location.hostname;
+const BASE = (_h==='localhost'||_h==='127.0.0.1'||_h==='')
+  ? 'http://localhost:8000/api/v1'
+  : `${window.location.protocol}//${window.location.host}/api/v1`;
+const tok  = () => localStorage.getItem('access_token') || '';
+const api  = {
+  get:    u    => fetch(`${BASE}${u}`, {headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:   (u,b)=> fetch(`${BASE}${u}`, {method:'POST',  headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:  (u,b)=> fetch(`${BASE}${u}`, {method:'PATCH', headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  delete: u    => fetch(`${BASE}${u}`, {method:'DELETE',headers:{Authorization:'Bearer '+tok()}}).then(r=>r.ok),
+};
+
+if (!tok()) location.href = '../shared/login.html';
+
+let tables = [];
+let filterStatus = '';
+let filterSec    = '';
+let detailId     = null;
+
+const STATUS_MAP = { free:'Bo\'sh', occupied:'Band', reserved:'Bron', cleaning:'Tozalanmoqda' };
+
+async function load() {
+  const res = await api.get('/tables/?page_size=100').catch(()=>null);
+  tables = res?.items || [];
+  renderStats();
+  renderSections();
+}
+
+function renderStats() {
+  const cnt = s => tables.filter(t=>t.status===s).length;
+  document.getElementById('statFree').textContent  = cnt('free');
+  document.getElementById('statOcc').textContent   = cnt('occupied');
+  document.getElementById('statRes').textContent   = cnt('reserved');
+  document.getElementById('statClean').textContent = cnt('cleaning');
+}
+
+function renderSections() {
+  let list = tables;
+  if (filterStatus) list = list.filter(t => t.status === filterStatus);
+  if (filterSec)    list = list.filter(t => (t.section||'').toLowerCase().includes(filterSec));
+
+  const wrap = document.getElementById('sectionsWrap');
+  if (!list.length) { wrap.innerHTML = '<div class="empty">Stol topilmadi</div>'; return; }
+
+  const sections = {};
+  list.forEach(t => {
+    const sec = t.section || 'Asosiy zal';
+    (sections[sec] = sections[sec] || []).push(t);
+  });
+
+  wrap.innerHTML = Object.entries(sections).map(([sec, tbls]) => `
+    <div class="section-block">
+      <div class="section-title">${sec}</div>
+      <div class="tables-grid">
+        ${tbls.map(t => `
+          <div class="tbl ${t.status||'free'}" onclick="openDetail(${t.id})">
+            ${t.order_number ? `<div class="tbl-order">#${t.order_number}</div>` : ''}
+            <div class="tbl-num">${t.number}</div>
+            <div class="tbl-cap">${t.capacity} kishi</div>
+            <div class="tbl-status">${STATUS_MAP[t.status]||t.status}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Detail modal ─────────────────────────────────────────────────────────────
+function openDetail(id) {
+  const t = tables.find(x => x.id === id);
+  if (!t) return;
+  detailId = id;
+  document.getElementById('detailTitle').textContent = `Stol #${t.number}`;
+  document.getElementById('detailInfo').innerHTML = `
+    <div class="di-row"><span class="di-lbl">Raqam</span><span class="di-val">#${t.number}</span></div>
+    <div class="di-row"><span class="di-lbl">Sig'im</span><span class="di-val">${t.capacity} kishi</span></div>
+    <div class="di-row"><span class="di-lbl">Bo'lim</span><span class="di-val">${t.section||'—'}</span></div>
+    <div class="di-row"><span class="di-lbl">Holat</span><span class="di-val tbl ${t.status||'free'}" style="padding:.2rem .5rem;border-radius:4px">${STATUS_MAP[t.status]||t.status}</span></div>
+  `;
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeDetail() { document.getElementById('detailModal').classList.remove('open'); detailId=null; }
+
+async function changeStatus(status) {
+  if (!detailId) return;
+  await api.patch(`/tables/${detailId}`, { status });
+  closeDetail();
+  load();
+}
+
+async function deleteTable() {
+  if (!detailId) return;
+  if (!confirm('Stolni o\'chirasizmi?')) return;
+  await api.delete(`/tables/${detailId}`);
+  closeDetail();
+  load();
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEdit(id = null) {
+  const t = id ? tables.find(x => x.id === id) : null;
+  document.getElementById('editTitle').textContent = t ? `Stol #${t.number} tahrirlash` : 'Yangi stol';
+  document.getElementById('editId').value      = t?.id || '';
+  document.getElementById('editNum').value     = t?.number || '';
+  document.getElementById('editCap').value     = t?.capacity || 4;
+  document.getElementById('editSec').value     = t?.section || '';
+  document.getElementById('editStatus').value  = t?.status || 'free';
+  document.getElementById('editModal').classList.add('open');
+}
+function closeEdit() { document.getElementById('editModal').classList.remove('open'); }
+
+async function saveTable() {
+  const id  = document.getElementById('editId').value;
+  const num = parseInt(document.getElementById('editNum').value);
+  const cap = parseInt(document.getElementById('editCap').value);
+  const sec = document.getElementById('editSec').value.trim();
+  const st  = document.getElementById('editStatus').value;
+
+  if (!num || !cap) { alert('Raqam va sig\'im kiritish shart!'); return; }
+
+  const payload = { number: num, capacity: cap, section: sec||null, status: st };
+  const res = id
+    ? await api.patch(`/tables/${id}`, payload)
+    : await api.post('/tables/', payload);
+
+  if (res?.id || res?.success) { closeEdit(); load(); }
+  else alert(res?.detail || 'Xatolik yuz berdi');
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    filterStatus = btn.dataset.status;
+    renderSections();
+  });
+});
+document.getElementById('secFilter').addEventListener('input', e => {
+  filterSec = e.target.value.toLowerCase().trim();
+  renderSections();
+});
+document.getElementById('addBtn').addEventListener('click', () => openEdit());
+
+// Auto-refresh har 30 soniyada
+setInterval(load, 30000);
+load();
+</script>
+</body>
+</html>

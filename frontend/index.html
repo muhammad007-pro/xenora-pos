@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#c9a84c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <title>XENORA — Universal SaaS POS Tizimi</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="pwa/manifest.json">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="bg-gradient"></div>
+        <div class="bg-particles"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar glass">
+        <div class="container">
+            <div class="navbar-content">
+                <div class="navbar-brand">
+                    <img src="assets/icons/logo.svg" alt="Logo" class="logo">
+                    <span class="brand-text">Premium<span class="text-gradient">POS</span></span>
+                </div>
+                
+                <ul class="navbar-menu">
+                    <li><a href="#features" class="nav-link">Xususiyatlar</a></li>
+                    <li><a href="#pricing" class="nav-link">Narxlar</a></li>
+                    <li><a href="#demo" class="nav-link">Demo</a></li>
+                    <li><a href="#contact" class="nav-link">Aloqa</a></li>
+                </ul>
+                
+                <div class="navbar-actions">
+                    <button class="theme-toggle btn-icon glass" id="themeToggle">
+                        <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="5" fill="currentColor"/>
+                            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: none;">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                    <a href="shared/login.html" class="btn btn-outline">Kirish</a>
+                    <a href="shared/login.html?register=true" class="btn btn-primary">Ro'yxatdan o'tish</a>
+                </div>
+                
+                <button class="mobile-menu-toggle btn-icon glass">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge glass">
+                    <span class="pulse"></span>
+                    Yangi avlod POS tizimi
+                </div>
+                
+                <h1 class="hero-title">
+                    Restoraningizni
+                    <span class="text-gradient">Premium</span>
+                    Darajada Boshqaring
+                </h1>
+                <p class="hero-description">
+                    Zamonaviy dizayn, kuchli analitika va sun'iy intellekt yordamida 
+                    biznesingizni keyingi bosqichga olib chiqing. Barcha jarayonlarni 
+                    bir platformada boshqaring.
+                </p>
+                
+                <div class="hero-actions">
+                    <a href="shared/login.html" class="btn btn-primary btn-xl">
+                        Bepul sinab ko'rish
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </a>
+                    <a href="#demo" class="btn btn-outline btn-xl">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            <path d="M10 8l6 4-6 4V8z" fill="currentColor"/>
+                        </svg>
+                        Video ko'rish
+                    </a>
+                </div>
+                
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">500+</span>
+                        <span class="stat-label">Mijozlar</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">50k+</span>
+                        <span class="stat-label">Buyurtmalar</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">99.9%</span>
+                        <span class="stat-label">Ishonchlilik</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <div class="dashboard-preview glass">
+                    <div class="preview-header">
+                        <div class="preview-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <div class="preview-title">Live Dashboard</div>
+                    </div>
+                    <img src="assets/images/dashboard-preview.png" alt="Dashboard Preview" class="preview-image">
+                </div>
+                
+                <div class="floating-card glass card-1">
+                    <div class="floating-icon">🍽</div>
+                    <div class="floating-content">
+                        <span class="floating-value">24</span>
+                        <span class="floating-label">Faol stollar</span>
+                    </div>
+                </div>
+                
+                <div class="floating-card glass card-2">
+                    <div class="floating-icon">💰</div>
+                    <div class="floating-content">
+                        <span class="floating-value">12.5M</span>
+                        <span class="floating-label">Bugungi savdo</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Barcha <span class="text-gradient">Imkoniyatlar</span></h2>
+                <p>Restoran boshqaruvi uchun kerakli barcha vositalar bir joyda</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card glass">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                            <rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" stroke-width="2"/>
+                            <path d="M7 7h10M7 12h10M7 17h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h3>Smart POS</h3>
+                    <p>Tezkor buyurtma qabul qilish, stol boshqaruvi va to'lov tizimi</p>
+                </div>
+                
+                <div class="feature-card glass">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <circle cx="19" cy="12" r="2" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3>Oshxona Displey</h3>
+                    <p>Buyurtmalarni real vaqt rejimida kuzatish va boshqarish</p>
+                </div>
+                
+                <div class="feature-card glass">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                            <path d="M21 12v6a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2h6" stroke="currentColor" stroke-width="2"/>
+                            <path d="M15 6l6-6v6h-6z" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3>Analitika</h3>
+                    <p>Batafsil hisobotlar, grafiklar va biznes tahlillari</p>
+                </div>
+                
+                <div class="feature-card glass">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                            <rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" stroke-width="2"/>
+                            <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3>Ombor Boshqaruvi</h3>
+                    <p>Mahsulotlar qoldig'ini kuzatish va avtomatik buyurtmalar</p>
+                </div>
+                
+                <div class="feature-card glass">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                            <path d="M22 6L12 13 2 6" stroke="currentColor" stroke-width="2"/>
+                            <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3>Mijozlar Bazasi</h3>
+                    <p>Loyalty dasturi, SMS va email marketing</p>
+                </div>
+                
+                <div class="feature-card glass">
+                    <div class="feature-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3>QR Menu</h3>
+                    <p>Kontaktsiz buyurtma va to'lov tizimi</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Access Cards -->
+    <section class="quick-access">
+        <div class="container">
+            <div class="section-header">
+                <h2>Tezkor <span class="text-gradient">Kirish</span></h2>
+                <p>Lavozimingizga qarab kerakli bo'limni tanlang</p>
+            </div>
+            
+            <div class="access-grid">
+                <a href="app/pos.html" class="access-card premium-card">
+                    <div class="access-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                            <rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" stroke-width="2"/>
+                            <circle cx="8" cy="8" r="2" fill="currentColor"/>
+                            <circle cx="16" cy="8" r="2" fill="currentColor"/>
+                            <circle cx="8" cy="16" r="2" fill="currentColor"/>
+                            <circle cx="16" cy="16" r="2" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h3>Ofitsiant Panel</h3>
+                    <p>Buyurtma qabul qilish va stol boshqaruvi</p>
+                    <span class="access-badge">POS</span>
+                </a>
+                
+                <a href="app/kitchen.html" class="access-card premium-card">
+                    <div class="access-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 8h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="2"/>
+                            <path d="M8 4V2h8v2" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3>Oshxona Displey</h3>
+                    <p>Buyurtmalarni qabul qilish va holatini yangilash</p>
+                    <span class="access-badge">KDS</span>
+                </a>
+                
+                <a href="app/admin.html" class="access-card premium-card">
+                    <div class="access-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
+                            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3>Admin Panel</h3>
+                    <p>To'liq boshqaruv va sozlamalar</p>
+                    <span class="access-badge">Admin</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <img src="assets/icons/logo.svg" alt="Logo" class="footer-logo">
+                    <p>Restoran biznesingiz uchun premium yechim</p>
+                </div>
+                
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Mahsulot</h4>
+                        <ul>
+                            <li><a href="#features">Xususiyatlar</a></li>
+                            <li><a href="#pricing">Narxlar</a></li>
+                            <li><a href="#demo">Demo</a></li>
+                            <li><a href="#api">API</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="footer-column">
+                        <h4>Kompaniya</h4>
+                        <ul>
+                            <li><a href="#about">Biz haqimizda</a></li>
+                            <li><a href="#blog">Blog</a></li>
+                            <li><a href="#careers">Ish o'rinlari</a></li>
+                            <li><a href="#contact">Aloqa</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="footer-column">
+                        <h4>Qo'llab-quvvatlash</h4>
+                        <ul>
+                            <li><a href="#help">Yordam markazi</a></li>
+                            <li><a href="#docs">Dokumentatsiya</a></li>
+                            <li><a href="#status">Tizim holati</a></li>
+                            <li><a href="#security">Xavfsizlik</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2025 XENORA. Barcha huquqlar himoyalangan.</p>
+                <div class="footer-social">
+                    <a href="#" class="social-link"><svg>...</svg></a>
+                    <a href="#" class="social-link"><svg>...</svg></a>
+                    <a href="#" class="social-link"><svg>...</svg></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

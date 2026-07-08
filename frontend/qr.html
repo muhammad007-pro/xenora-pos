@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Kodlar — XENORA</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="qr-container">
+        <div class="page-header">
+            <h1>QR Kodlar</h1>
+        </div>
+        
+        <div class="qr-tabs">
+            <button class="tab-btn active" data-tab="tables">Stollar</button>
+            <button class="tab-btn" data-tab="menu">Menyu</button>
+            <button class="tab-btn" data-tab="payment">To'lov</button>
+        </div>
+        
+        <div class="tab-content active" id="tables-tab">
+            <div class="tables-qr-grid" id="tablesQrGrid"></div>
+        </div>
+        
+        <div class="tab-content" id="menu-tab">
+            <div class="menu-qr-card glass">
+                <h2>Restoran menyusi QR kodi</h2>
+                <div class="qr-preview" id="menuQrPreview"></div>
+                <button class="btn btn-primary" id="downloadMenuQr">Yuklab olish</button>
+                <button class="btn btn-outline" id="printMenuQr">Chop etish</button>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="payment-tab">
+            <div class="payment-qr-card glass">
+                <h2>To'lov QR kodi</h2>
+                <input type="text" id="paymentAmount" placeholder="Summa kiriting">
+                <div class="qr-preview" id="paymentQrPreview"></div>
+                <button class="btn btn-primary" id="generatePaymentQr">Generatsiya qilish</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="js/qr.js"></script>
+</body>
+</html>

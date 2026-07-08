@@ -1,0 +1,76 @@
+/* ═══════════════════════════════════════════════════════════════
+   PREMIUM OVERLAY — umumiy yengil premium qatlam (atmosfera + glass + light).
+   Har sahifaning <style>'idan KEYIN ulanadi → background override (source-order).
+   VIZUAL ONLY. Hardcoded ranglar (sahifa --var sxemasiga bog'liq emas, klobber yo'q).
+   !important YO'Q → rangli variantlar (.sc.green, .badge...) yuqori spetsifiklik bilan saqlanadi.
+   Foydalanish: <link ...premium-overlay.css> (head oxiri) + <div class="xa-atmos"></div> (body boshi).
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Tinch zumrad-qora fon ── */
+body{background:radial-gradient(ellipse 120% 75% at 75% -10%,#0a2419 0%,#05150e 50%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 75% at 75% -10%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+
+/* content atmosfera ustида (atmos z-index:0, qolgani 1). Modallar (yuqori z-index) tegmaydi. */
+body > *:not(.xa-atmos){position:relative;z-index:1}
+
+/* ── Atmosfera qatlami (bitta bo'sh div, mandala+nur CSS) ── */
+.xa-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.xa-atmos::before{
+  content:'';position:absolute;top:50%;left:50%;width:120vmin;height:120vmin;
+  transform:translate(-50%,-50%);opacity:.03;
+  background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600' fill='none' stroke='%23d4b46c' stroke-width='1'%3E%3Ccircle cx='300' cy='300' r='250'/%3E%3Ccircle cx='300' cy='300' r='185'/%3E%3Ccircle cx='300' cy='300' r='120'/%3E%3Ccircle cx='300' cy='300' r='60'/%3E%3Cpolygon points='300,70 530,300 300,530 70,300'/%3E%3Crect x='160' y='160' width='280' height='280'/%3E%3Crect x='160' y='160' width='280' height='280' transform='rotate(45 300 300)'/%3E%3C/svg%3E");
+  animation:xaSpin 240s linear infinite;
+}
+@keyframes xaSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.xa-atmos::after{
+  content:'';position:absolute;inset:0;mix-blend-mode:screen;
+  background:
+    radial-gradient(46vmin 46vmin at 3% -8%, rgba(31,176,132,.16), transparent 70%),
+    radial-gradient(40vmin 40vmin at 99% 108%, rgba(202,168,90,.14), transparent 70%);
+  animation:xaBreathe 34s ease-in-out infinite;
+}
+@keyframes xaBreathe{0%,100%{opacity:.65}50%{opacity:1}}
+[data-theme="light"] .xa-atmos::before{opacity:.045}
+[data-theme="light"] .xa-atmos::after{mix-blend-mode:normal;opacity:.5}
+
+/* ── Glass: konteyner/karta/panel/modal (background-li wrapperlar). Jadval (.tbl/.data-table) EMAS. ── */
+.card,.tbl-wrap,.table-wrap,.data-table-wrap,.stat-card,.sc,.panel,.modal-box,.modal-card,.mc,.setting-card,.debt-card{
+  background:linear-gradient(180deg, rgba(17,52,40,.82), rgba(12,40,30,.86));
+  border:1px solid rgba(212,180,108,.16);
+  backdrop-filter:blur(10px) saturate(1.1);-webkit-backdrop-filter:blur(10px) saturate(1.1);
+}
+[data-theme="light"] .card,
+[data-theme="light"] .tbl-wrap,[data-theme="light"] .table-wrap,[data-theme="light"] .data-table-wrap,
+[data-theme="light"] .stat-card,[data-theme="light"] .sc,[data-theme="light"] .panel,
+[data-theme="light"] .modal-box,[data-theme="light"] .modal-card,[data-theme="light"] .mc,
+[data-theme="light"] .setting-card,[data-theme="light"] .debt-card{
+  background:linear-gradient(180deg, rgba(255,255,255,.9), rgba(247,250,247,.93));
+}
+
+/* ── Jadval: thead tilla tint + qator hover yengil zumrad ── */
+thead th{background:rgba(212,180,108,.06)}
+tbody tr:hover{background:rgba(212,180,108,.05)}
+
+/* ── Tugma/input: press feedback + fokus tilla glow (recolor YO'Q — variantlar saqlanadi) ── */
+.btn:active,.tb-btn:active,button.btn:active{transform:scale(.97)}
+.inp:focus,input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(212,180,108,.14),0 0 12px rgba(212,180,108,.1)}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion:reduce){
+  .xa-atmos::before,.xa-atmos::after{animation:none!important}
+}
+/* ── Mobil: blur o'chadi (tezlik), mandala yengil ── */
+@media (max-width:768px){
+  .xa-atmos::before{opacity:.02}
+  .card,.tbl-wrap,.table-wrap,.data-table-wrap,.stat-card,.sc,.panel,
+  .modal-box,.modal-card,.mc,.setting-card,.debt-card{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+/* ── Chop etish (labels/qr/chek): atmosfera + glass YO'Q (toza print) ── */
+@media print{
+  .xa-atmos{display:none!important}
+  body{background:#fff!important}
+  .card,.tbl-wrap,.table-wrap,.data-table-wrap,.stat-card,.sc,.panel,
+  .modal-box,.modal-card,.mc,.setting-card,.debt-card{
+    background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border-color:#ddd!important;
+  }
+}

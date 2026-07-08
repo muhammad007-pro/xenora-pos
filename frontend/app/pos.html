@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#d4b46c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>POS Terminal — XENORA</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles/main.css">
+<link rel="manifest" href="../pwa/manifest.json">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;user-select:none;transition:background .25s,color .25s}
+button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:inherit;color:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit}
+a{text-decoration:none;color:inherit}
+
+/* ── Variables ── */
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 20px rgba(212,180,108,.4);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
+  --border:rgba(212,180,108,.18);--border2:rgba(255,255,255,.08);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
+  --r:0.625rem;--r2:1rem;--r3:1.5rem;
+  --glass:rgba(26,26,46,.8);--glass2:rgba(18,18,30,.9);
+  --tr:200ms cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Light mode override ── */
+[data-theme="light"]{
+  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;--bg4:#e9ecef;
+  --border:rgba(201,168,76,.3);--border2:rgba(0,0,0,.1);
+  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
+  --glass:rgba(255,255,255,.85);--glass2:rgba(248,249,250,.95);
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
+}
+
+/* ── Loading ── */
+#loadingScreen{position:fixed;inset:0;background:#03110C;display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s,visibility .4s}
+#loadingScreen.hidden{opacity:0;visibility:hidden}
+.ld-inner{text-align:center}
+.ld-logo{width:72px;height:72px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;filter:drop-shadow(0 0 14px rgba(31,176,132,.35))}
+.ld-title{font-size:1.6rem;font-weight:700;color:#EBD297;margin-bottom:.5rem;letter-spacing:.34em;text-indent:.34em}
+.ld-sub{color:var(--text2);font-size:.875rem;margin-bottom:1.5rem}
+.ld-bar{width:200px;height:3px;background:var(--bg4);border-radius:99px;overflow:hidden;margin:0 auto}
+.ld-bar-fill{height:100%;background:linear-gradient(90deg,#1FB084,#D4B46C);border-radius:99px;transition:width .3s ease;width:0%}
+
+/* ── Layout ── */
+.pos-wrap{display:flex;height:100vh;overflow:hidden}
+
+/* ── Sidebar ── */
+.sidebar{width:72px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:1rem 0;gap:.5rem;z-index:100;transition:width var(--tr)}
+.sidebar.wide{width:220px}
+.sidebar-logo{width:40px;height:40px;background:var(--gold-dim);border:1.5px solid var(--gold);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:1rem;flex-shrink:0}
+.sidebar.wide .sidebar-logo{width:44px;height:44px}
+.nav-item{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all var(--tr);position:relative;flex-shrink:0;overflow:hidden}
+.sidebar.wide .nav-item{width:100%;border-radius:0;padding:0 1rem;justify-content:flex-start;gap:.75rem;height:44px}
+.nav-item:hover{background:var(--gold-dim);color:var(--gold)}
+.nav-item.active{background:var(--gold-dim);color:var(--gold)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--gold);border-radius:0 2px 2px 0}
+.nav-label{font-size:.8125rem;font-weight:500;white-space:nowrap;display:none}
+.sidebar.wide .nav-label{display:block}
+.sidebar-bottom{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:.5rem;width:100%}
+.sidebar.wide .sidebar-bottom{align-items:stretch;padding:0}
+.user-chip{display:flex;align-items:center;gap:.625rem;padding:.625rem;width:100%}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold-dim);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--gold);flex-shrink:0}
+.user-info-text{display:none;min-width:0}
+.sidebar.wide .user-info-text{display:block}
+.user-name-text{font-size:.8125rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role-text{font-size:.6875rem;color:var(--text2)}
+
+/* ── Main ── */
+.pos-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── Header ── */
+.pos-header{height:56px;background:var(--bg2);border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:.75rem;padding:0 1rem;flex-shrink:0}
+.header-search{flex:1;max-width:320px;position:relative}
+.header-search input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .75rem .5rem 2.25rem;color:var(--text);font-size:.875rem;outline:none;transition:border-color var(--tr)}
+.header-search input:focus{border-color:var(--gold)}
+.header-search svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3)}
+.header-search kbd{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:4px;padding:.125rem .375rem;font-size:.6875rem;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.table-btn{display:flex;align-items:center;gap:.5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.4375rem .875rem;font-size:.8125rem;font-weight:500;transition:all var(--tr);white-space:nowrap}
+.table-btn:hover,.table-btn.selected{border-color:var(--gold);color:var(--gold)}
+.table-btn .table-num{color:var(--gold);font-weight:700}
+.hdr-actions{display:flex;align-items:center;gap:.5rem;margin-left:auto}
+.icon-btn{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all var(--tr);background:var(--bg3);border:1px solid var(--border2)}
+.icon-btn:hover{color:var(--gold);border-color:var(--gold)}
+.ws-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);transition:background .3s;flex-shrink:0}
+.ws-dot.on{background:var(--success);box-shadow:0 0 6px var(--success);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── Body grid ── */
+.pos-body{flex:1;display:grid;grid-template-columns:1fr 380px;overflow:hidden;gap:0}
+
+/* ── Products panel ── */
+.products-panel{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border2)}
+
+/* Categories */
+.cats-bar{display:flex;align-items:center;gap:.5rem;padding:.625rem 1rem;background:var(--bg2);border-bottom:1px solid var(--border2);overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.cats-bar::-webkit-scrollbar{display:none}
+.cat-btn{padding:.375rem 1rem;border-radius:var(--r3);font-size:.8125rem;font-weight:500;white-space:nowrap;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);transition:all var(--tr)}
+.cat-btn:hover{color:var(--gold);border-color:var(--gold)}
+.cat-btn.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+
+/* Products grid */
+.products-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;padding:1rem;overflow-y:auto;align-content:start}
+.products-grid::-webkit-scrollbar{width:4px}
+.products-grid::-webkit-scrollbar-track{background:transparent}
+.products-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.product-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all var(--tr);position:relative;display:flex;flex-direction:column}
+.product-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--gold-glow)}
+.product-card:active{transform:scale(.97)}
+.product-card.unavail{opacity:.45;pointer-events:none}
+.prod-img{width:100%;aspect-ratio:1;object-fit:cover;background:var(--bg3)}
+.prod-body{padding:.625rem}
+.prod-name{font-size:.8125rem;font-weight:600;line-height:1.3;margin-bottom:.25rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.prod-price{font-size:.9375rem;font-weight:700;color:var(--gold)}
+.prod-unit{font-size:.6875rem;color:var(--text3);font-weight:400}
+.prod-badge{position:absolute;top:.5rem;right:.5rem;background:var(--danger);color:#fff;font-size:.625rem;font-weight:700;padding:.125rem .375rem;border-radius:4px}
+.prod-empty{grid-column:1/-1;text-align:center;padding:3rem;color:var(--text3)}
+
+/* ── Cart panel ── */
+.cart-panel{display:flex;flex-direction:column;background:var(--bg2);overflow:hidden}
+.cart-head{padding:.875rem 1rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.cart-head h2{font-size:1rem;font-weight:700}
+.cart-meta{padding:.625rem 1rem;border-bottom:1px solid var(--border2);display:flex;flex-direction:column;gap:.5rem;flex-shrink:0}
+.cust-btn{display:flex;align-items:center;gap:.5rem;padding:.4375rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);font-size:.8125rem;color:var(--text2);transition:all var(--tr);width:100%;text-align:left}
+.cust-btn:hover{border-color:var(--gold);color:var(--gold)}
+.cust-btn.has-cust{border-color:rgba(16,185,129,.4);color:var(--success)}
+.otype-row{display:flex;background:var(--bg3);border-radius:var(--r);padding:3px;gap:3px}
+.otype-btn{flex:1;padding:.3125rem;font-size:.75rem;font-weight:500;border-radius:calc(var(--r) - 3px);color:var(--text2);transition:all var(--tr);text-align:center}
+.otype-btn.active{background:var(--gold-dim);color:var(--gold)}
+
+/* Cart items */
+.cart-items{flex:1;overflow-y:auto;padding:.5rem}
+.cart-items::-webkit-scrollbar{width:3px}
+.cart-items::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.cart-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.75rem;color:var(--text3)}
+.cart-empty-state svg{opacity:.3}
+.cart-item{display:flex;align-items:center;gap:.5rem;padding:.5rem .25rem;border-bottom:1px solid var(--border2)}
+.ci-info{flex:1;min-width:0}
+.ci-name{font-size:.8125rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-price{font-size:.75rem;color:var(--text2)}
+.ci-qty{display:flex;align-items:center;gap:4px}
+.qty-btn{width:24px;height:24px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:600;transition:all var(--tr)}
+.qty-btn:hover{background:var(--gold-dim);color:var(--gold)}
+.qty-val{font-size:.8125rem;font-weight:600;min-width:20px;text-align:center}
+.ci-total{font-size:.8125rem;font-weight:700;color:var(--gold);min-width:64px;text-align:right}
+.ci-del{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all var(--tr)}
+.ci-del:hover{background:rgba(239,68,68,.15);color:var(--danger)}
+
+/* Cart totals */
+.cart-totals{padding:.75rem 1rem;border-top:1px solid var(--border2);background:var(--bg3);flex-shrink:0}
+.tot-row{display:flex;justify-content:space-between;font-size:.8125rem;margin-bottom:.25rem;color:var(--text2)}
+.tot-row.main{font-size:1.125rem;font-weight:700;color:var(--text);margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border2)}
+.tot-row.main span:last-child{color:var(--gold)}
+.tot-row.disc span:last-child{color:var(--success)}
+
+/* Cart actions */
+.cart-actions{padding:.75rem 1rem;border-top:1px solid var(--border2);display:flex;gap:.5rem;flex-shrink:0}
+.btn{padding:.5625rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;transition:all var(--tr);display:flex;align-items:center;justify-content:center;gap:.5rem}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-weight:700;border:none;flex:1}
+.btn-gold:hover{box-shadow:var(--gold-glow);transform:translateY(-1px)}
+.btn-gold:active{transform:scale(.98)}
+.btn-gold:disabled{opacity:.5;pointer-events:none}
+.btn-ghost{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+
+/* Quick actions */
+.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:.375rem;padding:.5rem 1rem .75rem;flex-shrink:0}
+.qa-btn{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.5rem .25rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);font-size:.6875rem;color:var(--text2);transition:all var(--tr)}
+.qa-btn:hover{border-color:var(--gold);color:var(--gold)}
+.qa-btn svg{opacity:.7}
+
+/* ── Barcode scanner row (magazin rejimi) ── */
+.barcode-row{display:none;align-items:center;gap:.5rem;padding:.5rem 1rem;background:var(--bg2);border-bottom:1px solid var(--border2);flex-shrink:0}
+.barcode-row.visible{display:flex}
+.barcode-input-wrap{flex:1;position:relative;max-width:360px}
+.barcode-input-wrap svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+#barcodeInput{width:100%;background:var(--bg3);border:1.5px solid var(--gold);border-radius:var(--r);padding:.4375rem .75rem .4375rem 2.25rem;color:var(--text);font-size:.9375rem;font-family:'JetBrains Mono',monospace;letter-spacing:.05em;outline:none;transition:border-color var(--tr)}
+#barcodeInput:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,180,108,.2)}
+#barcodeInput::placeholder{font-size:.8125rem;letter-spacing:0;font-family:'Inter',sans-serif;color:var(--text3)}
+.barcode-scan-badge{display:flex;align-items:center;gap:.375rem;padding:.375rem .75rem;border-radius:var(--r);background:rgba(212,180,108,.1);border:1px solid rgba(212,180,108,.3);font-size:.75rem;color:var(--gold);white-space:nowrap;flex-shrink:0}
+.barcode-scan-badge svg{color:var(--gold)}
+#barcodeStatus{font-size:.75rem;color:var(--text3);min-width:120px;transition:color .2s}
+#barcodeStatus.found{color:var(--success)}
+#barcodeStatus.notfound{color:var(--danger)}
+
+/* ── Weight modal (tarozi) ── */
+.weight-display{text-align:center;padding:1.5rem 0;border-bottom:1px solid var(--border2);margin-bottom:1.25rem}
+.weight-prod-name{font-size:1rem;font-weight:700;margin-bottom:.375rem}
+.weight-price-hint{font-size:.8125rem;color:var(--text2);margin-bottom:1rem}
+.weight-input-row{display:flex;align-items:center;justify-content:center;gap:.75rem}
+#weightInput{width:140px;padding:.625rem .875rem;background:var(--bg3);border:2px solid var(--gold);border-radius:var(--r);color:var(--text);font-size:2rem;font-weight:700;text-align:center;outline:none;font-family:'JetBrains Mono',monospace}
+.weight-unit-lbl{font-size:1.5rem;font-weight:700;color:var(--text2)}
+.weight-presets{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:1rem}
+.w-preset{padding:.375rem .875rem;background:var(--bg3);border:1px solid var(--border2);border-radius:99px;font-size:.8125rem;font-weight:600;transition:all var(--tr)}
+.w-preset:hover{border-color:var(--gold);color:var(--gold)}
+.weight-total-preview{margin-top:1.25rem;padding:.875rem;background:var(--gold-dim);border-radius:var(--r);text-align:center;border:1px solid rgba(212,180,108,.3)}
+.wt-label{font-size:.75rem;color:var(--text2);margin-bottom:.25rem}
+.wt-amount{font-size:1.75rem;font-weight:800;color:var(--gold)}
+
+/* ── Expiry badges ── */
+.expiry-badge{position:absolute;top:.5rem;left:.5rem;padding:.125rem .375rem;border-radius:4px;font-size:.5625rem;font-weight:700;line-height:1.4;z-index:1}
+.expiry-badge.expired{background:rgba(239,68,68,.9);color:#fff}
+.expiry-badge.critical{background:rgba(245,158,11,.9);color:#fff}
+.expiry-badge.warning{background:rgba(251,191,36,.85);color:#03110c}
+
+/* ── Dorixona (Pharmacy) ── */
+.rx-badge{position:absolute;top:.5rem;right:.5rem;background:rgba(16,185,129,.85);color:#fff;font-size:.5rem;font-weight:800;padding:.1875rem .4rem;border-radius:3px;letter-spacing:.05em;z-index:1}
+.dosage-lbl{font-size:.6875rem;color:var(--info);margin-top:.125rem;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
+.expiry-date-lbl{font-size:.625rem;margin-top:.125rem;font-family:'JetBrains Mono',monospace;color:var(--text3)}
+.expiry-date-lbl.critical{color:var(--warning)}.expiry-date-lbl.warning{color:#f59e0b}.expiry-date-lbl.expired{color:var(--danger)}
+
+/* ── Service (Beauty / Fitnes) ── */
+.duration-badge{display:inline-flex;align-items:center;gap:.2rem;font-size:.6875rem;color:var(--text2);margin-top:.125rem;font-family:'JetBrains Mono',monospace}
+.period-badge{display:inline-flex;align-items:center;font-size:.6875rem;font-weight:700;color:var(--success);margin-top:.125rem}
+.sessions-badge{display:inline-flex;align-items:center;font-size:.6875rem;color:var(--info);margin-top:.125rem}
+.part-badge{display:inline-flex;align-items:center;gap:.2rem;font-size:.6875rem;color:var(--text3);margin-top:.125rem}
+
+/* Membership modal */
+.membership-info-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.875rem;margin-bottom:1rem;text-align:center}
+.membership-info-box .period-main{font-size:1.75rem;font-weight:800;color:var(--gold);margin-bottom:.25rem}
+.membership-info-box .period-label{font-size:.8125rem;color:var(--text2)}
+.membership-end-display{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:var(--r);padding:.625rem .875rem;text-align:center;margin-top:.625rem}
+.membership-end-display .end-label{font-size:.75rem;color:var(--text2);margin-bottom:.2rem}
+.membership-end-display .end-date{font-size:1rem;font-weight:700;color:var(--success)}
+
+/* ── Offline banner ── */
+.offline-banner{position:fixed;top:0;left:0;right:0;z-index:8000;background:#b45309;color:#fff;padding:.5rem 1rem;display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.8125rem;font-weight:500;transform:translateY(-100%);transition:transform .3s}
+.offline-banner.show{transform:translateY(0)}
+/* ── Sync badge ── */
+#syncBadge{position:fixed;bottom:1rem;right:1rem;z-index:500;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);color:#f59e0b;border-radius:.5rem;padding:.375rem .75rem;font-size:.75rem;font-weight:600;display:none;align-items:center;gap:.375rem;animation:syncPulse 2s infinite}
+#syncBadge.show{display:flex}
+@keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ── WS status corner ── */
+#wsStatusCorner{position:fixed;bottom:1rem;left:80px;font-size:.6875rem;color:var(--text3);display:flex;align-items:center;gap:.375rem;z-index:100}
+
+/* ── Modals ── */
+.modal-wrap{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+.modal-wrap.open{opacity:1;visibility:visible}
+.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal-box{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;transform:scale(.95) translateY(10px);transition:transform .2s;overflow:hidden}
+.modal-wrap.open .modal-box{transform:scale(1) translateY(0)}
+.modal-box.wide{max-width:640px}
+.modal-box.narrow{max-width:360px}
+.modal-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-header h3{font-size:1rem;font-weight:700}
+.modal-body{padding:1.25rem;overflow-y:auto;flex:1}
+.modal-footer{padding:.875rem 1.25rem;border-top:1px solid var(--border2);display:flex;gap:.5rem;flex-shrink:0}
+.modal-footer .btn{flex:1}
+.close-btn{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all var(--tr)}
+.close-btn:hover{background:var(--bg3);color:var(--danger)}
+
+/* Table modal */
+.floor-section+.floor-section{margin-top:1.25rem}
+.floor-sec-title{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.625rem}
+.tables-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:.625rem}
+.tbl-card{padding:.75rem .5rem;background:var(--bg3);border:2px solid var(--border2);border-radius:var(--r);text-align:center;cursor:pointer;transition:all var(--tr)}
+.tbl-card:hover{border-color:var(--gold)}
+.tbl-card.free{border-color:rgba(16,185,129,.4)}
+.tbl-card.occupied{border-color:rgba(245,158,11,.5)}
+.tbl-card.reserved{border-color:rgba(59,130,246,.5)}
+.tbl-card.cleaning{border-color:rgba(239,68,68,.4)}
+.tbl-card.merge-sel{border-color:var(--gold);background:var(--gold-dim);box-shadow:0 0 12px rgba(212,180,108,.25)}
+.tbl-num{font-size:1.25rem;font-weight:700;margin-bottom:.25rem}
+.tbl-cap{font-size:.6875rem;color:var(--text3)}
+.tbl-status{font-size:.625rem;font-weight:600;margin-top:.25rem}
+.tbl-card.free .tbl-status{color:var(--success)}
+.tbl-card.occupied .tbl-status{color:var(--warning)}
+.tbl-card.reserved .tbl-status{color:var(--info)}
+
+/* Payment modal */
+.pay-total{text-align:center;padding:1rem 0 1.25rem;border-bottom:1px solid var(--border2);margin-bottom:1.25rem}
+.pay-total-label{font-size:.875rem;color:var(--text2);margin-bottom:.25rem}
+.pay-total-amt{font-size:2.25rem;font-weight:800;color:var(--gold)}
+.pay-order-num{font-size:.75rem;color:var(--text3)}
+.pay-methods{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:1.25rem}.pay-methods.has-credit{grid-template-columns:repeat(5,1fr)}
+.pay-method{padding:.75rem .5rem;background:var(--bg3);border:2px solid var(--border2);border-radius:var(--r);text-align:center;cursor:pointer;transition:all var(--tr)}
+.pay-method:hover{border-color:var(--gold)}
+.pay-method.active{background:var(--gold-dim);border-color:var(--gold)}
+.pay-method svg,.pay-method .pm-icon{display:block;margin:0 auto .375rem}
+.pay-method span{font-size:.75rem;font-weight:500}
+.pay-method.active span{color:var(--gold)}
+.cash-section{background:var(--bg3);border-radius:var(--r);padding:.875rem;margin-bottom:1rem}
+.cash-label{font-size:.8125rem;color:var(--text2);margin-bottom:.5rem}
+.cash-input-wrap{display:flex;align-items:center;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;margin-bottom:.625rem}
+.cash-input-wrap input{flex:1;padding:.5rem .75rem;background:transparent;border:none;color:var(--text);font-size:1.125rem;font-weight:600;outline:none}
+.cash-input-wrap span{padding:.5rem .75rem;color:var(--text2);font-size:.8125rem;border-left:1px solid var(--border2)}
+.cash-btns{display:flex;gap:.375rem;flex-wrap:wrap}
+.cash-preset{padding:.375rem .625rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);font-size:.75rem;font-weight:500;transition:all var(--tr)}
+.cash-preset:hover{border-color:var(--gold);color:var(--gold)}
+.cash-preset.exact{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.change-row{display:flex;justify-content:space-between;align-items:center;padding:.625rem .875rem;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:var(--r);font-weight:600}
+.change-row span:last-child{color:var(--success);font-size:1.125rem}
+
+/* Receipt */
+.receipt-wrap{background:var(--bg3);border-radius:var(--r);padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.8125rem;max-height:55vh;overflow-y:auto}
+.receipt-center{text-align:center;margin-bottom:.75rem;padding-bottom:.75rem;border-bottom:1px dashed var(--border2)}
+.receipt-center h4{font-size:1rem;color:var(--gold);margin-bottom:.25rem}
+.receipt-center p{font-size:.75rem;color:var(--text2);line-height:1.6}
+.receipt-table{width:100%;border-collapse:collapse;margin-bottom:.75rem}
+.receipt-table th{text-align:left;padding:3px 4px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border2)}
+.receipt-table td{padding:3px 4px;vertical-align:top}
+.receipt-table td:last-child{text-align:right}
+.receipt-totals{border-top:1px dashed var(--border2);padding-top:.5rem}
+.rt-row{display:flex;justify-content:space-between;padding:2px 0;font-size:.75rem;color:var(--text2)}
+.rt-row.bold{font-size:.875rem;font-weight:700;color:var(--gold);padding-top:.375rem;border-top:1px solid var(--border2);margin-top:.25rem}
+.rt-row.disc{color:var(--success)}
+.receipt-footer{text-align:center;padding-top:.75rem;border-top:1px dashed var(--border2);margin-top:.5rem;color:var(--text2);font-size:.6875rem;line-height:1.8}
+.receipt-actions{display:flex;gap:.5rem;margin-top:.875rem}
+
+/* Split */
+.split-total-box{text-align:center;padding:.875rem;background:var(--bg3);border-radius:var(--r);margin-bottom:1rem}
+.split-total-box .amt{font-size:1.75rem;font-weight:800;color:var(--gold)}
+.split-ways-row{display:flex;align-items:center;gap:.5rem;margin-bottom:1rem}
+.ways-quick{width:44px;height:44px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);font-size:1rem;font-weight:700;transition:all var(--tr)}
+.ways-quick.active,.ways-quick:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.ways-input{width:60px;padding:.5rem;text-align:center;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:1rem;font-weight:700;outline:none}
+.split-result{text-align:center;padding:1rem;background:var(--gold-dim);border:1px solid var(--gold);border-radius:var(--r);display:none}
+.split-result.show{display:block}
+.split-result .per{font-size:2rem;font-weight:800;color:var(--gold)}
+.split-result .per-label{font-size:.875rem;color:var(--text2);margin-top:.25rem}
+
+/* Customer modal */
+.cust-search{position:relative;margin-bottom:.875rem}
+.cust-search input{width:100%;padding:.5rem .75rem .5rem 2.25rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;transition:border-color var(--tr)}
+.cust-search input:focus{border-color:var(--gold)}
+.cust-search svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3)}
+.cust-list{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:.375rem}
+.cust-item{display:flex;align-items:center;gap:.75rem;padding:.625rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;transition:all var(--tr)}
+.cust-item:hover{border-color:var(--gold)}
+.cust-ava{width:36px;height:36px;border-radius:50%;background:var(--gold-dim);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8125rem;color:var(--gold);flex-shrink:0}
+.cust-detail{flex:1;min-width:0}
+.cust-name-row{font-size:.875rem;font-weight:600}
+.cust-phone-row{font-size:.75rem;color:var(--text2)}
+.cust-pts{text-align:right;font-size:.75rem;color:var(--gold);font-weight:600}
+
+/* Discount modal */
+.disc-type-row{display:flex;gap:.5rem;margin-bottom:1rem}
+.disc-type-btn{flex:1;padding:.625rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);font-size:.875rem;transition:all var(--tr)}
+.disc-type-btn.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.disc-presets{display:flex;gap:.375rem;flex-wrap:wrap;margin-top:.625rem}
+.disc-preset{padding:.4375rem .875rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r3);font-size:.8125rem;font-weight:500;transition:all var(--tr)}
+.disc-preset:hover{border-color:var(--gold);color:var(--gold)}
+
+/* Form group */
+.form-group{margin-bottom:.875rem}
+.form-group label{display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem}
+.form-input{width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;transition:border-color var(--tr)}
+.form-input:focus{border-color:var(--gold)}
+.input-suffix-wrap{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden}
+.input-suffix-wrap input{flex:1;padding:.5625rem .75rem;background:transparent;border:none;color:var(--text);outline:none}
+.input-suffix-wrap span{padding:.5625rem .75rem;background:var(--bg2);color:var(--text2);font-size:.875rem;border-left:1px solid var(--border2)}
+
+/* Toast */
+#toasts{position:fixed;top:1rem;right:1rem;z-index:9000;display:flex;flex-direction:column;gap:.5rem;width:300px}
+.toast{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:.75rem 1rem;display:flex;align-items:flex-start;gap:.625rem;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:toastIn .25s ease;font-size:.8125rem}
+.toast.success{border-color:rgba(16,185,129,.4)}
+.toast.error{border-color:rgba(239,68,68,.4)}
+.toast.warning{border-color:rgba(245,158,11,.4)}
+.toast-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.625rem;margin-top:1px}
+.toast.success .toast-icon{background:rgba(16,185,129,.2);color:var(--success)}
+.toast.error .toast-icon{background:rgba(239,68,68,.2);color:var(--danger)}
+.toast.warning .toast-icon{background:rgba(245,158,11,.2);color:var(--warning)}
+.toast.info .toast-icon{background:rgba(59,130,246,.2);color:var(--info)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+@media(max-width:900px){
+  .pos-body{grid-template-columns:1fr}
+  .cart-panel{position:fixed;right:0;top:0;bottom:0;width:340px;transform:translateX(100%);transition:transform .3s;z-index:200;box-shadow:-8px 0 32px rgba(0,0,0,.5)}
+  .cart-panel.open{transform:translateX(0)}
+  .cart-toggle{display:flex}
+}
+.mod-group label:has(input:checked){border-color:var(--gold);background:var(--gold-dim)}
+
+/* ─── Premium POS enhancements ─── */
+@keyframes prodEnter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes floatSm{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* Product card staggered entrance */
+.product-card{animation:prodEnter .2s ease backwards}
+.products-grid>.product-card:nth-child(2){animation-delay:.05s}
+.products-grid>.product-card:nth-child(3){animation-delay:.10s}
+.products-grid>.product-card:nth-child(4){animation-delay:.15s}
+.products-grid>.product-card:nth-child(5){animation-delay:.20s}
+.products-grid>.product-card:nth-child(6){animation-delay:.25s}
+.products-grid>.product-card:nth-child(7){animation-delay:.30s}
+.products-grid>.product-card:nth-child(8){animation-delay:.35s}
+
+/* Enhanced product card hover */
+.product-card:hover{box-shadow:0 0 0 1px rgba(212,180,108,.3),0 8px 24px rgba(212,180,108,.15)}
+
+/* Enhanced empty states */
+.prod-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3.5rem 1.5rem;gap:.75rem;text-align:center}
+.prod-empty-icon{width:64px;height:64px;border-radius:50%;background:rgba(212,180,108,.06);border:1px dashed rgba(212,180,108,.2);display:flex;align-items:center;justify-content:center;color:var(--text3);margin-bottom:.25rem}
+.prod-empty p{font-size:.9375rem;font-weight:500;color:var(--text2);margin:0}
+.prod-empty span{font-size:.8125rem;color:var(--text3);margin:0}
+
+/* Cart empty state — animated icon */
+.cart-empty-state svg{opacity:.15;animation:floatSm 3s ease-in-out infinite}
+.cart-empty-state span{font-weight:500;color:var(--text2)}
+
+/* Category button enhanced active */
+.cat-btn.active{background:linear-gradient(135deg,rgba(212,180,108,.18),rgba(212,180,108,.07));border-color:rgba(212,180,108,.45);font-weight:600;box-shadow:0 2px 12px rgba(212,180,108,.12)}
+
+/* Quick action hover */
+.qa-btn:hover{background:rgba(212,180,108,.08);border-color:rgba(212,180,108,.3);color:var(--gold);transform:translateY(-1px)}
+
+/* Table card hover */
+.tbl-card:hover{background:rgba(212,180,108,.06);box-shadow:0 4px 20px rgba(212,180,108,.12)}
+
+/* Header icon buttons */
+.icon-btn:hover{color:var(--gold);border-color:rgba(212,180,108,.35);background:rgba(212,180,108,.06)}
+
+/* Search focus ring */
+.header-search input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.12)}
+
+/* Payment total entrance */
+.pay-total-amt{animation:prodEnter .3s ease .1s backwards}
+
+/* Modal overlay deeper */
+.modal-overlay{background:rgba(0,0,0,.78)}
+
+/* Cart total separator */
+.tot-row.main{border-top:1px solid rgba(212,180,108,.18)}
+
+/* Mobile: 2-column product grid on phones */
+@media(max-width:480px){
+  .products-grid{grid-template-columns:repeat(2,1fr);gap:.5rem;padding:.5rem}
+  .pos-header{padding:0 .625rem;gap:.5rem}
+  .header-search{max-width:200px}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   POS ATMOSFERA (pos-atmos) — YENGIL premium qatlam. Vizual only.
+   Sotuv JS/DOM/strukturaga tegilmaydi. Panellar ustda (z-index:1),
+   atmosfera ortda (z-index:0) — faqat shaffof joylardan ko'rinadi.
+   Kassir uchun tinch: mandala juda yengil, 2 sekin nur, zarra YO'Q.
+   ═══════════════════════════════════════════════════════════════ */
+/* tinch zumrad-qora fon ramp */
+body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 52%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+
+/* content panellar atmosfera ustида */
+.pos-wrap{position:relative;z-index:1}
+
+/* atmosfera qatlami — fixed, ortда */
+.pos-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.pa-mandala{
+  position:absolute;top:42%;left:64%;width:120vmin;height:120vmin;
+  transform:translate(-50%,-50%);opacity:.03;
+  animation:paSpin 220s linear infinite;
+}
+.pa-mandala svg{width:100%;height:100%;display:block}
+@keyframes paSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.pa-glow{position:absolute;border-radius:50%;filter:blur(80px);mix-blend-mode:screen;opacity:.22}
+.pa-glow.g1{width:48vmin;height:48vmin;top:-12%;left:-6%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:paBreathe 30s ease-in-out infinite}
+.pa-glow.g2{width:42vmin;height:42vmin;bottom:-14%;right:-4%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:paBreathe 36s ease-in-out infinite 4s}
+@keyframes paBreathe{0%,100%{transform:scale(.95);opacity:.15}50%{transform:scale(1.08);opacity:.27}}
+[data-theme="light"] .pa-glow{mix-blend-mode:normal;opacity:.1;filter:blur(90px)}
+[data-theme="light"] .pa-mandala{opacity:.04}
+
+/* ── Glass panellar (yengil) ──
+   MUHIM: mahsulot kartalari ko'p (10-50+) — ularga backdrop-filter QO'YILMAYDI
+   (GPU og'irligi, POS sekinlashmasin). Faqat yengil shaffof tint. blur faqat
+   bitta cart-panel'da (arzon). */
+.product-card{background:rgba(11,46,35,.5)}
+[data-theme="light"] .product-card{background:rgba(255,255,255,.6)}
+.product-card:hover{transform:translateY(-3px)}
+.cart-panel{
+  background:linear-gradient(180deg,rgba(11,46,35,.86),rgba(8,34,26,.9));
+  backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15);
+  box-shadow:inset 1px 0 0 rgba(212,180,108,.1);
+}
+[data-theme="light"] .cart-panel{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(248,249,250,.94))}
+.cart-totals{background:rgba(20,58,44,.5)}
+[data-theme="light"] .cart-totals{background:rgba(241,243,245,.7)}
+
+/* barcode fokus — skaner uchun yorqin tilla */
+#barcodeInput:focus{box-shadow:0 0 0 3px rgba(212,180,108,.22),0 0 16px rgba(212,180,108,.18)}
+
+/* checkout (F9) — sheen sweep */
+.btn-gold{position:relative;overflow:hidden}
+.btn-gold::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(120deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%);
+  transform:translateX(-130%);transition:transform .6s ease;
+}
+.btn-gold:hover::after{transform:translateX(130%)}
+
+/* ── Micro-animatsiyalar (yengil, tez — sotuvni bloklamaydi) ── */
+@keyframes cartItemIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+.cart-item{animation:cartItemIn .22s ease backwards}
+@keyframes totFlash{0%{transform:scale(1)}35%{transform:scale(1.08);text-shadow:0 0 12px rgba(212,180,108,.7)}100%{transform:scale(1)}}
+.tot-row.main span:last-child.tot-flash{display:inline-block;animation:totFlash .45s ease}
+/* product press tactile feedback */
+.product-card:active{transform:scale(.95)}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion:reduce){
+  .pa-mandala,.pa-glow{animation:none!important}
+  .cart-item,.btn-gold::after,.tot-row.main span:last-child.tot-flash{animation:none!important;transition:none!important}
+}
+
+/* ── Mobil/planshet: og'ir qatlam yengillashtir ── */
+@media (max-width:768px){
+  .pa-mandala{display:none}
+  .pa-glow{filter:blur(50px);opacity:.15}
+  .product-card,.cart-panel{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <div class="ld-inner">
+    <div class="ld-logo">
+      <svg width="60" height="60" viewBox="0 0 48 48" fill="none">
+        <path d="M24 2 L30 12 L42 12 L36 22 L42 32 L30 32 L24 42 L18 32 L6 32 L12 22 L6 12 L18 12 Z" fill="none" stroke="#D4B46C" stroke-width="1.4"/>
+        <path d="M24 9 L28 16 L36 16 L31 23 L33 31 L24 27 L15 31 L17 23 L12 16 L20 16 Z" fill="#D4B46C" opacity=".85"/>
+        <circle cx="24" cy="22" r="4" fill="#0E6B4F" stroke="#EBD297" stroke-width="1"/>
+      </svg>
+    </div>
+    <div class="ld-title">XENORA</div>
+    <div class="ld-sub">Yuklanmoqda...</div>
+    <div class="ld-bar"><div class="ld-bar-fill" id="ldBar"></div></div>
+  </div>
+</div>
+
+<!-- Offline banner -->
+<div class="offline-banner" id="offlineBanner">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  Offline rejim — kesh ma'lumotlari ishlatilmoqda
+  <span id="offlinePendingCount" style="background:rgba(255,255,255,.2);border-radius:4px;padding:.125rem .375rem;margin-left:.25rem;display:none"></span>
+</div>
+
+<!-- Sync status badge -->
+<div id="syncBadge">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  <span id="syncBadgeText">0 ta kutmoqda</span>
+</div>
+
+<!-- ── POS ATMOSFERA (yengil vizual qatlam, panellar ortida) ── -->
+<div class="pos-atmos" aria-hidden="true">
+  <div class="pa-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="paPetal" d="M300 300 L311 165 L300 92 L289 165 Z" fill="none" stroke="#d4b46c" stroke-width="1"/></defs>
+      <g fill="none" stroke="#d4b46c" stroke-width="1">
+        <circle cx="300" cy="300" r="240"/><circle cx="300" cy="300" r="170"/>
+        <circle cx="300" cy="300" r="100"/>
+        <polygon points="300,96 477,300 300,504 123,300"/>
+        <rect x="180" y="180" width="240" height="240" transform="rotate(45 300 300)"/>
+      </g>
+      <g>
+        <use href="#paPetal" transform="rotate(0 300 300)"/><use href="#paPetal" transform="rotate(45 300 300)"/>
+        <use href="#paPetal" transform="rotate(90 300 300)"/><use href="#paPetal" transform="rotate(135 300 300)"/>
+        <use href="#paPetal" transform="rotate(180 300 300)"/><use href="#paPetal" transform="rotate(225 300 300)"/>
+        <use href="#paPetal" transform="rotate(270 300 300)"/><use href="#paPetal" transform="rotate(315 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="pa-glow g1"></div>
+  <div class="pa-glow g2"></div>
+</div>
+
+<!-- Main wrap -->
+<div class="pos-wrap">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo" title="XENORA"><svg width="28" height="28" viewBox="0 0 48 48" fill="none"><path d="M24 2 L30 12 L42 12 L36 22 L42 32 L30 32 L24 42 L18 32 L6 32 L12 22 L6 12 L18 12 Z" fill="none" stroke="var(--accent-gold,#D4B46C)" stroke-width="1.4"/><path d="M24 9 L28 16 L36 16 L31 23 L33 31 L24 27 L15 31 L17 23 L12 16 L20 16 Z" fill="var(--accent-gold,#D4B46C)" opacity=".85"/><circle cx="24" cy="22" r="4" fill="var(--primary,#0E6B4F)" stroke="#EBD297" stroke-width="1"/></svg></div>
+
+    <a href="pos.html"         class="nav-item active" title="POS" data-roles="*">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/></svg>
+      <span class="nav-label">POS Terminal</span>
+    </a>
+    <a href="kitchen.html"     class="nav-item" title="Oshxona" data-roles="admin manager kitchen waiter">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 8h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M8 4V2h8v2" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span class="nav-label">Oshxona</span>
+    </a>
+    <a href="reservations.html" class="nav-item" title="Bronlar" data-roles="admin manager waiter">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span class="nav-label">Bronlar</span>
+    </a>
+    <a href="customers.html"   class="nav-item" title="Mijozlar" data-roles="admin manager cashier">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span class="nav-label">Mijozlar</span>
+    </a>
+    <!-- Qaytarish (vozvrat) — RBAC: admin/menejer/kassir (OFITSIANT ko'rmaydi) -->
+    <a href="returns.html"     class="nav-item" title="Qaytarish" data-roles="admin manager cashier">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 14l-4-4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 10h11a4 4 0 014 4v0a4 4 0 01-4 4H7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-label">Qaytarish</span>
+    </a>
+    <a href="inventory.html"   class="nav-item" title="Ombor" data-roles="admin manager">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span class="nav-label">Ombor</span>
+    </a>
+    <a href="analytics.html"   class="nav-item" title="Analitika" data-roles="admin manager">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span class="nav-label">Analitika</span>
+    </a>
+    <a href="report.html"      class="nav-item" title="Hisobotlar" data-roles="admin manager">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2v6h6M8 13h8M8 17h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span class="nav-label">Hisobotlar</span>
+    </a>
+    <a href="admin.html"       class="nav-item" title="Admin" data-roles="admin manager">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2m0 16v2M4.22 4.22l1.42 1.42m12.72 12.72 1.42 1.42M2 12h2m16 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span class="nav-label">Admin</span>
+    </a>
+
+    <div class="sidebar-bottom">
+      <div class="user-chip">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div class="user-info-text">
+          <div class="user-name-text" id="userName">Foydalanuvchi</div>
+          <div class="user-role-text" id="userRole">Kassir</div>
+        </div>
+      </div>
+      <button class="nav-item" id="logoutBtn" title="Chiqish" style="color:var(--danger)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span class="nav-label">Chiqish</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="pos-main">
+
+    <!-- Header -->
+    <header class="pos-header">
+      <button class="icon-btn" id="sidebarToggle" title="Sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+
+      <div class="header-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" id="searchInput" placeholder="Mahsulot qidirish... (Ctrl+K)" autocomplete="off">
+        <kbd>⌘K</kbd>
+      </div>
+
+      <button class="table-btn" id="tableBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 17v2M18 17v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span id="tableBtnLabel">Stol tanlang</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+
+      <div class="hdr-actions">
+        <div class="ws-dot" id="wsDot" title="WebSocket"></div>
+        <button class="icon-btn" id="themeBtn" title="Tema">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button class="icon-btn" id="custDisplayBtn" title="Mijoz ekrani (ikkinchi monitor)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <button class="icon-btn" id="fullscreenBtn" title="To'liq ekran">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Body -->
+    <div class="pos-body">
+
+      <!-- Products -->
+      <div class="products-panel">
+        <!-- Barcode scanner row — magazin/supermarket rejimida ko'rinadi -->
+        <div class="barcode-row" id="barcodeRow">
+          <div class="barcode-input-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="2" height="16" fill="currentColor"/><rect x="6" y="4" width="1" height="16" fill="currentColor"/><rect x="9" y="4" width="2" height="16" fill="currentColor"/><rect x="13" y="4" width="1" height="16" fill="currentColor"/><rect x="16" y="4" width="2" height="16" fill="currentColor"/><rect x="20" y="4" width="2" height="16" fill="currentColor"/></svg>
+            <input type="text" id="barcodeInput" placeholder="Barkod skanerlang yoki kiriting... (F2)" autocomplete="off" inputmode="text">
+          </div>
+          <div class="barcode-scan-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/></svg>
+            F2
+          </div>
+          <span id="barcodeStatus">Tayyor</span>
+        </div>
+        <!-- Bo'limlar filtri — magazin/supermarket rejimida -->
+        <div id="deptsBar" style="display:none;padding:.375rem .75rem;background:var(--bg2);border-bottom:1px solid var(--border2)">
+          <div id="deptsBarBtns" style="display:flex;gap:.375rem;overflow-x:auto;scrollbar-width:none;padding-bottom:2px"></div>
+        </div>
+        <!-- Tez sotuv paneli (quick sell) — magazin/supermarket rejimida -->
+        <div id="quickSellPanel" style="display:none;padding:.5rem .75rem 0">
+          <div style="font-size:.75rem;color:var(--text3);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.05em">Tez sotuv</div>
+          <div id="quickSellButtons" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.5rem"></div>
+        </div>
+        <div class="cats-bar" id="catsBar">
+          <button class="cat-btn active" data-id="">Barchasi</button>
+        </div>
+        <div class="products-grid" id="productsGrid">
+          <div class="prod-empty"><div class="prod-empty-icon" style="animation:floatSm 2s ease-in-out infinite"><svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 2"/></svg></div><p>Yuklanmoqda...</p></div>
+        </div>
+      </div>
+
+      <!-- Cart -->
+      <div class="cart-panel" id="cartPanel">
+        <div class="cart-head">
+          <h2>Buyurtma</h2>
+          <button class="icon-btn" id="clearCartBtn" title="Tozalash">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <div class="cart-meta">
+          <button class="cust-btn" id="custBtn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.8"/></svg>
+            <span id="custBtnLabel">Mijoz tanlang</span>
+          </button>
+          <div class="otype-row">
+            <button class="otype-btn active" data-type="dine-in">Shu yerda</button>
+            <button class="otype-btn" data-type="takeaway">Olib ketish</button>
+            <button class="otype-btn" data-type="delivery">Yetkazish</button>
+          </div>
+        </div>
+
+        <div class="cart-items" id="cartItems">
+          <div class="cart-empty-state" id="cartEmpty">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M9 6h6M9 10h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span>Savatcha bo'sh</span>
+            <small style="font-size:.75rem;color:var(--text3)">Mahsulot bosing</small>
+          </div>
+        </div>
+
+        <div class="cart-totals">
+          <div class="tot-row"><span>Jami:</span><span id="totSubtotal">0 UZS</span></div>
+          <div class="tot-row disc" id="discRow" style="display:none"><span>Chegirma:</span><span id="totDiscount">0 UZS</span></div>
+          <div class="tot-row" id="taxRow"><span>Soliq (12%):</span><span id="totTax">0 UZS</span></div>
+          <div class="tot-row" id="svcRow"><span>Xizmat (10%):</span><span id="totService">0 UZS</span></div>
+          <div class="tot-row main"><span>Umumiy:</span><span id="totTotal">0 UZS</span></div>
+        </div>
+
+        <div class="cart-actions">
+          <button class="btn btn-ghost" id="holdBtn" style="padding:.5625rem .75rem" title="Saqlash (F8)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" stroke-width="1.8"/><path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" stroke-width="1.8"/></svg>
+          </button>
+          <button class="btn btn-gold" id="checkoutBtn" disabled>
+            To'lov (F9)
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+
+        <div class="quick-actions">
+          <button class="qa-btn" data-action="discount">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" stroke="currentColor" stroke-width="1.8"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>
+            <span>Chegirma</span>
+          </button>
+          <button class="qa-btn" data-action="notes">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M9 13h6M9 17h4M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Izoh</span>
+          </button>
+          <button class="qa-btn" data-action="split">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Bo'lish</span>
+          </button>
+          <button class="qa-btn" data-action="print">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 21h12v-6H6v6z" stroke="currentColor" stroke-width="1.8"/><path d="M18 9h2a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="1.8"/></svg>
+            <span>Chek</span>
+          </button>
+          <button class="qa-btn" id="voiceOrderBtn" title="Oshxonaga ovozli e'lon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" stroke="currentColor" stroke-width="1.8"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Ovoz</span>
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /pos-body -->
+  </div><!-- /pos-main -->
+</div><!-- /pos-wrap -->
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Table modal -->
+<div class="modal-wrap" id="tableModal">
+  <div class="modal-overlay" data-close="tableModal"></div>
+  <div class="modal-box wide">
+    <div class="modal-header">
+      <h3>Stol tanlash</h3>
+      <button class="close-btn" data-close="tableModal">✕</button>
+    </div>
+    <div class="modal-body" id="floorPlan" style="max-height:65vh;overflow-y:auto"></div>
+    <!-- Table merge (BOSQICH 9: TABLE_MERGE) -->
+    <div id="mergeBar" style="display:none;padding:.75rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);background:rgba(212,180,108,.06)">
+      <div style="font-size:.8125rem;color:var(--text2);margin-bottom:.5rem">Birlashtiriladigan stollar: <span id="mergeList" style="color:var(--gold);font-weight:600"></span></div>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('mergeSelIds').innerHTML='';updateMergeBar()">Bekor</button>
+        <button class="btn btn-sm btn-gold" id="doMergeBtn">Stollarni birlashtirish</button>
+      </div>
+    </div>
+    <div id="mergeSelIds" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Payment modal -->
+<div class="modal-wrap" id="paymentModal">
+  <div class="modal-overlay" data-close="paymentModal"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>To'lov</h3>
+      <button class="close-btn" data-close="paymentModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="offlinePayBadge" style="display:none;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#f59e0b;border-radius:.5rem;padding:.375rem .875rem;font-size:.8125rem;font-weight:600;text-align:center;margin-bottom:.75rem">
+        ⚡ Offline rejim — to'lov internet tiklanganда yuboriladi
+      </div>
+      <div class="pay-total">
+        <div class="pay-order-num">Buyurtma #<span id="payOrderNum">—</span></div>
+        <div class="pay-total-label">To'lov summasi</div>
+        <div class="pay-total-amt" id="payTotalAmt">0 UZS</div>
+      </div>
+      <div class="pay-methods">
+        <button class="pay-method active" data-method="cash">
+          <svg class="pm-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+          <span>Naqd</span>
+        </button>
+        <button class="pay-method" data-method="card">
+          <svg class="pm-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M2 10h20" stroke="currentColor" stroke-width="1.8"/></svg>
+          <span>Karta</span>
+        </button>
+        <button class="pay-method" data-method="click">
+          <svg class="pm-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Click</span>
+        </button>
+        <button class="pay-method" data-method="payme">
+          <svg class="pm-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 12H4M12 20V4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Payme</span>
+        </button>
+        <!-- Mehmonxona: Xonaga yozish (hotel mode da ko'rinadi) -->
+        <button class="pay-method" data-method="room_charge" id="roomChargeMethod" style="display:none">
+          <div class="pm-icon" style="font-size:1.4rem;line-height:1.4;text-align:center">🏨</div>
+          <span>Xonaga</span>
+        </button>
+        <!-- Bosqich 19: Nasiya (store/supermarket mode da ko'rinadi) -->
+        <button class="pay-method" data-method="credit" id="creditMethod" style="display:none">
+          <svg class="pm-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V18h-2v-1.07C9.39 16.57 8 15.4 8 14c0-.55.45-1 1-1s1 .45 1 1c0 .55.45 1 1 1h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-1.66 0-3-1.34-3-3 0-1.4 1.39-2.57 3-2.93V6h2v1.07c1.61.36 3 1.53 3 2.93 0 .55-.45 1-1 1s-1-.45-1-1c0-.55-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1h2c1.66 0 3 1.34 3 3 0 1.4-1.39 2.57-3 2.93z" fill="currentColor"/></svg>
+          <span>Nasiya</span>
+        </button>
+      </div>
+      <div class="cash-section" id="cashSection">
+        <div class="cash-label">Qabul qilingan summa</div>
+        <div class="cash-input-wrap">
+          <input type="number" id="cashInput" placeholder="0" min="0" step="1000">
+          <span>UZS</span>
+        </div>
+        <div class="cash-btns">
+          <button class="cash-preset" data-amt="10000">10 000</button>
+          <button class="cash-preset" data-amt="20000">20 000</button>
+          <button class="cash-preset" data-amt="50000">50 000</button>
+          <button class="cash-preset" data-amt="100000">100 000</button>
+          <button class="cash-preset exact" id="exactBtn">Aniq summa</button>
+        </div>
+      </div>
+      <div class="change-row" id="changeRow" style="display:none">
+        <span>Qaytim:</span>
+        <span id="changeAmt">0 UZS</span>
+      </div>
+      <!-- Tips (choy puli) -->
+      <div id="tipsSection" style="margin-top:.875rem;padding-top:.875rem;border-top:1px solid rgba(255,255,255,.08)">
+        <div class="cash-label">Choy puli (tips)</div>
+        <div style="display:flex;gap:.375rem;margin-top:.375rem">
+          <button class="cash-preset tip-preset" data-tip="0">0%</button>
+          <button class="cash-preset tip-preset" data-tip="5">5%</button>
+          <button class="cash-preset tip-preset" data-tip="10">10%</button>
+          <button class="cash-preset tip-preset" data-tip="15">15%</button>
+          <button class="cash-preset tip-preset" data-tip="custom">Boshqa</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
+          <input type="number" id="tipInput" placeholder="0" min="0" step="1000" style="flex:1;background:var(--bg3);border:1px solid rgba(255,255,255,.08);border-radius:.5rem;padding:.4rem .75rem;color:var(--text);outline:none;font-family:inherit">
+          <span style="font-size:.875rem;color:var(--text2)">UZS</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--text3);margin-top:.3rem">Jami tip: <span id="tipDisplay" style="color:var(--gold)">0 UZS</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close="paymentModal">Bekor</button>
+      <button class="btn btn-gold" id="doPayBtn">To'lovni amalga oshirish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt modal -->
+<div class="modal-wrap" id="receiptModal">
+  <div class="modal-overlay" data-close="receiptModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Chek</h3>
+      <button class="close-btn" data-close="receiptModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="receipt-wrap" id="receiptBody"></div>
+      <div class="receipt-actions">
+        <button class="btn btn-ghost" id="printReceiptBtn" style="flex:1">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 21h12v-6H6v6z" stroke="currentColor" stroke-width="1.8"/><path d="M18 9h2a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="1.8"/></svg>
+          Chop etish
+        </button>
+        <button class="btn btn-gold" data-close="receiptModal" style="flex:1">Yopish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Split modal -->
+<div class="modal-wrap" id="splitModal">
+  <div class="modal-overlay" data-close="splitModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Hisobni bo'lish</h3>
+      <button class="close-btn" data-close="splitModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="split-total-box">
+        <div style="font-size:.875rem;color:var(--text2);margin-bottom:.25rem">Umumiy summa</div>
+        <div class="amt" id="splitTotalAmt">0 UZS</div>
+      </div>
+      <div class="form-group"><label>Nechta kishiga bo'linadi?</label>
+        <div class="split-ways-row">
+          <button class="ways-quick" data-w="2">2</button>
+          <button class="ways-quick" data-w="3">3</button>
+          <button class="ways-quick" data-w="4">4</button>
+          <button class="ways-quick" data-w="5">5</button>
+          <input class="ways-input" type="number" id="splitWaysInput" value="2" min="2" max="20">
+        </div>
+      </div>
+      <div class="split-result" id="splitResult">
+        <div class="per" id="splitPerPerson">0 UZS</div>
+        <div class="per-label">har bir kishi uchun</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close="splitModal">Yopish</button>
+      <button class="btn btn-gold" id="doSplitBtn">Hisoblash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Customer modal -->
+<div class="modal-wrap" id="customerModal">
+  <div class="modal-overlay" data-close="customerModal"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Mijoz tanlash</h3>
+      <button class="close-btn" data-close="customerModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="cust-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" id="custSearch" placeholder="Telefon yoki ism...">
+      </div>
+      <div class="cust-list" id="custList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Discount modal -->
+<div class="modal-wrap" id="discountModal">
+  <div class="modal-overlay" data-close="discountModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Chegirma</h3>
+      <button class="close-btn" data-close="discountModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="disc-type-row">
+        <button class="disc-type-btn active" data-dtype="pct">Foiz (%)</button>
+        <button class="disc-type-btn" data-dtype="sum">Summa (UZS)</button>
+      </div>
+      <div class="form-group">
+        <label id="discLabel">Foiz miqdori</label>
+        <div class="input-suffix-wrap">
+          <input type="number" id="discValue" placeholder="0" min="0" class="form-input" style="border:none;background:transparent">
+          <span id="discUnit">%</span>
+        </div>
+      </div>
+      <div class="disc-presets" id="discPresets">
+        <button class="disc-preset" data-v="5">5%</button>
+        <button class="disc-preset" data-v="10">10%</button>
+        <button class="disc-preset" data-v="15">15%</button>
+        <button class="disc-preset" data-v="20">20%</button>
+        <button class="disc-preset" data-v="25">25%</button>
+        <button class="disc-preset" data-v="50">50%</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close="discountModal">Bekor</button>
+      <button class="btn btn-gold" id="applyDiscBtn">Qo'llash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Weight / tarozi modali (kg, g, l mahsulotlar uchun) -->
+<div class="modal-wrap" id="weightModal">
+  <div class="modal-overlay"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Og'irlik kiriting</h3>
+      <button class="close-btn" data-close="weightModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="weight-display">
+        <div class="weight-prod-name" id="weightProdName">Mahsulot</div>
+        <div class="weight-price-hint" id="weightPriceHint">0 UZS / kg</div>
+        <div class="weight-input-row">
+          <input type="number" id="weightInput" placeholder="0.000" step="0.001" min="0.001">
+          <span class="weight-unit-lbl" id="weightUnitLbl">kg</span>
+        </div>
+        <div class="weight-presets" id="weightPresets">
+          <button class="w-preset" data-w="0.1">100g</button>
+          <button class="w-preset" data-w="0.25">250g</button>
+          <button class="w-preset" data-w="0.5">500g</button>
+          <button class="w-preset" data-w="1">1 kg</button>
+          <button class="w-preset" data-w="1.5">1.5 kg</button>
+          <button class="w-preset" data-w="2">2 kg</button>
+        </div>
+      </div>
+      <div class="weight-total-preview" id="weightTotalPreview">
+        <div class="wt-label">Jami narx</div>
+        <div class="wt-amount" id="weightTotalAmt">0 UZS</div>
+      </div>
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:.5rem">
+      <button class="btn btn-outline" id="scaleConnectBtn" title="Elektron tarozini ulash (USB/Serial)" style="font-size:.8rem">⚖️ Tarozi</button>
+      <button class="btn btn-outline" data-close="weightModal">Bekor</button>
+      <button class="btn btn-gold" id="confirmWeightBtn">Savatga qo'shish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modifier modal -->
+<div class="modal-wrap" id="modifierModal">
+  <div class="modal-overlay" onclick=""></div>
+  <div class="modal-box wide">
+    <div class="modal-header">
+      <h3 id="modProdName">Mahsulot tanlovi</h3>
+      <button class="close-btn" id="modCloseBtn">×</button>
+    </div>
+    <div class="modal-body" id="modBody" style="display:flex;flex-direction:column;gap:1rem"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="modCancelBtn">Bekor</button>
+      <button class="btn btn-primary" id="modConfirmBtn">Qo'shish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto servis: Avtomobil ma'lumotlari modal -->
+<div class="modal-wrap" id="carModal">
+  <div class="modal-overlay" data-close="carModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Avtomobil ma'lumotlari</h3>
+      <button class="close-btn" data-close="carModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Davlat raqami <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="carPlate" class="form-input" placeholder="01 A 123 BC" autocomplete="off" style="text-transform:uppercase;font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;letter-spacing:.08em">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.625rem">
+        <div class="form-group">
+          <label>Marka</label>
+          <input type="text" id="carMake" class="form-input" placeholder="Chevrolet...">
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" id="carModel" class="form-input" placeholder="Cobalt...">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Yil</label>
+        <input type="number" id="carYear" class="form-input" placeholder="2020" min="1970" max="2030">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="carClearBtn">Tozalash</button>
+      <button class="btn btn-gold" id="carConfirmBtn">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Maktab: O'quvchi ma'lumotlari modal -->
+<div class="modal-wrap" id="studentModal">
+  <div class="modal-overlay" data-close="studentModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>O'quvchi ma'lumotlari</h3>
+      <button class="close-btn" data-close="studentModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Ism Familiya <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="studentName" class="form-input" placeholder="Ali Valiyev">
+      </div>
+      <div class="form-group">
+        <label>Telefon</label>
+        <input type="tel" id="studentPhone" class="form-input" placeholder="+998 90 000 00 00">
+      </div>
+      <div class="form-group">
+        <label>Guruh / Sinf</label>
+        <input type="text" id="studentGroup" class="form-input" placeholder="9-A yoki Python Advanced">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="studentClearBtn">Tozalash</button>
+      <button class="btn btn-gold" id="studentConfirmBtn">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Kimyoviy tozalash: Buyurtma ma'lumotlari modal -->
+<div class="modal-wrap" id="cleaningModal">
+  <div class="modal-overlay" data-close="cleaningModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Kiyim buyurtmasi</h3>
+      <button class="close-btn" data-close="cleaningModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Kiyim turi <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="cleaningItems" class="form-input" placeholder="Kurtka, shim, ko'ylak...">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <div class="form-group">
+          <label>Rang</label>
+          <input type="text" id="cleaningColor" class="form-input" placeholder="Qora, ko'k...">
+        </div>
+        <div class="form-group">
+          <label>Tayyor sana</label>
+          <input type="date" id="cleaningPickupDate" class="form-input">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Eslatma</label>
+        <input type="text" id="cleaningNotes" class="form-input" placeholder="Dog' bor, ehtiyot bo'ling...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="cleaningClearBtn">Tozalash</button>
+      <button class="btn btn-gold" id="cleaningConfirmBtn">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fitness / Maktab: Membership / Abonement modal -->
+<div class="modal-wrap" id="membershipModal">
+  <div class="modal-overlay"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3 id="membershipModalTitle">Abonement</h3>
+      <button class="close-btn" data-close="membershipModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="membership-info-box">
+        <div class="period-main" id="membershipPeriodLbl">1 oy</div>
+        <div class="period-label" id="membershipProdName">Abonement</div>
+      </div>
+      <div class="form-group">
+        <label id="membershipStartLbl">Boshlanish sanasi</label>
+        <input type="date" id="membershipStartDate" class="form-input">
+      </div>
+      <input type="hidden" id="membershipEndDateVal">
+      <div class="membership-end-display">
+        <div class="end-label">Amal qilish muddati</div>
+        <div class="end-date" id="membershipEndDateLbl">—</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" data-close="membershipModal">Bekor</button>
+      <button class="btn btn-gold" id="confirmMembershipBtn">Savatga qo'shish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Service: Xodim / Master tanlash modal -->
+<div class="modal-wrap" id="staffModal">
+  <div class="modal-overlay" data-close="staffModal"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Xodim tanlash</h3>
+      <button class="close-btn" data-close="staffModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="cust-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" id="staffSearch" placeholder="Xodim ismi...">
+      </div>
+      <div class="cust-list" id="staffList">
+        <div style="padding:1rem;color:var(--text3);text-align:center">Yuklanmoqda...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="staffClearBtn">Tanlovni bekor qilish</button>
+      <button class="btn btn-ghost" data-close="staffModal">Yopish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pharmacy: Prescription / Retsept modal -->
+<div class="modal-wrap" id="rxModal">
+  <div class="modal-overlay" data-close="rxModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Retsept ma'lumotlari</h3>
+      <button class="close-btn" data-close="rxModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Bemor ismi <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="rxPatientName" class="form-input" placeholder="F.I.O." autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label>Telefon raqami</label>
+        <input type="tel" id="rxPatientPhone" class="form-input" placeholder="+998 XX XXX XX XX" autocomplete="tel">
+      </div>
+      <div class="form-group">
+        <label>Retsept raqami <span style="font-size:.75rem;color:var(--text3)">(ixtiyoriy)</span></label>
+        <input type="text" id="rxNumber" class="form-input" placeholder="№ ___________">
+      </div>
+      <div style="font-size:.75rem;color:var(--text3);margin-top:-.25rem">
+        F3 tugmasi bilan tez ochish mumkin
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="rxClearBtn">Tozalash</button>
+      <button class="btn btn-gold" id="rxConfirmBtn">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Kassa tanlash + smena ochish (cash_register flagi yoqilganda) -->
+<div class="modal-wrap" id="openShiftGate">
+  <div class="modal-overlay"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Kassani tanlang</h3>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.82rem;color:var(--text3);margin-bottom:1rem">Ishni boshlash uchun kassani tanlang va smenani oching.</p>
+      <div style="margin-bottom:1rem">
+        <label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem">Kassa</label>
+        <select id="gateRegister" class="form-input" style="width:100%"></select>
+      </div>
+      <div>
+        <label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem">Boshlang'ich naqd pul (so'm)</label>
+        <input id="gateStartCash" type="number" class="form-input" value="0" min="0" placeholder="0" style="width:100%">
+      </div>
+      <div id="gateError" style="display:none;color:#ef4444;font-size:.8rem;margin-top:.75rem"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-gold" id="gateOpenBtn">Smenani ochish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts"></div>
+
+<!-- SW -->
+<script>
+if('serviceWorker' in navigator)
+  navigator.serviceWorker.register('../pwa/service-worker.js').catch(()=>{});
+
+  // ── Dark/Light mode toggle ──────────────────────────────────────────────────
+  (function() {
+    const html = document.documentElement;
+    const saved = localStorage.getItem('theme') || 'dark';
+    html.setAttribute('data-theme', saved);
+
+    function applyTheme(t) {
+      html.setAttribute('data-theme', t);
+      localStorage.setItem('theme', t);
+      const btn = document.getElementById('themeBtn');
+      if (btn) {
+        btn.title = t === 'dark' ? 'Yorug\' rejim' : 'Qoʻngʻir rejim';
+        btn.innerHTML = t === 'dark'
+          ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+          : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+    }
+
+    applyTheme(saved);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('themeBtn');
+      btn?.addEventListener('click', () => {
+        const cur = html.getAttribute('data-theme') || 'dark';
+        applyTheme(cur === 'dark' ? 'light' : 'dark');
+      });
+    });
+  })();
+</script>
+
+<script type="module">
+import { initErrorHandler } from '../js/core/error-handler.js';
+initErrorHandler();
+</script>
+<script type="module" src="../js/modules/pos.js"></script>
+
+<!-- POS: umumiy summa o'zgarganda yengil highlight (vizual only, sotuvga tegmaydi) -->
+<script>
+(function(){
+  var el = document.getElementById('totTotal');
+  if (!el || window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  var last = el.textContent;
+  new MutationObserver(function(){
+    if (el.textContent === last) return;
+    last = el.textContent;
+    el.classList.remove('tot-flash');
+    void el.offsetWidth;            // reflow → animatsiyani qayta ishga tushiradi
+    el.classList.add('tot-flash');
+  }).observe(el, { childList:true, characterData:true, subtree:true });
+})();
+</script>
+
+<!-- Tenant zaxira — do'kon admin sessiyasида kunда 2 marta avtomatik (Electron) + qo'lда tugma -->
+<script type="module" src="../js/core/tenant-backup.js"></script>
+</body>
+</html>

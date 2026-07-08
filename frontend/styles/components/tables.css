@@ -1,0 +1,15 @@
+/* ── Tables ──────────────────────────────────────────────────────────────────── */
+.table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius-xl,1rem);border:1px solid var(--glass-border)}
+.table{width:100%;border-collapse:collapse;font-size:.875rem}
+.table th{text-align:left;padding:.75rem 1rem;color:var(--gray-500,#9a9ab8);font-size:.8125rem;font-weight:600;border-bottom:1px solid var(--glass-border);background:var(--glass-bg-light,rgba(255,255,255,.03));white-space:nowrap}
+.table td{padding:.75rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.table tr:last-child td{border:none}
+.table-hover tbody tr:hover td{background:var(--glass-bg-light)}
+.table-striped tbody tr:nth-child(odd) td{background:rgba(255,255,255,.02)}
+.table-compact th,.table-compact td{padding:.5rem .75rem;font-size:.8125rem}
+.table-nowrap td,.table-nowrap th{white-space:nowrap}
+.col-actions{width:100px;text-align:right}
+.col-actions td,.col-actions th{text-align:right}
+.table .actions{display:flex;gap:.375rem;justify-content:flex-end}
+/* Inline status badges in tables */
+.table .status-badge{padding:.2rem .6rem;border-radius:999px;font-size:.6875rem;font-weight:600;display:inline-flex;align-items:center;gap:.25rem}

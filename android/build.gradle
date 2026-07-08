@@ -1,0 +1,45 @@
+// Top-level build file
+buildscript {
+    apply from: 'variables.gradle'
+    
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+        classpath 'com.google.gms:google-services:4.4.0'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.9'
+        
+        // Performance plugin
+        classpath 'com.google.firebase:perf-plugin:1.4.2'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+// Global sozlamalar
+ext {
+    // Build konfiguratsiyasi
+    buildToolsVersion = "34.0.0"
+    
+    // Support kutubxonalari
+    supportLibVersion = "28.0.0"
+    
+    // Google Play Services
+    playServicesVersion = "18.2.0"
+    firebaseMessagingVersion = "23.3.0"
+}

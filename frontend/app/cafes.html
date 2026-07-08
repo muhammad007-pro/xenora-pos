@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Kafelar | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--r:.5rem;--r2:.875rem;--r3:1.125rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem}
+.cafe-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.5rem;transition:.2s}
+.cafe-card:hover{border-color:var(--border2)}
+.cafe-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.875rem}
+.cafe-name{font-size:1rem;font-weight:700}
+.cafe-code{font-family:monospace;font-size:.8125rem;padding:.2rem .5rem;background:var(--bg3);border-radius:.25rem;color:var(--text2)}
+.cafe-details{margin-bottom:.875rem;display:flex;flex-direction:column;gap:.375rem}
+.cafe-details p{font-size:.8125rem;color:var(--text2);display:flex;align-items:center;gap:.375rem}
+.cafe-stats{display:flex;gap:1.5rem;padding:.875rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:.875rem}
+.stat-item{text-align:center}
+.stat-value{font-size:1.25rem;font-weight:700;color:var(--gold)}
+.stat-label{font-size:.75rem;color:var(--text3);margin-top:.15rem}
+.cafe-foot{display:flex;gap:.5rem}
+.cafe-foot .btn{flex:1}
+.badge{padding:.2rem .5rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.b-active{background:rgba(16,185,129,.12);color:var(--green)}.b-inactive{background:rgba(239,68,68,.1);color:var(--red)}
+.empty{text-align:center;padding:3rem;color:var(--text3);grid-column:1/-1}
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}.mf .btn{flex:1}
+.fg{margin-bottom:1rem}.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.fg input:focus,.fg select:focus{border-color:var(--gold)}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+
+/* ─── Feature Toggle Modal ─── */
+.fmc{max-width:600px}
+.ft-search{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.45rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;margin-bottom:1rem;transition:.2s}
+.ft-search:focus{border-color:var(--gold)}
+.ft-group{margin-bottom:1.125rem}
+.ft-group-title{font-size:.75rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;padding-bottom:.375rem;border-bottom:1px solid var(--border)}
+.ft-row{display:flex;align-items:center;justify-content:space-between;padding:.5rem .375rem;border-radius:var(--r);transition:.15s;cursor:default}
+.ft-row:hover{background:rgba(255,255,255,.03)}
+.ft-row.ft-off .ft-label{opacity:.5}
+.ft-left{display:flex;align-items:center;gap:.625rem;flex:1;min-width:0}
+.ft-icon{font-size:1.1rem;width:1.4rem;text-align:center;flex-shrink:0}
+.ft-label{font-size:.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ft-badges{display:flex;gap:.3rem;align-items:center;margin-left:.5rem}
+.ft-def{font-size:.68rem;padding:.1rem .35rem;border-radius:99px;background:rgba(212,180,108,.12);color:var(--gold);font-weight:600;white-space:nowrap}
+/* Toggle switch */
+.tg{position:relative;width:40px;height:22px;flex-shrink:0}
+.tg input{opacity:0;width:0;height:0;position:absolute}
+.tg-sl{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:99px;cursor:pointer;transition:.25s}
+.tg-sl:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.25s}
+.tg input:checked+.tg-sl{background:var(--green)}
+.tg input:checked+.tg-sl:before{transform:translateX(18px)}
+.ft-stats{display:flex;gap:1rem;padding:.75rem 0;margin-bottom:.75rem;border-bottom:1px solid var(--border)}
+.ft-stat{text-align:center;flex:1}
+.ft-stat-n{font-size:1.25rem;font-weight:700;color:var(--gold)}
+.ft-stat-l{font-size:.7rem;color:var(--text3);margin-top:.1rem}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Kafelar</h1>
+  <button class="btn btn-gold" id="addCafeBtn">+ Yangi kafe</button>
+</header>
+<div class="pc">
+  <div class="grid" id="cafesGrid"><div class="empty">Yuklanmoqda...</div></div>
+</div>
+
+<div class="modal" id="cafeModal">
+  <div class="mc">
+    <div class="mh"><h3 id="modalTitle">Yangi kafe</h3><div class="mc-x" onclick="cm()">×</div></div>
+    <div class="mb">
+      <input type="hidden" id="cafeId">
+      <div class="fg"><label>Kafe nomi *</label><input id="cafeName" placeholder="Premium Toshkent"></div>
+      <div class="fg"><label>Kod *</label><input id="cafeCode" placeholder="tashkent"></div>
+      <div class="fg"><label>Manzil</label><input id="cafeAddress" placeholder="Amir Temur 15"></div>
+      <div class="fg"><label>Telefon</label><input id="cafePhone" placeholder="+998 71 123 45 67" type="tel"></div>
+      <div class="fg"><label>Email</label><input id="cafeEmail" placeholder="info@cafe.uz" type="email"></div>
+      <div class="fg"><label>Tarif rejasi</label>
+        <select id="subscriptionPlan">
+          <option value="free">FREE</option>
+          <option value="pro">PRO</option>
+        </select>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="cm()">Bekor</button>
+      <button class="btn btn-gold" id="saveCafeBtn" onclick="saveCafe()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Feature Toggle Modal -->
+<div class="modal" id="ftModal">
+  <div class="mc fmc">
+    <div class="mh">
+      <div>
+        <h3 id="ftTitle">Funksiyalar</h3>
+        <div id="ftSubtitle" style="font-size:.78rem;color:var(--text3);margin-top:.2rem"></div>
+      </div>
+      <div class="mc-x" onclick="ftClose()">×</div>
+    </div>
+    <div class="mb" id="ftBody">
+      <div class="ft-stats">
+        <div class="ft-stat"><div class="ft-stat-n" id="ftCntOn">—</div><div class="ft-stat-l">Yoqilgan</div></div>
+        <div class="ft-stat"><div class="ft-stat-n" id="ftCntOff">—</div><div class="ft-stat-l">O'chirilgan</div></div>
+        <div class="ft-stat"><div class="ft-stat-n" id="ftCntTotal">—</div><div class="ft-stat-l">Jami</div></div>
+      </div>
+      <input class="ft-search" id="ftSearch" placeholder="🔍 Funksiya qidirish..." oninput="ftFilter(this.value)">
+      <div id="ftList"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="ftClose()">Bekor</button>
+      <button class="btn btn-out" onclick="ftReset()" style="color:#f59e0b;border-color:#f59e0b44">Default</button>
+      <button class="btn btn-gold" id="ftSaveBtn" onclick="ftSave()">💾 Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1',tok=()=>localStorage.getItem('access_token');
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,b)=>fetch(`${BASE}${u}`,{method:'POST',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+};
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+let cafes=[];
+
+async function load(){
+  const res=await api.get('/cafes?page_size=200').catch(()=>null);
+  cafes=res?.items??(Array.isArray(res)?res:res?.data?.items??res?.data??[]);
+  render();
+}
+
+function render(){
+  const grid=document.getElementById('cafesGrid');
+  if(!cafes.length){grid.innerHTML='<div class="empty">Kafelar mavjud emas</div>';return;}
+  grid.innerHTML=cafes.map(c=>`
+    <div class="cafe-card">
+      <div class="cafe-card-head">
+        <div>
+          <div class="cafe-name">${esc(c.name)}</div>
+          <div class="cafe-code">${esc(c.code)}</div>
+        </div>
+        <span class="badge ${c.is_active!==false?'b-active':'b-inactive'}">${c.is_active!==false?'Faol':'Nofaol'}</span>
+      </div>
+      <div class="cafe-details">
+        ${c.address?`<p>📍 ${esc(c.address)}</p>`:''}
+        ${c.phone?`<p>📞 ${esc(c.phone)}</p>`:''}
+        ${c.email?`<p>✉️ ${esc(c.email)}</p>`:''}
+      </div>
+      <div class="cafe-stats">
+        <div class="stat-item"><div class="stat-value">${c.employees_count||0}</div><div class="stat-label">Xodimlar</div></div>
+        <div class="stat-item"><div class="stat-value" style="font-size:.9rem">${esc(c.subscription_plan||'free')}</div><div class="stat-label">Tarif</div></div>
+      </div>
+      <div class="cafe-foot">
+        <button class="btn btn-out btn-sm" onclick="editCafe(${c.id})">Tahrirlash</button>
+        <button class="btn btn-out btn-sm" onclick="ftOpen(${c.id},'${esc(c.name)}','${esc(c.business_type||'')}')">⚙️ Funksiyalar</button>
+        <button class="btn btn-out btn-sm" onclick="toggleCafe(${c.id})">${c.is_active!==false?"O'chirish":'Yoqish'}</button>
+      </div>
+    </div>`).join('');
+}
+
+function om(){document.getElementById('cafeModal').classList.add('open');}
+function cm(){document.getElementById('cafeModal').classList.remove('open');}
+
+document.getElementById('addCafeBtn').addEventListener('click',()=>{
+  document.getElementById('modalTitle').textContent='Yangi kafe';
+  ['cafeId','cafeName','cafeCode','cafeAddress','cafePhone','cafeEmail'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('subscriptionPlan').value='free';
+  om();
+});
+
+function editCafe(id){
+  const c=cafes.find(x=>x.id===id);if(!c)return;
+  document.getElementById('modalTitle').textContent='Kafeni tahrirlash';
+  document.getElementById('cafeId').value=c.id;
+  document.getElementById('cafeName').value=c.name||'';
+  document.getElementById('cafeCode').value=c.code||'';
+  document.getElementById('cafeAddress').value=c.address||'';
+  document.getElementById('cafePhone').value=c.phone||'';
+  document.getElementById('cafeEmail').value=c.email||'';
+  document.getElementById('subscriptionPlan').value=c.subscription_plan||'free';
+  om();
+}
+
+async function saveCafe(){
+  const name=document.getElementById('cafeName').value.trim();
+  const code=document.getElementById('cafeCode').value.trim();
+  if(!name||!code){showT('Nomi va kod majburiy','warning');return;}
+  const id=document.getElementById('cafeId').value;
+  const body={name,code,address:document.getElementById('cafeAddress').value||null,phone:document.getElementById('cafePhone').value||null,email:document.getElementById('cafeEmail').value||null,subscription_plan:document.getElementById('subscriptionPlan').value};
+  const btn=document.getElementById('saveCafeBtn');btn.disabled=true;btn.textContent='...';
+  try{
+    if(id) await api.patch(`/cafes/${id}`,body);
+    else   await api.post('/cafes',body);
+    showT('Saqlandi','success');cm();load();
+  }catch{showT('Xatolik','error');}
+  finally{btn.disabled=false;btn.textContent='Saqlash';}
+}
+
+async function toggleCafe(id){
+  const c=cafes.find(x=>x.id===id);if(!c)return;
+  await api.patch(`/cafes/${id}`,{is_active:c.is_active===false}).catch(()=>null);
+  showT('Holat o\'zgartirildi','success');load();
+}
+
+function showT(m,t='info'){const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b'};const el=document.createElement('div');el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${c[t]};color:${c[t]};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4)`;el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+// ─── Feature Toggle ──────────────────────────────────────────────────────────
+const BIZ_LABELS={'restaurant':'Restoran','cafe':'Kafe','fast_food':'Fast Food','store':'Magazin','supermarket':'Supermarket','pharmacy':'Dorixona','salon':"Go'zallik saloni",'fitness':'Fitnes','auto_service':'Auto servis','school':"O'quv markazi",'hotel':'Mehmonxona','dry_cleaning':'Kimyoviy tozalash'};
+let _ftId=null, _ftFeatures=[], _ftStates={};
+
+async function ftOpen(id,name,bizType){
+  _ftId=id; _ftStates={};
+  document.getElementById('ftTitle').textContent=name+' — Funksiyalar';
+  document.getElementById('ftSubtitle').textContent=BIZ_LABELS[bizType]||bizType;
+  document.getElementById('ftSearch').value='';
+  document.getElementById('ftList').innerHTML='<div style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</div>';
+  document.getElementById('ftModal').classList.add('open');
+  try{
+    const res=await api.get(`/super-admin/tenants/${id}/features`);
+    _ftFeatures=res.features||[];
+    // Boshlang'ich holat
+    _ftFeatures.forEach(f=>{ _ftStates[f.key]=f.is_enabled; });
+    ftRender(_ftFeatures);
+  }catch(e){
+    document.getElementById('ftList').innerHTML='<div style="color:#ef4444;padding:1rem">Xatolik yuz berdi</div>';
+  }
+}
+
+function ftClose(){
+  document.getElementById('ftModal').classList.remove('open');
+  _ftId=null; _ftFeatures=[]; _ftStates={};
+}
+
+function ftRender(features){
+  // Guruhlab ko'rsatish
+  const groups={};
+  features.forEach(f=>{
+    if(!groups[f.group]) groups[f.group]=[];
+    groups[f.group].push(f);
+  });
+  const on=Object.values(_ftStates).filter(Boolean).length;
+  const total=Object.keys(_ftStates).length;
+  document.getElementById('ftCntOn').textContent=on;
+  document.getElementById('ftCntOff').textContent=total-on;
+  document.getElementById('ftCntTotal').textContent=total;
+
+  const groupOrder=['Restoran','Umumiy','Magazin','Dorixona','Xizmat'];
+  let html='';
+  groupOrder.forEach(g=>{
+    if(!groups[g]||!groups[g].length) return;
+    html+=`<div class="ft-group"><div class="ft-group-title">${g}</div>`;
+    groups[g].forEach(f=>{
+      const on=_ftStates[f.key];
+      const defBadge=f.is_default?'<span class="ft-def">default</span>':'';
+      html+=`<div class="ft-row${on?'':' ft-off'}" id="ftr-${f.key}">
+        <div class="ft-left">
+          <span class="ft-icon">${f.icon}</span>
+          <span class="ft-label">${esc(f.name)}</span>
+          <div class="ft-badges">${defBadge}</div>
+        </div>
+        <label class="tg">
+          <input type="checkbox" ${on?'checked':''} onchange="ftToggle('${f.key}',this.checked)">
+          <span class="tg-sl"></span>
+        </label>
+      </div>`;
+    });
+    html+='</div>';
+  });
+  document.getElementById('ftList').innerHTML=html||'<div style="color:var(--text3);padding:1rem;text-align:center">Natija topilmadi</div>';
+}
+
+function ftToggle(key, checked){
+  _ftStates[key]=checked;
+  const row=document.getElementById('ftr-'+key);
+  if(row){ if(checked) row.classList.remove('ft-off'); else row.classList.add('ft-off'); }
+  // Counter yangilash
+  const on=Object.values(_ftStates).filter(Boolean).length;
+  const total=Object.keys(_ftStates).length;
+  document.getElementById('ftCntOn').textContent=on;
+  document.getElementById('ftCntOff').textContent=total-on;
+}
+
+function ftFilter(q){
+  const filtered=!q.trim()?_ftFeatures:_ftFeatures.filter(f=>
+    f.name.toLowerCase().includes(q.toLowerCase())||
+    f.key.toLowerCase().includes(q.toLowerCase())||
+    f.group.toLowerCase().includes(q.toLowerCase())
+  );
+  ftRender(filtered);
+}
+
+function ftReset(){
+  // Default holatga qaytarish
+  _ftFeatures.forEach(f=>{ _ftStates[f.key]=f.is_default; });
+  document.getElementById('ftSearch').value='';
+  ftRender(_ftFeatures);
+  showT("Default holatga qaytarildi — Saqlang",'warning');
+}
+
+async function ftSave(){
+  if(!_ftId) return;
+  const btn=document.getElementById('ftSaveBtn');
+  btn.disabled=true; btn.textContent='...';
+  try{
+    // is_default dan farqlangan holatlarni ajratish
+    const defaultOn=new Set(_ftFeatures.filter(f=>f.is_default).map(f=>f.key));
+    const enabled=[], disabled=[];
+    Object.entries(_ftStates).forEach(([key,on])=>{
+      const isDef=defaultOn.has(key);
+      if(on && !isDef)  enabled.push(key);   // default emas, qo'lda yoqilgan
+      if(!on && isDef)  disabled.push(key);  // default edi, qo'lda o'chirilgan
+    });
+    const res=await fetch(`${BASE}/super-admin/tenants/${_ftId}/features`,{
+      method:'PATCH',
+      headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},
+      body:JSON.stringify({enabled,disabled})
+    }).then(r=>r.json());
+    if(res.success){
+      showT(`Saqlandi! ${res.enabled_features?.length||0} ta funksiya yoqiq`,'success');
+      ftClose();
+    } else {
+      showT(res.detail||'Xatolik','error');
+    }
+  }catch(e){
+    showT('Server xatosi','error');
+  }finally{
+    btn.disabled=false; btn.textContent='💾 Saqlash';
+  }
+}
+
+document.getElementById('ftModal').addEventListener('click',e=>{if(e.target===document.getElementById('ftModal'))ftClose();});
+
+document.getElementById('cafeModal').addEventListener('click',e=>{if(e.target===document.getElementById('cafeModal'))cm();});
+load();
+</script>
+</body>
+</html>

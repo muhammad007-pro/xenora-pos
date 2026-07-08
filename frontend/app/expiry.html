@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Yaroqlilik muddati | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10;flex-shrink:0}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.ha{display:flex;gap:.75rem;align-items:center}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{padding:1.25rem;border-radius:var(--r2);border:1.5px solid var(--border2);background:var(--bg2)}
+.se{border-color:#ef4444;background:rgba(239,68,68,.06)}
+.scr{border-color:#f59e0b;background:rgba(245,158,11,.06)}
+.sw{border-color:#3b82f6;background:rgba(59,130,246,.06)}
+.sk{border-color:#10b981;background:rgba(16,185,129,.06)}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.25rem}
+.sv{font-size:2rem;font-weight:700}
+.se .sv{color:#ef4444}.scr .sv{color:#f59e0b}.sw .sv{color:#3b82f6}.sk .sv{color:#10b981}
+.ss{font-size:.75rem;color:var(--text2);margin-top:.125rem}
+.fi{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.fc{padding:.3rem .875rem;border-radius:99px;font-size:.8125rem;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;transition:.2s}
+.fc.active,.fc:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.list{display:flex;flex-direction:column;gap:.5rem}
+.item{display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;border-radius:var(--r2);border:1px solid var(--border2);background:var(--bg2);transition:.2s}
+.item:hover{border-color:rgba(255,255,255,.15)}
+.item.expired{border-color:#ef4444;background:rgba(239,68,68,.05)}
+.item.critical{border-color:#f59e0b;background:rgba(245,158,11,.05)}
+.item.warning{border-color:#3b82f6;background:rgba(59,130,246,.05)}
+.item-icon{font-size:1.75rem;flex-shrink:0;width:44px;text-align:center}
+.item-info{flex:1;min-width:0}
+.item-name{font-weight:600;font-size:.9375rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-batch{font-size:.75rem;color:var(--text2);margin-top:.2rem}
+.item-qty{font-size:.75rem;color:var(--text3)}
+.item-date{text-align:right;flex-shrink:0;min-width:110px}
+.item-dv{font-size:.875rem;font-weight:500}
+.item-dd{font-size:.75rem;margin-top:.2rem}
+.expired .item-dv,.expired .item-dd{color:#ef4444}
+.critical .item-dv,.critical .item-dd{color:#f59e0b}
+.warning .item-dv,.warning .item-dd{color:#3b82f6}
+.ok .item-dv,.ok .item-dd{color:#10b981}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+.srch{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:#ecf6ef;font-size:.875rem;outline:none;width:220px}
+.srch:focus{border-color:var(--gold)}
+@media(max-width:768px){.sg{grid-template-columns:repeat(2,1fr)}.item{flex-wrap:wrap}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="javascript:history.back()" class="bk">←</a>
+  <h1 class="pt">💊 Yaroqlilik muddati</h1>
+  <div class="ha">
+    <input class="srch" id="srch" placeholder="Mahsulot qidirish...">
+    <button class="btn bg" onclick="loadExpiry()">↻ Yangilash</button>
+  </div>
+</header>
+
+<div class="pc">
+  <!-- Stats -->
+  <div class="sg">
+    <div class="sc se"><div class="sl">Muddati o'tgan</div><div class="sv" id="cnt-expired">—</div><div class="ss">darhol olib tashlash</div></div>
+    <div class="sc scr"><div class="sl">Kritik (3 kun)</div><div class="sv" id="cnt-critical">—</div><div class="ss">tez sotish kerak</div></div>
+    <div class="sc sw"><div class="sl">Ogohlantirish (7 kun)</div><div class="sv" id="cnt-warning">—</div><div class="ss">nazorat qiling</div></div>
+    <div class="sc sk"><div class="sl">Normal</div><div class="sv" id="cnt-ok">—</div><div class="ss">muammosiz</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="fi">
+    <span class="fc active" data-f="">Barchasi</span>
+    <span class="fc" data-f="expired">🔴 Muddati o'tgan</span>
+    <span class="fc" data-f="critical">🟡 Kritik</span>
+    <span class="fc" data-f="warning">🔵 Ogohlantirish</span>
+    <span class="fc" data-f="ok">🟢 Normal</span>
+  </div>
+
+  <div class="list" id="exList"><p class="empty">Yuklanmoqda...</p></div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+if(!tok()) location.href='../shared/login.html';
+const api={get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json())};
+
+let all=[], flt='';
+
+async function loadExpiry(){
+  const r=await api.get('/products/?page_size=500&has_expiry=true').catch(()=>null);
+  const prods=r?.items||[];
+  const inv=await api.get('/inventory/?page_size=500').catch(()=>({items:[]}));
+  const invMap=Object.fromEntries((inv.items||[]).map(i=>[i.product_id,i]));
+  const now=new Date();
+  all=prods.filter(p=>p.expiry_date).map(p=>{
+    const exp=new Date(p.expiry_date);
+    const days=Math.ceil((exp-now)/86400000);
+    let status='ok';
+    if(days<0) status='expired';
+    else if(days<=3) status='critical';
+    else if(days<=7) status='warning';
+    return {...p, days_left:days, status, inv_qty:invMap[p.id]?.quantity||0};
+  }).sort((a,b)=>a.days_left-b.days_left);
+  updateStats();
+  renderList();
+}
+
+function updateStats(){
+  ['expired','critical','warning','ok'].forEach(s=>{
+    document.getElementById('cnt-'+s).textContent=all.filter(p=>p.status===s).length;
+  });
+}
+
+function renderList(){
+  const q=document.getElementById('srch').value.toLowerCase();
+  const items=all.filter(p=>(!flt||p.status===flt)&&(!q||p.name.toLowerCase().includes(q)));
+  const el=document.getElementById('exList');
+  if(!items.length){el.innerHTML='<p class="empty">Mahsulotlar topilmadi</p>';return;}
+  el.innerHTML=items.map(p=>{
+    const icon=p.status==='expired'?'⛔':p.status==='critical'?'⚠️':p.status==='warning'?'🔵':'✅';
+    const dateStr=new Date(p.expiry_date).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const daysTxt=p.days_left<0?`${Math.abs(p.days_left)} kun oldin o'tgan`:p.days_left===0?'Bugun':''+p.days_left+' kun qoldi';
+    return `<div class="item ${p.status}">
+      <div class="item-icon">${icon}</div>
+      <div class="item-info">
+        <div class="item-name">${p.name}</div>
+        <div class="item-batch">${p.batch_number?'Partiya: '+p.batch_number:''}</div>
+        <div class="item-qty">Omborda: ${p.inv_qty} ${p.sale_unit||''}</div>
+      </div>
+      <div class="item-date">
+        <div class="item-dv">${dateStr}</div>
+        <div class="item-dd">${daysTxt}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.querySelectorAll('.fc').forEach(c=>c.addEventListener('click',()=>{
+  flt=c.dataset.f;
+  document.querySelectorAll('.fc').forEach(x=>x.classList.remove('active'));
+  c.classList.add('active');
+  renderList();
+}));
+document.getElementById('srch').addEventListener('input',renderList);
+loadExpiry();
+</script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Super Admin | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.ha{display:flex;gap:.75rem;align-items:center}
+.pc{padding:1.5rem;max-width:1300px;margin:0 auto}
+/* Welcome */
+.welcome{background:linear-gradient(135deg,rgba(212,180,108,.15),rgba(212,180,108,.05));border:1px solid rgba(212,180,108,.25);border-radius:var(--r2);padding:1.25rem 1.5rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.welcome h1{font-size:1.25rem;font-weight:800;color:var(--gold)}
+.welcome p{color:var(--text2);font-size:.875rem;margin-top:.2rem}
+/* Stats grid */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.25rem}
+.sl{font-size:.6875rem;color:var(--text3);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.4px}
+.sv{font-size:1.75rem;font-weight:700}
+.sv.gold{color:var(--gold)}.sv.green{color:#10b981}.sv.yellow{color:#f59e0b}.sv.red{color:#ef4444}.sv.blue{color:#60a5fa}
+.ss{font-size:.75rem;color:var(--text2);margin-top:.125rem}
+/* Nav shortcuts */
+.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:.875rem;margin-bottom:1.5rem}
+.nb{display:flex;align-items:center;gap:.875rem;padding:1rem 1.25rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);text-decoration:none;color:#ecf6ef;transition:.2s}
+.nb:hover{border-color:var(--gold);background:var(--gold-dim)}
+.ni{font-size:1.5rem;flex-shrink:0}
+.nb-text h3{font-size:.9375rem;font-weight:700;margin-bottom:.125rem}
+.nb-text p{font-size:.75rem;color:var(--text3)}
+/* Row layout */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);overflow:hidden}
+.ch{padding:.875rem 1.25rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+.ch h3{font-size:.9375rem;font-weight:700}
+.cb{padding:1rem 1.25rem}
+/* Alert items */
+.alert-item{display:flex;align-items:center;gap:.75rem;padding:.75rem;border-radius:var(--r);margin-bottom:.5rem}
+.alert-item.red{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15)}
+.alert-item.yellow{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.15)}
+.alert-item:last-child{margin-bottom:0}
+/* Plans breakdown */
+.plan-row{display:flex;align-items:center;gap:1rem;padding:.75rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.plan-row:last-child{border:none}
+.plan-name{width:90px;font-size:.8125rem;font-weight:700}
+.plan-cnt{font-size:1rem;font-weight:700;color:var(--gold);width:40px}
+.plan-rev{font-size:.8125rem;color:var(--text2);flex:1;text-align:right}
+.pbar-wrap{flex:1;background:var(--bg4);border-radius:99px;height:5px}
+.pbar{height:5px;border-radius:99px;background:linear-gradient(90deg,#c9a84c,#e2c97a)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.bsm{padding:.35rem .875rem;font-size:.8125rem}
+@media(max-width:1024px){.nav{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}}
+@media(max-width:640px){.sg{grid-template-columns:repeat(2,1fr)}.nav{grid-template-columns:1fr}.welcome{flex-direction:column}}
+</style>
+</head>
+<body>
+<header class="ph">
+  <h1 class="pt">XENORA <span style="font-weight:400;font-size:.85rem;color:var(--text2)">Super Admin</span></h1>
+  <div class="ha">
+    <span id="userBadge" style="font-size:.8125rem;color:var(--text2)">...</span>
+    <button class="btn bo bsm" onclick="logout()">Chiqish</button>
+  </div>
+</header>
+
+<div class="pc">
+  <!-- Welcome -->
+  <div class="welcome">
+    <div>
+      <h1 id="welcomeName">Super Admin Panel</h1>
+      <p>Barcha mijozlar va to'lovlarni bir joyda boshqaring</p>
+    </div>
+    <button class="btn bg bsm" onclick="location.href='cafes.html'">+ Yangi mijoz</button>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="sg">
+    <div class="sc"><div class="sl">Jami mijozlar</div><div class="sv gold" id="sTot">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Faol</div><div class="sv green" id="sAct">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Sinov</div><div class="sv blue" id="sTrial">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Bu oylik daromad</div><div class="sv gold" id="sRev">—</div><div class="ss">UZS</div></div>
+    <div class="sc"><div class="sl">Bloklangan</div><div class="sv red" id="sBlk">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Muddati tugagan</div><div class="sv yellow" id="sExp">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Jami daromad</div><div class="sv" style="color:#a78bfa" id="sTotRev">—</div><div class="ss">UZS (barcha vaqt)</div></div>
+    <div class="sc"><div class="sl">Ogohlantirishlar</div><div class="sv yellow" id="sAlerts">—</div><div class="ss">ta</div></div>
+  </div>
+
+  <!-- Nav shortcuts -->
+  <div class="nav">
+    <a class="nb" href="cafes.html">
+      <span class="ni">👥</span>
+      <div class="nb-text"><h3>Mijozlar</h3><p>Ro'yxatdan o'tkazish, blok, tahrirlash</p></div>
+    </a>
+    <a class="nb" href="subscriptions.html">
+      <span class="ni">💳</span>
+      <div class="nb-text"><h3>To'lovlar</h3><p>To'lov tarixi, qarzdorlar</p></div>
+    </a>
+    <a class="nb" href="subscriptions.html#alerts">
+      <span class="ni">🔔</span>
+      <div class="nb-text"><h3>Ogohlantirishlar</h3><p>Qarzdor va muddati yaqin</p></div>
+    </a>
+    <a class="nb" href="finance.html">
+      <span class="ni">📊</span>
+      <div class="nb-text"><h3>Daromad hisobi</h3><p>SaaS va POS analitika</p></div>
+    </a>
+    <a class="nb" href="users.html">
+      <span class="ni">🔐</span>
+      <div class="nb-text"><h3>Foydalanuvchilar</h3><p>Barcha tizim foydalanuvchilari</p></div>
+    </a>
+    <a class="nb" href="../app/settings.html">
+      <span class="ni">⚙️</span>
+      <div class="nb-text"><h3>Sozlamalar</h3><p>Tizim konfiguratsiyasi</p></div>
+    </a>
+  </div>
+
+  <div class="row2">
+    <!-- Alerts -->
+    <div class="card">
+      <div class="ch">
+        <h3>🔔 Ogohlantirishlar</h3>
+        <a href="subscriptions.html" class="btn bo bsm">Barchasi →</a>
+      </div>
+      <div class="cb" id="alertsBox"><p style="color:var(--text3);font-size:.875rem">Yuklanmoqda...</p></div>
+    </div>
+
+    <!-- Plan breakdown -->
+    <div class="card">
+      <div class="ch"><h3>📦 Tariflar bo'yicha</h3></div>
+      <div class="cb" id="plansBox"><p style="color:var(--text3);font-size:.875rem">Yuklanmoqda...</p></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check('superuser');
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+if(!tok()) location.href='../shared/login.html';
+const h={get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json())};
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function load(){
+  const [me, stats, alerts] = await Promise.all([
+    h.get('/users/me').catch(()=>null),
+    h.get('/super-admin/stats').catch(()=>null),
+    h.get('/super-admin/alerts').catch(()=>null),
+  ]);
+
+  // User info
+  if(me?.username){
+    document.getElementById('welcomeName').textContent=`Xush kelibsiz, ${me.full_name||me.username}!`;
+    document.getElementById('userBadge').textContent=me.full_name||me.username;
+  }
+
+  // Stats
+  if(stats){
+    document.getElementById('sTot').textContent=stats.total||0;
+    document.getElementById('sAct').textContent=stats.active||0;
+    document.getElementById('sTrial').textContent=stats.trial||0;
+    document.getElementById('sBlk').textContent=stats.blocked||0;
+    document.getElementById('sExp').textContent=stats.expired||0;
+    document.getElementById('sRev').textContent=fmtN(stats.month_revenue||0);
+    document.getElementById('sTotRev').textContent=fmtN(stats.total_revenue||0);
+    document.getElementById('sAlerts').textContent=(alerts?.expired_count||0)+(alerts?.expiring_soon_count||0);
+
+    // Plans breakdown
+    const ps=stats.plan_stats||{};
+    const maxCnt=Math.max(...Object.values(ps).map(p=>p.count||0),1);
+    document.getElementById('plansBox').innerHTML=
+      ['free','pro'].map(plan=>{
+        const p=ps[plan]||{count:0,price:0,monthly_revenue:0};
+        const names={free:'FREE',pro:'PRO'};
+        const colors={free:'#9ca3af',pro:'#d4b46c'};
+        return `<div class="plan-row">
+          <div class="plan-name" style="color:${colors[plan]}">${names[plan]}</div>
+          <div class="plan-cnt">${p.count}</div>
+          <div class="pbar-wrap"><div class="pbar" style="width:${Math.round((p.count/maxCnt)*100)}%;background:${colors[plan]}"></div></div>
+          <div class="plan-rev">${fmtN(p.monthly_revenue)} UZS/oy</div>
+        </div>`;
+      }).join('');
+  }
+
+  // Alerts
+  if(alerts){
+    const box=document.getElementById('alertsBox');
+    let html='';
+    (alerts.expired||[]).slice(0,3).forEach(t=>{
+      html+=`<div class="alert-item red">
+        <span style="font-size:1rem">🔴</span>
+        <div style="flex:1;font-size:.8125rem">
+          <div style="font-weight:600">${esc(t.name)}</div>
+          <div style="color:#fca5a5;font-size:.75rem">Obuna tugagan · ${t.subscription_plan}</div>
+        </div>
+        <a href="subscriptions.html?tenant=${t.id}" class="btn bsm" style="background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3);font-size:.75rem">To'lov</a>
+      </div>`;
+    });
+    (alerts.expiring_soon||[]).slice(0,3).forEach(t=>{
+      html+=`<div class="alert-item yellow">
+        <span style="font-size:1rem">🟡</span>
+        <div style="flex:1;font-size:.8125rem">
+          <div style="font-weight:600">${esc(t.name)}</div>
+          <div style="color:#fcd34d;font-size:.75rem">${t.days_left} kun qoldi · ${t.subscription_plan}</div>
+        </div>
+        <a href="subscriptions.html?tenant=${t.id}" class="btn bsm" style="background:rgba(245,158,11,.2);color:#fcd34d;border:1px solid rgba(245,158,11,.3);font-size:.75rem">Yangilash</a>
+      </div>`;
+    });
+    if(!html) html=`<p style="color:var(--text3);font-size:.875rem;padding:.5rem 0">✅ Hozircha muammo yo'q</p>`;
+    box.innerHTML=html;
+  }
+}
+
+function logout(){localStorage.clear();location.href='../shared/login.html';}
+load();
+</script>
+</body>
+</html>

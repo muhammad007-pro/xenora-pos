@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Retsept Arxivi | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh;display:flex;flex-direction:column}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto;flex:1}
+.tb{display:flex;gap:.75rem;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap}
+.si{flex:1;min-width:200px;padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#ecf6ef;font-size:.9rem}
+.si:focus{outline:none;border-color:var(--gold)}
+.btn{padding:.625rem 1.125rem;border-radius:var(--r);border:none;font-size:.875rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:.4rem}
+.btn-g{background:var(--gold);color:#03110c}.btn-g:hover{background:#c9a20e}
+.btn-o{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}.btn-o:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.4rem .75rem;font-size:.8rem}
+.fi{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.fc{padding:.3rem .875rem;border-radius:99px;font-size:.8125rem;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;transition:.2s}
+.fc.active,.fc:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+.card{background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--r2);padding:1.25rem;transition:.2s;cursor:pointer}
+.card:hover{border-color:var(--gold)}
+.card.dispensed{border-color:#10b981;background:rgba(16,185,129,.04)}
+.card-h{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.875rem;gap:.5rem}
+.card-nm{font-weight:700;font-size:1rem}
+.card-dt{font-size:.75rem;color:var(--text3)}
+.badge{display:inline-flex;align-items:center;padding:.2rem .625rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.badge-ok{background:rgba(16,185,129,.12);color:#10b981}
+.badge-pend{background:rgba(245,158,11,.12);color:#f59e0b}
+.meta{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.875rem}
+.meta-row{display:flex;gap:.5rem;font-size:.8125rem}
+.meta-lbl{color:var(--text3);min-width:80px}
+.meta-val{color:var(--text2)}
+.meds{border-top:1px solid var(--border2);padding-top:.75rem;margin-top:.5rem}
+.meds-title{font-size:.75rem;color:var(--text3);margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.05em}
+.med-item{display:flex;gap:.5rem;padding:.3rem 0;font-size:.8125rem;border-bottom:1px solid rgba(255,255,255,.04)}
+.med-nm{flex:1;font-weight:500}
+.med-qty{color:var(--gold)}
+.actions{display:flex;gap:.5rem;margin-top:.875rem}
+.empty{text-align:center;padding:4rem 1rem;color:var(--text3)}
+.empty-icon{font-size:3rem;margin-bottom:1rem}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.5rem;width:100%;max-width:620px;max-height:90vh;overflow-y:auto}
+.modal-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem}
+.modal-t{font-size:1.125rem;font-weight:700}
+.close{background:none;border:none;color:var(--text2);font-size:1.5rem;cursor:pointer;line-height:1;padding:.25rem}
+.close:hover{color:#ef4444}
+.form-g{display:flex;flex-direction:column;gap:1rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.lbl{display:flex;flex-direction:column;gap:.375rem;font-size:.875rem;color:var(--text2)}
+.inp{padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#ecf6ef;font-size:.9rem;width:100%}
+.inp:focus{outline:none;border-color:var(--gold)}
+.section-t{font-weight:600;margin-bottom:.5rem;color:var(--gold)}
+.med-row{display:grid;grid-template-columns:1fr auto auto;gap:.5rem;align-items:center}
+.btn-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:1rem}
+.btn-icon:hover{border-color:#ef4444;color:#ef4444}
+.upload-area{border:2px dashed var(--border2);border-radius:var(--r2);padding:1.5rem;text-align:center;cursor:pointer;color:var(--text3);transition:.2s}
+.upload-area:hover{border-color:var(--gold);color:var(--gold)}
+.img-preview{max-width:100%;border-radius:var(--r);margin-top:.5rem}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="ph">
+  <a href="javascript:history.back()" class="bk">&#8592;</a>
+  <div class="pt">Retsept Arxivi</div>
+  <button class="btn btn-g" id="btnNew">+ Yangi retsept</button>
+</div>
+
+<div class="pc">
+  <div class="tb">
+    <input class="si" type="text" id="searchInp" placeholder="Bemor, shifokor, telefon...">
+    <select class="si" id="dateFrom" style="max-width:160px">
+      <option value="">Boshlanish sanasi</option>
+    </select>
+    <select class="si" id="dateTo" style="max-width:160px">
+      <option value="">Tugash sanasi</option>
+    </select>
+  </div>
+  <div class="fi">
+    <div class="fc active" data-f="all">Barchasi</div>
+    <div class="fc" data-f="pending">Kutilmoqda</div>
+    <div class="fc" data-f="dispensed">Dori berilgan</div>
+  </div>
+  <div class="grid" id="rxGrid"></div>
+  <div class="empty" id="emptyMsg" style="display:none">
+    <div class="empty-icon">📋</div>
+    <div>Retsept topilmadi</div>
+  </div>
+  <div style="text-align:center;margin-top:1rem">
+    <button class="btn btn-o" id="btnMore" style="display:none">Ko'proq yuklash</button>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-bg" id="rxModal">
+  <div class="modal">
+    <div class="modal-h">
+      <div class="modal-t" id="modalTitle">Yangi retsept</div>
+      <button class="close" id="closeModal">&times;</button>
+    </div>
+    <div class="form-g" id="rxForm">
+      <div class="row2">
+        <label class="lbl">Bemor ismi *
+          <input class="inp" id="fPatient" placeholder="Ism, familiya">
+        </label>
+        <label class="lbl">Telefon
+          <input class="inp" id="fPhone" placeholder="+998 90 123 45 67">
+        </label>
+      </div>
+      <div class="row2">
+        <label class="lbl">Shifokor ismi
+          <input class="inp" id="fDoctor" placeholder="Dr. Karimov">
+        </label>
+        <label class="lbl">Klinika
+          <input class="inp" id="fClinic" placeholder="Klinika nomi">
+        </label>
+      </div>
+      <label class="lbl">Retsept sanasi *
+        <input class="inp" id="fDate" type="date">
+      </label>
+      <label class="lbl">Izoh
+        <textarea class="inp" id="fNotes" rows="2" placeholder="Qo'shimcha ma'lumot..."></textarea>
+      </label>
+
+      <div>
+        <div class="section-t">Dorilar ro'yxati</div>
+        <div id="medsList"></div>
+        <button class="btn btn-o btn-sm" type="button" id="btnAddMed" style="margin-top:.5rem">+ Dori qo'shish</button>
+      </div>
+
+      <div>
+        <div class="section-t">Retsept rasmi</div>
+        <div class="upload-area" id="uploadArea">
+          <div>Rasmni bu yerga tashlang yoki bosing</div>
+          <input type="file" id="fImage" accept=".jpg,.jpeg,.png,.pdf" style="display:none">
+        </div>
+        <img id="imgPreview" class="img-preview" style="display:none">
+      </div>
+
+      <div style="display:flex;gap:.75rem;justify-content:flex-end">
+        <button class="btn btn-o" id="cancelModal">Bekor</button>
+        <button class="btn btn-g" id="saveModal">Saqlash</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-bg" id="detailModal">
+  <div class="modal">
+    <div class="modal-h">
+      <div class="modal-t" id="detailTitle">Retsept</div>
+      <button class="close" id="closeDetail">&times;</button>
+    </div>
+    <div id="detailBody"></div>
+    <div style="display:flex;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap">
+      <button class="btn btn-g" id="detailDispense">Dori Berildi</button>
+      <button class="btn btn-o" id="detailEdit">Tahrirlash</button>
+      <button class="btn btn-o" id="detailDelete" style="color:#ef4444;border-color:#ef4444">O'chirish</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { API } from '../js/core/api.js';
+import { showToast } from '../js/ui/toast.js';
+import { features, Feature } from '../js/core/features.js';
+
+const api = new API();
+let page = 1, total = 0, filter = 'all', editId = null, detailId = null;
+const PAGE_SIZE = 20;
+
+await features.load();
+if (!features.isEnabled(Feature.PRESCRIPTION_ARCHIVE)) {
+  document.body.innerHTML = '<div style="padding:3rem;text-align:center;color:#9fcbb9">Bu funksiya sizning tarifingizda mavjud emas.</div>';
+}
+
+async function loadRx(reset = false) {
+  if (reset) { page = 1; document.getElementById('rxGrid').innerHTML = ''; }
+  const search = document.getElementById('searchInp').value.trim();
+  const params = new URLSearchParams({ page, page_size: PAGE_SIZE });
+  if (search) params.set('search', search);
+  if (filter === 'dispensed') params.set('is_dispensed', 'true');
+  if (filter === 'pending')   params.set('is_dispensed', 'false');
+
+  try {
+    const data = await api.get(`/prescriptions/?${params}`);
+    total = data.total;
+    renderCards(data.items, reset);
+    document.getElementById('btnMore').style.display = (page * PAGE_SIZE < total) ? '' : 'none';
+    document.getElementById('emptyMsg').style.display = data.items.length === 0 && page === 1 ? '' : 'none';
+  } catch(e) { showToast('Xatolik: ' + e.message, 'error'); }
+}
+
+function renderCards(items, reset) {
+  const grid = document.getElementById('rxGrid');
+  if (reset) grid.innerHTML = '';
+  items.forEach(rx => {
+    const card = document.createElement('div');
+    card.className = 'card' + (rx.is_dispensed ? ' dispensed' : '');
+    const meds = (rx.medicines || []).slice(0, 3).map(m =>
+      `<div class="med-item"><span class="med-nm">${m.name}</span><span class="med-qty">${m.quantity||''}</span></div>`
+    ).join('');
+    const moreCount = (rx.medicines||[]).length - 3;
+    card.innerHTML = `
+      <div class="card-h">
+        <div>
+          <div class="card-nm">${rx.patient_name}</div>
+          <div class="card-dt">${rx.prescription_date}</div>
+        </div>
+        <span class="badge ${rx.is_dispensed?'badge-ok':'badge-pend'}">${rx.is_dispensed?'Berilgan':'Kutilmoqda'}</span>
+      </div>
+      <div class="meta">
+        ${rx.doctor_name?`<div class="meta-row"><span class="meta-lbl">Shifokor:</span><span class="meta-val">${rx.doctor_name}</span></div>`:''}
+        ${rx.patient_phone?`<div class="meta-row"><span class="meta-lbl">Telefon:</span><span class="meta-val">${rx.patient_phone}</span></div>`:''}
+        ${rx.clinic_name?`<div class="meta-row"><span class="meta-lbl">Klinika:</span><span class="meta-val">${rx.clinic_name}</span></div>`:''}
+      </div>
+      ${rx.medicines?.length ? `<div class="meds"><div class="meds-title">Dorilar (${rx.medicines.length})</div>${meds}${moreCount>0?`<div style="font-size:.75rem;color:var(--text3);margin-top:.25rem">+${moreCount} ta yana</div>`:''}</div>` : ''}
+      <div class="actions">
+        <button class="btn btn-o btn-sm view-btn" data-id="${rx.id}">Ko'rish</button>
+        ${!rx.is_dispensed?`<button class="btn btn-g btn-sm disp-btn" data-id="${rx.id}">Dori Berish</button>`:''}
+      </div>`;
+    grid.appendChild(card);
+  });
+
+  document.querySelectorAll('.view-btn').forEach(b => b.onclick = () => openDetail(+b.dataset.id));
+  document.querySelectorAll('.disp-btn').forEach(b => b.onclick = (e) => { e.stopPropagation(); dispense(+b.dataset.id); });
+}
+
+async function openDetail(id) {
+  detailId = id;
+  try {
+    const rx = await api.get(`/prescriptions/${id}`);
+    document.getElementById('detailTitle').textContent = `Retsept — ${rx.patient_name}`;
+    const meds = (rx.medicines||[]).map(m =>
+      `<div class="med-item"><span class="med-nm">${m.name}</span><span class="med-qty">${m.quantity||''}</span><span style="color:var(--text3);font-size:.75rem">${m.dosage||''} ${m.instructions||''}</span></div>`
+    ).join('') || '<div style="color:var(--text3)">Dorilar kiritilmagan</div>';
+    document.getElementById('detailBody').innerHTML = `
+      <div class="meta">
+        <div class="meta-row"><span class="meta-lbl">Bemor:</span><span class="meta-val">${rx.patient_name}</span></div>
+        ${rx.patient_phone?`<div class="meta-row"><span class="meta-lbl">Telefon:</span><span class="meta-val">${rx.patient_phone}</span></div>`:''}
+        ${rx.doctor_name?`<div class="meta-row"><span class="meta-lbl">Shifokor:</span><span class="meta-val">${rx.doctor_name}</span></div>`:''}
+        ${rx.clinic_name?`<div class="meta-row"><span class="meta-lbl">Klinika:</span><span class="meta-val">${rx.clinic_name}</span></div>`:''}
+        <div class="meta-row"><span class="meta-lbl">Sana:</span><span class="meta-val">${rx.prescription_date}</span></div>
+        <div class="meta-row"><span class="meta-lbl">Holat:</span><span class="badge ${rx.is_dispensed?'badge-ok':'badge-pend'}">${rx.is_dispensed?'Dori berilgan':'Kutilmoqda'}</span></div>
+        ${rx.notes?`<div class="meta-row"><span class="meta-lbl">Izoh:</span><span class="meta-val">${rx.notes}</span></div>`:''}
+      </div>
+      <div class="meds"><div class="meds-title">Dorilar</div>${meds}</div>
+      ${rx.image_url?`<div style="margin-top:1rem"><img src="${rx.image_url}" style="max-width:100%;border-radius:var(--r)" onerror="this.style.display='none'"></div>`:''}
+    `;
+    document.getElementById('detailDispense').style.display = rx.is_dispensed ? 'none' : '';
+    document.getElementById('detailModal').classList.add('open');
+  } catch(e) { showToast('Xatolik', 'error'); }
+}
+
+async function dispense(id) {
+  try {
+    await api.put(`/prescriptions/${id}`, { is_dispensed: true });
+    showToast('Dori berildi', 'success');
+    loadRx(true);
+    document.getElementById('detailModal').classList.remove('open');
+  } catch(e) { showToast('Xatolik', 'error'); }
+}
+
+// Meds builder
+let meds = [];
+function renderMeds() {
+  const list = document.getElementById('medsList');
+  list.innerHTML = meds.map((m, i) => `
+    <div class="med-row" style="margin-bottom:.5rem">
+      <input class="inp" value="${m.name||''}" placeholder="Dori nomi" oninput="updateMed(${i},'name',this.value)">
+      <input class="inp" value="${m.quantity||''}" placeholder="Miqdor" style="width:90px" oninput="updateMed(${i},'quantity',this.value)">
+      <button class="btn-icon" onclick="removeMed(${i})">&#x2715;</button>
+    </div>
+    <div class="row2" style="margin-bottom:.5rem">
+      <input class="inp" value="${m.dosage||''}" placeholder="Dozaj (500mg)" oninput="updateMed(${i},'dosage',this.value)">
+      <input class="inp" value="${m.instructions||''}" placeholder="Kuniga 3 mahal" oninput="updateMed(${i},'instructions',this.value)">
+    </div>`
+  ).join('');
+}
+window.updateMed = (i, k, v) => { meds[i][k] = v; };
+window.removeMed = (i) => { meds.splice(i, 1); renderMeds(); };
+document.getElementById('btnAddMed').onclick = () => { meds.push({name:'',quantity:'',dosage:'',instructions:''}); renderMeds(); };
+
+// Modal open/close
+function openModal(rx = null) {
+  editId = rx?.id || null;
+  document.getElementById('modalTitle').textContent = rx ? 'Retseptni tahrirlash' : 'Yangi retsept';
+  document.getElementById('fPatient').value = rx?.patient_name || '';
+  document.getElementById('fPhone').value = rx?.patient_phone || '';
+  document.getElementById('fDoctor').value = rx?.doctor_name || '';
+  document.getElementById('fClinic').value = rx?.clinic_name || '';
+  document.getElementById('fDate').value = rx?.prescription_date || new Date().toISOString().slice(0,10);
+  document.getElementById('fNotes').value = rx?.notes || '';
+  meds = (rx?.medicines || []).map(m => ({...m}));
+  renderMeds();
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('rxModal').classList.add('open');
+}
+
+document.getElementById('btnNew').onclick = () => openModal();
+document.getElementById('closeModal').onclick = () => document.getElementById('rxModal').classList.remove('open');
+document.getElementById('cancelModal').onclick = () => document.getElementById('rxModal').classList.remove('open');
+document.getElementById('closeDetail').onclick = () => document.getElementById('detailModal').classList.remove('open');
+document.getElementById('detailDispense').onclick = () => dispense(detailId);
+document.getElementById('detailDelete').onclick = async () => {
+  if (!confirm('O\'chirishni tasdiqlaysizmi?')) return;
+  try {
+    await api.delete(`/prescriptions/${detailId}`);
+    showToast("O'chirildi", 'success');
+    document.getElementById('detailModal').classList.remove('open');
+    loadRx(true);
+  } catch(e) { showToast('Xatolik', 'error'); }
+};
+document.getElementById('detailEdit').onclick = async () => {
+  const rx = await api.get(`/prescriptions/${detailId}`);
+  document.getElementById('detailModal').classList.remove('open');
+  openModal(rx);
+};
+
+// Image upload
+document.getElementById('uploadArea').onclick = () => document.getElementById('fImage').click();
+document.getElementById('fImage').onchange = (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = document.getElementById('imgPreview');
+    img.src = ev.target.result;
+    img.style.display = '';
+  };
+  reader.readAsDataURL(f);
+};
+
+// Save
+document.getElementById('saveModal').onclick = async () => {
+  const patient = document.getElementById('fPatient').value.trim();
+  const rxDate = document.getElementById('fDate').value;
+  if (!patient || !rxDate) { showToast('Bemor ismi va sana majburiy', 'error'); return; }
+
+  const body = {
+    patient_name: patient,
+    patient_phone: document.getElementById('fPhone').value.trim() || null,
+    doctor_name:  document.getElementById('fDoctor').value.trim() || null,
+    clinic_name:  document.getElementById('fClinic').value.trim() || null,
+    prescription_date: rxDate,
+    notes: document.getElementById('fNotes').value.trim() || null,
+    medicines: meds.filter(m => m.name.trim()),
+  };
+
+  try {
+    let rx;
+    if (editId) {
+      rx = await api.put(`/prescriptions/${editId}`, body);
+    } else {
+      rx = await api.post('/prescriptions/', body);
+    }
+
+    // Rasm yuklash
+    const imgFile = document.getElementById('fImage').files[0];
+    if (imgFile && rx.id) {
+      const fd = new FormData();
+      fd.append('file', imgFile);
+      await api.upload(`/prescriptions/${rx.id}/upload-image`, fd);
+    }
+
+    showToast(editId ? 'Yangilandi' : 'Saqlandi', 'success');
+    document.getElementById('rxModal').classList.remove('open');
+    loadRx(true);
+  } catch(e) { showToast('Xatolik: ' + e.message, 'error'); }
+};
+
+// Filters
+document.querySelectorAll('.fc').forEach(f => f.onclick = () => {
+  document.querySelectorAll('.fc').forEach(x => x.classList.remove('active'));
+  f.classList.add('active');
+  filter = f.dataset.f;
+  loadRx(true);
+});
+
+document.getElementById('searchInp').oninput = () => loadRx(true);
+document.getElementById('btnMore').onclick = () => { page++; loadRx(); };
+
+loadRx(true);
+</script>
+</body>
+</html>

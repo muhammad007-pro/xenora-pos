@@ -1,0 +1,245 @@
+/* Dark Theme — XENORA zumrad-tilla (faqat qiymatlar; token nomlari o'zgarmagan) */
+
+[data-theme="dark"] {
+    /* Primary Colors */
+    --primary: #1fb084;
+    --primary-light: #3dd4a0;
+    --primary-dark: #159a70;
+    --primary-gradient: linear-gradient(135deg, #1fb084 0%, #3dd4a0 50%, #d4b46c 100%);
+
+    /* Secondary Colors */
+    --secondary: #03110c;
+    --secondary-light: #0b2e23;
+    --secondary-dark: #020b07;
+
+    /* Accent Colors */
+    --accent-gold: #d4b46c;
+    --accent-platinum: #0b2e23;
+    --accent-bronze: #c99a4c;
+
+    /* Status Colors */
+    --success: #5fe0a8;
+    --success-light: rgba(95, 224, 168, 0.15);
+    --warning: #f2c14e;
+    --warning-light: rgba(242, 193, 78, 0.15);
+    --danger: #e89a78;
+    --danger-light: rgba(232, 154, 120, 0.15);
+    --info: #4fb8c9;
+    --info-light: rgba(79, 184, 201, 0.15);
+
+    /* Neutral Colors (50 = eng to'q fon ... 900 = eng yorug' matn) */
+    --gray-50: #061b13;
+    --gray-100: #0b2e23;
+    --gray-200: #143a2c;
+    --gray-300: #1e4a39;
+    --gray-400: #5c8775;
+    --gray-500: #6e9a85;
+    --gray-600: #9fcbb9;
+    --gray-700: #c0dfd0;
+    --gray-800: #d8ede2;
+    --gray-900: #ecf6ef;
+
+    /* Glassmorphism */
+    --glass-bg: rgba(11, 46, 35, 0.40);
+    --glass-bg-light: rgba(11, 46, 35, 0.25);
+    --glass-bg-dark: rgba(3, 17, 12, 0.65);
+    --glass-border: rgba(212, 180, 108, 0.20);
+    --glass-blur: blur(12px);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    --shadow-glow: 0 0 30px rgba(31, 176, 132, 0.25);
+    --shadow-premium: 0 20px 40px rgba(0, 0, 0, 0.5), 0 5px 15px rgba(212, 180, 108, 0.12);
+
+    /* Body Background */
+    body {
+        background: var(--secondary);
+        color: var(--gray-50);
+    }
+
+    /* Cards */
+    .card, .glass {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+    }
+
+    /* Inputs */
+    input, select, textarea {
+        background: var(--glass-bg-light);
+        border-color: var(--glass-border);
+        color: var(--gray-50);
+    }
+
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-glow);
+    }
+
+    input::placeholder, textarea::placeholder {
+        color: var(--gray-500);
+    }
+
+    /* Tables */
+    .data-table tbody tr:hover {
+        background: var(--glass-bg-light);
+    }
+
+    /* Modals */
+    .modal-content {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+    }
+
+    .modal-overlay {
+        background: rgba(0, 0, 0, 0.7);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar-track {
+        background: var(--secondary-light);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary-dark);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--primary);
+    }
+
+    /* Selection */
+    ::selection {
+        background: var(--primary);
+        color: var(--secondary-dark);
+    }
+}/* Dark Theme */
+
+[data-theme="dark"] {
+    /* Primary Colors */
+    --primary: #1fb084;
+    --primary-light: #3dd4a0;
+    --primary-dark: #159a70;
+    --primary-gradient: linear-gradient(135deg, #1fb084 0%, #3dd4a0 50%, #d4b46c 100%);
+
+    /* Secondary Colors */
+    --secondary: #03110c;
+    --secondary-light: #0b2e23;
+    --secondary-dark: #020b07;
+
+    /* Accent Colors */
+    --accent-gold: #d4b46c;
+    --accent-platinum: #0b2e23;
+    --accent-bronze: #c99a4c;
+
+    /* Status Colors */
+    --success: #5fe0a8;
+    --success-light: rgba(95, 224, 168, 0.15);
+    --warning: #f2c14e;
+    --warning-light: rgba(242, 193, 78, 0.15);
+    --danger: #e89a78;
+    --danger-light: rgba(232, 154, 120, 0.15);
+    --info: #4fb8c9;
+    --info-light: rgba(79, 184, 201, 0.15);
+
+    /* Neutral Colors (50 = eng to'q fon ... 900 = eng yorug' matn) */
+    --gray-50: #061b13;
+    --gray-100: #0b2e23;
+    --gray-200: #143a2c;
+    --gray-300: #1e4a39;
+    --gray-400: #5c8775;
+    --gray-500: #6e9a85;
+    --gray-600: #9fcbb9;
+    --gray-700: #c0dfd0;
+    --gray-800: #d8ede2;
+    --gray-900: #ecf6ef;
+
+    /* Glassmorphism */
+    --glass-bg: rgba(11, 46, 35, 0.40);
+    --glass-bg-light: rgba(11, 46, 35, 0.25);
+    --glass-bg-dark: rgba(3, 17, 12, 0.65);
+    --glass-border: rgba(212, 180, 108, 0.20);
+    --glass-blur: blur(12px);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    --shadow-glow: 0 0 30px rgba(31, 176, 132, 0.25);
+    --shadow-premium: 0 20px 40px rgba(0, 0, 0, 0.5), 0 5px 15px rgba(212, 180, 108, 0.12);
+
+    /* Body Background */
+    body {
+        background: var(--secondary);
+        color: var(--gray-50);
+    }
+
+    /* Cards */
+    .card, .glass {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+    }
+
+    /* Inputs */
+    input, select, textarea {
+        background: var(--glass-bg-light);
+        border-color: var(--glass-border);
+        color: var(--gray-50);
+    }
+
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-glow);
+    }
+
+    input::placeholder, textarea::placeholder {
+        color: var(--gray-500);
+    }
+
+    /* Tables */
+    .data-table tbody tr:hover {
+        background: var(--glass-bg-light);
+    }
+
+    /* Modals */
+    .modal-content {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+    }
+
+    .modal-overlay {
+        background: rgba(0, 0, 0, 0.7);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar-track {
+        background: var(--secondary-light);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary-dark);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--primary);
+    }
+
+    /* Selection */
+    ::selection {
+        background: var(--primary);
+        color: var(--secondary-dark);
+    }
+}

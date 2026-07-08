@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firmalar — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .table-wrap  { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .badge { display:inline-block; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .badge-active  { background:#d1fae5; color:#065f46; }
+  .badge-passive { background:#fee2e2; color:#991b1b; }
+  .badge-draft     { background:#fef3c7; color:#92400e; }
+  .badge-confirmed { background:#d1fae5; color:#065f46; }
+  .badge-paid      { background:#dbeafe; color:#1e40af; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:999; align-items:flex-start; justify-content:center; overflow-y:auto; padding:2rem 0; }
+  .modal-overlay.active { display:flex; }
+  .modal-box { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:560px; width:94%; margin:auto; max-height:90vh; overflow-y:auto; }
+  .modal-box.wide { max-width:740px; }
+  .modal-title { font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row  { margin-bottom:.875rem; }
+  .form-label{ font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .btn-link  { background:none; border:none; color:var(--accent); cursor:pointer; font-size:.8125rem; text-decoration:underline; padding:0; }
+  .actions   { display:flex; gap:.375rem; align-items:center; }
+  /* Tab-bar (asosiy) */
+  .tab-bar    { display:flex; flex-wrap:wrap; border-bottom:2px solid var(--border); margin-bottom:1.5rem; }
+  .tab-btn    { padding:.625rem 1.25rem; cursor:pointer; background:none; border:none; color:var(--text2);
+                font-size:.9375rem; font-weight:600; border-bottom:3px solid transparent; margin-bottom:-2px; }
+  .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-btn.locked { color:var(--text3); opacity:.6; }
+  /* Priyomka tovarlar jadvali */
+  .items-table { width:100%; border-collapse:collapse; font-size:.8125rem; margin-top:.5rem; }
+  .items-table th { background:var(--surface2); padding:.375rem .625rem; text-align:left; font-weight:600; }
+  .items-table td { padding:.375rem .5rem; border-bottom:1px solid var(--border); }
+  .items-table input { width:100%; padding:.25rem .375rem; border:1px solid var(--border); border-radius:.375rem;
+                       background:var(--surface1); color:var(--text1); font-size:.8125rem; }
+  .remove-btn { background:none; border:none; color:#ef4444; cursor:pointer; font-size:1rem; padding:0 .25rem; }
+  .detail-modal { max-width:820px; }
+  .detail-items { margin-top:1rem; }
+  .detail-row  { display:flex; justify-content:space-between; padding:.375rem 0; border-bottom:1px solid var(--border); font-size:.875rem; }
+  .detail-row:last-child { border:none; }
+  .total-row   { font-weight:700; font-size:1rem; color:var(--accent); }
+  .confirm-bar { background:var(--surface2); border-radius:.625rem; padding:.75rem 1rem; display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+  /* Qarzlar kartalari */
+  .debt-grid   { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:1.25rem; margin-bottom:2rem; }
+  .debt-card   { background:var(--surface1); border:2px solid var(--border); border-radius:.875rem; padding:1.25rem; }
+  .debt-card.overdue { border-color:#ef4444; }
+  .card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; }
+  .firm-name   { font-weight:700; font-size:1rem; color:var(--text1); }
+  .firm-meta   { font-size:.8125rem; color:var(--text3); margin-top:.125rem; }
+  .debt-amount { text-align:right; }
+  .debt-num    { font-size:1.375rem; font-weight:800; color:var(--accent); }
+  .debt-num.red{ color:#ef4444; }
+  .overdue-tag { font-size:.6875rem; font-weight:700; background:#fee2e2; color:#991b1b; border-radius:.375rem; padding:.15rem .4rem; }
+  .progress-row { display:flex; align-items:center; gap:.625rem; margin-bottom:.625rem; }
+  .progress-bar { flex:1; height:6px; background:var(--surface3); border-radius:3px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--accent); border-radius:3px; }
+  .progress-fill.red { background:#ef4444; }
+  .stats-row   { display:flex; gap:1rem; font-size:.8125rem; color:var(--text2); flex-wrap:wrap; }
+  .stat-item   { display:flex; flex-direction:column; }
+  .stat-label  { font-size:.6875rem; color:var(--text3); }
+  .stat-val    { font-weight:600; }
+  .btn-row     { display:flex; gap:.5rem; margin-top:1rem; }
+  .sub-tab-bar { display:flex; gap:.5rem; margin-bottom:1rem; }
+  .history-row { display:flex; justify-content:space-between; padding:.5rem .75rem; border-radius:.5rem; font-size:.875rem; margin-bottom:.25rem; }
+  .history-row:hover { background:var(--surface2); }
+  .pay-positive { color:#10b981; }
+  .locked-box  { text-align:center; padding:3rem 1.5rem; color:var(--text3); }
+  .locked-box .lock-ico { font-size:2.5rem; }
+
+/* ═══════════════════════════════════════════════════════════════
+   FIRMALAR PREMIUM — self-contained tema (orphan /css/main.css o'rniga)
+   + YENGIL atmosfera + glass + empty + skeleton + light. Vizual only.
+   JS/funksiya/id/class tegilmaydi.
+   ═══════════════════════════════════════════════════════════════ */
+/* Tema o'zgaruvchilari — sahifa --surface/--accent ishlatadi, lekin hech qayerда
+   aniqlanmagan edi (/css/main.css yo'q). Zumrad-tilla qiymatlar bilan to'ldiramiz. */
+:root{
+  --bg:#03110c;
+  --surface1:#0b2e23; --surface2:#143a2c; --surface3:#1e4a39;
+  --text1:#ecf6ef; --text2:#9fcbb9; --text3:#5c8775;
+  --accent:#d4b46c; --accent-dim:rgba(212,180,108,.15);
+  --border:rgba(212,180,108,.16);
+}
+[data-theme="light"]{
+  --bg:#f8f9fa;
+  --surface1:#ffffff; --surface2:#f1f3f5; --surface3:#e6eae8;
+  --text1:#10362a; --text2:#4a6b5c; --text3:#6b8576;
+  --accent:#c9a84c; --accent-dim:rgba(201,168,76,.12);
+  --border:rgba(0,0,0,.1);
+}
+
+/* ── Minimal shell (main.css yo'q) ── */
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100vh;
+  background:radial-gradient(ellipse 120% 72% at 75% -10%,#0a2419 0%,#05150e 50%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+.layout{display:flex;min-height:100vh}
+.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%;position:relative;z-index:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:.2s;position:relative;overflow:hidden;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn:hover{box-shadow:0 0 18px rgba(212,180,108,.35);transform:translateY(-1px)}
+.btn:active{transform:scale(.97)}
+.btn::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%);transform:translateX(-130%);transition:transform .6s ease}
+.btn:hover::after{transform:translateX(130%)}
+.btn.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn.btn-secondary::after{display:none}
+.btn.btn-secondary:hover{border-color:var(--accent);color:var(--accent);box-shadow:none}
+.inp{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(212,180,108,.14),0 0 12px rgba(212,180,108,.1)}
+.page-title{color:var(--accent)}
+
+/* content atmosfera ustида */
+.main-content{z-index:1}
+
+/* ── Atmosfera qatlami — fixed, ortда, shaffof joylardan ── */
+.sup-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.su-mandala{position:absolute;top:36%;left:66%;width:110vmin;height:110vmin;transform:translate(-50%,-50%);opacity:.03;animation:suSpin 240s linear infinite}
+.su-mandala svg{width:100%;height:100%;display:block}
+@keyframes suSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.su-glow{position:absolute;border-radius:50%;filter:blur(80px);mix-blend-mode:screen;opacity:.2}
+.su-glow.g1{width:46vmin;height:46vmin;top:-10%;left:-4%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:suBreathe 32s ease-in-out infinite}
+.su-glow.g2{width:40vmin;height:40vmin;bottom:-12%;right:-4%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:suBreathe 38s ease-in-out infinite 5s}
+@keyframes suBreathe{0%,100%{transform:scale(.95);opacity:.14}50%{transform:scale(1.08);opacity:.25}}
+[data-theme="light"] .su-glow{mix-blend-mode:normal;opacity:.1;filter:blur(90px)}
+[data-theme="light"] .su-mandala{opacity:.04}
+
+/* ── Glass: jadval/karta/modal ── */
+.table-wrap{
+  background:linear-gradient(180deg,rgba(11,46,35,.74),rgba(8,34,26,.8));
+  backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);
+  border:1px solid rgba(212,180,108,.16);border-radius:.875rem;
+  box-shadow:0 4px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(212,180,108,.06);
+}
+[data-theme="light"] .table-wrap{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,249,250,.9))}
+.data-table th{background:rgba(212,180,108,.06)}
+.data-table tr:hover td{background:rgba(212,180,108,.05)}
+.modal-box{
+  background:linear-gradient(180deg,rgba(13,42,32,.95),rgba(9,30,23,.97));
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--border);
+}
+[data-theme="light"] .modal-box{background:rgba(255,255,255,.97)}
+.modal-title{color:var(--accent)}
+.debt-card{background:linear-gradient(180deg,rgba(11,46,35,.6),rgba(8,34,26,.66))}
+[data-theme="light"] .debt-card{background:rgba(255,255,255,.7)}
+
+/* ── Tab'lar (faol = zumrad-tilla) ── */
+.tab-bar{border-bottom-color:rgba(212,180,108,.18)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.sub-tab-bar .tab-btn.active{box-shadow:inset 0 -2px 0 var(--accent)}
+
+/* ── EMPTY STATE (jadval td[colspan]) — ikonка + maslahat (JS tegilmaydi) ── */
+.data-table tbody td[colspan]{padding:3rem 1rem!important;color:var(--text2)!important;font-weight:600;line-height:1.5}
+.data-table tbody td[colspan]::before{
+  content:'';display:block;width:50px;height:50px;margin:0 auto 1rem;opacity:.5;
+  background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4b46c' stroke-width='1.3' stroke-linejoin='round'%3E%3Cpath d='M3 21h18M5 21V7l7-4 7 4v14'/%3E%3Cpath d='M9 21v-5h6v5'/%3E%3Cpath d='M9 9h.01M14.99 9H15M9 13h.01M14.99 13H15'/%3E%3C/svg%3E");
+  animation:_supFlt 3.5s ease-in-out infinite;
+}
+.data-table tbody td[colspan]::after{content:'Yangi yozuv qo\'shing yoki filtrни o\'zgartiring';display:block;margin-top:.5rem;font-size:.8125rem;font-weight:400;color:var(--text3)}
+@keyframes _supFlt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* ── SKELETON (yuklanish — shimmer) ── */
+@keyframes _supShimmer{0%{background-position:-450px 0}100%{background-position:450px 0}}
+.sk-line{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(212,180,108,.13) 37%,rgba(255,255,255,.04) 63%);background-size:800px 100%;animation:_supShimmer 1.4s linear infinite}
+.sk-row td{padding:.6rem 1rem;border-bottom:1px solid var(--border)}
+.sk-card{height:150px;border-radius:.875rem;background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(212,180,108,.1) 37%,rgba(255,255,255,.04) 63%);background-size:900px 100%;animation:_supShimmer 1.4s linear infinite}
+
+/* ── Micro: qatorlar/kartalar/tab stagger; ── */
+@keyframes _supIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.data-table tbody tr:not(.sk-row){animation:_supIn .25s ease backwards}
+.data-table tbody tr:not(.sk-row):nth-child(2){animation-delay:.03s}
+.data-table tbody tr:not(.sk-row):nth-child(3){animation-delay:.06s}
+.data-table tbody tr:not(.sk-row):nth-child(4){animation-delay:.09s}
+.data-table tbody tr:not(.sk-row):nth-child(5){animation-delay:.12s}
+.data-table tbody tr:not(.sk-row):nth-child(6){animation-delay:.15s}
+.debt-card{animation:_supIn .3s ease backwards}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion:reduce){
+  .su-mandala,.su-glow,.sk-line,.sk-card,.btn::after,.data-table tbody td[colspan]::before,
+  .data-table tbody tr:not(.sk-row),.debt-card{animation:none!important;transition:none!important}
+}
+/* ── Mobil ── */
+@media (max-width:768px){
+  .su-mandala{display:none}
+  .su-glow{filter:blur(50px);opacity:.14}
+  .table-wrap{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+</style>
+</head>
+<body>
+<!-- ── FIRMALAR atmosfera (yengil vizual qatlam, panellar ortida) ── -->
+<div class="sup-atmos" aria-hidden="true">
+  <div class="su-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="suPetal" d="M300 300 L311 165 L300 92 L289 165 Z" fill="none" stroke="#d4b46c" stroke-width="1"/></defs>
+      <g fill="none" stroke="#d4b46c" stroke-width="1">
+        <circle cx="300" cy="300" r="240"/><circle cx="300" cy="300" r="170"/><circle cx="300" cy="300" r="100"/>
+        <polygon points="300,96 477,300 300,504 123,300"/>
+        <rect x="180" y="180" width="240" height="240" transform="rotate(45 300 300)"/>
+      </g>
+      <g>
+        <use href="#suPetal" transform="rotate(0 300 300)"/><use href="#suPetal" transform="rotate(45 300 300)"/>
+        <use href="#suPetal" transform="rotate(90 300 300)"/><use href="#suPetal" transform="rotate(135 300 300)"/>
+        <use href="#suPetal" transform="rotate(180 300 300)"/><use href="#suPetal" transform="rotate(225 300 300)"/>
+        <use href="#suPetal" transform="rotate(270 300 300)"/><use href="#suPetal" transform="rotate(315 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="su-glow g1"></div>
+  <div class="su-glow g2"></div>
+</div>
+
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <a href="admin.html" style="display:inline-block;margin-bottom:1rem;color:var(--text2);text-decoration:none;font-size:.875rem">← Admin panel</a>
+    <div class="page-header">
+      <h1 class="page-title">🏭 Firmalar</h1>
+    </div>
+
+    <!-- ASOSIY TAB-BAR -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="st-firmalar"     onclick="supTab('firmalar')">Firmalar</button>
+      <button class="tab-btn"        id="st-priyomka"     onclick="supTab('priyomka')">Priyomka</button>
+      <button class="tab-btn"        id="st-qarzlar"      onclick="supTab('qarzlar')">Qarzlar</button>
+      <button class="tab-btn"        id="st-vozvrat"      onclick="supTab('vozvrat')">Vozvrat</button>
+      <button class="tab-btn locked" id="st-buxgalteriya" onclick="supTab('buxgalteriya')">Buxgalteriya 🔒</button>
+    </div>
+
+    <!-- ══════════ TAB: FIRMALAR ══════════ -->
+    <div id="panelFirmalar">
+      <div class="page-header">
+        <div></div>
+        <button class="btn" id="btnAddFirm">+ Firma qo'shish</button>
+      </div>
+      <div class="filter-bar">
+        <div>
+          <label class="form-label">Qidirish</label>
+          <input type="text" class="inp" id="firmSearch" placeholder="Nomi, telefon..." style="width:220px" oninput="firmDelayLoad()">
+        </div>
+        <div>
+          <label class="form-label">Holat</label>
+          <select class="inp" id="firmFilterActive" style="width:130px" onchange="loadFirms()">
+            <option value="true">Faol</option>
+            <option value="">Barchasi</option>
+            <option value="false">Arxiv</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>Firma nomi</th><th>INN</th><th>Telefon</th>
+            <th>Mas'ul shaxs</th><th>Shartnoma</th><th>Otsrochka</th><th>Holat</th><th></th>
+          </tr></thead>
+          <tbody id="firmTableBody">
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:80%"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:75%"></span></td><td><span class="sk-line" style="width:65%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:40px"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:62%"></span></td><td><span class="sk-line" style="width:78%"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:40px"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:85%"></span></td><td><span class="sk-line" style="width:66%"></span></td><td><span class="sk-line" style="width:72%"></span></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:48%"></span></td><td><span class="sk-line" style="width:40px"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:64%"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:80%"></span></td><td><span class="sk-line" style="width:62%"></span></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:40px"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ TAB: PRIYOMKA ══════════ -->
+    <div id="panelPriyomka" style="display:none">
+      <div class="page-header">
+        <div></div>
+        <button class="btn" id="btnNewReceipt">+ Yangi nakladnoy</button>
+      </div>
+      <div class="filter-bar">
+        <div>
+          <label class="form-label">Firma</label>
+          <select class="inp" id="recFilterSupplier" style="width:200px" onchange="loadReceipts()">
+            <option value="">Barcha firmalar</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Holat</label>
+          <select class="inp" id="recFilterStatus" style="width:130px" onchange="loadReceipts()">
+            <option value="">Barchasi</option>
+            <option value="draft">Qoralama</option>
+            <option value="confirmed">Tasdiqlangan</option>
+            <option value="paid">To'langan</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Dan</label>
+          <input type="date" class="inp" id="recFilterFrom" style="width:145px" onchange="loadReceipts()">
+        </div>
+        <div>
+          <label class="form-label">Gacha</label>
+          <input type="date" class="inp" id="recFilterTo" style="width:145px" onchange="loadReceipts()">
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>Sana</th><th>Firma</th><th>Nakladnoy №</th>
+            <th style="text-align:right">Jami</th><th style="text-align:right">Net</th>
+            <th>Holat</th><th></th>
+          </tr></thead>
+          <tbody id="recTableBody">
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:80%"></span></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:64%"></span></td><td><span class="sk-line" style="width:72%"></span></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:66%"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:76%"></span></td><td><span class="sk-line" style="width:68%"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:62%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:78%"></span></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:68%"></span></td><td><span class="sk-line" style="width:54%"></span></td><td><span class="sk-line" style="width:54px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:40px"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ TAB: QARZLAR ══════════ -->
+    <div id="panelQarzlar" style="display:none">
+      <div class="page-header">
+        <div></div>
+        <button class="btn" id="btnPay">+ To'lov</button>
+      </div>
+      <div class="sub-tab-bar">
+        <button class="tab-btn active" id="dtabDebt" onclick="debtSubTab('debt')">Qarzlar</button>
+        <button class="tab-btn" id="dtabHistory" onclick="debtSubTab('history')">To'lovlar tarixi</button>
+      </div>
+      <div id="dPanelDebt">
+        <div class="debt-grid" id="debtGrid">
+          <div class="sk-card"></div>
+          <div class="sk-card"></div>
+          <div class="sk-card"></div>
+        </div>
+      </div>
+      <div id="dPanelHistory" style="display:none">
+        <div style="display:flex;gap:.75rem;margin-bottom:1rem;align-items:flex-end;flex-wrap:wrap">
+          <div>
+            <label class="form-label">Firma</label>
+            <select class="inp" id="histSup" style="width:200px" onchange="debtLoadHistory()">
+              <option value="">Barcha firmalar</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Dan</label>
+            <input type="date" class="inp" id="histFrom" style="width:145px" onchange="debtLoadHistory()">
+          </div>
+          <div>
+            <label class="form-label">Gacha</label>
+            <input type="date" class="inp" id="histTo" style="width:145px" onchange="debtLoadHistory()">
+          </div>
+        </div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+
+    <!-- ══════════ TAB: VOZVRAT ══════════ -->
+    <div id="panelVozvrat" style="display:none">
+      <div class="page-header">
+        <div></div>
+        <button class="btn" id="btnNewReturn">↩ Yangi vozvrat</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>#</th><th>Sana</th><th>Firma</th><th>Mahsulot</th>
+            <th style="text-align:right">Miqdor</th><th style="text-align:right">Summa</th><th>Sabab</th>
+          </tr></thead>
+          <tbody id="retTableBody">
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:75%"></span></td><td><span class="sk-line" style="width:80%"></span></td><td><span class="sk-line" style="width:45%"></span></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:60%"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:62%"></span></td><td><span class="sk-line" style="width:68%"></span></td><td><span class="sk-line" style="width:72%"></span></td><td><span class="sk-line" style="width:42%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:56%"></span></td></tr>
+            <tr class="sk-row"><td><span class="sk-line" style="width:24px"></span></td><td><span class="sk-line" style="width:78%"></span></td><td><span class="sk-line" style="width:64%"></span></td><td><span class="sk-line" style="width:76%"></span></td><td><span class="sk-line" style="width:48%"></span></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:50%"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ TAB: BUXGALTERIYA (PRO) ══════════ -->
+    <div id="panelBuxgalteriya" style="display:none">
+      <div id="buxContent">
+        <div class="stats-row" id="buxStats" style="margin-bottom:1.5rem"></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Firma</th><th style="text-align:right">Jami xarid</th><th style="text-align:right">To'langan</th><th style="text-align:right">Qaytarilgan</th><th style="text-align:right">Qarz</th></tr></thead>
+            <tbody id="buxTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Firma qo'shish modali -->
+<div class="modal-overlay" id="firmModal">
+  <div class="modal-box">
+    <div class="modal-title" id="firmModalTitle">Firma qo'shish</div>
+    <input type="hidden" id="firmEditId">
+    <div class="form-row">
+      <label class="form-label">Firma nomi *</label>
+      <input type="text" class="inp" id="fName" placeholder="OAO Nestle, MChJ Meva...">
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">INN</label><input type="text" class="inp" id="fInn" placeholder="302831456"></div>
+      <div class="form-row"><label class="form-label">Telefon</label><input type="text" class="inp" id="fPhone" placeholder="+998 71 ..."></div>
+    </div>
+    <div class="form-row"><label class="form-label">Manzil</label><input type="text" class="inp" id="fAddress" placeholder="Toshkent, Yunusobod..."></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Shartnoma raqami</label><input type="text" class="inp" id="fContract" placeholder="NES-2026-001"></div>
+      <div class="form-row"><label class="form-label">Otsrochka (kun)</label><input type="number" class="inp" id="fDelay" placeholder="30" min="0"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Mas'ul shaxs</label><input type="text" class="inp" id="fContact" placeholder="F.I.Sh."></div>
+    <div class="form-row"><label class="form-label">Izoh</label><input type="text" class="inp" id="fNotes" placeholder="Ixtiyoriy..."></div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeFirmModal()">Bekor</button>
+      <button class="btn" id="btnSaveFirm" onclick="saveFirm()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Yangi priyomka modali -->
+<div class="modal-overlay" id="newModal">
+  <div class="modal-box wide">
+    <div class="modal-title">Yangi nakladnoy kiritish</div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Firma *</label><select class="inp" id="nSupplier"></select></div>
+      <div class="form-row"><label class="form-label">Sana *</label><input type="date" class="inp" id="nDate"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Nakladnoy raqami</label><input type="text" class="inp" id="nInvoice" placeholder="NL-001"></div>
+      <div class="form-row"><label class="form-label">Chegirma (UZS)</label><input type="number" class="inp" id="nDiscount" placeholder="0" min="0"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Izoh</label><input type="text" class="inp" id="nNotes" placeholder="Ixtiyoriy..."></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;margin-top:1rem">
+      <strong style="font-size:.9375rem">Tovarlar</strong>
+      <button class="btn btn-secondary" style="padding:.3rem .75rem;font-size:.8125rem" onclick="recAddItemRow()">+ Tovar</button>
+    </div>
+    <div class="form-row" id="scanRow" style="display:none">
+      <label class="form-label">📷 Barkod skaner (F2) — skaner qilsangiz tovar avtomatik qo'shiladi</label>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <input type="text" class="inp" id="scanInput" placeholder="Barkodni skaner qiling yoki kiriting..." autocomplete="off" style="flex:1">
+        <span id="scanStatus" style="font-size:.8125rem;font-weight:600;white-space:nowrap"></span>
+      </div>
+    </div>
+    <table class="items-table" id="itemsTable">
+      <thead><tr>
+        <th style="min-width:180px">Tovar *</th>
+        <th style="width:90px">Miqdor *</th>
+        <th style="width:110px">Kelish narxi *</th>
+        <th style="width:80px">Brak</th>
+        <th style="width:100px">Summa</th>
+        <th style="width:120px">Partiya №</th>
+        <th style="width:140px">Muddat</th>
+        <th style="width:30px"></th>
+      </tr></thead>
+      <tbody id="itemsBody"></tbody>
+    </table>
+    <div style="text-align:right;margin-top:.5rem;font-size:.875rem;color:var(--text2)">
+      Jami: <strong id="totalLabel">0</strong> so'm &nbsp;|&nbsp; Net: <strong id="netLabel">0</strong> so'm
+    </div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="recCloseNew()">Bekor</button>
+      <button class="btn" id="btnCreate" onclick="recCreate()">Saqlash (Draft)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Priyomka detail modali -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-box detail-modal">
+    <div id="detailContent"></div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="recCloseDetail()">Yopish</button>
+      <button class="btn" id="btnConfirm" onclick="recConfirm()" style="display:none">✅ Tasdiqlash (Ombor +)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Yangi tovar modali (skaner topilmaganda) -->
+<div class="modal-overlay" id="npModal">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-title">🆕 Yangi tovar (skaner)</div>
+    <div class="form-row"><label class="form-label">Barkod</label><input type="text" class="inp" id="npBarcode" readonly style="opacity:.75"></div>
+    <div class="form-row"><label class="form-label">Nomi *</label><input type="text" class="inp" id="npName" placeholder="Tovar nomi"></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Sotuv narxi *</label><input type="number" class="inp" id="npPrice" min="0" step="1" placeholder="0"></div>
+      <div class="form-row"><label class="form-label">Tan narxi</label><input type="number" class="inp" id="npCost" min="0" step="1" placeholder="0"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Kategoriya *</label><select class="inp" id="npCat"></select></div>
+    <div class="form-row" id="npNewCatRow" style="display:none">
+      <label class="form-label">Yangi kategoriya nomi *</label>
+      <input type="text" class="inp" id="npNewCat" placeholder="Masalan: Ichimliklar">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Rasm (ixtiyoriy)</label>
+      <input type="file" class="inp" id="npImage" accept="image/*">
+      <img id="npImagePreview" alt="" style="display:none;margin-top:.5rem;max-height:96px;border-radius:.5rem;border:1px solid var(--border)">
+    </div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('npModal').classList.remove('active')">Bekor</button>
+      <button class="btn" id="npSaveBtn" onclick="recSaveNewProduct()">Saqlash + kirim</button>
+    </div>
+  </div>
+</div>
+
+<!-- To'lov modali -->
+<div class="modal-overlay" id="payModal">
+  <div class="modal-box">
+    <div class="modal-title">Firmaga to'lov</div>
+    <div class="form-row"><label class="form-label">Firma *</label><select class="inp" id="paySupplier"></select></div>
+    <div class="form-row"><label class="form-label">Nakladnoy (ixtiyoriy)</label><select class="inp" id="payReceipt"><option value="">Umumiy to'lov</option></select></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Miqdor (UZS) *</label><input type="number" class="inp" id="payAmount" placeholder="0" min="1"></div>
+      <div class="form-row"><label class="form-label">Sana *</label><input type="date" class="inp" id="payDate"></div>
+    </div>
+    <div class="form-row"><label class="form-label">To'lov usuli</label>
+      <select class="inp" id="payMethod"><option value="cash">Naqd</option><option value="transfer">Bank o'tkazma</option><option value="card">Karta</option></select>
+    </div>
+    <div class="form-row"><label class="form-label">Izoh</label><input type="text" class="inp" id="payNotes" placeholder="Ixtiyoriy..."></div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="debtClosePay()">Bekor</button>
+      <button class="btn" id="btnPaySave" onclick="debtSavePay()">To'lov qilish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Vozvrat modali -->
+<div class="modal-overlay" id="returnModal">
+  <div class="modal-box">
+    <div class="modal-title">Firmaga Vozvrat</div>
+    <div class="form-row"><label class="form-label">Firma *</label><select class="inp" id="retSupplier"></select></div>
+    <div class="form-row"><label class="form-label">Mahsulot *</label><select class="inp" id="retProduct"></select></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Miqdor *</label><input type="number" class="inp" id="retQty" placeholder="0" min="0.001" step="0.001"></div>
+      <div class="form-row"><label class="form-label">Birlik narxi *</label><input type="number" class="inp" id="retPrice" placeholder="0" min="0"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Sana *</label><input type="date" class="inp" id="retDate"></div>
+      <div class="form-row"><label class="form-label">Sabab</label>
+        <select class="inp" id="retReason">
+          <option value="brak">Brak/Yaroqsiz</option>
+          <option value="expired">Muddati tugagan</option>
+          <option value="wrong_item">Noto'g'ri tovar</option>
+          <option value="other">Boshqa</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="debtCloseRet()">Bekor</button>
+      <button class="btn" id="btnRetSave" onclick="debtSaveRet()">Qaytarish</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API } from '/js/core/api.js';
+Sidebar.init();
+const api = new API();
+
+// ── Umumiy holat va yordamchilar (BIR MARTA) ────────────────────────────────
+let suppliers = [];
+let products  = [];
+let categories = [];
+let currentReceiptId = null;
+const loaded = { firmalar:false, priyomka:false, qarzlar:false, vozvrat:false, buxgalteriya:false };
+
+function fmt(n) { return Number(n||0).toLocaleString('uz-UZ'); }
+function statusLabel(s) { return s==='draft'?'Qoralama':s==='confirmed'?'Tasdiqlangan':s==='paid'?'To\'langan':s; }
+function methodLabel(m) { return m==='cash'?'Naqd':m==='transfer'?"Bank o'tkazma":m==='card'?'Karta':m; }
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.textContent = msg; document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+// Feature tekshiruvi — JWT 'features' claim orqali (ishonchli)
+function hasFeat(flag) {
+  try {
+    const tkn = localStorage.getItem('access_token');
+    if (!tkn) return false;
+    const p = JSON.parse(atob(tkn.split('.')[1]));
+    return Array.isArray(p.features) ? p.features.includes(flag) : false;
+  } catch { return false; }
+}
+
+// ── Asosiy tab almashtirish (lazy-load) ─────────────────────────────────────
+const PANELS = ['firmalar','priyomka','qarzlar','vozvrat','buxgalteriya'];
+window.supTab = (name) => {
+  // Buxgalteriya — PRO gating
+  if (name === 'buxgalteriya' && !hasFeat('supplier_accounting')) {
+    showToast('Buxgalteriya — PRO funksiya. Super-admin bilan bog\'laning.', 'error');
+    return;
+  }
+  PANELS.forEach(p => {
+    document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1)).style.display = (p===name) ? '' : 'none';
+    document.getElementById('st-' + p).classList.toggle('active', p===name);
+  });
+  // Lazy-load — har tab birinchi ochilganda
+  if (!loaded[name]) {
+    loaded[name] = true;
+    if (name==='firmalar')      loadFirms();
+    else if (name==='priyomka') loadReceipts();
+    else if (name==='qarzlar')  loadDebt();
+    else if (name==='vozvrat')  debtLoadReturns();
+    else if (name==='buxgalteriya') buxLoad();
+  }
+};
+
+// ════════════════ FIRMALAR TAB ════════════════
+let _firmTimer;
+window.firmDelayLoad = () => { clearTimeout(_firmTimer); _firmTimer = setTimeout(loadFirms, 350); };
+
+window.loadFirms = async () => {
+  const search = document.getElementById('firmSearch').value.trim();
+  const active = document.getElementById('firmFilterActive').value;
+  const params = new URLSearchParams({ page_size: 100 });
+  if (search) params.set('search', search);
+  if (active !== '') params.set('is_active', active);
+  const res = await api.get(`/suppliers-b2b/?${params}`);
+  const rows = res.items || [];
+  const tbody = document.getElementById('firmTableBody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)">Firmalar topilmadi</td></tr>'; return; }
+  tbody.innerHTML = rows.map(s => `
+    <tr>
+      <td>${s.id}</td>
+      <td style="font-weight:600">${s.name}</td>
+      <td style="font-family:monospace;font-size:.8125rem">${s.tax_id || '—'}</td>
+      <td>${s.phone || '—'}</td>
+      <td>${s.contact_person || '—'}</td>
+      <td style="font-size:.8125rem">${s.contract_number || '—'}</td>
+      <td style="text-align:center">${s.payment_delay_days ? s.payment_delay_days+' kun' : '—'}</td>
+      <td><span class="badge ${s.is_active ? 'badge-active':'badge-passive'}">${s.is_active ? 'Faol':'Arxiv'}</span></td>
+      <td class="actions">
+        <button class="btn btn-secondary" style="padding:.25rem .625rem;font-size:.75rem" onclick='openFirmEdit(${JSON.stringify(s)})'>Tahrir</button>
+        ${s.is_active ? `<button class="btn-link" onclick="archiveFirm(${s.id})">Arxiv</button>` : ''}
+      </td>
+    </tr>`).join('');
+};
+
+window.openFirmEdit = (s) => {
+  document.getElementById('firmModalTitle').textContent = 'Firmani tahrirlash';
+  document.getElementById('firmEditId').value = s.id;
+  document.getElementById('fName').value     = s.name || '';
+  document.getElementById('fInn').value      = s.tax_id || '';
+  document.getElementById('fPhone').value    = s.phone || '';
+  document.getElementById('fAddress').value  = s.address || '';
+  document.getElementById('fContract').value = s.contract_number || '';
+  document.getElementById('fDelay').value    = s.payment_delay_days || 0;
+  document.getElementById('fContact').value  = s.contact_person || '';
+  document.getElementById('fNotes').value    = s.notes || '';
+  document.getElementById('firmModal').classList.add('active');
+};
+document.getElementById('btnAddFirm').onclick = () => {
+  document.getElementById('firmModalTitle').textContent = "Firma qo'shish";
+  document.getElementById('firmEditId').value = '';
+  ['fName','fInn','fPhone','fAddress','fContract','fContact','fNotes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('fDelay').value = 0;
+  document.getElementById('firmModal').classList.add('active');
+};
+window.closeFirmModal = () => document.getElementById('firmModal').classList.remove('active');
+document.getElementById('firmModal').onclick = e => { if (e.target===e.currentTarget) closeFirmModal(); };
+
+window.saveFirm = async () => {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { showToast('Firma nomi kiritilishi shart', 'error'); return; }   // faqat NOM majburiy
+  const btn = document.getElementById('btnSaveFirm');
+  btn.disabled = true;
+  const payload = {
+    name,
+    tax_id:             document.getElementById('fInn').value.trim() || null,
+    phone:              document.getElementById('fPhone').value.trim() || null,
+    address:            document.getElementById('fAddress').value.trim() || null,
+    contract_number:    document.getElementById('fContract').value.trim() || null,
+    payment_delay_days: parseInt(document.getElementById('fDelay').value) || 0,
+    contact_person:     document.getElementById('fContact').value.trim() || null,
+    notes:              document.getElementById('fNotes').value.trim() || null,
+  };
+  const editId = document.getElementById('firmEditId').value;
+  const res = editId ? await api.patch(`/suppliers-b2b/${editId}`, payload) : await api.post('/suppliers-b2b/', payload);
+  btn.disabled = false;
+  if (res.id) { showToast(editId ? 'Yangilandi' : "Qo'shildi", 'success'); closeFirmModal(); loadFirms(); refreshSupplierDropdowns(); }
+  else showToast(res.detail || 'Xatolik', 'error');
+};
+window.archiveFirm = async (id) => {
+  if (!confirm('Firmani arxivlashni tasdiqlaysizmi?')) return;
+  const res = await api.patch(`/suppliers-b2b/${id}`, { is_active: false });
+  if (res.id) { showToast('Arxivlandi', 'success'); loadFirms(); } else showToast(res.detail || 'Xatolik', 'error');
+};
+
+// ════════════════ PRIYOMKA TAB ════════════════
+window.loadReceipts = async () => {
+  const params = new URLSearchParams({ page_size: 100 });
+  const sup    = document.getElementById('recFilterSupplier').value;
+  const status = document.getElementById('recFilterStatus').value;
+  const from   = document.getElementById('recFilterFrom').value;
+  const to     = document.getElementById('recFilterTo').value;
+  if (sup)    params.set('supplier_id', sup);
+  if (status) params.set('status', status);
+  if (from)   params.set('date_from', from);
+  if (to)     params.set('date_to', to);
+  const res = await api.get(`/purchase-receipts/?${params}`);
+  const rows = res.items || [];
+  const tbody = document.getElementById('recTableBody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Priyomkalar topilmadi</td></tr>'; return; }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.id}</td>
+      <td>${r.receipt_date}</td>
+      <td style="font-weight:600">${r.supplier_name || '—'}</td>
+      <td style="font-family:monospace">${r.invoice_number || '—'}</td>
+      <td style="text-align:right">${fmt(r.total_amount)}</td>
+      <td style="text-align:right;font-weight:700">${fmt(r.net_amount)}</td>
+      <td><span class="badge badge-${r.status}">${statusLabel(r.status)}</span></td>
+      <td><button class="btn btn-secondary" style="padding:.25rem .625rem;font-size:.75rem" onclick="recOpenDetail(${r.id})">Ko'rish</button></td>
+    </tr>`).join('');
+};
+
+window.recAddItemRow = () => {
+  const tbody = document.getElementById('itemsBody');
+  const opts  = products.map(p => `<option value="${p.id}" data-price="${p.price || 0}">${p.name}</option>`).join('');
+  const row = tbody.insertRow();
+  row.innerHTML = `
+    <td><select class="inp" style="width:100%" onchange="recCalcRow(this)">${opts}</select></td>
+    <td><input type="number" min="0.001" step="0.001" value="1" oninput="recCalcRow(this)"></td>
+    <td><input type="number" min="0" step="1" value="" placeholder="narx" oninput="recCalcRow(this)"></td>
+    <td><input type="number" min="0" step="0.001" value="0" oninput="recCalcRow(this)"></td>
+    <td class="row-total" style="text-align:right;font-weight:600">0</td>
+    <td><input type="text" placeholder="seriya" style="width:100%"></td>
+    <td><input type="date" style="width:100%"></td>
+    <td><button class="remove-btn" onclick="this.closest('tr').remove();recCalcTotal()">✕</button></td>`;
+};
+window.recCalcRow = (el) => {
+  const row  = el.closest('tr');
+  const qty  = parseFloat(row.cells[1].querySelector('input').value) || 0;
+  const price= parseFloat(row.cells[2].querySelector('input').value) || 0;
+  const brak = parseFloat(row.cells[3].querySelector('input').value) || 0;
+  row.cells[4].textContent = fmt(Math.max(0, qty - brak) * price);
+  recCalcTotal();
+};
+function recCalcTotal() {
+  let total = 0;
+  document.querySelectorAll('#itemsBody tr').forEach(row => {
+    const qty  = parseFloat(row.cells[1].querySelector('input').value) || 0;
+    const price= parseFloat(row.cells[2].querySelector('input').value) || 0;
+    const brak = parseFloat(row.cells[3].querySelector('input').value) || 0;
+    total += Math.max(0, qty - brak) * price;
+  });
+  const disc = parseFloat(document.getElementById('nDiscount').value) || 0;
+  document.getElementById('totalLabel').textContent = fmt(total);
+  document.getElementById('netLabel').textContent   = fmt(Math.max(0, total - disc));
+}
+window.recCalcTotal = recCalcTotal;
+document.getElementById('nDiscount').oninput = recCalcTotal;
+
+window.recCreate = async () => {
+  const supplierId = document.getElementById('nSupplier').value;
+  const date       = document.getElementById('nDate').value;
+  if (!supplierId || !date) { showToast('Firma va sana kiritilishi shart', 'error'); return; }
+  const items = [];
+  let ok = true;
+  document.querySelectorAll('#itemsBody tr').forEach(row => {
+    const productId = row.cells[0].querySelector('select').value;
+    const qty       = parseFloat(row.cells[1].querySelector('input').value) || 0;
+    const price     = parseFloat(row.cells[2].querySelector('input').value) || 0;
+    const brak      = parseFloat(row.cells[3].querySelector('input').value) || 0;
+    const batch     = row.cells[5].querySelector('input').value.trim();
+    const expiry    = row.cells[6].querySelector('input').value;
+    if (!productId || qty <= 0 || price <= 0) { ok = false; return; }
+    items.push({ product_id: parseInt(productId), quantity: qty, unit_price: price, brak_qty: brak, batch_number: batch || null, expiry_date: expiry || null });
+  });
+  if (!ok || !items.length) { showToast('Tovarlarni to\'liq kiriting', 'error'); return; }
+  const btn = document.getElementById('btnCreate');
+  btn.disabled = true;
+  const res = await api.post('/purchase-receipts/', {
+    supplier_id:     parseInt(supplierId),
+    invoice_number:  document.getElementById('nInvoice').value.trim() || null,
+    receipt_date:    date,
+    discount_amount: parseFloat(document.getElementById('nDiscount').value) || 0,
+    notes:           document.getElementById('nNotes').value.trim() || null,
+    items,
+  });
+  btn.disabled = false;
+  if (res.id) { showToast('Priyomka saqlandi', 'success'); recCloseNew(); loadReceipts(); }
+  else showToast(res.detail || 'Xatolik', 'error');
+};
+
+window.recOpenDetail = async (id) => {
+  currentReceiptId = id;
+  const rec = await api.get(`/purchase-receipts/${id}`);
+  const content = document.getElementById('detailContent');
+  document.getElementById('btnConfirm').style.display = rec.status === 'draft' ? '' : 'none';
+  content.innerHTML = `
+    <div class="confirm-bar">
+      <div>
+        <div style="font-weight:700;font-size:1rem">${rec.supplier_name || 'Firma'} — ${rec.receipt_date}</div>
+        <div style="font-size:.8125rem;color:var(--text3)">Nakladnoy: ${rec.invoice_number || '—'} | Holat: <span class="badge badge-${rec.status}">${statusLabel(rec.status)}</span></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:.875rem;color:var(--text2)">Jami: ${fmt(rec.total_amount)}</div>
+        <div style="font-size:1.125rem;font-weight:700;color:var(--accent)">Net: ${fmt(rec.net_amount)}</div>
+      </div>
+    </div>
+    <div class="detail-items">
+      ${(rec.items||[]).map(it => `
+        <div class="detail-row">
+          <span>${it.product_name || 'Mahsulot #'+it.product_id}</span>
+          <span style="color:var(--text2);font-size:.8125rem">${it.quantity} × ${fmt(it.unit_price)} (brak: ${it.brak_qty})</span>
+          <span style="font-weight:600">${fmt(it.total_price)}</span>
+        </div>`).join('')}
+      <div class="detail-row total-row"><span>JAMI NET</span><span></span><span>${fmt(rec.net_amount)}</span></div>
+    </div>
+    ${rec.notes ? `<div style="margin-top:.75rem;font-size:.875rem;color:var(--text2)">Izoh: ${rec.notes}</div>` : ''}`;
+  document.getElementById('detailModal').classList.add('active');
+};
+window.recConfirm = async () => {
+  if (!confirm('Priyomkani tasdiqlashni va ombor qoldiqlarini to\'ldirishni tasdiqlaysizmi?')) return;
+  const btn = document.getElementById('btnConfirm');
+  btn.disabled = true;
+  const res = await api.post(`/purchase-receipts/${currentReceiptId}/confirm`);
+  btn.disabled = false;
+  if (res.status === 'confirmed') { showToast('Priyomka tasdiqlandi! Ombor yangilandi.', 'success'); recCloseDetail(); loadReceipts(); }
+  else showToast(res.detail || 'Xatolik', 'error');
+};
+window.recCloseNew = () => {
+  document.getElementById('newModal').classList.remove('active');
+  document.getElementById('itemsBody').innerHTML = '';
+  recAddItemRow();
+};
+window.recCloseDetail = () => document.getElementById('detailModal').classList.remove('active');
+document.getElementById('newModal').onclick    = e => { if (e.target===e.currentTarget) recCloseNew(); };
+document.getElementById('detailModal').onclick = e => { if (e.target===e.currentTarget) recCloseDetail(); };
+document.getElementById('npModal').onclick     = e => { if (e.target===e.currentTarget) document.getElementById('npModal').classList.remove('active'); };
+document.getElementById('btnNewReceipt').onclick = () => document.getElementById('newModal').classList.add('active');
+
+// Barkod skaner (priyomka modalida)
+const scanInput = document.getElementById('scanInput');
+scanInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); const code = scanInput.value.trim(); scanInput.value=''; if (code) recHandleScan(code); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'F2' && document.getElementById('newModal').classList.contains('active') && document.getElementById('scanRow').style.display !== 'none') {
+    e.preventDefault(); scanInput.focus();
+  }
+});
+async function recHandleScan(code) {
+  const st = document.getElementById('scanStatus');
+  st.textContent = 'Qidirilmoqda...'; st.style.color = 'var(--text3)';
+  let prod = products.find(p => p.barcode === code);
+  if (!prod) { try { const r = await api.get(`/barcodes/lookup/${encodeURIComponent(code)}`); if (r && r.id) prod = r; } catch {} }
+  if (!prod) { st.textContent = `✕ Topilmadi: ${code}`; st.style.color = '#ef4444'; recOpenNewProduct(code); return; }
+  st.textContent = `✓ ${prod.name}`; st.style.color = '#10b981';
+  recAddScanned(prod);
+}
+function recAddScanned(prod) {
+  if (!products.find(p => p.id === prod.id)) products.push(prod);
+  let targetRow = null;
+  document.querySelectorAll('#itemsBody tr').forEach(row => {
+    const sel = row.cells[0].querySelector('select');
+    if (sel && String(sel.value) === String(prod.id)) targetRow = row;
+  });
+  if (targetRow) { const qi = targetRow.cells[1].querySelector('input'); qi.value = (parseFloat(qi.value)||0)+1; recCalcRow(qi); qi.focus(); return; }
+  let row = [...document.querySelectorAll('#itemsBody tr')].find(r => !r.cells[2].querySelector('input').value);
+  if (!row) { recAddItemRow(); row = document.getElementById('itemsBody').lastElementChild; }
+  const sel = row.cells[0].querySelector('select');
+  if (!sel.querySelector(`option[value="${prod.id}"]`)) sel.insertAdjacentHTML('beforeend', `<option value="${prod.id}" data-price="${prod.price||0}">${prod.name}</option>`);
+  sel.value = prod.id;
+  if (prod.cost_price > 0) row.cells[2].querySelector('input').value = prod.cost_price;
+  recCalcRow(sel);
+  row.cells[1].querySelector('input').focus();
+}
+
+let npImageFile = null;
+const _isDevUp = ['5500','5501','3000','4200','8080'].includes(location.port) && ['localhost','127.0.0.1'].includes(location.hostname);
+const UPLOAD_BASE = _isDevUp ? 'http://localhost:8000/api/v1' : '/api/v1';
+function recOpenNewProduct(barcode) {
+  document.getElementById('npBarcode').value = barcode || '';
+  ['npName','npPrice','npCost','npNewCat'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('npNewCatRow').style.display = 'none';
+  npImageFile = null; document.getElementById('npImage').value = '';
+  const pv = document.getElementById('npImagePreview'); pv.style.display='none'; pv.src='';
+  const sel = document.getElementById('npCat');
+  sel.innerHTML = '<option value="">— tanlang —</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('') + '<option value="__new__">➕ Yangi kategoriya...</option>';
+  document.getElementById('npModal').classList.add('active');
+  setTimeout(() => document.getElementById('npName').focus(), 120);
+}
+document.getElementById('npCat').addEventListener('change', function () {
+  document.getElementById('npNewCatRow').style.display = this.value === '__new__' ? '' : 'none';
+  if (this.value === '__new__') setTimeout(() => document.getElementById('npNewCat').focus(), 60);
+});
+document.getElementById('npImage').addEventListener('change', function () {
+  const f = this.files && this.files[0]; npImageFile = f || null;
+  const pv = document.getElementById('npImagePreview');
+  if (f) { pv.src = URL.createObjectURL(f); pv.style.display = ''; } else { pv.style.display='none'; pv.src=''; }
+});
+async function uploadProductImage(productId, file) {
+  const fd = new FormData(); fd.append('file', file);
+  const r = await fetch(`${UPLOAD_BASE}/products/${productId}/image`, { method:'POST', headers:{ Authorization:'Bearer '+localStorage.getItem('access_token') }, body: fd });
+  return r.ok ? r.json() : null;
+}
+window.recSaveNewProduct = async () => {
+  const name  = document.getElementById('npName').value.trim();
+  const price = parseFloat(document.getElementById('npPrice').value);
+  if (!name)               { showToast('Nom kiriting', 'error'); return; }
+  if (!price || price <= 0) { showToast('Sotuv narxini kiriting', 'error'); return; }
+  const btn = document.getElementById('npSaveBtn');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    let catId = document.getElementById('npCat').value;
+    if (catId === '__new__') {
+      const cname = document.getElementById('npNewCat').value.trim();
+      if (!cname) { showToast('Yangi kategoriya nomini kiriting', 'error'); btn.disabled=false; btn.textContent='Saqlash + kirim'; return; }
+      const cat = await api.post('/categories/', { name: cname });
+      if (!cat || !cat.id) throw new Error(cat?.detail || 'Kategoriya yaratilmadi');
+      catId = cat.id; categories.push(cat);
+    }
+    if (!catId) { showToast('Kategoriya tanlang', 'error'); btn.disabled=false; btn.textContent='Saqlash + kirim'; return; }
+    const payload = { name, price, cost_price: parseFloat(document.getElementById('npCost').value) || 0, barcode: document.getElementById('npBarcode').value || null, category_id: parseInt(catId) };
+    const prod = await api.post('/products/', payload);
+    if (!prod || !prod.id) throw new Error(prod?.detail || 'Mahsulot yaratilmadi');
+    if (npImageFile) { const img = await uploadProductImage(prod.id, npImageFile); if (img && img.image_url) prod.image_url = img.image_url; }
+    showToast('Tovar qo\'shildi', 'success');
+    document.getElementById('npModal').classList.remove('active');
+    recAddScanned(prod);
+  } catch (e) { showToast(e.message || 'Xatolik', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Saqlash + kirim'; }
+};
+
+// ════════════════ QARZLAR TAB ════════════════
+async function debtLoadPayReceipts() {
+  const supId = document.getElementById('paySupplier').value;
+  const sel   = document.getElementById('payReceipt');
+  sel.innerHTML = '<option value="">Umumiy to\'lov</option>';
+  if (!supId) return;
+  const res = await api.get(`/purchase-receipts/?supplier_id=${supId}&status=confirmed&page_size=50`);
+  (res.items||[]).forEach(r => sel.insertAdjacentHTML('beforeend', `<option value="${r.id}">#${r.id} ${r.invoice_number||''} — ${fmt(r.net_amount)} so'm (${r.receipt_date})</option>`));
+}
+async function loadDebt() {
+  const res = await api.get('/suppliers-b2b/debt-summary');
+  const grid = document.getElementById('debtGrid');
+  if (!Array.isArray(res) || !res.length) { grid.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">Firmalar topilmadi</div>'; return; }
+  grid.innerHTML = res.map(d => {
+    const pct     = d.total_purchases > 0 ? Math.min(100, d.total_paid / d.total_purchases * 100) : 100;
+    const overdue = d.overdue_amount > 0;
+    return `
+      <div class="debt-card ${overdue ? 'overdue':''}">
+        <div class="card-header">
+          <div>
+            <div class="firm-name">${d.supplier_name} ${overdue ? '<span class="overdue-tag">⚠ Muddati o\'tgan</span>' : ''}</div>
+            <div class="firm-meta">${d.phone || ''} ${d.last_purchase ? '| Oxirgi: '+d.last_purchase : ''}</div>
+          </div>
+          <div class="debt-amount">
+            <div class="debt-num ${d.debt>0 ? 'red':''}">${fmt(d.debt)}</div>
+            <div style="font-size:.75rem;color:var(--text3)">so'm qarz</div>
+          </div>
+        </div>
+        <div class="progress-row">
+          <span style="font-size:.75rem;color:var(--text3)">To'langan</span>
+          <div class="progress-bar"><div class="progress-fill ${overdue?'red':''}" style="width:${pct}%"></div></div>
+          <span style="font-size:.75rem;font-weight:700">${pct.toFixed(0)}%</span>
+        </div>
+        <div class="stats-row">
+          <div class="stat-item"><span class="stat-label">Jami xarid</span><span class="stat-val">${fmt(d.total_purchases)}</span></div>
+          <div class="stat-item"><span class="stat-label">To'langan</span><span class="stat-val" style="color:#10b981">${fmt(d.total_paid)}</span></div>
+          <div class="stat-item"><span class="stat-label">Qaytarilgan</span><span class="stat-val" style="color:#f59e0b">${fmt(d.total_returned)}</span></div>
+          ${overdue ? `<div class="stat-item"><span class="stat-label">Muddati o'tgan</span><span class="stat-val" style="color:#ef4444">${fmt(d.overdue_amount)}</span></div>` : ''}
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenPay(${d.supplier_id})">To'lov qilish</button>
+          <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenRet(${d.supplier_id})">Vozvrat</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+window.loadDebt = loadDebt;
+window.debtLoadHistory = async () => {
+  const params = new URLSearchParams({ page_size: 100 });
+  const sup  = document.getElementById('histSup').value;
+  const from = document.getElementById('histFrom').value;
+  const to   = document.getElementById('histTo').value;
+  if (sup)  params.set('supplier_id', sup);
+  if (from) params.set('date_from', from);
+  if (to)   params.set('date_to', to);
+  const res = await api.get(`/supplier-payments/?${params}`);
+  const list = document.getElementById('historyList');
+  const rows = res.items || [];
+  if (!rows.length) { list.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">To\'lovlar topilmadi</div>'; return; }
+  list.innerHTML = rows.map(p => {
+    const sup = suppliers.find(s => s.id === p.supplier_id);
+    return `<div class="history-row">
+      <span style="font-weight:600">${sup?.name || 'Firma #'+p.supplier_id}</span>
+      <span style="color:var(--text2);font-size:.8125rem">${p.payment_date || ''} · ${methodLabel(p.payment_method)}</span>
+      <span class="pay-positive" style="font-weight:700">+${fmt(p.amount)}</span>
+    </div>`;
+  }).join('');
+};
+window.debtSubTab = (tab) => {
+  document.getElementById('dtabDebt').classList.toggle('active', tab==='debt');
+  document.getElementById('dtabHistory').classList.toggle('active', tab==='history');
+  document.getElementById('dPanelDebt').style.display    = tab==='debt' ? '' : 'none';
+  document.getElementById('dPanelHistory').style.display = tab==='history' ? '' : 'none';
+  if (tab==='history') debtLoadHistory();
+};
+window.debtOpenPay = (supplierId) => { document.getElementById('paySupplier').value = supplierId; debtLoadPayReceipts(); document.getElementById('payModal').classList.add('active'); };
+document.getElementById('btnPay').onclick = () => { document.getElementById('paySupplier').value = suppliers[0]?.id || ''; debtLoadPayReceipts(); document.getElementById('payModal').classList.add('active'); };
+window.debtClosePay = () => document.getElementById('payModal').classList.remove('active');
+document.getElementById('payModal').onclick = e => { if(e.target===e.currentTarget) debtClosePay(); };
+document.getElementById('paySupplier').onchange = debtLoadPayReceipts;
+window.debtSavePay = async () => {
+  const supId  = document.getElementById('paySupplier').value;
+  const amount = parseFloat(document.getElementById('payAmount').value);
+  const date   = document.getElementById('payDate').value;
+  if (!supId || !amount || !date) { showToast('Firma, miqdor va sana kiritilsin', 'error'); return; }
+  const btn = document.getElementById('btnPaySave'); btn.disabled = true;
+  const recId = document.getElementById('payReceipt').value;
+  const res = await api.post('/supplier-payments/', {
+    supplier_id: parseInt(supId), receipt_id: recId ? parseInt(recId) : null, amount,
+    payment_date: date, payment_method: document.getElementById('payMethod').value,
+    notes: document.getElementById('payNotes').value.trim() || null,
+  });
+  btn.disabled = false;
+  if (res.id) { showToast('To\'lov saqlandi', 'success'); debtClosePay(); document.getElementById('payAmount').value=''; loadDebt(); }
+  else showToast(res.detail || 'Xatolik', 'error');
+};
+
+// ════════════════ VOZVRAT TAB ════════════════
+window.debtLoadReturns = async () => {
+  const res = await api.get('/supplier-returns/?page_size=100');
+  const rows = res.items || [];
+  const tbody = document.getElementById('retTableBody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Vozvratlar topilmadi</td></tr>'; return; }
+  tbody.innerHTML = rows.map(r => {
+    const sup = suppliers.find(s => s.id === r.supplier_id);
+    return `<tr>
+      <td>${r.id}</td>
+      <td>${r.return_date || '—'}</td>
+      <td style="font-weight:600">${sup?.name || 'Firma #'+r.supplier_id}</td>
+      <td>${r.product_name || 'Mahsulot #'+r.product_id}</td>
+      <td style="text-align:right">${r.quantity}</td>
+      <td style="text-align:right;font-weight:600">${fmt(r.total_amount)}</td>
+      <td>${r.reason || '—'}</td>
+    </tr>`;
+  }).join('');
+};
+window.debtOpenRet = (supplierId) => { document.getElementById('retSupplier').value = supplierId; document.getElementById('returnModal').classList.add('active'); };
+document.getElementById('btnNewReturn').onclick = () => { document.getElementById('retSupplier').value = suppliers[0]?.id || ''; document.getElementById('returnModal').classList.add('active'); };
+window.debtCloseRet = () => document.getElementById('returnModal').classList.remove('active');
+document.getElementById('returnModal').onclick = e => { if(e.target===e.currentTarget) debtCloseRet(); };
+window.debtSaveRet = async () => {
+  const supId = document.getElementById('retSupplier').value;
+  const prodId= document.getElementById('retProduct').value;
+  const qty   = parseFloat(document.getElementById('retQty').value);
+  const price = parseFloat(document.getElementById('retPrice').value);
+  const date  = document.getElementById('retDate').value;
+  if (!supId || !prodId || !qty || !price || !date) { showToast("Barcha maydonlarni to'ldiring", 'error'); return; }
+  const btn = document.getElementById('btnRetSave'); btn.disabled = true;
+  const res = await api.post('/supplier-returns/', {
+    supplier_id: parseInt(supId), product_id: parseInt(prodId), quantity: qty, unit_price: price,
+    return_date: date, reason: document.getElementById('retReason').value,
+  });
+  btn.disabled = false;
+  if (res.id) { showToast('Vozvrat saqlandi', 'success'); debtCloseRet(); document.getElementById('retQty').value=''; debtLoadReturns(); if (loaded.qarzlar) loadDebt(); }
+  else showToast(res.detail || 'Xatolik', 'error');
+};
+
+// ════════════════ BUXGALTERIYA TAB (PRO) ════════════════
+async function buxLoad() {
+  const res = await api.get('/suppliers-b2b/debt-summary');
+  const rows = Array.isArray(res) ? res : [];
+  const tot = rows.reduce((a,d) => ({ purch:a.purch+(d.total_purchases||0), paid:a.paid+(d.total_paid||0), ret:a.ret+(d.total_returned||0), debt:a.debt+(d.debt||0) }), {purch:0,paid:0,ret:0,debt:0});
+  document.getElementById('buxStats').innerHTML = `
+    <div class="stat-item"><span class="stat-label">Jami xarid</span><span class="stat-val" style="font-size:1.125rem">${fmt(tot.purch)}</span></div>
+    <div class="stat-item"><span class="stat-label">Jami to'langan</span><span class="stat-val" style="font-size:1.125rem;color:#10b981">${fmt(tot.paid)}</span></div>
+    <div class="stat-item"><span class="stat-label">Jami qaytarilgan</span><span class="stat-val" style="font-size:1.125rem;color:#f59e0b">${fmt(tot.ret)}</span></div>
+    <div class="stat-item"><span class="stat-label">Umumiy qarz</span><span class="stat-val" style="font-size:1.125rem;color:#ef4444">${fmt(tot.debt)}</span></div>`;
+  document.getElementById('buxTableBody').innerHTML = rows.map(d => `
+    <tr>
+      <td style="font-weight:600">${d.supplier_name}</td>
+      <td style="text-align:right">${fmt(d.total_purchases)}</td>
+      <td style="text-align:right;color:#10b981">${fmt(d.total_paid)}</td>
+      <td style="text-align:right;color:#f59e0b">${fmt(d.total_returned)}</td>
+      <td style="text-align:right;font-weight:700;color:${d.debt>0?'#ef4444':'inherit'}">${fmt(d.debt)}</td>
+    </tr>`).join('');
+}
+
+// ── Umumiy: supplier/product dropdownlarini to'ldirish ──────────────────────
+function refreshSupplierDropdowns() {
+  const supOpts = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  // filtr (Barcha firmalar default)
+  document.getElementById('recFilterSupplier').innerHTML = '<option value="">Barcha firmalar</option>' + supOpts;
+  document.getElementById('histSup').innerHTML           = '<option value="">Barcha firmalar</option>' + supOpts;
+  // tanlash majburiy
+  document.getElementById('nSupplier').innerHTML   = supOpts;
+  document.getElementById('paySupplier').innerHTML = supOpts;
+  document.getElementById('retSupplier').innerHTML = supOpts;
+}
+
+async function masterInit() {
+  const today = new Date().toISOString().slice(0,10);
+  const monthStart = today.slice(0,7) + '-01';
+  document.getElementById('nDate').value = today;
+  document.getElementById('payDate').value = today;
+  document.getElementById('retDate').value = today;
+  document.getElementById('recFilterFrom').value = monthStart;
+  document.getElementById('recFilterTo').value = today;
+  document.getElementById('histFrom').value = monthStart;
+  document.getElementById('histTo').value = today;
+
+  const [supRes, prodRes, catRes] = await Promise.all([
+    api.get('/suppliers-b2b/?page_size=200&is_active=true'),
+    api.get('/products/?page_size=500'),
+    api.get('/categories/all').catch(() => null),
+  ]);
+  suppliers  = supRes.items || [];
+  products   = prodRes.items || [];
+  categories = Array.isArray(catRes) ? catRes : (catRes?.items || catRes?.data || []);
+
+  refreshSupplierDropdowns();
+  document.getElementById('retProduct').innerHTML = products.map(p => `<option value="${p.id}" data-price="${p.price||0}">${p.name}</option>`).join('');
+  document.getElementById('retProduct').onchange = function() { document.getElementById('retPrice').value = this.options[this.selectedIndex]?.dataset.price || ''; };
+
+  recAddItemRow();
+
+  // Barkod skaner UI — barcode flagi yoqilgan tenantlarda
+  if (hasFeat('barcode') || hasFeat('multi_barcode')) document.getElementById('scanRow').style.display = '';
+
+  // Buxgalteriya tab qulfi — PRO yoqilgan bo'lsa belgini olib tashlaymiz
+  if (hasFeat('supplier_accounting')) {
+    const b = document.getElementById('st-buxgalteriya');
+    b.classList.remove('locked');
+    b.textContent = 'Buxgalteriya';
+  }
+
+  // Default: Firmalar tab
+  loaded.firmalar = true;
+  loadFirms();
+}
+
+masterInit();
+</script>
+</body>
+</html>

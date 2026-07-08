@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>A'zoliklar | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;--r:.5rem;--r2:.875rem;--r3:1.125rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.25rem}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem;text-align:center}
+.sc.active{border-color:rgba(16,185,129,.25)}.sc.expired{border-color:rgba(239,68,68,.2)}.sc.frozen{border-color:rgba(59,130,246,.2)}
+.sv{font-size:1.625rem;font-weight:700;color:var(--gold)}.sc.active .sv{color:var(--green)}.sc.expired .sv{color:var(--red)}.sc.frozen .sv{color:var(--blue)}
+.sl{font-size:.75rem;color:var(--text3);margin-top:.25rem}
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;align-items:center;flex-wrap:wrap}
+.sw{position:relative;flex:1;max-width:320px}
+.sw input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem .5rem 2.25rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.sw input:focus{border-color:var(--gold)}
+.sw svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.fsel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text2);font-size:.875rem;outline:none;cursor:pointer;font-family:inherit}
+.fsel:focus{border-color:var(--gold)}
+.cnt{font-size:.8125rem;color:var(--text3);margin-left:auto}
+.tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse}
+.tbl thead th{padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border)}
+.tbl tbody tr:not(:last-child) td{border-bottom:1px solid var(--border)}
+.tbl tbody tr:hover{background:rgba(255,255,255,.02)}
+.tbl td{padding:.875rem 1rem;font-size:.875rem;vertical-align:middle}
+.badge{padding:.2rem .5rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.b-active{background:rgba(16,185,129,.12);color:var(--green)}.b-expired{background:rgba(239,68,68,.1);color:var(--red)}.b-frozen{background:rgba(59,130,246,.12);color:var(--blue)}.b-cancelled{background:rgba(107,114,128,.12);color:#6b7280}
+.vbar{height:5px;border-radius:3px;background:var(--bg3);margin-top:.35rem;overflow:hidden}
+.vfill{height:100%;border-radius:3px;background:var(--gold)}
+.acts{display:flex;gap:.375rem}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}.mf .btn{flex:1}
+.fg{margin-bottom:1rem}.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:700px){.sg{grid-template-columns:repeat(2,1fr)}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">A'zoliklar</h1>
+  <button class="btn btn-gold" id="addBtn">+ Yangi</button>
+</header>
+<div class="pc">
+  <div class="sg">
+    <div class="sc active"><div class="sv" id="statActive">—</div><div class="sl">Faol</div></div>
+    <div class="sc expired"><div class="sv" id="statExpired">—</div><div class="sl">Muddati o'tgan</div></div>
+    <div class="sc frozen"><div class="sv" id="statFrozen">—</div><div class="sl">Muzlatilgan</div></div>
+    <div class="sc"><div class="sv" id="statTotal">—</div><div class="sl">Jami</div></div>
+  </div>
+  <div class="toolbar">
+    <div class="sw">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" placeholder="Mijoz qidirish...">
+    </div>
+    <select class="fsel" id="statusFilter">
+      <option value="">Barcha holatlar</option>
+      <option value="active">Faol</option>
+      <option value="expired">Muddati o'tgan</option>
+      <option value="frozen">Muzlatilgan</option>
+      <option value="cancelled">Bekor qilingan</option>
+    </select>
+    <span class="cnt" id="cnt"></span>
+  </div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead><tr><th>Mijoz</th><th>Tarif</th><th>Boshlanish</th><th>Tugash</th><th>Tashriflar</th><th>Holat</th><th></th></tr></thead>
+      <tbody id="tbody"><tr><td colspan="7" class="empty">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="mc">
+    <div class="mh"><h3 id="mTitle">Yangi a'zolik</h3><div class="mc-x" onclick="cm()">×</div></div>
+    <div class="mb">
+      <input type="hidden" id="eid">
+      <div class="fg"><label>Mijoz *</label><select id="custSel"><option value="">Tanlang...</option></select></div>
+      <div class="fg"><label>Tarif</label>
+        <select id="planSel">
+          <option value="basic">Basic</option>
+          <option value="standard">Standard</option>
+          <option value="premium">Premium</option>
+          <option value="unlimited">Unlimited</option>
+        </select>
+      </div>
+      <div class="fg"><label>Narxi (so'm)</label><input type="number" id="ePrice" min="0" step="1000" placeholder="0"></div>
+      <div class="fr2">
+        <div class="fg"><label>Boshlanish *</label><input type="date" id="eStart"></div>
+        <div class="fg"><label>Tugash *</label><input type="date" id="eEnd"></div>
+      </div>
+      <div class="fg"><label>Tashriflar soni (0=cheksiz)</label><input type="number" id="eVisits" min="0" value="0"></div>
+      <div class="fg"><label>Izoh</label><textarea id="eNote" rows="2"></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="cm()">Bekor</button>
+      <button class="btn btn-gold" id="saveBtn" onclick="save()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1',tok=()=>localStorage.getItem('access_token');
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,b)=>fetch(`${BASE}${u}`,{method:'POST',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+};
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+const BLBL={active:'Faol',expired:"O'tgan",frozen:'Muzlat.',cancelled:'Bekor'};
+const BCL={active:'b-active',expired:'b-expired',frozen:'b-frozen',cancelled:'b-cancelled'};
+
+let memberships=[],customers=[],editId=null;
+
+async function load(){
+  const [mRes,cRes]=await Promise.all([
+    api.get('/memberships/?page_size=500').catch(()=>null),
+    api.get('/customers/?page_size=1000').catch(()=>null),
+  ]);
+  memberships=mRes?.items??(Array.isArray(mRes)?mRes:mRes?.data?.items??[]);
+  customers=cRes?.items??(Array.isArray(cRes)?cRes:cRes?.data?.items??[]);
+  const sel=document.getElementById('custSel');
+  sel.innerHTML='<option value="">Tanlang...</option>'+customers.map(c=>`<option value="${c.id}">${esc(c.name)} (${c.phone||'—'})</option>`).join('');
+  updateStats();render();
+}
+
+function updateStats(){
+  const counts={active:0,expired:0,frozen:0};
+  memberships.forEach(m=>{if(counts[m.status]!==undefined)counts[m.status]++;});
+  document.getElementById('statActive').textContent=counts.active;
+  document.getElementById('statExpired').textContent=counts.expired;
+  document.getElementById('statFrozen').textContent=counts.frozen;
+  document.getElementById('statTotal').textContent=memberships.length;
+}
+
+function render(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const st=document.getElementById('statusFilter').value;
+  let list=memberships;
+  if(st) list=list.filter(m=>m.status===st);
+  if(q) list=list.filter(m=>{const c=customers.find(x=>x.id===m.customer_id);return (c?.name||'').toLowerCase().includes(q);});
+  document.getElementById('cnt').textContent=list.length+' ta';
+  const tb=document.getElementById('tbody');
+  if(!list.length){tb.innerHTML='<tr><td colspan="7" class="empty">A\'zolik topilmadi</td></tr>';return;}
+  tb.innerHTML=list.map(m=>{
+    const c=customers.find(x=>x.id===m.customer_id);
+    const pct=m.visits_total>0?Math.min(100,(m.visits_used/m.visits_total)*100):null;
+    const daysLeft=Math.ceil((new Date(m.end_date)-new Date())/86400000);
+    const expiring=daysLeft<=7&&daysLeft>0&&m.status==='active';
+    return `<tr>
+      <td><div style="font-weight:600">${esc(c?.name||'—')}</div><div style="font-size:.75rem;color:var(--text3)">${esc(c?.phone||'')}</div></td>
+      <td>${esc(m.plan_name||'—')}</td>
+      <td style="color:var(--text2)">${m.start_date||'—'}</td>
+      <td>${m.end_date||'—'}${expiring?`<div style="font-size:.75rem;color:var(--yellow)">${daysLeft} kun qoldi</div>`:''}</td>
+      <td>${m.visits_total>0?`<span>${m.visits_used}/${m.visits_total}</span><div class="vbar"><div class="vfill" style="width:${pct}%"></div></div>`:`${m.visits_used||0} (cheksiz)`}</td>
+      <td><span class="badge ${BCL[m.status]||''}">${BLBL[m.status]||m.status}</span></td>
+      <td><div class="acts">
+        ${m.status==='active'?`<button class="btn btn-out btn-sm" onclick="visit(${m.id})">+Tashrif</button>`:''}
+        <button class="btn btn-out btn-sm" onclick="openEdit(${m.id})">Tahrir</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function visit(id){
+  await api.post(`/memberships/${id}/visit`,{}).catch(()=>null);
+  showT('Tashrif qayd etildi','success');load();
+}
+
+function om(){document.getElementById('modal').classList.add('open');}
+function cm(){document.getElementById('modal').classList.remove('open');}
+
+function openAdd(){
+  editId=null;
+  document.getElementById('mTitle').textContent="Yangi a'zolik";
+  document.getElementById('eid').value='';
+  document.getElementById('custSel').value='';
+  document.getElementById('planSel').value='basic';
+  document.getElementById('ePrice').value='';
+  document.getElementById('eStart').value=new Date().toISOString().slice(0,10);
+  document.getElementById('eEnd').value='';
+  document.getElementById('eVisits').value=0;
+  document.getElementById('eNote').value='';
+  om();
+}
+
+function openEdit(id){
+  const m=memberships.find(x=>x.id===id);if(!m)return;
+  editId=id;
+  document.getElementById('mTitle').textContent="A'zolikni tahrirlash";
+  document.getElementById('eid').value=m.id;
+  document.getElementById('custSel').value=m.customer_id||'';
+  document.getElementById('planSel').value=m.plan_name||'basic';
+  document.getElementById('ePrice').value=m.price||'';
+  document.getElementById('eStart').value=m.start_date||'';
+  document.getElementById('eEnd').value=m.end_date||'';
+  document.getElementById('eVisits').value=m.visits_total||0;
+  document.getElementById('eNote').value=m.notes||'';
+  om();
+}
+
+async function save(){
+  const custId=parseInt(document.getElementById('custSel').value)||0;
+  const start=document.getElementById('eStart').value;
+  const end=document.getElementById('eEnd').value;
+  if(!custId||!start||!end){showT("Mijoz, boshlanish va tugash majburiy",'warning');return;}
+  const body={customer_id:custId,plan_name:document.getElementById('planSel').value,price:parseFloat(document.getElementById('ePrice').value)||0,start_date:start,end_date:end,visits_total:parseInt(document.getElementById('eVisits').value)||0,notes:document.getElementById('eNote').value||null};
+  const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='...';
+  try{
+    if(editId) await api.patch(`/memberships/${editId}`,{end_date:end,notes:body.notes});
+    else       await api.post('/memberships/',body);
+    showT('Saqlandi','success');cm();load();
+  }catch{showT('Xatolik','error');}
+  finally{btn.disabled=false;btn.textContent='Saqlash';}
+}
+
+function showT(m,t='info'){const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b'};const el=document.createElement('div');el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${c[t]};color:${c[t]};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4)`;el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+document.getElementById('addBtn').addEventListener('click',openAdd);
+document.getElementById('searchInput').addEventListener('input',render);
+document.getElementById('statusFilter').addEventListener('change',render);
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))cm();});
+load();
+</script>
+</body>
+</html>

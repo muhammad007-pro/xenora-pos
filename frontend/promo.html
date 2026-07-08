@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promo va Chegirmalar — XENORA</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="promo-container">
+        <div class="page-header">
+            <h1>Promo va Chegirmalar</h1>
+            <button class="btn btn-primary" id="addPromoBtn">+ Yangi promo</button>
+        </div>
+        
+        <div class="promo-grid" id="promoGrid"></div>
+        
+        <!-- Promo Modal -->
+        <div class="modal" id="promoModal">
+            <div class="modal-content glass">
+                <h2 id="modalTitle">Yangi promo</h2>
+                <form id="promoForm">
+                    <input type="text" name="name" placeholder="Promo kod" required>
+                    <select name="type" required>
+                        <option value="percentage">Foiz (%)</option>
+                        <option value="fixed">Belgilangan summa</option>
+                    </select>
+                    <input type="number" name="value" placeholder="Qiymat" required>
+                    <input type="number" name="min_order_amount" placeholder="Minimal buyurtma" value="0">
+                    <input type="date" name="valid_from" placeholder="Boshlanish sanasi">
+                    <input type="date" name="valid_to" placeholder="Tugash sanasi">
+                    <input type="number" name="usage_limit" placeholder="Foydalanish limiti">
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-outline modal-close">Bekor qilish</button>
+                        <button type="submit" class="btn btn-primary">Saqlash</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="js/promo.js"></script>
+</body>
+</html>

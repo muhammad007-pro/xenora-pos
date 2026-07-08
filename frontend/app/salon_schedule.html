@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Usta Jadvali — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; color:var(--text1); }
+  .schedule-grid { overflow-x:auto; }
+  table.sched-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .sched-table th { background:var(--surface2); color:var(--text2); font-weight:600;
+                    padding:.625rem 1rem; text-align:center; border:1px solid var(--border); }
+  .sched-table td { padding:.5rem .75rem; border:1px solid var(--border); vertical-align:middle; }
+  .sched-table td:first-child { font-weight:600; color:var(--text1); min-width:140px; }
+  .day-cell { text-align:center; min-width:110px; }
+  .day-toggle { display:flex; flex-direction:column; align-items:center; gap:.375rem; }
+  .time-inputs { display:flex; gap:.25rem; align-items:center; }
+  .time-inp { width:68px; padding:.25rem .375rem; border:1px solid var(--border); border-radius:.375rem;
+              background:var(--surface1); color:var(--text1); font-size:.8125rem; }
+  .day-off { opacity:.35; pointer-events:none; }
+  .toggle-wrap { display:flex; align-items:center; gap:.375rem; font-size:.75rem; color:var(--text3); }
+  input.day-active { cursor:pointer; }
+  .save-row { text-align:right; margin-top:1rem; }
+  .emp-section { margin-bottom:2rem; }
+  .emp-name { font-size:1rem; font-weight:700; color:var(--accent); margin-bottom:.75rem; }
+  .emp-pos  { font-size:.8125rem; color:var(--text3); margin-left:.5rem; font-weight:400; }
+  .slots-preview { margin-top:1.5rem; }
+  .slot-row { display:flex; flex-wrap:wrap; gap:.375rem; margin-top:.5rem; }
+  .slot-badge { padding:.25rem .625rem; border-radius:.375rem; font-size:.75rem; font-weight:600; }
+  .slot-free { background:#d1fae5; color:#065f46; }
+  .slot-busy { background:#fee2e2; color:#991b1b; }
+  .filter-bar { display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .preview-card { background:var(--surface1); border:1px solid var(--border); border-radius:.75rem; padding:1rem 1.25rem; margin-top:1.25rem; }
+  .preview-title { font-size:.9375rem; font-weight:700; margin-bottom:.75rem; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">💇 Usta Haftalik Jadvali</h1>
+      <div style="display:flex;gap:.75rem">
+        <button class="btn btn-secondary" id="btnPreviewSlots">📅 Bo'sh vaqtlarni ko'rish</button>
+        <button class="btn" id="btnSaveAll">Barchasini saqlash</button>
+      </div>
+    </div>
+
+    <!-- Bo'sh vaqt preview -->
+    <div class="preview-card" id="slotsPanel" style="display:none">
+      <div class="preview-title">Bo'sh vaqt slotlari</div>
+      <div class="filter-bar">
+        <select id="slotEmployee" class="inp" style="width:180px">
+          <option value="">Usta tanlang</option>
+        </select>
+        <input type="date" id="slotDate" class="inp" style="width:155px">
+        <select id="slotService" class="inp" style="width:200px">
+          <option value="">Xizmat tanlang</option>
+        </select>
+        <button class="btn btn-secondary" id="btnCheckSlots">Tekshirish</button>
+      </div>
+      <div class="slot-row" id="slotsOutput"></div>
+    </div>
+
+    <div id="scheduleContainer"></div>
+  </main>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API } from '/js/core/api.js';
+Sidebar.init();
+
+const api = new API();
+const DAY_NAMES = ['Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba','Yakshanba'];
+let employees = [];
+let services  = [];
+
+async function load() {
+  const [empRes, svcRes] = await Promise.all([
+    api.get('/employees/?page_size=100'),
+    api.get('/services/?page_size=100'),
+  ]);
+  employees = empRes.items || empRes || [];
+  services  = svcRes.items || svcRes || [];
+
+  // Slot preview selects
+  const selEmp = document.getElementById('slotEmployee');
+  const selSvc = document.getElementById('slotService');
+  employees.forEach(e => {
+    selEmp.insertAdjacentHTML('beforeend', `<option value="${e.id}">${e.full_name}</option>`);
+  });
+  services.forEach(s => {
+    selSvc.insertAdjacentHTML('beforeend', `<option value="${s.id}">${s.name} (${s.duration_minutes}min)</option>`);
+  });
+
+  await renderSchedules();
+}
+
+async function renderSchedules() {
+  const container = document.getElementById('scheduleContainer');
+  container.innerHTML = '';
+
+  for (const emp of employees) {
+    const res = await api.get(`/staff-schedules/employee/${emp.id}`);
+    const scheds = res || [];
+    const schedMap = {};
+    scheds.forEach(s => { schedMap[s.weekday] = s; });
+
+    const section = document.createElement('div');
+    section.className = 'emp-section';
+    section.dataset.empId = emp.id;
+    section.innerHTML = `
+      <div class="emp-name">${emp.full_name}<span class="emp-pos">${emp.position||''}</span></div>
+      <div class="schedule-grid">
+        <table class="sched-table">
+          <thead><tr><th>Kun</th>${DAY_NAMES.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
+          <tbody>
+            <tr>
+              <td>Ish vaqti</td>
+              ${[0,1,2,3,4,5,6].map(day => {
+                const s = schedMap[day];
+                const isWorking = s ? s.is_working : true;
+                const ws = s ? s.work_start : '09:00';
+                const we = s ? s.work_end   : '18:00';
+                return `
+                  <td class="day-cell">
+                    <div class="day-toggle">
+                      <label class="toggle-wrap">
+                        <input type="checkbox" class="day-active" data-day="${day}" ${isWorking?'checked':''} onchange="toggleDay(this)">
+                        <span>${isWorking ? 'Ish kuni' : 'Dam olish'}</span>
+                      </label>
+                      <div class="time-inputs ${isWorking?'':'day-off'}" id="times-${emp.id}-${day}">
+                        <input type="time" class="time-inp" data-field="start" value="${ws}">
+                        <span style="color:var(--text3)">–</span>
+                        <input type="time" class="time-inp" data-field="end" value="${we}">
+                      </div>
+                    </div>
+                  </td>`;
+              }).join('')}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="save-row">
+        <button class="btn btn-secondary btn-sm" onclick="saveEmployee(${emp.id}, this)">Saqlash</button>
+      </div>`;
+    container.appendChild(section);
+  }
+}
+
+window.toggleDay = (chk) => {
+  const day = chk.dataset.day;
+  const empId = chk.closest('.emp-section').dataset.empId;
+  const timesDiv = document.getElementById(`times-${empId}-${day}`);
+  const label = chk.nextElementSibling;
+  if (timesDiv) timesDiv.classList.toggle('day-off', !chk.checked);
+  if (label)   label.textContent = chk.checked ? 'Ish kuni' : 'Dam olish';
+};
+
+window.saveEmployee = async (empId, btn) => {
+  const section = document.querySelector(`.emp-section[data-emp-id="${empId}"]`);
+  const schedules = [];
+  for (let day = 0; day < 7; day++) {
+    const chk   = section.querySelector(`input.day-active[data-day="${day}"]`);
+    const times  = section.getElementById ? null : document.getElementById(`times-${empId}-${day}`);
+    const inputs = document.getElementById(`times-${empId}-${day}`)?.querySelectorAll('input[type=time]');
+    schedules.push({
+      is_working: chk?.checked ?? true,
+      work_start: inputs?.[0]?.value || '09:00',
+      work_end:   inputs?.[1]?.value || '18:00',
+    });
+  }
+  btn.disabled = true;
+  btn.textContent = 'Saqlanmoqda...';
+  const res = await api.post(`/staff-schedules/bulk?employee_id=${empId}`, schedules);
+  btn.disabled = false;
+  btn.textContent = 'Saqlash';
+  if (Array.isArray(res)) {
+    showToast('Jadval saqlandi', 'success');
+  } else {
+    showToast(res.detail || 'Xatolik', 'error');
+  }
+};
+
+document.getElementById('btnSaveAll').onclick = async () => {
+  const empSections = document.querySelectorAll('.emp-section');
+  for (const sec of empSections) {
+    const btn = sec.querySelector('.btn-sm');
+    if (btn) await window.saveEmployee(parseInt(sec.dataset.empId), btn);
+  }
+};
+
+document.getElementById('btnPreviewSlots').onclick = () => {
+  const p = document.getElementById('slotsPanel');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+};
+
+document.getElementById('btnCheckSlots').onclick = async () => {
+  const empId  = document.getElementById('slotEmployee').value;
+  const date   = document.getElementById('slotDate').value;
+  const svcId  = document.getElementById('slotService').value;
+  if (!empId || !date) { showToast('Usta va sanani tanlang', 'error'); return; }
+  const params = new URLSearchParams({ employee_id: empId, date });
+  if (svcId) params.set('service_id', svcId);
+  const slots = await api.get(`/appointments/available-slots?${params}`);
+  const out = document.getElementById('slotsOutput');
+  if (!Array.isArray(slots)) { out.innerHTML = `<span style="color:red">${slots.detail||'Xatolik'}</span>`; return; }
+  out.innerHTML = slots.map(s =>
+    `<span class="slot-badge ${s.available?'slot-free':'slot-busy'}">${s.time}</span>`
+  ).join('');
+};
+
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.textContent = msg; document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+load();
+</script>
+</body>
+</html>

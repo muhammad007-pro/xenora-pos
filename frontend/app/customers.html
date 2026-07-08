@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Mijozlar | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--red:#ef4444;--blue:#3b82f6;
+  --r:.5rem;--r2:.875rem;--r3:1.25rem
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── Header ── */
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;flex-shrink:0;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text3);padding:.35rem .625rem;font-size:.8125rem}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text2)}
+
+/* ── Layout ── */
+.pc{padding:1.5rem;max-width:1280px;margin:0 auto}
+
+/* ── Stats ── */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.25rem;font-weight:500}
+.sv{font-size:1.875rem;font-weight:700;color:var(--gold)}
+.ss{font-size:.75rem;color:var(--text2);margin-top:.2rem}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;align-items:center}
+.search-wrap{position:relative;flex:1;max-width:380px}
+.search-wrap input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem .5rem 2.25rem;color:var(--text);font-size:.875rem;outline:none;transition:.2s;font-family:inherit}
+.search-wrap input:focus{border-color:var(--gold)}
+.search-wrap svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.sort-sel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text2);font-size:.875rem;outline:none;cursor:pointer;font-family:inherit}
+.sort-sel:focus{border-color:var(--gold)}
+.count-badge{font-size:.8125rem;color:var(--text3);white-space:nowrap;margin-left:auto}
+
+/* ── Table ── */
+.tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse}
+.tbl thead th{padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl tbody tr{transition:.15s}
+.tbl tbody tr:hover{background:rgba(255,255,255,.025)}
+.tbl tbody tr:not(:last-child) td{border-bottom:1px solid var(--border)}
+.tbl td{padding:.875rem 1rem;font-size:.875rem;vertical-align:middle}
+.cust-cell{display:flex;align-items:center;gap:.75rem}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--gold-dim);border:1.5px solid rgba(212,180,108,.4);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;color:var(--gold);flex-shrink:0}
+.cname{font-weight:600}
+.cphone{font-size:.8rem;color:var(--text3);margin-top:.1rem}
+.points-badge{display:inline-flex;align-items:center;gap:.25rem;background:rgba(212,180,108,.12);color:var(--gold);border-radius:99px;padding:.2rem .625rem;font-size:.8125rem;font-weight:600}
+.tier{font-size:.75rem;padding:.15rem .5rem;border-radius:99px;font-weight:600}
+.tier-bronze{background:rgba(180,115,60,.15);color:#cd7f32}
+.tier-silver{background:rgba(192,192,192,.15);color:#c0c0c0}
+.tier-gold{background:var(--gold-dim);color:var(--gold)}
+.actions{display:flex;gap:.375rem}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+.empty svg{margin:0 auto 1rem;display:block;color:var(--text3);opacity:.4}
+
+/* ── Pagination ── */
+.pager{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1rem;border-top:1px solid var(--border)}
+.pager-info{font-size:.8125rem;color:var(--text3)}
+.pager-btns{display:flex;gap:.375rem}
+.pager-btn{padding:.375rem .75rem;border-radius:var(--r);font-size:.8125rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:.2s}
+.pager-btn:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+.pager-btn.active{background:var(--gold-dim);border-color:rgba(212,180,108,.4);color:var(--gold)}
+.pager-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── Modal ── */
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:500px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mc.wide{max-width:680px}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}
+.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem;flex-shrink:0}
+.mf .btn{flex:1}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;transition:.2s;font-family:inherit}
+.fg input:focus,.fg select:focus{border-color:var(--gold)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+/* ── Customer detail ── */
+.det-header{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem}
+.det-avatar{width:56px;height:56px;border-radius:50%;background:var(--gold-dim);border:2px solid rgba(212,180,108,.4);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.5rem;color:var(--gold);flex-shrink:0}
+.det-name{font-size:1.125rem;font-weight:700}
+.det-meta{font-size:.8125rem;color:var(--text2);margin-top:.25rem}
+.det-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.25rem}
+.det-stat{background:var(--bg3);border-radius:var(--r);padding:.875rem;text-align:center}
+.det-sv{font-size:1.25rem;font-weight:700;color:var(--gold)}
+.det-sl{font-size:.75rem;color:var(--text3);margin-top:.2rem}
+.sec-title{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:.625rem}
+.fav-list{display:flex;flex-direction:column;gap:.375rem;margin-bottom:1.25rem}
+.fav-item{display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;background:var(--bg3);border-radius:var(--r);font-size:.875rem}
+.fav-rank{width:20px;font-weight:700;color:var(--text3)}
+.fav-name{flex:1;margin:0 .5rem}
+.fav-qty{font-size:.8125rem;color:var(--gold);font-weight:600}
+.order-hist{display:flex;flex-direction:column;gap:.5rem}
+.oh-item{display:flex;align-items:center;justify-content:space-between;padding:.625rem .875rem;background:var(--bg3);border-radius:var(--r);font-size:.875rem}
+.oh-num{font-weight:600;margin-right:.5rem}
+.oh-date{color:var(--text3);font-size:.8rem}
+.oh-amt{font-weight:600;color:var(--gold)}
+.oh-st{font-size:.75rem;padding:.15rem .5rem;border-radius:99px;margin-left:.5rem}
+.st-completed{background:rgba(16,185,129,.15);color:var(--green)}
+.st-cancelled{background:rgba(239,68,68,.12);color:var(--red)}
+
+@media(max-width:768px){
+  .sg{grid-template-columns:repeat(2,1fr)}
+  .tbl thead th:nth-child(3),.tbl thead th:nth-child(4),.tbl td:nth-child(3),.tbl td:nth-child(4){display:none}
+  .toolbar{flex-wrap:wrap}
+  .search-wrap{max-width:none}
+}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+
+/* ═══════════════════════════════════════════════════════════════
+   MIJOZLAR PREMIUM — YENGIL atmosfera + glass + empty + skeleton.
+   Vizual only. JS/DOM/id/class tegilmaydi. Ish ekrani — tinch (POS darajasi).
+   ═══════════════════════════════════════════════════════════════ */
+/* light mode o'zgaruvchilari (sahifada yo'q edi — qo'shildi, ≥4.5:1) */
+[data-theme="light"]{
+  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;--bg4:#e9ecef;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.12);
+  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
+}
+
+/* tinch zumrad-qora fon ramp */
+body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0a2419 0%,#05150e 50%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+
+/* content atmosfera ustида */
+.ph{z-index:30}
+.pc{position:relative;z-index:1}
+
+/* ── Atmosfera qatlami — fixed, ortда, shaffof joylardan ── */
+.cust-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.ca-mandala{position:absolute;top:38%;left:66%;width:110vmin;height:110vmin;transform:translate(-50%,-50%);opacity:.03;animation:caSpin 240s linear infinite}
+.ca-mandala svg{width:100%;height:100%;display:block}
+@keyframes caSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.ca-glow{position:absolute;border-radius:50%;filter:blur(80px);mix-blend-mode:screen;opacity:.2}
+.ca-glow.g1{width:46vmin;height:46vmin;top:-10%;left:-6%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:caBreathe 32s ease-in-out infinite}
+.ca-glow.g2{width:40vmin;height:40vmin;bottom:-12%;right:-4%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:caBreathe 38s ease-in-out infinite 5s}
+@keyframes caBreathe{0%,100%{transform:scale(.95);opacity:.14}50%{transform:scale(1.08);opacity:.25}}
+[data-theme="light"] .ca-glow{mix-blend-mode:normal;opacity:.1;filter:blur(90px)}
+[data-theme="light"] .ca-mandala{opacity:.04}
+
+/* ── Glass panellar ── */
+.tbl-wrap{
+  background:linear-gradient(180deg,rgba(11,46,35,.72),rgba(8,34,26,.78));
+  backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);
+  border-color:rgba(212,180,108,.16);box-shadow:0 4px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(212,180,108,.06);
+}
+[data-theme="light"] .tbl-wrap{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,249,250,.9))}
+/* stat kartalar ko'p — blur YO'Q (tezlik), faqat yengil tint */
+.sc{background:rgba(11,46,35,.55)}
+[data-theme="light"] .sc{background:rgba(255,255,255,.66)}
+.tbl thead th{background:rgba(212,180,108,.05)}
+/* qidiruv fokus — tilla glow */
+.search-wrap input:focus{box-shadow:0 0 0 3px rgba(212,180,108,.16),0 0 14px rgba(212,180,108,.14)}
+/* modal glass */
+.mc{background:linear-gradient(180deg,rgba(13,42,32,.92),rgba(9,30,23,.95));backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+[data-theme="light"] .mc{background:rgba(255,255,255,.95)}
+/* tugma sheen + press */
+.btn-gold{position:relative;overflow:hidden}
+.btn-gold::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%);transform:translateX(-130%);transition:transform .6s ease}
+.btn-gold:hover::after{transform:translateX(130%)}
+.btn:active{transform:scale(.97)}
+
+/* ── EMPTY STATE (mavjud SVG saqlanadi — matn + maslahat qo'shiladi) ── */
+.empty{color:var(--text2);font-weight:600;line-height:1.5;font-size:.95rem}
+.empty::after{
+  content:'Yangi mijoz qo\'shing yoki qidiruvni o\'zgartiring';
+  display:block;margin-top:.5rem;font-size:.8125rem;font-weight:400;color:var(--text3);
+}
+
+/* ── SKELETON (yuklanish — shimmer) ── */
+@keyframes _shimmer{0%{background-position:-450px 0}100%{background-position:450px 0}}
+.sk-line{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(212,180,108,.13) 37%,rgba(255,255,255,.04) 63%);background-size:800px 100%;animation:_shimmer 1.4s linear infinite}
+.sk-av{width:36px;height:36px;border-radius:50%;flex-shrink:0;background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(212,180,108,.13) 37%,rgba(255,255,255,.04) 63%);background-size:800px 100%;animation:_shimmer 1.4s linear infinite}
+.sk-row td{padding:.875rem 1rem;border-bottom:1px solid var(--border)}
+
+/* ── Micro: jadval qatorlari yengil paydo bo'lish (stagger) ── */
+.tbl tbody tr:not(.sk-row){animation:_pgIn .25s ease backwards}
+.tbl tbody tr:not(.sk-row):nth-child(2){animation-delay:.03s}
+.tbl tbody tr:not(.sk-row):nth-child(3){animation-delay:.06s}
+.tbl tbody tr:not(.sk-row):nth-child(4){animation-delay:.09s}
+.tbl tbody tr:not(.sk-row):nth-child(5){animation-delay:.12s}
+.tbl tbody tr:not(.sk-row):nth-child(6){animation-delay:.15s}
+.tbl tbody tr:not(.sk-row):nth-child(7){animation-delay:.18s}
+.tbl tbody tr:not(.sk-row):nth-child(8){animation-delay:.21s}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion:reduce){
+  .ca-mandala,.ca-glow,.empty svg,.sk-line,.sk-av,.btn-gold::after,.tbl tbody tr:not(.sk-row){animation:none!important;transition:none!important}
+}
+/* ── Mobil: og'ir qatlam yengil ── */
+@media (max-width:768px){
+  .ca-mandala{display:none}
+  .ca-glow{filter:blur(50px);opacity:.14}
+  .tbl-wrap{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+</style>
+</head>
+<body>
+<!-- ── MIJOZLAR atmosfera (yengil vizual qatlam, panellar ortida) ── -->
+<div class="cust-atmos" aria-hidden="true">
+  <div class="ca-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="caPetal" d="M300 300 L311 165 L300 92 L289 165 Z" fill="none" stroke="#d4b46c" stroke-width="1"/></defs>
+      <g fill="none" stroke="#d4b46c" stroke-width="1">
+        <circle cx="300" cy="300" r="240"/><circle cx="300" cy="300" r="170"/><circle cx="300" cy="300" r="100"/>
+        <polygon points="300,96 477,300 300,504 123,300"/>
+        <rect x="180" y="180" width="240" height="240" transform="rotate(45 300 300)"/>
+      </g>
+      <g>
+        <use href="#caPetal" transform="rotate(0 300 300)"/><use href="#caPetal" transform="rotate(45 300 300)"/>
+        <use href="#caPetal" transform="rotate(90 300 300)"/><use href="#caPetal" transform="rotate(135 300 300)"/>
+        <use href="#caPetal" transform="rotate(180 300 300)"/><use href="#caPetal" transform="rotate(225 300 300)"/>
+        <use href="#caPetal" transform="rotate(270 300 300)"/><use href="#caPetal" transform="rotate(315 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="ca-glow g1"></div>
+  <div class="ca-glow g2"></div>
+</div>
+
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Mijozlar</h1>
+  <button class="btn btn-gold" id="addBtn">+ Yangi mijoz</button>
+</header>
+
+<div class="pc">
+  <!-- Stats -->
+  <div class="sg">
+    <div class="sc"><div class="sl">Jami mijozlar</div><div class="sv" id="stTotal">—</div></div>
+    <div class="sc"><div class="sl">Jami xarajat</div><div class="sv" id="stSpent">—</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">O'rtacha chek</div><div class="sv" id="stAvg">—</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Bugungi tashriflar</div><div class="sv" id="stToday">—</div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" placeholder="Ism yoki telefon..." autocomplete="off">
+    </div>
+    <select class="sort-sel" id="sortSel">
+      <option value="name">Ism bo'yicha</option>
+      <option value="spent">Xarajat bo'yicha</option>
+      <option value="visits">Tashriflar bo'yicha</option>
+      <option value="points">Ballar bo'yicha</option>
+      <option value="recent">So'nggi tashrif</option>
+    </select>
+    <span class="count-badge" id="countBadge"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Mijoz</th>
+          <th>Telefon</th>
+          <th>Tashriflar</th>
+          <th>Jami xarajat</th>
+          <th>Ballar</th>
+          <th>So'nggi tashrif</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <!-- Skeleton (yuklanish) — load()/render() bu qatorlarni almashtiradi -->
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:120px"></span></div></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:100px"></span></div></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:62%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:48%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:140px"></span></div></td><td><span class="sk-line" style="width:64%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:110px"></span></div></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:66%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:130px"></span></div></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:46%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+      </tbody>
+    </table>
+    <div class="pager" id="pager" style="display:none">
+      <span class="pager-info" id="pagerInfo"></span>
+      <div class="pager-btns" id="pagerBtns"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal" id="editModal">
+  <div class="mc">
+    <div class="mh">
+      <h3 id="editTitle">Yangi mijoz</h3>
+      <div class="mc-x" onclick="closeModal('editModal')">×</div>
+    </div>
+    <div class="mb">
+      <input type="hidden" id="editId">
+      <div class="fg"><label>Ism *</label><input id="editName" placeholder="Alisher Uzoqov"></div>
+      <div class="fr2">
+        <div class="fg"><label>Telefon</label><input id="editPhone" placeholder="+998 90 123 45 67" type="tel"></div>
+        <div class="fg"><label>Email</label><input id="editEmail" placeholder="mijoz@mail.uz" type="email"></div>
+      </div>
+      <div class="fg"><label>Tug'ilgan sana</label><input id="editBday" type="date"></div>
+      <div class="fg"><label>Izoh</label><input id="editNote" placeholder="Ixtiyoriy"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-outline" onclick="closeModal('editModal')">Bekor</button>
+      <button class="btn btn-gold" id="saveBtn" onclick="saveCustomer()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal" id="detailModal">
+  <div class="mc wide">
+    <div class="mh">
+      <h3 id="detTitle">Mijoz ma'lumotlari</h3>
+      <div class="mc-x" onclick="closeModal('detailModal')">×</div>
+    </div>
+    <div class="mb" id="detBody">
+      <p style="color:var(--text3);text-align:center;padding:2rem">Yuklanmoqda...</p>
+    </div>
+    <div class="mf">
+      <button class="btn btn-outline" onclick="closeModal('detailModal')">Yopish</button>
+      <button class="btn btn-gold" id="detEditBtn">Tahrirlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok  = () => localStorage.getItem('access_token');
+const api  = {
+  get:    u         => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:   (u,b)     => fetch(`${BASE}${u}`,{method:'POST',  headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:  (u,b)     => fetch(`${BASE}${u}`,{method:'PATCH', headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  delete: u         => fetch(`${BASE}${u}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+};
+
+function fmtN(n){ return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0)); }
+function fmtD(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fmtDT(d){ if(!d) return '—'; return new Date(d).toLocaleString('uz-UZ',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+
+function tier(points) {
+  if(points >= 5000) return {label:'Gold',cls:'tier-gold'};
+  if(points >= 1000) return {label:'Silver',cls:'tier-silver'};
+  return {label:'Bronze',cls:'tier-bronze'};
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let all = [], filtered = [], page = 1;
+const PAGE_SIZE = 20;
+let currentDetailId = null;
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function load() {
+  const res = await api.get('/customers/?page_size=500').catch(()=>null);
+  all = res?.items ?? (Array.isArray(res) ? res : res?.data?.items ?? []);
+  applyFilter();
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('stTotal').textContent = all.length;
+  const spent = all.reduce((s,c)=>s+(c.total_spent||0),0);
+  document.getElementById('stSpent').textContent = fmtN(spent);
+  const visits = all.reduce((s,c)=>s+(c.total_visits||0),0);
+  document.getElementById('stAvg').textContent = visits ? fmtN(spent/visits) : '0';
+  const today = new Date().toDateString();
+  const todayCount = all.filter(c=>c.last_visit && new Date(c.last_visit).toDateString()===today).length;
+  document.getElementById('stToday').textContent = todayCount;
+}
+
+// ── Filter & Sort ─────────────────────────────────────────────────────────────
+function applyFilter() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const sort = document.getElementById('sortSel').value;
+
+  filtered = q ? all.filter(c =>
+    (c.name||'').toLowerCase().includes(q) ||
+    (c.phone||'').includes(q) ||
+    (c.email||'').toLowerCase().includes(q)
+  ) : [...all];
+
+  filtered.sort((a,b)=>{
+    if(sort==='name')    return (a.name||'').localeCompare(b.name||'');
+    if(sort==='spent')   return (b.total_spent||0)-(a.total_spent||0);
+    if(sort==='visits')  return (b.total_visits||0)-(a.total_visits||0);
+    if(sort==='points')  return (b.points||0)-(a.points||0);
+    if(sort==='recent')  return new Date(b.last_visit||0)-new Date(a.last_visit||0);
+    return 0;
+  });
+
+  page = 1;
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const tbody = document.getElementById('tbody');
+  const total = filtered.length;
+  document.getElementById('countBadge').textContent = total ? `${total} ta mijoz` : '';
+
+  if (!total) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/></svg>
+      Mijozlar topilmadi</td></tr>`;
+    document.getElementById('pager').style.display = 'none';
+    return;
+  }
+
+  const start = (page-1)*PAGE_SIZE;
+  const slice = filtered.slice(start, start+PAGE_SIZE);
+
+  tbody.innerHTML = slice.map(c => {
+    const t = tier(c.points||0);
+    return `<tr>
+      <td><div class="cust-cell">
+        <div class="avatar">${(c.name||'?')[0].toUpperCase()}</div>
+        <div>
+          <div class="cname">${esc(c.name||'—')}</div>
+          ${c.email?`<div class="cphone">${esc(c.email)}</div>`:''}
+        </div>
+      </div></td>
+      <td>${esc(c.phone||'—')}</td>
+      <td>${c.total_visits||0}</td>
+      <td>${fmtN(c.total_spent||0)} so'm</td>
+      <td><span class="points-badge">${c.points||0} ball</span> <span class="tier ${t.cls}">${t.label}</span></td>
+      <td>${fmtD(c.last_visit)}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick="openDetail(${c.id})" title="Batafsil">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="openEdit(${c.id})" title="Tahrirlash">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="2"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  renderPager(total);
+}
+
+function renderPager(total) {
+  const pages = Math.ceil(total/PAGE_SIZE);
+  const pager = document.getElementById('pager');
+  if(pages <= 1){ pager.style.display='none'; return; }
+  pager.style.display='flex';
+  document.getElementById('pagerInfo').textContent = `${(page-1)*PAGE_SIZE+1}–${Math.min(page*PAGE_SIZE,total)} / ${total}`;
+  const btns = document.getElementById('pagerBtns');
+  let html = `<button class="pager-btn" onclick="goPage(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+  for(let i=1;i<=pages;i++){
+    if(i===1||i===pages||Math.abs(i-page)<=1) html+=`<button class="pager-btn${i===page?' active':''}" onclick="goPage(${i})">${i}</button>`;
+    else if(Math.abs(i-page)===2) html+=`<span style="color:var(--text3);padding:0 .25rem">…</span>`;
+  }
+  html += `<button class="pager-btn" onclick="goPage(${page+1})" ${page===pages?'disabled':''}>›</button>`;
+  btns.innerHTML = html;
+}
+
+function goPage(p){ page=p; render(); document.querySelector('.tbl-wrap').scrollIntoView({behavior:'smooth',block:'nearest'}); }
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ── Add/Edit ──────────────────────────────────────────────────────────────────
+function openAdd() {
+  document.getElementById('editTitle').textContent = 'Yangi mijoz';
+  document.getElementById('editId').value = '';
+  ['editName','editPhone','editEmail','editBday','editNote'].forEach(id=>document.getElementById(id).value='');
+  openModal('editModal');
+}
+
+function openEdit(id) {
+  const c = all.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('editTitle').textContent = 'Mijozni tahrirlash';
+  document.getElementById('editId').value = c.id;
+  document.getElementById('editName').value = c.name||'';
+  document.getElementById('editPhone').value = c.phone||'';
+  document.getElementById('editEmail').value = c.email||'';
+  document.getElementById('editBday').value = c.birthday?.split('T')[0]||'';
+  document.getElementById('editNote').value = c.notes||'';
+  closeModal('detailModal');
+  openModal('editModal');
+}
+
+async function saveCustomer() {
+  const id   = document.getElementById('editId').value;
+  const name = document.getElementById('editName').value.trim();
+  if(!name){ showToast('Ism majburiy', 'warning'); return; }
+
+  const data = {
+    name,
+    phone:    document.getElementById('editPhone').value.trim()||null,
+    email:    document.getElementById('editEmail').value.trim()||null,
+    birthday: document.getElementById('editBday').value||null,
+    notes:    document.getElementById('editNote').value.trim()||null,
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled=true; btn.textContent='Saqlanmoqda...';
+  try {
+    if(id) await api.patch(`/customers/${id}`, data);
+    else   await api.post('/customers/', data);
+    showToast('Saqlandi', 'success');
+    closeModal('editModal');
+    await load();
+  } catch { showToast('Xatolik yuz berdi', 'error'); }
+  finally  { btn.disabled=false; btn.textContent='Saqlash'; }
+}
+
+// ── Detail ────────────────────────────────────────────────────────────────────
+async function openDetail(id) {
+  currentDetailId = id;
+  const c = all.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('detTitle').textContent = c.name;
+  document.getElementById('detEditBtn').onclick = ()=>openEdit(id);
+
+  const t = tier(c.points||0);
+  document.getElementById('detBody').innerHTML = `
+    <div class="det-header">
+      <div class="det-avatar">${(c.name||'?')[0].toUpperCase()}</div>
+      <div>
+        <div class="det-name">${esc(c.name)}</div>
+        <div class="det-meta">${c.phone||''} ${c.email?'· '+c.email:''}</div>
+        <div class="det-meta" style="margin-top:.25rem">
+          <span class="tier ${t.cls}">${t.label}</span>
+          ${c.birthday?` · Tug'ilgan: ${fmtD(c.birthday)}`:''}
+        </div>
+      </div>
+    </div>
+    <div class="det-stats">
+      <div class="det-stat"><div class="det-sv">${c.total_visits||0}</div><div class="det-sl">Tashriflar</div></div>
+      <div class="det-stat"><div class="det-sv">${fmtN(c.total_spent||0)}</div><div class="det-sl">Jami xarajat (so'm)</div></div>
+      <div class="det-stat"><div class="det-sv">${c.points||0}</div><div class="det-sl">Ballar</div></div>
+    </div>
+    <div class="sec-title">Sevimli taomlar</div>
+    <div class="fav-list" id="favList"><div style="color:var(--text3);font-size:.875rem">Yuklanmoqda...</div></div>
+    <div class="sec-title" style="margin-top:1.25rem">Buyurtmalar tarixi</div>
+    <div class="order-hist" id="orderHist"><div style="color:var(--text3);font-size:.875rem">Yuklanmoqda...</div></div>
+  `;
+  openModal('detailModal');
+
+  // Load favorites and history in parallel
+  const [favRes, histRes] = await Promise.all([
+    api.get(`/customers/${id}/favorites?limit=5`).catch(()=>null),
+    api.get(`/customers/${id}/history?page_size=10`).catch(()=>null),
+  ]);
+
+  const favs = favRes?.items ?? (Array.isArray(favRes)?favRes:[]);
+  document.getElementById('favList').innerHTML = favs.length
+    ? favs.map((f,i)=>`<div class="fav-item">
+        <span class="fav-rank">${i+1}</span>
+        <span class="fav-name">${esc(f.product_name||f.name||'—')}</span>
+        <span class="fav-qty">${f.total_qty||f.quantity||0} marta</span>
+      </div>`).join('')
+    : '<div style="color:var(--text3);font-size:.875rem">Ma\'lumot yo\'q</div>';
+
+  const orders = histRes?.items ?? (Array.isArray(histRes)?histRes:[]);
+  document.getElementById('orderHist').innerHTML = orders.length
+    ? orders.map(o=>`<div class="oh-item">
+        <span class="oh-num">#${o.order_number||o.id}</span>
+        <span class="oh-date">${fmtDT(o.created_at)}</span>
+        <span style="flex:1"></span>
+        <span class="oh-amt">${fmtN(o.final_amount||0)} so'm</span>
+        <span class="oh-st st-${o.status}">${{completed:'Tugallandi',cancelled:'Bekor',pending:'Yangi',preparing:'Tayyorlanmoqda'}[o.status]||o.status}</span>
+      </div>`).join('')
+    : '<div style="color:var(--text3);font-size:.875rem">Buyurtmalar yo\'q</div>';
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type='info') {
+  const colors={success:'#10b981',error:'#ef4444',warning:'#f59e0b',info:'#1fb084'};
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${colors[type]||colors.info};color:${colors[type]||colors.info};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:fadeIn .2s`;
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+document.getElementById('addBtn').addEventListener('click', openAdd);
+document.getElementById('searchInput').addEventListener('input', ()=>applyFilter());
+document.getElementById('sortSel').addEventListener('change', ()=>applyFilter());
+
+// Close modals on overlay click
+['editModal','detailModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click', e=>{
+    if(e.target===document.getElementById(id)) closeModal(id);
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+load();
+</script>
+</body>
+</html>

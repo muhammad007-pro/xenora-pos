@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Smena | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
+  --border:rgba(212,180,108,.18);--border2:rgba(255,255,255,.08);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --success:#10b981;--danger:#ef4444;--warning:#f59e0b;--info:#3b82f6;
+  --r:.625rem;--r2:1rem;
+}
+.page-wrap{display:flex;flex-direction:column;min-height:100vh}
+.page-header{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2)}
+.back-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.back-btn:hover{border-color:var(--gold);color:var(--gold)}
+.page-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.page-content{flex:1;padding:1.25rem;max-width:960px;margin:0 auto;width:100%}
+
+/* Active shift card */
+.shift-active{background:var(--bg2);border:1px solid var(--gold);border-radius:var(--r2);padding:1.5rem;margin-bottom:1.5rem}
+.shift-active-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.shift-status{display:flex;align-items:center;gap:.5rem;font-size:.875rem;font-weight:600;color:var(--success)}
+.shift-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.shift-timer{font-size:1.75rem;font-weight:800;color:var(--gold);letter-spacing:.05em}
+.shift-meta{font-size:.8125rem;color:var(--text3);margin-top:.25rem}
+.shift-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.875rem;margin-bottom:1.25rem}
+.stat-box{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.875rem 1rem}
+.stat-label{font-size:.75rem;color:var(--text3);margin-bottom:.25rem}
+.stat-value{font-size:1.25rem;font-weight:700;color:var(--text)}
+.stat-value.gold{color:var(--gold)}
+.stat-value.green{color:var(--success)}
+
+/* Open shift card */
+.shift-open-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:2rem;text-align:center;margin-bottom:1.5rem}
+.shift-open-icon{font-size:3rem;margin-bottom:1rem}
+.shift-open-card h2{font-size:1.25rem;font-weight:700;margin-bottom:.5rem}
+.shift-open-card p{color:var(--text2);font-size:.875rem;margin-bottom:1.5rem}
+.shift-form{max-width:320px;margin:0 auto;text-align:left}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.form-group input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.9375rem;outline:none}
+.form-group input:focus{border-color:var(--gold)}
+
+/* History table */
+.section-title{font-size:1rem;font-weight:700;margin-bottom:.875rem;color:var(--text)}
+.history-table{width:100%;border-collapse:collapse;font-size:.875rem}
+.history-table th{text-align:left;padding:.625rem .875rem;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border2)}
+.history-table td{padding:.625rem .875rem;border-bottom:1px solid rgba(255,255,255,.04)}
+.history-table tr:hover td{background:var(--bg3)}
+.badge{display:inline-flex;align-items:center;padding:.2rem .625rem;border-radius:99px;font-size:.6875rem;font-weight:600}
+.badge-success{background:rgba(16,185,129,.15);color:#10b981}
+.badge-info{background:rgba(59,130,246,.15);color:#3b82f6}
+.badge-warning{background:rgba(245,158,11,.15);color:#f59e0b}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5625rem 1.25rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:0 0 20px rgba(212,180,108,.4)}
+.btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.btn-danger:hover{background:rgba(239,68,68,.25)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.375rem .875rem;font-size:.8125rem}
+
+/* Report modal */
+.modal-wrap{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-wrap.open{display:flex}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)}
+.modal-box{position:relative;z-index:1;background:var(--bg2);border:1px solid var(--border);border-radius:1.25rem;width:100%;max-width:540px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border2)}
+.modal-header h3{font-size:1rem;font-weight:700}
+.close-btn{width:32px;height:32px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.modal-body{padding:1.25rem 1.5rem}
+.rep-row{display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.875rem}
+.rep-row:last-child{border:none}
+.rep-label{color:var(--text2)}
+.rep-val{font-weight:600}
+.rep-section{font-size:.8125rem;font-weight:700;color:var(--gold);margin:.875rem 0 .375rem;text-transform:uppercase;letter-spacing:.04em}
+.rep-total{background:var(--gold-dim);border-radius:var(--r);padding:.75rem 1rem;display:flex;justify-content:space-between;font-weight:700;font-size:1rem;margin-top:.75rem}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="page-wrap">
+  <header class="page-header">
+    <a href="admin.html" class="back-btn">←</a>
+    <h1 class="page-title">🕐 Smena boshqaruvi</h1>
+  </header>
+  <div class="page-content">
+    <div id="activeShiftSection"></div>
+    <div id="historySection"></div>
+  </div>
+</div>
+
+<!-- Close shift modal -->
+<div class="modal-wrap" id="closeShiftModal">
+  <div class="modal-overlay" id="closeOverlay"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Smenani yopish</h3>
+      <button class="close-btn" id="closeModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:1rem">
+        <label>Kassa qoldig'i (so'm)</label>
+        <input type="number" id="endingCash" min="0" value="0" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.9375rem;outline:none">
+      </div>
+      <div class="form-group">
+        <label>Izoh</label>
+        <input type="text" id="shiftNotes" placeholder="Ixtiyoriy" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none">
+      </div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end">
+        <button class="btn btn-outline" id="closeModalCancel">Bekor</button>
+        <button class="btn btn-danger" id="confirmCloseBtn">Smenani yopish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Shift report modal -->
+<div class="modal-wrap" id="reportModal">
+  <div class="modal-overlay" id="repOverlay"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📊 Smena hisoboti</h3>
+      <button class="close-btn" id="repClose">✕</button>
+    </div>
+    <div class="modal-body" id="reportBody">
+      <div style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE  = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const token = () => localStorage.getItem('access_token');
+if (!token()) { location.href = '../shared/login.html'; }
+
+const user  = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
+
+const api = {
+  get:  (u)      => fetch(`${BASE}${u}`, {headers:{Authorization:'Bearer '+token()}}).then(r=>r.json()),
+  post: (u,d={}) => fetch(`${BASE}${u}`, {method:'POST', headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'}, body:JSON.stringify(d)}).then(r=>r.json()),
+  postForm: (u,p) => fetch(`${BASE}${u}?${new URLSearchParams(p)}`, {method:'POST', headers:{Authorization:'Bearer '+token()}}).then(r=>r.json()),
+};
+
+const fmt   = n  => Number(n||0).toLocaleString('uz-UZ') + ' UZS';
+const fmtDt = dt => dt ? new Date(dt).toLocaleString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+
+let activeShift = null;
+let timerInterval = null;
+
+// ── Load active shift ──────────────────────────────────────────────────────────
+async function loadActive() {
+  const res = await api.get('/shifts/active');
+  activeShift = res?.id ? res : null;
+  renderActive();
+}
+
+function renderActive() {
+  const el = document.getElementById('activeShiftSection');
+  if (activeShift) {
+    el.innerHTML = `
+      <div class="shift-active">
+        <div class="shift-active-head">
+          <div>
+            <div class="shift-status"><span class="shift-dot"></span>Faol smena</div>
+            <div class="shift-timer" id="shiftTimer">00:00:00</div>
+            <div class="shift-meta">Boshlandi: ${fmtDt(activeShift.start_time)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-end">
+            <button class="btn btn-danger" id="closeShiftBtn">⏹ Smenani yopish</button>
+          </div>
+        </div>
+        <div class="shift-stats" id="liveStats">
+          <div class="stat-box"><div class="stat-label">Kassir</div><div class="stat-value">${user.full_name||user.username||'—'}</div></div>
+          <div class="stat-box"><div class="stat-label">Boshlang'ich kassa</div><div class="stat-value">${fmt(activeShift.starting_cash||0)}</div></div>
+        </div>
+      </div>`;
+
+    startTimer(activeShift.start_time);
+    document.getElementById('closeShiftBtn').onclick = () => {
+      document.getElementById('endingCash').value = '0';
+      document.getElementById('shiftNotes').value = '';
+      document.getElementById('closeShiftModal').classList.add('open');
+    };
+  } else {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval=null; }
+    el.innerHTML = `
+      <div class="shift-open-card">
+        <div class="shift-open-icon">🕐</div>
+        <h2>Faol smena yo'q</h2>
+        <p>Yangi smena ochib, ishni boshlang</p>
+        <div class="shift-form">
+          <div class="form-group">
+            <label>Boshlang'ich kassa miqdori (so'm)</label>
+            <input type="number" id="startingCash" min="0" value="0" placeholder="0">
+          </div>
+          <button class="btn btn-gold" style="width:100%;justify-content:center" id="openShiftBtn">▶ Smenani ochish</button>
+        </div>
+      </div>`;
+    document.getElementById('openShiftBtn').onclick = openShift;
+  }
+}
+
+function startTimer(startStr) {
+  if (timerInterval) clearInterval(timerInterval);
+  const start = new Date(startStr).getTime();
+  timerInterval = setInterval(() => {
+    const diff = Date.now() - start;
+    const h = Math.floor(diff/3600000).toString().padStart(2,'0');
+    const m = Math.floor((diff%3600000)/60000).toString().padStart(2,'0');
+    const s = Math.floor((diff%60000)/1000).toString().padStart(2,'0');
+    const el = document.getElementById('shiftTimer');
+    if (el) el.textContent = `${h}:${m}:${s}`;
+    else clearInterval(timerInterval);
+  }, 1000);
+}
+
+async function openShift() {
+  const cash = parseFloat(document.getElementById('startingCash').value) || 0;
+  const res  = await api.post('/shifts/', { user_id: user.id, starting_cash: cash });
+  if (res.id) { toast('Smena ochildi', 'success'); await init(); }
+  else toast(res.detail||'Xatolik', 'error');
+}
+
+// ── Close shift ────────────────────────────────────────────────────────────────
+document.getElementById('closeModalClose').onclick   =
+document.getElementById('closeModalCancel').onclick  =
+document.getElementById('closeOverlay').onclick      = () => document.getElementById('closeShiftModal').classList.remove('open');
+
+document.getElementById('confirmCloseBtn').onclick = async () => {
+  if (!activeShift) return;
+  const cash  = parseFloat(document.getElementById('endingCash').value) || 0;
+  const notes = document.getElementById('shiftNotes').value.trim();
+  const res   = await api.postForm(`/shifts/${activeShift.id}/close`, { counted_cash: cash, ...(notes?{notes}:{}) });
+  if (res.id) {
+    document.getElementById('closeShiftModal').classList.remove('open');
+    toast('Smena yopildi', 'success');
+    await showReport(res.id);
+    await init();
+  } else toast(res.detail||'Xatolik', 'error');
+};
+
+// ── Report modal ───────────────────────────────────────────────────────────────
+async function showReport(shiftId) {
+  document.getElementById('reportModal').classList.add('open');
+  document.getElementById('reportBody').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</div>';
+  const r = await api.get(`/shifts/${shiftId}/report`);
+  if (!r.shift_id) { document.getElementById('reportBody').innerHTML = '<p style="color:var(--danger)">Hisobot yuklanmadi</p>'; return; }
+
+  const payRows = (r.by_payment_method||[]).map(p=>
+    `<div class="rep-row"><span class="rep-label">${{cash:'Naqd',card:'Karta',transfer:'Pul o\'tkazma'}[p.method]||p.method}</span><span class="rep-val">${fmt(p.amount)}</span></div>`
+  ).join('');
+  const topRows = (r.top_products||[]).map(p=>
+    `<div class="rep-row"><span class="rep-label">${p.name}</span><span class="rep-val">${p.quantity} ta</span></div>`
+  ).join('');
+
+  document.getElementById('reportBody').innerHTML = `
+    <div class="rep-row"><span class="rep-label">Kassir</span><span class="rep-val">${r.cashier||'—'}</span></div>
+    <div class="rep-row"><span class="rep-label">Boshlandi</span><span class="rep-val">${r.start_time}</span></div>
+    <div class="rep-row"><span class="rep-label">Yakunlandi</span><span class="rep-val">${r.end_time}</span></div>
+    <div class="rep-row"><span class="rep-label">Davomiyligi</span><span class="rep-val">${r.duration_hours} soat</span></div>
+
+    <div class="rep-section">Savdo xulosasi</div>
+    <div class="rep-row"><span class="rep-label">Buyurtmalar soni</span><span class="rep-val">${r.summary?.total_orders||0}</span></div>
+    <div class="rep-row"><span class="rep-label">Chegirmalar</span><span class="rep-val">${fmt(r.summary?.discount_total)}</span></div>
+    <div class="rep-row"><span class="rep-label">O'rtacha buyurtma</span><span class="rep-val">${fmt(r.summary?.avg_order)}</span></div>
+
+    ${payRows?`<div class="rep-section">To'lov usullari</div>${payRows}`:''}
+    ${topRows?`<div class="rep-section">Top mahsulotlar</div>${topRows}`:''}
+
+    <div class="rep-row" style="margin-top:.5rem">
+      <span class="rep-label">Boshlang'ich kassa</span>
+      <span class="rep-val">${fmt(r.opening_cash)}</span>
+    </div>
+    <div class="rep-row">
+      <span class="rep-label">Yakuniy kassa</span>
+      <span class="rep-val">${fmt(r.closing_cash)}</span>
+    </div>
+    <div class="rep-total">
+      <span>Jami tushum</span>
+      <span style="color:var(--gold)">${fmt(r.summary?.net_revenue)}</span>
+    </div>
+    <div style="margin-top:1rem;text-align:center">
+      <button class="btn btn-gold" id="printZBtn">🖨 Z-chek chiqarish</button>
+    </div>`;
+
+  const pz = document.getElementById('printZBtn');
+  if (pz) pz.onclick = () => printZ(shiftId, pz);
+}
+
+// ── Z-chek chiqarish (ESC/POS printer) ───────────────────────────────────────
+async function printZ(shiftId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Chop etilmoqda...'; }
+  try {
+    const res = await api.post(`/shifts/${shiftId}/print-z`);
+    if (res.printed) toast('Z-chek printerga yuborildi', 'success');
+    else if (res.printer?.reason === 'disabled') toast('Printer o\'chiq (sozlamalardan yoqing)', 'error');
+    else toast(res.detail || 'Z-chek chiqmadi', 'error');
+  } catch { toast('Z-chek chiqmadi', 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '🖨 Z-chek chiqarish'; } }
+}
+
+document.getElementById('repClose').onclick  =
+document.getElementById('repOverlay').onclick = () => document.getElementById('reportModal').classList.remove('open');
+
+// ── History ────────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const shifts = await api.get('/shifts/');
+  const closed = Array.isArray(shifts) ? shifts.filter(s => s.end_time) : [];
+  const el = document.getElementById('historySection');
+  if (!closed.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="section-title">Smena tarixi</div>
+    <table class="history-table">
+      <thead><tr>
+        <th>Boshlanish</th><th>Yakunlanish</th><th>Davom (soat)</th>
+        <th>Tushum</th><th>Naqd</th><th>Karta</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${closed.slice(0,20).map(s=>{
+          const dur = s.end_time
+            ? Math.round((new Date(s.end_time)-new Date(s.start_time))/36e5*10)/10
+            : '—';
+          return `<tr>
+            <td>${fmtDt(s.start_time)}</td>
+            <td>${fmtDt(s.end_time)}</td>
+            <td>${dur} h</td>
+            <td>${fmt(s.total_sales)}</td>
+            <td>${fmt(s.cash_sales)}</td>
+            <td>${fmt(s.card_sales)}</td>
+            <td><button class="btn btn-sm btn-outline" onclick="showReport(${s.id})">📊</button></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;padding:.75rem 1.25rem;border-radius:.625rem;font-size:.875rem;font-weight:500;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.textContent=msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([loadActive(), loadHistory()]);
+}
+init();
+</script>
+</body>
+</html>

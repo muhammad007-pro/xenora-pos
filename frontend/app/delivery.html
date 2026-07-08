@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Yetkazib berish | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.ha{display:flex;gap:.75rem;align-items:center}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.25rem}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.25rem}
+.sv{font-size:2rem;font-weight:700;color:var(--gold)}
+.ss{font-size:.75rem;color:var(--text2)}
+.tabs{display:flex;gap:.375rem;margin-bottom:1.25rem;border-bottom:1px solid var(--border2);padding-bottom:.75rem}
+.tab{padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text2);transition:.2s}
+.tab.active{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,180,108,.3)}
+.list{display:flex;flex-direction:column;gap:.75rem}
+.dcard{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.125rem;display:flex;align-items:flex-start;gap:1rem}
+.dcard:hover{border-color:rgba(255,255,255,.15)}
+.dcard.status-pending{border-left:3px solid #3b82f6}
+.dcard.status-confirmed{border-left:3px solid var(--gold)}
+.dcard.status-preparing{border-left:3px solid #f59e0b}
+.dcard.status-ready{border-left:3px solid #10b981}
+.dcard.status-completed{border-left:3px solid #374151}
+.dn{font-size:1rem;font-weight:700}
+.da{font-size:.8125rem;color:var(--text2);margin-top:.2rem}
+.dd{font-size:.875rem;color:var(--gold);font-weight:600;margin-top:.375rem}
+.di{font-size:.75rem;color:var(--text3);margin-top:.25rem}
+.ds{display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap}
+.badge{padding:.2rem .625rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.b-pending{background:rgba(59,130,246,.15);color:#60a5fa}
+.b-confirmed{background:var(--gold-dim);color:var(--gold)}
+.b-preparing{background:rgba(245,158,11,.15);color:#e2c97a}
+.b-ready{background:rgba(16,185,129,.15);color:#10b981}
+.b-completed{background:rgba(55,65,81,.3);color:#9ca3af}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.bsm{padding:.375rem .875rem;font-size:.8125rem}
+.ml{flex:1}
+.actions{display:flex;gap:.5rem;align-items:center;flex-shrink:0}
+/* New delivery modal */
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.show{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:1.5rem;padding:1.5rem;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.mh h2{font-size:1.125rem;font-weight:700}
+.mc-x{width:32px;height:32px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.25rem}
+.mc-x:hover{color:var(--gold);border-color:var(--gold)}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg textarea,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:#ecf6ef;font-size:.875rem;outline:none;transition:.2s;font-family:inherit}
+.fg input:focus,.fg textarea:focus,.fg select:focus{border-color:var(--gold)}
+.fg textarea{resize:vertical;min-height:70px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:768px){.sg{grid-template-columns:repeat(2,1fr)}.fr{grid-template-columns:1fr}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="pt">🛵 Yetkazib berish</h1>
+  <div class="ha">
+    <button class="btn bg" onclick="openNew()">+ Yangi buyurtma</button>
+  </div>
+</header>
+
+<div class="pc">
+  <div class="sg">
+    <div class="sc"><div class="sl">Yangi</div><div class="sv" id="cntNew">—</div><div class="ss">kutilmoqda</div></div>
+    <div class="sc"><div class="sl">Tayyorlanmoqda</div><div class="sv" id="cntPrep">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Tayyor</div><div class="sv" id="cntReady">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Bugun yetkazildi</div><div class="sv" id="cntDone">—</div><div class="ss">ta</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-status="">Barchasi</button>
+    <button class="tab" data-status="pending">Yangi</button>
+    <button class="tab" data-status="confirmed">Tasdiqlangan</button>
+    <button class="tab" data-status="preparing">Tayyorlanmoqda</button>
+    <button class="tab" data-status="ready">Tayyor</button>
+    <button class="tab" data-status="completed">Yetkazildi</button>
+  </div>
+
+  <div class="list" id="delivList"><p style="color:var(--text3);text-align:center;padding:2rem">Yuklanmoqda...</p></div>
+</div>
+
+<!-- New delivery modal -->
+<div class="modal" id="newModal">
+  <div class="mc">
+    <div class="mh">
+      <h2>🛵 Yangi yetkazib berish</h2>
+      <div class="mc-x" onclick="closeModal()">×</div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Mijoz ismi *</label><input id="dName" placeholder="Ism familiya"></div>
+      <div class="fg"><label>Telefon *</label><input id="dPhone" placeholder="+998 90 xxx xx xx"></div>
+    </div>
+    <div class="fg"><label>Manzil *</label><textarea id="dAddr" placeholder="Ko'cha, uy, kvartira..."></textarea></div>
+    <div class="fg"><label>Izoh</label><input id="dNote" placeholder="Eshik kodi, qavat..."></div>
+    <div class="fr">
+      <div class="fg"><label>Mahsulotlar (izoh sifatida)</label><textarea id="dItems" placeholder="Pizza x2, Coca-Cola x1..." style="min-height:60px"></textarea></div>
+      <div class="fg"><label>Jami summa</label><input id="dTotal" type="number" placeholder="0" min="0"></div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:.5rem">
+      <button class="btn bo" style="flex:1" onclick="closeModal()">Bekor</button>
+      <button class="btn bg" style="flex:1" onclick="createDelivery()">Yaratish</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+if(!tok()) location.href='../shared/login.html';
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,b)=>fetch(`${BASE}${u}`,{method:'POST',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+};
+
+const STATUS_LABELS={
+  pending:'Yangi', confirmed:'Tasdiqlangan', preparing:'Tayyorlanmoqda',
+  ready:'Tayyor', completed:'Yetkazildi', cancelled:'Bekor qilindi'
+};
+const NEXT_STATUS={
+  pending:'confirmed', confirmed:'preparing', preparing:'ready', ready:'completed'
+};
+const NEXT_BTN={
+  pending:'Tasdiqlash', confirmed:'Tayyorlashni boshlash', preparing:'Tayyor', ready:'Yetkazildi'
+};
+
+let currentStatus='', allOrders=[];
+
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function fmtT(d){if(!d)return'—';return new Date(d).toLocaleTimeString('uz-UZ',{hour:'2-digit',minute:'2-digit'});}
+
+async function load(){
+  const res = await api.get('/orders/?order_type=delivery&page_size=50').catch(()=>null);
+  allOrders = res?.items||res||[];
+  updateStats();
+  renderList();
+}
+
+function updateStats(){
+  document.getElementById('cntNew').textContent=allOrders.filter(o=>o.status==='pending').length;
+  document.getElementById('cntPrep').textContent=allOrders.filter(o=>o.status==='preparing').length;
+  document.getElementById('cntReady').textContent=allOrders.filter(o=>o.status==='ready').length;
+  document.getElementById('cntDone').textContent=allOrders.filter(o=>o.status==='completed').length;
+}
+
+function renderList(){
+  const filtered = currentStatus ? allOrders.filter(o=>o.status===currentStatus) : allOrders;
+  const el = document.getElementById('delivList');
+  if(!filtered.length){el.innerHTML='<p style="color:var(--text3);text-align:center;padding:2rem">Buyurtmalar yo\'q</p>';return;}
+  el.innerHTML = filtered.map(o=>`
+    <div class="dcard status-${o.status}">
+      <div class="ml">
+        <div class="dn">#${o.order_number} · ${o.delivery_address||'Manzil kiritilmagan'}</div>
+        <div class="da">📞 ${o.delivery_phone||'—'} · ⏰ ${fmtT(o.created_at)}</div>
+        ${o.delivery_note?`<div class="di">📝 ${o.delivery_note}</div>`:''}
+        <div class="dd">${fmtN(o.final_amount)} so'm</div>
+        <div class="ds">
+          <span class="badge b-${o.status}">${STATUS_LABELS[o.status]||o.status}</span>
+          ${(o.items||[]).slice(0,3).map(i=>`<span class="badge" style="background:rgba(255,255,255,.06);color:var(--text2)">${i.product?.name||'—'} ×${i.quantity}</span>`).join('')}
+        </div>
+      </div>
+      <div class="actions">
+        ${NEXT_STATUS[o.status]?`<button class="btn bg bsm" onclick="advance(${o.id},'${NEXT_STATUS[o.status]}')">${NEXT_BTN[o.status]}</button>`:''}
+        ${o.status!=='cancelled'&&o.status!=='completed'?`<button class="btn bo bsm" onclick="cancel(${o.id})">Bekor</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+async function advance(id, newStatus){
+  await api.patch(`/orders/${id}`, {status: newStatus});
+  load();
+}
+async function cancel(id){
+  if(!confirm('Bekor qilinsinmi?')) return;
+  await api.patch(`/orders/${id}`, {status:'cancelled'});
+  load();
+}
+
+function openNew(){ document.getElementById('newModal').classList.add('show'); }
+function closeModal(){ document.getElementById('newModal').classList.remove('show'); }
+
+async function createDelivery(){
+  const name=document.getElementById('dName').value.trim();
+  const phone=document.getElementById('dPhone').value.trim();
+  const addr=document.getElementById('dAddr').value.trim();
+  if(!name||!phone||!addr){alert('Ism, telefon va manzil to\'ldirish shart!');return;}
+
+  const res = await api.post('/orders/', {
+    order_type: 'delivery',
+    delivery_address: addr,
+    delivery_phone: phone,
+    delivery_note: document.getElementById('dNote').value,
+    notes: document.getElementById('dItems').value,
+    total_amount: parseFloat(document.getElementById('dTotal').value)||0,
+    final_amount: parseFloat(document.getElementById('dTotal').value)||0,
+  });
+  if(res?.id||res?.success){
+    closeModal();
+    ['dName','dPhone','dAddr','dNote','dItems','dTotal'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    load();
+  } else {
+    alert(res?.detail||'Xatolik yuz berdi');
+  }
+}
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  currentStatus=t.dataset.status;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  renderList();
+}));
+
+setInterval(load, 30000);
+load();
+</script>
+</body>
+</html>

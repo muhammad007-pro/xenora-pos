@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "mode": "mock",
+  "operator": "soliquz",
+  "inn": "123456789",
+  "kassa_id": "TEST001"
+}

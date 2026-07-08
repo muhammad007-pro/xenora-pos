@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oldin / Keyin — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .pair-grid   { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:1.25rem; }
+  .pair-card   { background:var(--surface1); border:1px solid var(--border); border-radius:.875rem; overflow:hidden; }
+  .pair-header { padding:.75rem 1rem; background:var(--surface2); display:flex; justify-content:space-between; align-items:center; }
+  .pair-service{ font-weight:700; color:var(--text1); font-size:.9375rem; }
+  .pair-date   { font-size:.75rem; color:var(--text3); }
+  .pair-photos { display:grid; grid-template-columns:1fr 1fr; }
+  .photo-slot  { position:relative; aspect-ratio:1; overflow:hidden; background:var(--surface2); cursor:pointer; }
+  .photo-slot img { width:100%; height:100%; object-fit:cover; display:block; }
+  .photo-label { position:absolute; top:.375rem; left:.375rem; padding:.2rem .5rem; border-radius:.375rem;
+                 font-size:.6875rem; font-weight:700; letter-spacing:.03em; }
+  .label-before { background:rgba(239,68,68,.85); color:#fff; }
+  .label-after  { background:rgba(16,185,129,.85); color:#fff; }
+  .photo-empty  { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                  height:100%; color:var(--text3); font-size:.8125rem; gap:.5rem; }
+  .photo-empty svg { opacity:.4; }
+  .upload-zone  { border:2px dashed var(--border); border-radius:.625rem; padding:1.25rem; text-align:center;
+                  cursor:pointer; color:var(--text3); font-size:.875rem; transition:.2s; }
+  .upload-zone:hover { border-color:var(--accent); color:var(--accent); }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box  { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:520px; width:92%; }
+  .modal-title{ font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row   { margin-bottom:1rem; }
+  .form-label { font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .delete-btn { position:absolute; bottom:.375rem; right:.375rem; background:rgba(0,0,0,.6); border:none;
+                border-radius:50%; width:24px; height:24px; color:#fff; font-size:.75rem; cursor:pointer; display:none; }
+  .photo-slot:hover .delete-btn { display:flex; align-items:center; justify-content:center; }
+  .customer-search { display:flex; gap:.5rem; }
+  .customer-result { background:var(--surface2); border-radius:.5rem; padding:.5rem .75rem; margin-top:.5rem;
+                     font-size:.875rem; display:none; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">📸 Oldin / Keyin Fotosuratlari</h1>
+      <button class="btn" id="btnUpload">+ Rasm yuklash</button>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label class="form-label">Mijoz qidirish</label>
+        <div class="customer-search">
+          <input type="text" class="inp" id="searchCustomer" placeholder="Ism yoki telefon..." style="width:220px">
+          <button class="btn btn-secondary" id="btnSearch">Qidirish</button>
+        </div>
+        <div class="customer-result" id="customerResult"></div>
+      </div>
+      <div>
+        <label class="form-label">Tur</label>
+        <select class="inp" id="filterType" style="width:130px">
+          <option value="">Barchasi</option>
+          <option value="before">Oldin</option>
+          <option value="after">Keyin</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" id="btnClear">Tozalash</button>
+    </div>
+
+    <div class="pair-grid" id="photoGrid"></div>
+    <div id="emptyState" style="display:none;text-align:center;padding:3rem;color:var(--text3)">
+      Fotosuratlar topilmadi
+    </div>
+  </main>
+</div>
+
+<!-- Upload modal -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal-box">
+    <div class="modal-title">Rasm yuklash</div>
+    <div class="form-row">
+      <label class="form-label">Tur *</label>
+      <select class="inp" id="uploadType">
+        <option value="before">Oldin (Before)</option>
+        <option value="after">Keyin (After)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Mijoz</label>
+      <input type="number" class="inp" id="uploadCustomerId" placeholder="Mijoz ID">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Bron ID (ixtiyoriy)</label>
+      <input type="number" class="inp" id="uploadAppointmentId" placeholder="Bron ID">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Xizmat nomi</label>
+      <input type="text" class="inp" id="uploadServiceName" placeholder="Soch bo'yash, makiyaj...">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Izoh</label>
+      <input type="text" class="inp" id="uploadNotes" placeholder="Ixtiyoriy...">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Rasm *</label>
+      <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        📷 Rasm tanlash yoki bu yerga tashlang (JPG, PNG, WEBP)
+      </div>
+      <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.webp" style="display:none" onchange="previewFile(this)">
+      <img id="previewImg" style="display:none;max-width:100%;margin-top:.75rem;border-radius:.5rem;max-height:200px;object-fit:cover">
+    </div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="closeModal()">Bekor</button>
+      <button class="btn" id="btnSubmitUpload">Yuklash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="modal-overlay" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" style="max-width:92vw;max-height:92vh;border-radius:.75rem;object-fit:contain">
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API } from '/js/core/api.js';
+Sidebar.init();
+
+const api = new API();
+let currentCustomerId = null;
+
+async function loadPhotos(customerId, photoType) {
+  const params = new URLSearchParams({ page_size: 50 });
+  if (customerId) params.set('customer_id', customerId);
+  if (photoType)  params.set('photo_type', photoType);
+
+  const grid  = document.getElementById('photoGrid');
+  const empty = document.getElementById('emptyState');
+  grid.innerHTML = '<div style="color:var(--text3);padding:1rem">Yuklanmoqda...</div>';
+
+  if (customerId) {
+    // Pair view
+    const pairs = await api.get(`/client-photos/customer/${customerId}/pairs`);
+    grid.innerHTML = '';
+    if (!pairs?.length) { empty.style.display=''; grid.innerHTML=''; return; }
+    empty.style.display = 'none';
+    pairs.forEach(pair => renderPairCard(grid, pair));
+  } else {
+    // Flat list
+    const res = await api.get(`/client-photos/?${params}`);
+    const items = res.items || [];
+    grid.innerHTML = '';
+    if (!items.length) { empty.style.display=''; return; }
+    empty.style.display = 'none';
+    // Group by appointment_id
+    const grouped = {};
+    items.forEach(p => {
+      const key = p.appointment_id || `solo-${p.id}`;
+      if (!grouped[key]) grouped[key] = { appointment_id: p.appointment_id, service_name: p.service_name, date: p.created_at?.slice(0,10), before:null, after:null };
+      grouped[key][p.photo_type] = { id: p.id, image_url: p.image_url, notes: p.notes };
+    });
+    Object.values(grouped).forEach(pair => renderPairCard(grid, pair));
+  }
+}
+
+function renderPairCard(grid, pair) {
+  const card = document.createElement('div');
+  card.className = 'pair-card';
+  const bef = pair.before;
+  const aft = pair.after;
+
+  card.innerHTML = `
+    <div class="pair-header">
+      <span class="pair-service">${pair.service_name || 'Xizmat'}</span>
+      <span class="pair-date">${pair.date || ''}</span>
+    </div>
+    <div class="pair-photos">
+      <div class="photo-slot">
+        <span class="photo-label label-before">OLDIN</span>
+        ${bef
+          ? `<img src="${bef.image_url}" alt="oldin" onclick="openLightbox('${bef.image_url}')">
+             <button class="delete-btn" onclick="deletePhoto(${bef.id},this)">✕</button>`
+          : `<div class="photo-empty"><svg width="32" height="32" fill="none"><path d="M12 19l-7-7 7-7M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Rasm yo'q</div>`
+        }
+      </div>
+      <div class="photo-slot">
+        <span class="photo-label label-after">KEYIN</span>
+        ${aft
+          ? `<img src="${aft.image_url}" alt="keyin" onclick="openLightbox('${aft.image_url}')">
+             <button class="delete-btn" onclick="deletePhoto(${aft.id},this)">✕</button>`
+          : `<div class="photo-empty"><svg width="32" height="32" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Rasm yo'q</div>`
+        }
+      </div>
+    </div>`;
+  grid.appendChild(card);
+}
+
+window.deletePhoto = async (id, btn) => {
+  if (!confirm('Fotoni o\'chirishni tasdiqlaysizmi?')) return;
+  const res = await api.delete(`/client-photos/${id}`);
+  if (res.message) { btn.closest('.photo-slot').innerHTML = '<div class="photo-empty">O\'chirildi</div>'; }
+  else showToast(res.detail || 'Xatolik', 'error');
+};
+
+window.openLightbox = (url) => {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('active');
+};
+window.closeLightbox = () => document.getElementById('lightbox').classList.remove('active');
+
+// Search
+document.getElementById('btnSearch').onclick = async () => {
+  const q = document.getElementById('searchCustomer').value.trim();
+  if (!q) return;
+  const res = await api.get(`/customers/?search=${encodeURIComponent(q)}&page_size=5`);
+  const items = res.items || [];
+  const box = document.getElementById('customerResult');
+  if (!items.length) { box.innerHTML = 'Topilmadi'; box.style.display=''; return; }
+  box.innerHTML = items.map(c =>
+    `<div style="cursor:pointer;padding:.25rem .5rem;border-radius:.375rem" onclick="selectCustomer(${c.id},'${c.name}')"
+     onmouseenter="this.style.background='var(--surface3)'" onmouseleave="this.style.background=''">
+       ${c.name} ${c.phone?'· '+c.phone:''}
+     </div>`
+  ).join('');
+  box.style.display = '';
+};
+window.selectCustomer = (id, name) => {
+  currentCustomerId = id;
+  document.getElementById('searchCustomer').value = name;
+  document.getElementById('customerResult').style.display = 'none';
+  loadPhotos(id, document.getElementById('filterType').value);
+};
+document.getElementById('btnClear').onclick = () => {
+  currentCustomerId = null;
+  document.getElementById('searchCustomer').value = '';
+  document.getElementById('filterType').value = '';
+  document.getElementById('customerResult').style.display = 'none';
+  loadPhotos(null, null);
+};
+document.getElementById('filterType').onchange = () => {
+  loadPhotos(currentCustomerId, document.getElementById('filterType').value);
+};
+
+// Upload modal
+document.getElementById('btnUpload').onclick = () => {
+  document.getElementById('uploadModal').classList.add('active');
+};
+window.closeModal = () => {
+  document.getElementById('uploadModal').classList.remove('active');
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+};
+window.previewFile = (inp) => {
+  const file = inp.files[0];
+  if (!file) return;
+  const img = document.getElementById('previewImg');
+  img.src = URL.createObjectURL(file);
+  img.style.display = 'block';
+};
+
+document.getElementById('uploadModal').onclick = (e) => { if (e.target === e.currentTarget) closeModal(); };
+
+document.getElementById('btnSubmitUpload').onclick = async () => {
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) { showToast('Rasm tanlang', 'error'); return; }
+  const btn = document.getElementById('btnSubmitUpload');
+  btn.disabled = true; btn.textContent = 'Yuklanmoqda...';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('photo_type', document.getElementById('uploadType').value);
+  const cid = document.getElementById('uploadCustomerId').value;
+  const aid = document.getElementById('uploadAppointmentId').value;
+  const sn  = document.getElementById('uploadServiceName').value;
+  const nt  = document.getElementById('uploadNotes').value;
+  if (cid) fd.append('customer_id', cid);
+  if (aid) fd.append('appointment_id', aid);
+  if (sn)  fd.append('service_name', sn);
+  if (nt)  fd.append('notes', nt);
+
+  try {
+    const token = localStorage.getItem('access_token');
+    const resp  = await fetch('/api/v1/client-photos/upload', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: fd,
+    });
+    const data = await resp.json();
+    btn.disabled = false; btn.textContent = 'Yuklash';
+    if (resp.ok) {
+      showToast('Rasm yuklandi', 'success');
+      closeModal();
+      loadPhotos(currentCustomerId, null);
+    } else {
+      showToast(data.detail || 'Xatolik', 'error');
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Yuklash';
+    showToast('Tarmoq xatoligi', 'error');
+  }
+};
+
+// Drag-drop
+const dz = document.getElementById('dropZone');
+dz.ondragover = (e) => { e.preventDefault(); dz.style.borderColor='var(--accent)'; };
+dz.ondragleave = () => dz.style.borderColor = '';
+dz.ondrop = (e) => {
+  e.preventDefault(); dz.style.borderColor = '';
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const dt = new DataTransfer(); dt.items.add(file);
+    document.getElementById('fileInput').files = dt.files;
+    window.previewFile(document.getElementById('fileInput'));
+  }
+};
+
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.textContent = msg; document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+loadPhotos(null, null);
+</script>
+</body>
+</html>

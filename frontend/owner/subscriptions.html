@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>To'lov va Obuna | XENORA Super Admin</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s;flex-shrink:0}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.pc{padding:1.5rem;max-width:1400px;margin:0 auto}
+.tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;border-bottom:1px solid var(--border2);padding-bottom:0}
+.tab{padding:.625rem 1.25rem;font-size:.875rem;font-weight:600;cursor:pointer;color:var(--text3);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.2s}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab:hover{color:var(--text2)}
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);margin-bottom:1.25rem;overflow:hidden}
+.ch{padding:1rem 1.25rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between}
+.ch h3{font-size:.9375rem;font-weight:700}
+/* Alert banners */
+.alert{padding:.875rem 1.25rem;border-radius:var(--r);margin-bottom:.875rem;display:flex;align-items:center;gap:.75rem}
+.alert.red{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
+.alert.yellow{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fcd34d}
+.alert .ai{font-size:1.25rem}
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-size:.8125rem}
+.tbl th{text-align:left;padding:.5rem 1rem;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border2)}
+.tbl td{padding:.625rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.tbl tr:last-child td{border:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:.2rem .6rem;border-radius:99px;font-size:.6875rem;font-weight:600}
+.badge.active{background:rgba(16,185,129,.15);color:#10b981}
+.badge.trial{background:rgba(59,130,246,.15);color:#60a5fa}
+.badge.blocked{background:rgba(239,68,68,.15);color:#ef4444}
+.badge.expired{background:rgba(107,114,128,.12);color:#9ca3af}
+.plan-badge{padding:.15rem .5rem;border-radius:99px;font-size:.6875rem;font-weight:700}
+.plan-badge.free{background:rgba(107,114,128,.15);color:#9ca3af}
+.plan-badge.pro{background:rgba(212,180,108,.15);color:var(--gold)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;white-space:nowrap}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.bsm{padding:.3rem .75rem;font-size:.75rem}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.mbox{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);width:min(520px,95vw);max-height:90vh;overflow-y:auto}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border2)}
+.mh h2{font-size:1rem;font-weight:700;color:var(--gold)}
+.mb{padding:1.25rem 1.5rem}
+.mf{padding:1rem 1.5rem;border-top:1px solid var(--border2);display:flex;gap:.75rem;justify-content:flex-end}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:#ecf6ef;font-size:.875rem;outline:none}
+.fg input:focus,.fg select:focus{border-color:var(--gold)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.875rem}
+/* Plan cards */
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem}
+.plan-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.5rem;text-align:center;transition:.2s}
+.plan-card.featured{border-color:var(--gold);background:var(--gold-dim)}
+.pname{font-size:1.125rem;font-weight:700;margin-bottom:.5rem}
+.pprice{font-size:1.5rem;font-weight:800;color:var(--gold);margin-bottom:.25rem}
+.pprice small{font-size:.75rem;font-weight:400;color:var(--text2)}
+.plist{list-style:none;text-align:left;margin:1rem 0;font-size:.8125rem;color:var(--text2)}
+.plist li{padding:.375rem 0;border-bottom:1px solid var(--border2);display:flex;gap:.5rem}
+.plist li:last-child{border:none}
+.pcheck{color:#10b981}
+.pno{color:var(--text3)}
+.empty{text-align:center;padding:2rem;color:var(--text3);font-size:.875rem}
+@media(max-width:768px){.plans{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="ph">
+  <a href="dashboard.html" class="bk">←</a>
+  <h1 class="pt">💳 To'lov va obuna</h1>
+  <button class="btn bg" onclick="openPayModal(null)">+ To'lov qo'shish</button>
+</header>
+
+<div class="pc">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('tenants',this)">Mijozlar holati</button>
+    <button class="tab" onclick="showTab('alerts',this)">Ogohlantirishlar</button>
+    <button class="tab" onclick="showTab('history',this)">To'lov tarixi</button>
+    <button class="tab" onclick="showTab('plans',this)">Tariflar</button>
+  </div>
+
+  <!-- ── TENANTS TAB ─── -->
+  <div id="tab-tenants">
+    <div class="card">
+      <div class="ch">
+        <h3>Barcha mijozlar obuna holati</h3>
+        <button class="btn bo bsm" onclick="loadTenants()">↻</button>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th>Biznes</th><th>Egasi</th><th>Tarif</th>
+          <th>Obuna tugashi</th><th>Qoldi</th><th>Holat</th><th>Amal</th>
+        </tr></thead>
+        <tbody id="tenantsBody"><tr><td colspan="7" class="empty">Yuklanmoqda...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── ALERTS TAB ─── -->
+  <div id="tab-alerts" style="display:none">
+    <div id="alerts-section"><p class="empty">Yuklanmoqda...</p></div>
+  </div>
+
+  <!-- ── HISTORY TAB ─── -->
+  <div id="tab-history" style="display:none">
+    <div class="card">
+      <div class="ch"><h3>Barcha to'lovlar tarixi</h3><button class="btn bo bsm" onclick="loadHistory()">↻</button></div>
+      <table class="tbl">
+        <thead><tr>
+          <th>Sana</th><th>Mijoz</th><th>Summa</th><th>Oy</th><th>Usul</th><th>Obuna tugashi</th><th>Izoh</th>
+        </tr></thead>
+        <tbody id="historyBody"><tr><td colspan="7" class="empty">Yuklanmoqda...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── PLANS TAB ─── -->
+  <div id="tab-plans" style="display:none">
+    <div class="plans">
+      <div class="plan-card">
+        <div class="pname">FREE</div>
+        <div class="pprice">0 <small>UZS/oy</small></div>
+        <ul class="plist">
+          <li><span class="pcheck">✓</span> 1 filial</li>
+          <li><span class="pcheck">✓</span> 3 foydalanuvchi</li>
+          <li><span class="pcheck">✓</span> 100 buyurtma/oy</li>
+          <li><span class="pcheck">✓</span> Asosiy POS</li>
+          <li><span class="pno">✗</span> Analitika</li>
+          <li><span class="pno">✗</span> Ombor</li>
+          <li><span class="pno">✗</span> Ko'p filial</li>
+        </ul>
+      </div>
+      <div class="plan-card featured">
+        <div class="pname" style="color:var(--gold)">PRO</div>
+        <div class="pprice">990,000 <small>UZS/oy</small></div>
+        <ul class="plist">
+          <li><span class="pcheck">✓</span> 5 filial</li>
+          <li><span class="pcheck">✓</span> 20 foydalanuvchi</li>
+          <li><span class="pcheck">✓</span> Cheksiz buyurtma</li>
+          <li><span class="pcheck">✓</span> Barcha POS funksiyalar</li>
+          <li><span class="pcheck">✓</span> Analitika</li>
+          <li><span class="pcheck">✓</span> Ombor boshqaruvi</li>
+          <li><span class="pno">✗</span> Cheksiz filial</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAYMENT MODAL ─── -->
+<div class="overlay" id="payModal">
+  <div class="mbox">
+    <div class="mh"><h2>💳 To'lov qo'shish</h2><button class="btn bo bsm" onclick="closePayModal()">✕</button></div>
+    <div class="mb">
+      <div class="fg">
+        <label>Mijoz *</label>
+        <select id="pay-tenant"></select>
+      </div>
+      <div class="grid2">
+        <div class="fg"><label>Summa (UZS) *</label><input id="pay-amount" type="number" min="0" placeholder="990000"></div>
+        <div class="fg"><label>Oy soni *</label><input id="pay-months" type="number" min="1" max="24" value="1"></div>
+      </div>
+      <div class="fg">
+        <label>To'lov usuli</label>
+        <select id="pay-method">
+          <option value="cash">💵 Naqd</option>
+          <option value="card">💳 Karta</option>
+          <option value="click">📱 Click</option>
+          <option value="payme">📱 Payme</option>
+          <option value="transfer">🏦 Bank o'tkazma</option>
+        </select>
+      </div>
+      <div class="fg"><label>Izoh</label><input id="pay-note" placeholder="Ixtiyoriy..."></div>
+    </div>
+    <div class="mf">
+      <button class="btn bo" onclick="closePayModal()">Bekor qilish</button>
+      <button class="btn bg" onclick="submitPayment()">To'lovni tasdiqlash</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard } from '../js/core/auth-guard.js';
+AuthGuard.check('superuser');
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+if(!tok()) location.href='../shared/login.html';
+
+async function _apiFetch(url, opts={}) {
+  const r = await fetch(`${BASE}${url}`, {
+    ...opts,
+    headers: { Authorization:'Bearer '+tok(), ...(opts.headers||{}) }
+  });
+  if (r.status === 401) { localStorage.removeItem('access_token'); location.href='../shared/login.html'; return null; }
+  return r.json();
+}
+const api={
+  get:  u     => _apiFetch(u),
+  post: (u,b) => _apiFetch(u, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}),
+};
+
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});}
+
+// Tab switching
+function showTab(name,el){
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+  document.getElementById('tab-'+name).style.display='';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if(name==='tenants') loadTenants();
+  if(name==='alerts') loadAlerts();
+  if(name==='history') loadHistory();
+}
+
+// ── TENANTS ───────────────────────────────────────────────────────────────────
+let allTenants=[];
+
+async function loadTenants(){
+  const res=await api.get('/super-admin/tenants?page_size=200').catch(()=>null);
+  allTenants=res?.items||[];
+  populateTenantSelect();
+  renderTenants(allTenants);
+}
+
+function renderTenants(items){
+  const tbody=document.getElementById('tenantsBody');
+  if(!items.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">Mijozlar topilmadi</td></tr>`;return;}
+  const now=Date.now();
+  tbody.innerHTML=items.map(t=>{
+    const st=stBadge(t.tenant_status);
+    const plan=planBadge(t.subscription_plan);
+    const exp=fmtDate(t.subscription_expires);
+    const days=t.days_left;
+    let daysHtml;
+    if(t.tenant_status==='expired') daysHtml=`<span style="color:#ef4444;font-weight:600">Tugagan</span>`;
+    else if(t.tenant_status==='blocked') daysHtml=`<span style="color:var(--text3)">—</span>`;
+    else if(days===null||days===undefined) daysHtml=`<span style="color:var(--text3)">Muddatsiz</span>`;
+    else if(days<=0) daysHtml=`<span style="color:#ef4444;font-weight:600">Tugagan</span>`;
+    else if(days<=7) daysHtml=`<span style="color:#f59e0b;font-weight:600">${days} kun</span>`;
+    else daysHtml=`<span style="color:var(--text2)">${days} kun</span>`;
+
+    return `<tr>
+      <td><div style="font-weight:600">${esc(t.name)}</div><div style="font-size:.7rem;color:var(--text3)">${esc(t.code||'')}</div></td>
+      <td><div>${esc(t.owner_name||'—')}</div><div style="font-size:.7rem;color:var(--text3)">${esc(t.owner_phone||'—')}</div></td>
+      <td>${plan}</td>
+      <td style="font-size:.8rem">${exp}</td>
+      <td>${daysHtml}</td>
+      <td>${st}</td>
+      <td><button class="btn bo bsm" onclick="openPayModal(${t.id})">+ To'lov</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function stBadge(s){
+  const m={active:'Faol',trial:'Sinov',blocked:'Bloklangan',expired:'Tugagan'};
+  return `<span class="badge ${s}">${m[s]||s}</span>`;
+}
+function planBadge(p){
+  const n={free:'FREE',pro:'PRO'};
+  return `<span class="plan-badge ${p}">${n[p]||p}</span>`;
+}
+
+// ── ALERTS ────────────────────────────────────────────────────────────────────
+async function loadAlerts(){
+  const res=await api.get('/super-admin/alerts').catch(()=>null);
+  const section=document.getElementById('alerts-section');
+  if(!res){section.innerHTML=`<p class="empty">Yuklab bo'lmadi</p>`;return;}
+
+  let html='';
+  if(res.expired?.length){
+    html+=`<div style="margin-bottom:1rem">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;font-weight:700;color:#ef4444">
+        🔴 Qarzdorlar — Obuna muddati tugagan (${res.expired.length} ta)
+      </div>`;
+    res.expired.forEach(t=>{
+      html+=`<div class="alert red">
+        <span class="ai">⚠️</span>
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(t.name)}</div>
+          <div style="font-size:.8rem">${esc(t.owner_name||'')} · ${esc(t.owner_phone||'')}</div>
+          <div style="font-size:.75rem;margin-top:.25rem">Tarif: ${t.subscription_plan} · Tugagan: ${fmtDate(t.subscription_expires)}</div>
+        </div>
+        <button class="btn bg bsm" onclick="openPayModal(${t.id})">To'lov</button>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  if(res.expiring_soon?.length){
+    html+=`<div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;font-weight:700;color:#f59e0b">
+        🟡 Tez orada tugaydi (${res.expiring_soon.length} ta)
+      </div>`;
+    res.expiring_soon.forEach(t=>{
+      html+=`<div class="alert yellow">
+        <span class="ai">⏰</span>
+        <div style="flex:1">
+          <div style="font-weight:600">${esc(t.name)}</div>
+          <div style="font-size:.8rem">${esc(t.owner_name||'')} · ${esc(t.owner_phone||'')}</div>
+          <div style="font-size:.75rem;margin-top:.25rem">Tarif: ${t.subscription_plan} · ${t.days_left} kun qoldi</div>
+        </div>
+        <button class="btn bg bsm" onclick="openPayModal(${t.id})">Yangilash</button>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  if(!html) html=`<div style="text-align:center;padding:3rem;color:var(--text3)">✅ Hozircha muammo yo'q</div>`;
+  section.innerHTML=html;
+}
+
+// ── HISTORY ───────────────────────────────────────────────────────────────────
+async function loadHistory(){
+  const res=await api.get('/super-admin/payments?page_size=100').catch(()=>null);
+  const items=res?.items||[];
+  const tbody=document.getElementById('historyBody');
+  if(!items.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">To'lovlar topilmadi</td></tr>`;return;}
+  const methods={cash:'💵 Naqd',card:'💳 Karta',click:'📱 Click',payme:'📱 Payme',transfer:'🏦 O\'tkazma'};
+  tbody.innerHTML=items.map(p=>`<tr>
+    <td style="font-size:.75rem">${fmtDate(p.created_at)}</td>
+    <td style="font-weight:600">${esc(p.tenant_name||'—')}</td>
+    <td style="color:var(--gold);font-weight:600">${fmtN(p.amount)} UZS</td>
+    <td>${p.months||1} oy</td>
+    <td style="font-size:.75rem">${methods[p.payment_method]||p.payment_method||'—'}</td>
+    <td style="font-size:.75rem">${fmtDate(p.period_end)}</td>
+    <td style="font-size:.75rem;color:var(--text3)">${esc(p.note||'')}</td>
+  </tr>`).join('');
+}
+
+// ── PAYMENT MODAL ─────────────────────────────────────────────────────────────
+function populateTenantSelect(){
+  const sel=document.getElementById('pay-tenant');
+  sel.innerHTML=`<option value="">Mijoz tanlang...</option>`+
+    allTenants.map(t=>`<option value="${t.id}">${esc(t.name)} (${t.subscription_plan})</option>`).join('');
+}
+
+function openPayModal(tenantId){
+  if(!allTenants.length) loadTenants().then(()=>_openPayModal(tenantId));
+  else _openPayModal(tenantId);
+}
+function _openPayModal(tenantId){
+  document.getElementById('payModal').classList.add('open');
+  if(tenantId){
+    const sel=document.getElementById('pay-tenant');
+    for(const opt of sel.options){ if(opt.value==tenantId){sel.value=tenantId;break;} }
+    const t=allTenants.find(x=>x.id==tenantId);
+    if(t){
+      const prices={free:0,pro:990000};
+      document.getElementById('pay-amount').value=prices[t.subscription_plan]||0;
+    }
+  }
+}
+function closePayModal(){document.getElementById('payModal').classList.remove('open');}
+
+async function submitPayment(){
+  const tid=document.getElementById('pay-tenant').value;
+  const amount=parseFloat(document.getElementById('pay-amount').value);
+  const months=parseInt(document.getElementById('pay-months').value)||1;
+  if(!tid||!amount){alert('Mijoz va summani kiriting');return;}
+
+  const res=await api.post(`/super-admin/tenants/${tid}/payment`,{
+    amount,months,
+    payment_method:document.getElementById('pay-method').value,
+    note:document.getElementById('pay-note').value||null,
+  }).catch(()=>null);
+
+  if(res?.success){
+    closePayModal();
+    alert('✅ '+res.message);
+    loadTenants();
+    if(!document.getElementById('tab-history').style.display) loadHistory();
+  } else {
+    alert('Xato: '+(res?.detail||JSON.stringify(res)));
+  }
+}
+
+// URL param: ?tenant=ID
+const urlParams=new URLSearchParams(location.search);
+const initTenant=urlParams.get('tenant');
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Init
+loadTenants().then(()=>{
+  if(initTenant) openPayModal(parseInt(initTenant));
+});
+// Also load alerts
+loadAlerts();
+</script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sozlamalar — XENORA</title>
+    <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+    <div class="settings-container">
+        <div class="settings-header glass">
+            <h1>Sozlamalar</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="saveAllSettings">Saqlash</button>
+            </div>
+        </div>
+        
+        <div class="settings-content">
+            <div class="settings-section glass">
+                <h2>Umumiy sozlamalar</h2>
+                
+                <div class="setting-item">
+                    <label>Restoran nomi</label>
+                    <input type="text" id="restaurantName" placeholder="Premium Restaurant" class="glass">
+                </div>
+                
+                <div class="setting-item">
+                    <label>Vaqt zonasi</label>
+                    <select id="timezone" class="glass">
+                        <option value="Asia/Tashkent">Toshkent (UTC+5)</option>
+                        <option value="Asia/Samarkand">Samarqand (UTC+5)</option>
+                        <option value="Asia/Almaty">Olmaota (UTC+6)</option>
+                    </select>
+                </div>
+                
+                <div class="setting-item">
+                    <label>Soliq foizi (%)</label>
+                    <input type="number" id="taxRate" value="12" min="0" max="100" class="glass">
+                </div>
+                
+                <div class="setting-item">
+                    <label>Xizmat haqi (%)</label>
+                    <input type="number" id="serviceCharge" value="10" min="0" max="100" class="glass">
+                </div>
+                
+                <div class="setting-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="darkMode" checked>
+                        <span>Dark mode</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section glass">
+                <h2>Printer sozlamalari</h2>
+                
+                <div class="setting-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="printerEnabled">
+                        <span>Printer yoqilgan</span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label>Printer porti</label>
+                    <select id="printerPort" class="glass">
+                        <option value="COM1">COM1</option>
+                        <option value="COM2">COM2</option>
+                        <option value="COM3">COM3</option>
+                        <option value="USB001">USB001</option>
+                    </select>
+                </div>
+                
+                <div class="setting-item">
+                    <label>Qog'oz kengligi</label>
+                    <select id="paperWidth" class="glass">
+                        <option value="58">58 mm</option>
+                        <option value="80" selected>80 mm</option>
+                    </select>
+                </div>
+                
+                <button class="btn btn-outline" id="testPrinterBtn">Printerni test qilish</button>
+            </div>
+            
+            <div class="settings-section glass">
+                <h2>Oshxona sozlamalari</h2>
+                
+                <div class="setting-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoPrintKitchen" checked>
+                        <span>Avtomatik chop etish</span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="soundEnabled" checked>
+                        <span>Ovozli bildirishnomalar</span>
+                    </label>
+                </div>
+                
+                <div class="setting-item">
+                    <label>Stansiyalar</label>
+                    <div class="stations-list" id="stationsList">
+                        <label><input type="checkbox" value="grill" checked> Grill</label>
+                        <label><input type="checkbox" value="fry" checked> Fryer</label>
+                        <label><input type="checkbox" value="salad" checked> Salat</label>
+                        <label><input type="checkbox" value="pizza" checked> Pizza</label>
+                        <label><input type="checkbox" value="drinks" checked> Ichimliklar</label>
+                        <label><input type="checkbox" value="dessert" checked> Desert</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-section glass">
+                <h2>Zaxiralash</h2>
+                
+                <div class="setting-item">
+                    <label>Avtomatik zaxiralash</label>
+                    <select id="autoBackup" class="glass">
+                        <option value="daily">Har kuni</option>
+                        <option value="weekly" selected>Har hafta</option>
+                        <option value="monthly">Har oy</option>
+                        <option value="never">Hech qachon</option>
+                    </select>
+                </div>
+                
+                <div class="setting-item">
+                    <label>Zaxiralarni saqlash muddati (kun)</label>
+                    <input type="number" id="backupRetention" value="30" min="7" max="365" class="glass">
+                </div>
+                
+                <div class="backup-actions">
+                    <button class="btn btn-outline" id="createBackupBtn">Hozir zaxiralash</button>
+                    <button class="btn btn-outline" id="restoreBackupBtn">Zaxiradan tiklash</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="../js/settings.js"></script>
+</body>
+</html>

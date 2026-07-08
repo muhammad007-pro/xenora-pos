@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zarar Hisoboti — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.5rem; align-items:flex-end; }
+  .kpi-grid    { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .kpi-card    { background:var(--surface1); border:1px solid var(--border); border-radius:.875rem; padding:1.25rem; }
+  .kpi-label   { font-size:.8125rem; color:var(--text3); margin-bottom:.25rem; }
+  .kpi-value   { font-size:1.5rem; font-weight:800; }
+  .kpi-value.red { color:#ef4444; }
+  .kpi-value.orange { color:#f59e0b; }
+  .chart-grid  { display:grid; grid-template-columns:1fr 2fr; gap:1.25rem; margin-bottom:1.5rem; }
+  @media(max-width:768px){ .chart-grid { grid-template-columns:1fr; } }
+  .card        { background:var(--surface1); border:1px solid var(--border); border-radius:.875rem; padding:1.25rem; }
+  .card-title  { font-size:.9375rem; font-weight:700; margin-bottom:1rem; }
+  .reason-bar  { display:flex; align-items:center; gap:.75rem; margin-bottom:.625rem; }
+  .reason-label{ font-size:.8125rem; min-width:120px; color:var(--text2); }
+  .reason-fill { height:10px; border-radius:5px; flex:none; }
+  .reason-amount{ font-size:.8125rem; font-weight:700; margin-left:auto; }
+  .table-wrap  { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .reason-tag  { font-size:.75rem; font-weight:700; padding:.15rem .4rem; border-radius:.375rem; }
+  .reason-expired { background:#fee2e2; color:#991b1b; }
+  .reason-damaged { background:#fef3c7; color:#92400e; }
+  .reason-theft   { background:#ede9fe; color:#4c1d95; }
+  .reason-brak    { background:#fce7f3; color:#831843; }
+  .reason-other   { background:#f3f4f6; color:#374151; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">📊 Zarar Hisoboti</h1>
+      <a href="/app/write_offs.html" class="btn btn-secondary">🗑️ Utilizatsiya aktlari</a>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label style="font-size:.8125rem;color:var(--text2);display:block;margin-bottom:.25rem">Sabab</label>
+        <select class="inp" id="fReason" style="width:160px" onchange="loadReport()">
+          <option value="">Barchasi</option>
+          <option value="expired">Muddati tugagan</option>
+          <option value="damaged">Buzilgan</option>
+          <option value="theft">O'g'irlik</option>
+          <option value="brak">Brak</option>
+          <option value="other">Boshqa</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:.8125rem;color:var(--text2);display:block;margin-bottom:.25rem">Dan</label>
+        <input type="date" class="inp" id="fFrom" style="width:145px" onchange="loadReport()">
+      </div>
+      <div>
+        <label style="font-size:.8125rem;color:var(--text2);display:block;margin-bottom:.25rem">Gacha</label>
+        <input type="date" class="inp" id="fTo" style="width:145px" onchange="loadReport()">
+      </div>
+      <div>
+        <label style="font-size:.8125rem;color:var(--text2);display:block;margin-bottom:.25rem">&nbsp;</label>
+        <select class="inp" id="fPeriod" style="width:140px" onchange="setPeriod()">
+          <option value="month">Bu oy</option>
+          <option value="quarter">Bu chorak</option>
+          <option value="year">Bu yil</option>
+          <option value="custom">Boshqa</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Jami zarar</div>
+        <div class="kpi-value red" id="kpiTotal">—</div>
+        <div style="font-size:.75rem;color:var(--text3)">so'm</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Aktlar soni</div>
+        <div class="kpi-value" id="kpiCount">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Asosiy sabab</div>
+        <div class="kpi-value orange" id="kpiTopReason">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Eng zararlangan tovar</div>
+        <div class="kpi-value" style="font-size:1rem" id="kpiTopProduct">—</div>
+      </div>
+    </div>
+
+    <!-- Charts + Table -->
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-title">Sabab bo'yicha</div>
+        <div id="reasonBars"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Eng zararlangan tovarlar (Top 10)</div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Tovar</th><th>Sabab</th><th>Miqdor</th><th>Zarar</th></tr></thead>
+            <tbody id="topTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full list -->
+    <div class="card">
+      <div class="card-title">Barcha yozuvlar</div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Sana</th><th>Tovar</th><th>Sabab</th><th>Miqdor</th><th>Zarar</th></tr></thead>
+          <tbody id="fullTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API } from '/js/core/api.js';
+Sidebar.init();
+const api = new API();
+
+const REASON_LABELS = {
+  expired:'Muddati tugagan', damaged:'Buzilgan', theft:"O'g'irlik", brak:'Brak', other:'Boshqa'
+};
+const REASON_CLASS = {
+  expired:'reason-expired', damaged:'reason-damaged', theft:'reason-theft', brak:'reason-brak', other:'reason-other'
+};
+const REASON_COLORS = {
+  expired:'#ef4444', damaged:'#f59e0b', theft:'#8b5cf6', brak:'#ec4899', other:'#6b7280'
+};
+
+window.setPeriod = () => {
+  const today = new Date();
+  const period = document.getElementById('fPeriod').value;
+  let from, to = today.toISOString().slice(0,10);
+  if (period === 'month') {
+    from = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`;
+  } else if (period === 'quarter') {
+    const q = Math.floor(today.getMonth()/3);
+    from = `${today.getFullYear()}-${String(q*3+1).padStart(2,'0')}-01`;
+  } else if (period === 'year') {
+    from = `${today.getFullYear()}-01-01`;
+  } else return;
+  document.getElementById('fFrom').value = from;
+  document.getElementById('fTo').value   = to;
+  loadReport();
+};
+
+window.loadReport = async () => {
+  const p = new URLSearchParams();
+  const r  = document.getElementById('fReason').value;
+  const f  = document.getElementById('fFrom').value;
+  const t  = document.getElementById('fTo').value;
+  if (r) p.set('reason', r);
+  if (f) p.set('date_from', f);
+  if (t) p.set('date_to', t);
+
+  const res = await api.get(`/loss-report/?${p}`);
+  const items = res.items || [];
+
+  // KPIs
+  document.getElementById('kpiTotal').textContent   = fmt(res.total_loss);
+  document.getElementById('kpiCount').textContent   = items.length;
+
+  const byReason = res.by_reason || {};
+  const topReasonKey = Object.keys(byReason).sort((a,b) => byReason[b]-byReason[a])[0];
+  document.getElementById('kpiTopReason').textContent = topReasonKey ? REASON_LABELS[topReasonKey] : '—';
+
+  // Tovar bo'yicha jamlab
+  const byProduct = {};
+  items.forEach(it => {
+    if (!byProduct[it.product_name]) byProduct[it.product_name] = 0;
+    byProduct[it.product_name] += it.total_loss;
+  });
+  const topProd = Object.entries(byProduct).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('kpiTopProduct').textContent = topProd ? topProd[0] : '—';
+
+  // Reason bars
+  const maxLoss = Math.max(...Object.values(byReason), 1);
+  document.getElementById('reasonBars').innerHTML = Object.entries(byReason)
+    .sort((a,b) => b[1]-a[1])
+    .map(([reason, amount]) => {
+      const pct = Math.max(4, amount/maxLoss*100);
+      return `<div class="reason-bar">
+        <span class="reason-label"><span class="reason-tag ${REASON_CLASS[reason]||'reason-other'}">${REASON_LABELS[reason]||reason}</span></span>
+        <div style="flex:1;background:var(--surface3);border-radius:5px;height:10px;overflow:hidden">
+          <div class="reason-fill" style="width:${pct}%;background:${REASON_COLORS[reason]||'#6b7280'}"></div>
+        </div>
+        <span class="reason-amount">${fmt(amount)}</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--text3);text-align:center;padding:1rem">Maʼlumot yo\'q</div>';
+
+  // Top 10 table
+  const top10 = items.slice(0, 10);
+  document.getElementById('topTable').innerHTML = top10.map(it => `
+    <tr>
+      <td style="font-weight:600">${it.product_name}</td>
+      <td><span class="reason-tag ${REASON_CLASS[it.reason]||'reason-other'}">${REASON_LABELS[it.reason]||it.reason}</span></td>
+      <td>${it.quantity}</td>
+      <td style="color:#ef4444;font-weight:700">${fmt(it.total_loss)}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:1rem">Maʼlumot yo\'q</td></tr>';
+
+  // Full list
+  document.getElementById('fullTable').innerHTML = items.map(it => `
+    <tr>
+      <td style="color:var(--text2)">${it.date}</td>
+      <td style="font-weight:600">${it.product_name}</td>
+      <td><span class="reason-tag ${REASON_CLASS[it.reason]||'reason-other'}">${REASON_LABELS[it.reason]||it.reason}</span></td>
+      <td>${it.quantity}</td>
+      <td style="color:#ef4444;font-weight:700">${fmt(it.total_loss)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1.5rem">Maʼlumot yo\'q</td></tr>';
+};
+
+function fmt(n) { return Number(n||0).toLocaleString('uz-UZ'); }
+
+// Init
+setPeriod();
+</script>
+</body>
+</html>

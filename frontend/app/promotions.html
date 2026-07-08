@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aksiya / Skidka — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+  /* SELF-CONTAINED tema — /css/main.css YO'Q (404). Orphaned --var lar to'ldiriladi (zumrad-tilla). */
+  :root{
+    --surface1:#0b2e23; --surface2:#143a2c; --surface3:#1e4a39;
+    --text1:#ecf6ef; --text2:#9fcbb9; --text3:#5c8775;
+    --primary:#d4b46c; --accent:#d4b46c; --border:rgba(212,180,108,.18); --bg:#03110c;
+  }
+  [data-theme="light"]{
+    --surface1:#ffffff; --surface2:#f1f3f5; --surface3:#e6eae8;
+    --text1:#10362a; --text2:#4a6b5c; --text3:#6b8576;
+    --primary:#c9a84c; --accent:#c9a84c; --border:rgba(0,0,0,.1); --bg:#f8f9fa;
+  }
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+  .layout{display:flex;min-height:100vh}
+  .main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+  .btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+  .btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}
+  .btn:active{transform:scale(.97)}
+  .btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+  .inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .kpi-row     { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .kpi-card    { background:var(--surface1); border:1px solid var(--border); border-radius:.75rem; padding:1rem 1.25rem; }
+  .kpi-label   { font-size:.75rem; color:var(--text2); margin-bottom:.375rem; }
+  .kpi-value   { font-size:1.5rem; font-weight:800; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .promo-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
+  .promo-card  { background:var(--surface1); border:1px solid var(--border); border-radius:.875rem; padding:1.25rem; position:relative; }
+  .promo-card.inactive { opacity:.6; }
+  .promo-header{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:.875rem; }
+  .promo-name  { font-size:1rem; font-weight:700; }
+  .promo-type  { font-size:.75rem; font-weight:700; padding:.2rem .5rem; border-radius:.375rem; }
+  .type-percentage { background:#dbeafe; color:#1e40af; }
+  .type-fixed      { background:#fef3c7; color:#92400e; }
+  .type-bogo       { background:#d1fae5; color:#065f46; }
+  .type-bundle     { background:#ede9fe; color:#4c1d95; }
+  .type-happy_hour { background:#fce7f3; color:#831843; }
+  .promo-dates { font-size:.75rem; color:var(--text2); margin-bottom:.625rem; }
+  .promo-detail{ font-size:.8125rem; color:var(--text1); margin-bottom:.875rem; min-height:2rem; }
+  .promo-footer{ display:flex; justify-content:space-between; align-items:center; }
+  .badge-active   { background:#d1fae5; color:#065f46; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .badge-inactive { background:#f3f4f6; color:#6b7280; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .badge-expired  { background:#fee2e2; color:#991b1b; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .action-btns { display:flex; gap:.375rem; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box  { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:640px; width:96%; max-height:92vh; overflow-y:auto; }
+  .modal-title{ font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row   { margin-bottom:.875rem; }
+  .form-label { font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .tabs { display:flex; gap:.375rem; margin-bottom:1.5rem; border-bottom:1px solid var(--border); }
+  .tab { padding:.5rem 1rem; font-size:.875rem; font-weight:500; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:600; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🎁 Aksiya / Skidka</h1>
+      <button class="btn" id="btnAdd">+ Yangi aksiya</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Jami aksiya</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Faol</div>
+        <div class="kpi-value" id="kpiActive" style="color:#10b981">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Muddati o'tgan</div>
+        <div class="kpi-value" id="kpiExpired" style="color:#ef4444">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Bugungi aksiya</div>
+        <div class="kpi-value" id="kpiToday" style="color:#159a70">—</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="tabs">
+        <div class="tab active" data-filter="all"   onclick="setTab(this,'all')">Barchasi</div>
+        <div class="tab"        data-filter="active" onclick="setTab(this,'active')">Faol</div>
+        <div class="tab"        data-filter="inactive" onclick="setTab(this,'inactive')">Nofaol</div>
+      </div>
+      <div style="margin-left:auto">
+        <label class="form-label">Turi</label>
+        <select class="inp" id="filterType" style="width:160px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="percentage">Foiz chegirma</option>
+          <option value="fixed">Belgilangan sum</option>
+          <option value="bogo">1ta olsang 1ta bepul</option>
+          <option value="bundle">Komplekt</option>
+          <option value="happy_hour">Happy Hour</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="promo-grid" id="promoGrid">
+      <div style="text-align:center;padding:2rem;color:var(--text2)">Yuklanmoqda...</div>
+    </div>
+  </main>
+</div>
+
+<!-- CREATE / EDIT MODAL -->
+<div class="modal-overlay" id="modalCreate">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle">Yangi aksiya</div>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <label class="form-label">Aksiya nomi *</label>
+      <input class="inp" id="fName" placeholder="Yoz chegirmalari">
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Turi *</label>
+        <select class="inp" id="fType" onchange="onTypeChange()">
+          <option value="percentage">Foiz chegirma</option>
+          <option value="fixed">Belgilangan sum</option>
+          <option value="bogo">1+1 Bepul</option>
+          <option value="bundle">Komplekt</option>
+          <option value="happy_hour">Happy Hour</option>
+        </select>
+      </div>
+      <div class="form-row" id="valueRow">
+        <label class="form-label" id="valueLabel">Chegirma miqdori *</label>
+        <input class="inp" type="number" id="fValue" placeholder="10" min="0">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Boshlanish sanasi</label>
+        <input class="inp" type="date" id="fStart">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Tugash sanasi</label>
+        <input class="inp" type="date" id="fEnd">
+      </div>
+    </div>
+    <div class="form-row" id="happyHourRow" style="display:none">
+      <label class="form-label">Happy Hour vaqti</label>
+      <div class="form-grid">
+        <input class="inp" type="time" id="fHhStart" value="14:00">
+        <input class="inp" type="time" id="fHhEnd" value="18:00">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Tavsif</label>
+      <textarea class="inp" id="fDesc" rows="2" placeholder="Aksiya haqida qisqacha ma'lumot"></textarea>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Min buyurtma summasi</label>
+      <input class="inp" type="number" id="fMinOrder" placeholder="0">
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:.5rem">
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.875rem;cursor:pointer">
+        <input type="checkbox" id="fActive" checked> Faol
+      </label>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="closeModal()">Bekor</button>
+      <button class="btn" onclick="savePromo()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API }     from '/js/core/api.js';
+import { toast }   from '/js/core/toast.js';
+
+const api = new API();
+await Sidebar.init();
+
+let promos = [];
+let activeFilter = 'all';
+
+window.setTab = function(el, filter) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  activeFilter = filter;
+  renderGrid();
+};
+
+window.onTypeChange = function() {
+  const type = document.getElementById('fType').value;
+  const vRow  = document.getElementById('valueRow');
+  const hhRow = document.getElementById('happyHourRow');
+  const lbl   = document.getElementById('valueLabel');
+  hhRow.style.display = type === 'happy_hour' ? '' : 'none';
+  vRow.style.display  = (type === 'bogo' || type === 'bundle') ? 'none' : '';
+  lbl.textContent = type === 'percentage' ? 'Chegirma foizi (%)' : type === 'fixed' ? 'Chegirma summasi (so\'m)' : 'Miqdor';
+};
+
+window.load = async function() {
+  const type = document.getElementById('filterType').value;
+  let url = '/promotions/?page_size=200';
+  if (type) url += `&promo_type=${type}`;
+  const res = await api.get(url);
+  promos = res.items || res || [];
+
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('kpiTotal').textContent   = promos.length;
+  document.getElementById('kpiActive').textContent  = promos.filter(p=>p.is_active).length;
+  document.getElementById('kpiExpired').textContent = promos.filter(p=>p.end_date && p.end_date < today).length;
+  document.getElementById('kpiToday').textContent   = promos.filter(p=>p.is_active && (!p.start_date||p.start_date<=today) && (!p.end_date||p.end_date>=today)).length;
+
+  renderGrid();
+};
+
+function renderGrid() {
+  const today = new Date().toISOString().split('T')[0];
+  let list = promos;
+  if (activeFilter === 'active')   list = promos.filter(p=>p.is_active);
+  if (activeFilter === 'inactive') list = promos.filter(p=>!p.is_active);
+
+  const typeLabels = { percentage:'Foiz %', fixed:'Belgilangan', bogo:'1+1', bundle:'Komplekt', happy_hour:'Happy Hour' };
+
+  if (!list.length) {
+    document.getElementById('promoGrid').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text2)">Aksiya yo\'q</div>';
+    return;
+  }
+
+  document.getElementById('promoGrid').innerHTML = list.map(p => {
+    const expired = p.end_date && p.end_date < today;
+    const statusCls  = expired ? 'badge-expired' : p.is_active ? 'badge-active' : 'badge-inactive';
+    const statusText = expired ? 'Muddati o\'tgan' : p.is_active ? 'Faol' : 'Nofaol';
+    const ptype  = p.promo_type || p.promotion_type || 'percentage';
+    const detail = p.discount_value
+      ? (ptype === 'percentage' ? `${p.discount_value}% chegirma` : `${Number(p.discount_value).toLocaleString()} so'm chegirma`)
+      : '';
+    return `
+    <div class="promo-card ${!p.is_active?'inactive':''}">
+      <div class="promo-header">
+        <div class="promo-name">${escHtml(p.name)}</div>
+        <span class="promo-type type-${ptype}">${typeLabels[ptype]||ptype}</span>
+      </div>
+      <div class="promo-dates">
+        📅 ${p.start_date||'?'} → ${p.end_date||'Cheksiz'}
+        ${p.time_from ? `⏰ ${p.time_from}–${p.time_to}` : ''}
+      </div>
+      <div class="promo-detail">${detail}</div>
+      ${p.min_purchase_amount ? `<div style="font-size:.75rem;color:var(--text2);margin-bottom:.5rem">Min buyurtma: ${Number(p.min_purchase_amount).toLocaleString()} so'm</div>` : ''}
+      <div class="promo-footer">
+        <span class="${statusCls}">${statusText}</span>
+        <div class="action-btns">
+          <button class="btn btn-sm" onclick="editPromo(${p.id})">Tahrir</button>
+          <button class="btn btn-sm" onclick="togglePromo(${p.id},${!p.is_active})">${p.is_active?'O\'ch':'Yoq'}</button>
+          <button class="btn btn-sm btn-danger" onclick="deletePromo(${p.id})">Del</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) { return String(s).replace(/[<>"'&]/g, c=>({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c])); }
+
+window.editPromo = function(id) {
+  const p = promos.find(x=>x.id===id); if (!p) return;
+  document.getElementById('modalTitle').textContent = 'Aksiyani tahrirlash';
+  document.getElementById('editId').value    = p.id;
+  document.getElementById('fName').value     = p.name;
+  document.getElementById('fType').value     = p.promo_type || p.promotion_type || 'percentage';
+  document.getElementById('fValue').value    = p.discount_value || '';
+  document.getElementById('fStart').value    = p.start_date || '';
+  document.getElementById('fEnd').value      = p.end_date   || '';
+  document.getElementById('fDesc').value     = '';
+  document.getElementById('fMinOrder').value = p.min_purchase_amount || '';
+  document.getElementById('fActive').checked = p.is_active;
+  document.getElementById('fHhStart').value  = p.time_from || '14:00';
+  document.getElementById('fHhEnd').value    = p.time_to   || '18:00';
+  onTypeChange();
+  document.getElementById('modalCreate').classList.add('active');
+};
+
+window.savePromo = async function() {
+  const id   = document.getElementById('editId').value;
+  const name = document.getElementById('fName').value.trim();
+  const type = document.getElementById('fType').value;
+  if (!name) { toast('Nom kiritilmadi', 'error'); return; }
+
+  const body = {
+    name,
+    promo_type:           type,
+    discount_type:        'percentage',
+    discount_value:       parseFloat(document.getElementById('fValue').value) || null,
+    start_date:           document.getElementById('fStart').value || null,
+    end_date:             document.getElementById('fEnd').value   || null,
+    min_purchase_amount:  parseFloat(document.getElementById('fMinOrder').value) || null,
+    is_active:            document.getElementById('fActive').checked,
+    time_from:            type === 'happy_hour' ? document.getElementById('fHhStart').value : null,
+    time_to:              type === 'happy_hour' ? document.getElementById('fHhEnd').value   : null,
+  };
+
+  if (id) await api.put(`/promotions/${id}`, body);
+  else     await api.post('/promotions/', body);
+  toast('Saqlandi', 'success');
+  closeModal();
+  load();
+};
+
+window.togglePromo = async function(id, active) {
+  await api.put(`/promotions/${id}`, { is_active: active });
+  toast(active ? 'Yoqildi' : 'O\'chirildi', 'success');
+  load();
+};
+
+window.deletePromo = async function(id) {
+  if (!confirm('Aksiyani o\'chirishni tasdiqlaysizmi?')) return;
+  await api.delete(`/promotions/${id}`);
+  toast('O\'chirildi', 'success');
+  load();
+};
+
+window.closeModal = function() {
+  document.getElementById('modalCreate').classList.remove('active');
+  document.getElementById('editId').value = '';
+  document.getElementById('modalTitle').textContent = 'Yangi aksiya';
+  document.getElementById('fValue').value = '';
+};
+
+document.getElementById('btnAdd').onclick = () => {
+  closeModal();
+  onTypeChange();
+  document.getElementById('modalCreate').classList.add('active');
+};
+document.getElementById('modalCreate').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To'lovlar — XENORA</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="payments-container">
+        <div class="page-header">
+            <h1>To'lovlar tarixi</h1>
+            <div class="header-actions">
+                <input type="date" id="dateFrom">
+                <input type="date" id="dateTo">
+                <select id="paymentMethodFilter">
+                    <option value="">Barcha usullar</option>
+                    <option value="cash">Naqd</option>
+                    <option value="card">Karta</option>
+                    <option value="click">Click</option>
+                    <option value="payme">Payme</option>
+                </select>
+                <button class="btn btn-primary" id="filterBtn">Filtrlash</button>
+            </div>
+        </div>
+        
+        <div class="payments-summary glass">
+            <div class="summary-card">
+                <span class="label">Jami to'lovlar</span>
+                <span class="value" id="totalPayments">0 UZS</span>
+            </div>
+            <div class="summary-card">
+                <span class="label">Naqd</span>
+                <span class="value" id="cashTotal">0 UZS</span>
+            </div>
+            <div class="summary-card">
+                <span class="label">Karta</span>
+                <span class="value" id="cardTotal">0 UZS</span>
+            </div>
+            <div class="summary-card">
+                <span class="label">Click/Payme</span>
+                <span class="value" id="onlineTotal">0 UZS</span>
+            </div>
+        </div>
+        
+        <div class="table-card glass">
+            <table class="data-table" id="paymentsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Buyurtma #</th>
+                        <th>Summa</th>
+                        <th>Usul</th>
+                        <th>Holat</th>
+                        <th>Kassir</th>
+                        <th>Vaqt</th>
+                        <th>Amallar</th>
+                    </tr>
+                </thead>
+                <tbody id="paymentsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script type="module" src="js/payments.js"></script>
+</body>
+</html>

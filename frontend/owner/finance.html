@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Moliya | XENORA Owner</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.ha{display:flex;gap:.75rem;align-items:center}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.25rem}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.25rem}
+.sv{font-size:1.75rem;font-weight:700;color:var(--gold)}
+.ss{font-size:.75rem;color:var(--text2);margin-top:.125rem}
+.sp{font-size:.8125rem;font-weight:500}
+.sp.pos{color:#10b981}.sp.neg{color:#ef4444}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.25rem}
+.ct{font-size:.9375rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between}
+.tbl{width:100%;border-collapse:collapse;font-size:.8125rem}
+.tbl th{text-align:left;padding:.5rem .75rem;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border2)}
+.tbl td{padding:.625rem .75rem;border-bottom:1px solid rgba(255,255,255,.04)}
+.tbl tr:last-child td{border:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.pbar-wrap{background:var(--bg4);border-radius:99px;height:6px;flex:1;margin:0 .75rem}
+.pbar{height:6px;border-radius:99px;background:linear-gradient(90deg,#c9a84c,#e2c97a)}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.bsm{padding:.375rem .875rem;font-size:.8125rem}
+.psel{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.4rem .75rem;color:#ecf6ef;font-size:.8125rem;outline:none;cursor:pointer}
+.psel:focus{border-color:var(--gold)}
+@media(max-width:900px){.sg{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="ph">
+  <a href="dashboard.html" class="bk">←</a>
+  <h1 class="pt">💰 Moliya hisoboti</h1>
+  <div class="ha">
+    <select class="psel" id="periodSel">
+      <option value="7">Oxirgi 7 kun</option>
+      <option value="30" selected>Oxirgi 30 kun</option>
+      <option value="90">Oxirgi 90 kun</option>
+    </select>
+    <button class="btn bg" onclick="load()">↻ Yangilash</button>
+  </div>
+</header>
+
+<div class="pc">
+  <!-- SaaS daromad (platforma egasi uchun) -->
+  <div style="margin-bottom:1.5rem">
+    <div style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:.75rem">📦 Platforma SaaS daromadi</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem">
+      <div class="sc"><div class="sl">Bu oylik to'lovlar</div><div class="sv" id="sMonthRev">—</div><div class="ss">UZS</div></div>
+      <div class="sc"><div class="sl">Faol mijozlar</div><div class="sv" id="sSaasActive">—</div><div class="ss">ta</div></div>
+      <div class="sc"><div class="sl">PRO mijozlar</div><div class="sv" id="sSaasPro">—</div><div class="ss" id="sSaasProRev">—</div></div>
+    </div>
+  </div>
+
+  <!-- POS Summary stats -->
+  <div style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:.75rem">🏪 POS savdo analitikasi</div>
+  <div class="sg">
+    <div class="sc"><div class="sl">Jami daromad</div><div class="sv" id="sRevenue">—</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Buyurtmalar</div><div class="sv" id="sOrders">—</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">O'rtacha chek</div><div class="sv" id="sAvg">—</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Faol filiallar</div><div class="sv" id="sCafes">—</div><div class="ss">ta</div></div>
+  </div>
+
+  <div class="row2">
+    <!-- Payment breakdown -->
+    <div class="card">
+      <div class="ct">💳 To'lov usullari</div>
+      <div id="payBreakdown"><p style="color:var(--text3);font-size:.875rem">Yuklanmoqda...</p></div>
+    </div>
+    <!-- Top cafes -->
+    <div class="card">
+      <div class="ct">🏆 Top filiallar</div>
+      <div id="topCafes"><p style="color:var(--text3);font-size:.875rem">Yuklanmoqda...</p></div>
+    </div>
+  </div>
+
+  <!-- Daily revenue table -->
+  <div class="card">
+    <div class="ct">
+      📅 Kunlik daromad
+      <button class="btn bo bsm" onclick="exportCSV()">⬇ CSV</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Sana</th><th>Buyurtmalar</th><th>Daromad</th><th>O'rtacha chek</th><th>Grafik</th></tr></thead>
+        <tbody id="dailyTbl"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Cafes breakdown -->
+  <div class="card">
+    <div class="ct">🏪 Filiallar bo'yicha</div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Filial</th><th>Biznes turi</th><th>Buyurtmalar</th><th>Daromad</th><th>Tarif</th><th>Status</th></tr></thead>
+        <tbody id="cafesTbl"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check('superuser');   // platforma moliya paneli — faqat super-admin
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+if(!tok()) location.href='../shared/login.html';
+const h={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+};
+
+let rawData=null;
+
+async function load(){
+  const days=parseInt(document.getElementById('periodSel').value)||30;
+  const now=new Date();
+  const from=new Date(now-days*86400000).toISOString().slice(0,10);
+  const to=now.toISOString().slice(0,10);
+
+  // Load analytics and cafes in parallel
+  const [analytics, cafesRes] = await Promise.all([
+    h.get(`/analytics/revenue?date_from=${from}&date_to=${to}`).catch(()=>null),
+    h.get('/cafes/?page_size=100').catch(()=>({items:[]})),
+  ]);
+  rawData={analytics, cafes:cafesRes?.items||[]};
+  render(days);
+}
+
+function render(days){
+  const {analytics, cafes}=rawData;
+
+  // Summary
+  const rev=analytics?.total_revenue||0;
+  const ord=analytics?.total_orders||0;
+  document.getElementById('sRevenue').textContent=fmtN(rev);
+  document.getElementById('sOrders').textContent=ord;
+  document.getElementById('sAvg').textContent=fmtN(ord?rev/ord:0);
+  document.getElementById('sCafes').textContent=cafes.filter(c=>c.is_active).length;
+
+  // Payment breakdown
+  const pm=analytics?.by_payment_method||{};
+  const pmTotal=Object.values(pm).reduce((a,b)=>a+b,0)||1;
+  const pmLabels={cash:'💵 Naqd',card:'💳 Karta',payme:'📱 Payme',click:'📱 Click',qr:'📷 QR',transfer:'🏦 O\'tkazma'};
+  document.getElementById('payBreakdown').innerHTML=Object.entries(pm).length
+    ?Object.entries(pm).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+        <div style="width:80px;font-size:.8125rem;color:var(--text2)">${pmLabels[k]||k}</div>
+        <div class="pbar-wrap"><div class="pbar" style="width:${Math.round(v/pmTotal*100)}%"></div></div>
+        <div style="width:90px;text-align:right;font-size:.8125rem;color:var(--gold);font-weight:600">${fmtN(v)}</div>
+      </div>`).join('')
+    :'<p style="color:var(--text3);font-size:.875rem">Ma\'lumot yo\'q</p>';
+
+  // Daily table
+  const daily=analytics?.daily_revenue||[];
+  const maxRev=Math.max(...daily.map(d=>d.revenue||0),1);
+  document.getElementById('dailyTbl').innerHTML=daily.length
+    ?daily.map(d=>`<tr>
+        <td>${fmtDate(d.date)}</td>
+        <td>${d.orders||0}</td>
+        <td style="color:var(--gold);font-weight:600">${fmtN(d.revenue||0)}</td>
+        <td>${fmtN(d.orders?(d.revenue/d.orders):0)}</td>
+        <td><div style="display:flex;align-items:center;gap:.5rem"><div class="pbar-wrap"><div class="pbar" style="width:${Math.round((d.revenue||0)/maxRev*100)}%"></div></div></div></td>
+      </tr>`).join('')
+    :'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1.5rem">Ma\'lumot topilmadi</td></tr>';
+
+  // Cafes table
+  document.getElementById('cafesTbl').innerHTML=cafes.length
+    ?cafes.map(c=>`<tr>
+        <td style="font-weight:600">${c.name}</td>
+        <td>${btLabel(c.business_type)}</td>
+        <td>—</td>
+        <td>—</td>
+        <td><span style="font-size:.75rem;font-weight:600;padding:.2rem .6rem;border-radius:99px;background:rgba(212,180,108,.12);color:var(--gold)">${c.subscription_plan||'free'}</span></td>
+        <td><span style="font-size:.75rem;font-weight:600;padding:.2rem .6rem;border-radius:99px;background:${c.is_active?'rgba(16,185,129,.15)':'rgba(156,163,175,.1)'};color:${c.is_active?'#10b981':'#6b7280'}">${c.is_active?'Faol':'Nofaol'}</span></td>
+      </tr>`).join('')
+    :'<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1.5rem">Filiallar topilmadi</td></tr>';
+
+  // Top cafes placeholder
+  document.getElementById('topCafes').innerHTML=cafes.slice(0,5).map((c,i)=>`
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem">
+      <div style="width:20px;font-size:.875rem;color:var(--text3)">${i+1}</div>
+      <div style="flex:1;font-size:.875rem;font-weight:500">${c.name}</div>
+      <div style="font-size:.8125rem;color:var(--gold);font-weight:600">${btLabel(c.business_type)}</div>
+    </div>`).join('')||'<p style="color:var(--text3);font-size:.875rem">Ma\'lumot yo\'q</p>';
+}
+
+function exportCSV(){
+  const daily=rawData?.analytics?.daily_revenue||[];
+  if(!daily.length){return;}
+  const rows=['Sana,Buyurtmalar,Daromad',...daily.map(d=>`${d.date},${d.orders||0},${d.revenue||0}`)];
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`moliya_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+const BTLABELS={restaurant:'🍽️ Restoran',cafe:'☕ Kafe',fast_food:'🍔 Fast Food',store:'🏪 Magazin',supermarket:'🛒 Supermarket',pharmacy:'💊 Dorixona',salon:'💇 Salon',fitness:'💪 Fitnes',auto_service:'🔧 Auto',school:'📚 Kurs',hotel:'🏨 Mehmonxona',dry_cleaning:'👔 Kimyoviy'};
+function btLabel(bt){return BTLABELS[bt]||bt||'—';}
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function fmtDate(d){if(!d)return'—';return new Date(d).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit'});}
+
+async function loadSaasStats(){
+  const stats=await h.get('/super-admin/stats').catch(()=>null);
+  if(!stats) return;
+  document.getElementById('sMonthRev').textContent=fmtN(stats.month_revenue||0);
+  document.getElementById('sSaasActive').textContent=stats.active||0;
+  const pro=stats.plan_stats?.pro||{};
+  document.getElementById('sSaasPro').textContent=pro.count||0;
+  document.getElementById('sSaasProRev').textContent=fmtN(pro.monthly_revenue||0)+' so\'m/oy';
+}
+
+document.getElementById('periodSel').onchange=load;
+load();
+loadSaasStats();
+</script>
+</body>
+</html>

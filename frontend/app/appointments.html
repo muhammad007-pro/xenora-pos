@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Uchrashuvlar | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--r:.5rem;--r2:.875rem;--r3:1.125rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto}
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;align-items:center}
+.date-nav{display:flex;align-items:center;gap:.5rem}
+.date-nav button{width:32px;height:32px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:1rem;transition:.2s}
+.date-nav button:hover{border-color:var(--gold);color:var(--gold)}
+.date-lbl{font-size:.9rem;font-weight:600;min-width:140px;text-align:center}
+.date-inp{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.4rem .75rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit}
+.date-inp:focus{border-color:var(--gold)}
+.tabs{display:flex;gap:.375rem;margin-bottom:1.25rem}
+.tab{padding:.4rem .875rem;border-radius:var(--r);font-size:.8125rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:.2s}
+.tab.active{background:var(--gold-dim);border-color:rgba(212,180,108,.3);color:var(--gold)}
+.appt-list{display:flex;flex-direction:column;gap:.625rem}
+.appt{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1rem 1.125rem;display:flex;gap:1rem;align-items:flex-start}
+.appt:hover{border-color:var(--border2)}
+.appt.pending{border-left:3px solid var(--yellow)}.appt.confirmed{border-left:3px solid var(--gold)}.appt.completed{border-left:3px solid var(--green)}.appt.cancelled{border-left:3px solid var(--red);opacity:.6}
+.appt-time{flex-shrink:0;text-align:center;background:var(--bg3);border-radius:var(--r);padding:.5rem .75rem;min-width:64px}
+.appt-time .hour{font-size:1.125rem;font-weight:700;color:var(--gold)}.appt-time .dur{font-size:.75rem;color:var(--text3)}
+.appt-info{flex:1}.appt-name{font-weight:600}.appt-svc{font-size:.8125rem;color:var(--text2);margin-top:.15rem}.appt-meta{font-size:.75rem;color:var(--text3);margin-top:.2rem}.appt-price{font-weight:600;color:var(--gold);margin-top:.25rem}
+.appt-acts{display:flex;gap:.375rem;flex-shrink:0;flex-wrap:wrap}
+.badge{padding:.2rem .5rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.b-pending{background:rgba(245,158,11,.12);color:var(--yellow)}.b-confirmed{background:var(--gold-dim);color:var(--gold)}.b-completed{background:rgba(16,185,129,.12);color:var(--green)}.b-cancelled{background:rgba(239,68,68,.1);color:var(--red)}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}.mf .btn{flex:1}
+.fg{margin-bottom:1rem}.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.fg input:focus,.fg select:focus{border-color:var(--gold)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Uchrashuvlar</h1>
+  <button class="btn btn-gold" id="addBtn">+ Yangi</button>
+</header>
+<div class="pc">
+  <div class="toolbar">
+    <div class="date-nav">
+      <button onclick="shiftDay(-1)">‹</button>
+      <span class="date-lbl" id="dateLbl"></span>
+      <button onclick="shiftDay(1)">›</button>
+    </div>
+    <input type="date" class="date-inp" id="dateInp">
+    <button class="btn btn-out btn-sm" onclick="goToday()">Bugun</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-st="">Barchasi</button>
+    <button class="tab" data-st="pending">Kutilmoqda</button>
+    <button class="tab" data-st="confirmed">Tasdiqlangan</button>
+    <button class="tab" data-st="completed">Tugallangan</button>
+    <button class="tab" data-st="cancelled">Bekor</button>
+  </div>
+  <div class="appt-list" id="list"><div class="empty">Yuklanmoqda...</div></div>
+</div>
+
+<div class="modal" id="editModal">
+  <div class="mc">
+    <div class="mh"><h3 id="editTitle">Yangi uchrashuv</h3><div class="mc-x" onclick="cm()">×</div></div>
+    <div class="mb">
+      <input type="hidden" id="eid">
+      <div class="fr2">
+        <div class="fg"><label>Mijoz ismi *</label><input id="eName" placeholder="Alisher Uzoqov"></div>
+        <div class="fg"><label>Telefon</label><input id="ePhone" placeholder="+998 90..." type="tel"></div>
+      </div>
+      <div class="fg"><label>Xizmat</label><select id="eSvc"><option value="">Tanlang...</option></select></div>
+      <div class="fr2">
+        <div class="fg"><label>Sana *</label><input id="eDate" type="date"></div>
+        <div class="fg"><label>Vaqt *</label><input id="eTime" type="time"></div>
+      </div>
+      <div class="fg"><label>Izoh</label><input id="eNote" placeholder="Ixtiyoriy"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="cm()">Bekor</button>
+      <button class="btn btn-gold" id="saveBtn" onclick="save()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1',tok=()=>localStorage.getItem('access_token');
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,b)=>fetch(`${BASE}${u}`,{method:'POST',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+};
+const ST_LABELS={pending:'Kutilmoqda',confirmed:'Tasdiqlangan',completed:'Tugallandi',cancelled:'Bekor'};
+const ST_NEXT={pending:'confirmed',confirmed:'completed'};
+const ST_NEXT_LBL={pending:'Tasdiqlash',confirmed:'Tugallash'};
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+let curDate=new Date().toISOString().split('T')[0], curSt='', all=[], services=[];
+document.getElementById('dateInp').value=curDate;
+
+async function load(){
+  const [apptRes,svcRes]=await Promise.all([
+    api.get(`/appointments/?date=${curDate}&page_size=100`).catch(()=>null),
+    api.get('/services/?page_size=200').catch(()=>null),
+  ]);
+  all=apptRes?.items??(Array.isArray(apptRes)?apptRes:apptRes?.data?.items??[]);
+  services=svcRes?.items??(Array.isArray(svcRes)?svcRes:svcRes?.data?.items??[]);
+  const sel=document.getElementById('eSvc');
+  sel.innerHTML='<option value="">Tanlang...</option>'+services.map(s=>`<option value="${s.id}">${esc(s.name)} — ${fmtN(s.price)} so'm</option>`).join('');
+  render();
+}
+
+function render(){
+  const list=curSt?all.filter(a=>a.status===curSt):[...all];
+  list.sort((a,b)=>(a.scheduled_time||a.start_time||'').localeCompare(b.scheduled_time||b.start_time||''));
+  const el=document.getElementById('list');
+  if(!list.length){el.innerHTML='<div class="empty">Uchrashuvlar yo\'q</div>';return;}
+  el.innerHTML=list.map(a=>{
+    const time=(a.scheduled_time||a.start_time||'').substring(11,16)||'—';
+    const dur=a.service?.duration_minutes||a.duration_minutes||0;
+    const price=a.service?.price||a.total_amount||0;
+    const svcName=a.service?.name||services.find(s=>s.id===a.service_id)?.name||'—';
+    return `<div class="appt ${a.status}">
+      <div class="appt-time"><div class="hour">${time}</div>${dur?`<div class="dur">${dur} min</div>`:''}</div>
+      <div class="appt-info">
+        <div class="appt-name">${esc(a.customer_name||a.customer?.name||'—')}</div>
+        <div class="appt-svc">${esc(svcName)}</div>
+        ${a.customer_phone?`<div class="appt-meta">${esc(a.customer_phone)}</div>`:''}
+        ${price?`<div class="appt-price">${fmtN(price)} so'm</div>`:''}
+      </div>
+      <div class="appt-acts">
+        <span class="badge b-${a.status}">${ST_LABELS[a.status]||a.status}</span>
+        ${ST_NEXT[a.status]?`<button class="btn btn-gold btn-sm" onclick="advance(${a.id},'${ST_NEXT[a.status]}')">${ST_NEXT_LBL[a.status]}</button>`:''}
+        ${a.status!=='cancelled'&&a.status!=='completed'?`<button class="btn btn-out btn-sm" onclick="cancel(${a.id})">Bekor</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function advance(id,st){await api.patch(`/appointments/${id}`,{status:st}).catch(()=>null);load();}
+async function cancel(id){if(!confirm('Bekor qilinsinmi?'))return;await api.patch(`/appointments/${id}`,{status:'cancelled'}).catch(()=>null);load();}
+
+function updateDateLabel(){const d=new Date(curDate);const today=new Date().toISOString().split('T')[0];document.getElementById('dateLbl').textContent=curDate===today?'Bugun':d.toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function shiftDay(n){const d=new Date(curDate);d.setDate(d.getDate()+n);curDate=d.toISOString().split('T')[0];document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
+function goToday(){curDate=new Date().toISOString().split('T')[0];document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
+document.getElementById('dateInp').addEventListener('change',e=>{curDate=e.target.value;updateDateLabel();load();});
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');curSt=t.dataset.st;render();}));
+
+function om(){document.getElementById('editModal').classList.add('open');}
+function cm(){document.getElementById('editModal').classList.remove('open');}
+
+function openAdd(){
+  document.getElementById('editTitle').textContent='Yangi uchrashuv';
+  document.getElementById('eid').value='';
+  ['eName','ePhone','eNote'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('eSvc').value='';
+  document.getElementById('eDate').value=curDate;
+  document.getElementById('eTime').value='';
+  om();
+}
+
+async function save(){
+  const name=document.getElementById('eName').value.trim();
+  const date=document.getElementById('eDate').value;
+  const time=document.getElementById('eTime').value;
+  if(!name||!date||!time){showT('Ism, sana va vaqt majburiy','warning');return;}
+  const id=document.getElementById('eid').value;
+  const body={customer_name:name,customer_phone:document.getElementById('ePhone').value||null,service_id:parseInt(document.getElementById('eSvc').value)||null,scheduled_time:date+'T'+time+':00',notes:document.getElementById('eNote').value||null};
+  const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='...';
+  try{
+    if(id)await api.patch(`/appointments/${id}`,body);
+    else  await api.post('/appointments/',body);
+    showT('Saqlandi','success');cm();load();
+  }catch{showT('Xatolik','error');}
+  finally{btn.disabled=false;btn.textContent='Saqlash';}
+}
+
+function showT(m,t='info'){const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b'};const el=document.createElement('div');el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${c[t]};color:${c[t]};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4)`;el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+document.getElementById('addBtn').addEventListener('click',openAdd);
+document.getElementById('editModal').addEventListener('click',e=>{if(e.target===document.getElementById('editModal'))cm();});
+updateDateLabel();
+load();
+</script>
+</body>
+</html>

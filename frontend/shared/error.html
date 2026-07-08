@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xato | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+:root{--gold:#d4b46c;--bg2:#0b2e23;--bg3:#143a2c;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ec{max-width:480px;width:100%;text-align:center}
+.ecard{background:var(--bg2);border:1px solid var(--border2);border-radius:1.5rem;padding:3rem 2rem}
+.elogo{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:2.5rem;letter-spacing:.05em}
+.eicon{font-size:4rem;margin-bottom:1rem}
+.ecode{font-size:5rem;font-weight:900;background:linear-gradient(135deg,#c9a84c,#e2c97a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1;margin-bottom:.75rem}
+.emsg{font-size:1.375rem;font-weight:700;margin-bottom:.75rem;color:#ecf6ef}
+.edesc{font-size:.9375rem;color:var(--text2);line-height:1.6;margin-bottom:2rem}
+.eact{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:.5rem;padding:.625rem 1.375rem;border-radius:var(--r);font-size:.9375rem;font-weight:600;cursor:pointer;border:none;text-decoration:none;transition:.2s}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 20px rgba(212,180,108,.4)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.epath{font-size:.8125rem;color:var(--text3);margin-top:1.5rem;font-family:monospace;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="ec">
+  <div class="ecard">
+    <div class="elogo">XENORA</div>
+    <div class="eicon" id="eIcon">❌</div>
+    <div class="ecode" id="eCode">404</div>
+    <div class="emsg" id="eMsg">Sahifa topilmadi</div>
+    <div class="edesc" id="eDesc">Siz qidirayotgan sahifa mavjud emas yoki ko'chirilgan bo'lishi mumkin.</div>
+    <div class="eact">
+      <button class="btn bg" onclick="history.back()">← Orqaga</button>
+      <a class="btn bo" href="/app/pos.html">🏠 Bosh sahifa</a>
+    </div>
+    <div class="epath" id="ePath"></div>
+  </div>
+</div>
+<script>
+const p=new URLSearchParams(location.search);
+const code=parseInt(p.get('code'))||404;
+const msgs={
+  400:{icon:'⚠️',msg:"Noto'g'ri so'rov",desc:'So\'rov parametrlari noto\'g\'ri. Iltimos qayta urinib ko\'ring.'},
+  401:{icon:'🔒',msg:'Kirish kerak',desc:'Bu sahifani ko\'rish uchun tizimga kirish kerak.'},
+  403:{icon:'🚫',msg:'Ruxsat yo\'q',desc:'Sizda bu sahifani ko\'rish uchun ruxsat mavjud emas.'},
+  404:{icon:'🔍',msg:'Sahifa topilmadi',desc:'Siz qidirayotgan sahifa mavjud emas yoki ko\'chirilgan bo\'lishi mumkin.'},
+  500:{icon:'🛠️',msg:'Server xatosi',desc:'Tizimda texnik muammo yuz berdi. Iltimos keyinroq qayta urinib ko\'ring.'},
+  503:{icon:'⏳',msg:'Xizmat mavjud emas',desc:'Server hozirda texnik xizmat ko\'rsatishda. Iltimos bir oz kuting.'},
+};
+const conf=msgs[code]||{icon:'❌',msg:'Noma\'lum xato',desc:'Kutilmagan xato yuz berdi.'};
+document.getElementById('eIcon').textContent=conf.icon;
+document.getElementById('eCode').textContent=code;
+document.getElementById('eMsg').textContent=p.get('msg')||conf.msg;
+document.getElementById('eDesc').textContent=p.get('desc')||conf.desc;
+const ref=p.get('ref');
+if(ref) document.getElementById('ePath').textContent='Manzil: '+ref;
+if(code===401) document.querySelector('.eact').insertAdjacentHTML('afterbegin','<a class="btn bg" href="/shared/login.html">Kirish</a>');
+</script>
+</body>
+</html>

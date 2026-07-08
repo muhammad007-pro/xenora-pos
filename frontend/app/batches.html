@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Partiya Nazorati | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh;display:flex;flex-direction:column}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto;flex:1}
+.tb{display:flex;gap:.75rem;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap}
+.si{flex:1;min-width:160px;padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#ecf6ef;font-size:.9rem}
+.si:focus{outline:none;border-color:var(--gold)}
+.btn{padding:.625rem 1.125rem;border-radius:var(--r);border:none;font-size:.875rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:.4rem}
+.btn-g{background:var(--gold);color:#03110c}.btn-g:hover{background:#c9a20e}
+.btn-o{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}.btn-o:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.4rem .75rem;font-size:.8rem}
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{padding:1.25rem;border-radius:var(--r2);border:1.5px solid var(--border2);background:var(--bg2)}
+.se{border-color:#ef4444;background:rgba(239,68,68,.06)}
+.scr{border-color:#f59e0b;background:rgba(245,158,11,.06)}
+.sw{border-color:#3b82f6;background:rgba(59,130,246,.06)}
+.sk{border-color:#10b981;background:rgba(16,185,129,.06)}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.25rem}
+.sv{font-size:2rem;font-weight:700}
+.se .sv{color:#ef4444}.scr .sv{color:#f59e0b}.sw .sv{color:#3b82f6}.sk .sv{color:#10b981}
+.fi{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.fc{padding:.3rem .875rem;border-radius:99px;font-size:.8125rem;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;transition:.2s}
+.fc.active,.fc:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+table{width:100%;border-collapse:collapse;font-size:.875rem}
+thead th{text-align:left;padding:.625rem .875rem;background:var(--bg3);color:var(--text3);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+tbody tr{border-bottom:1px solid var(--border2);transition:.15s}
+tbody tr:hover{background:var(--bg3)}
+td{padding:.75rem .875rem;vertical-align:middle}
+.badge{display:inline-flex;align-items:center;padding:.2rem .625rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.b-exp{background:rgba(239,68,68,.12);color:#ef4444}
+.b-crit{background:rgba(245,158,11,.12);color:#f59e0b}
+.b-warn{background:rgba(59,130,246,.12);color:#3b82f6}
+.b-ok{background:rgba(16,185,129,.12);color:#10b981}
+.empty{text-align:center;padding:4rem;color:var(--text3)}
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.5rem;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem}
+.modal-t{font-size:1.125rem;font-weight:700}
+.close{background:none;border:none;color:var(--text2);font-size:1.5rem;cursor:pointer}
+.close:hover{color:#ef4444}
+.form-g{display:flex;flex-direction:column;gap:.875rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.lbl{display:flex;flex-direction:column;gap:.375rem;font-size:.875rem;color:var(--text2)}
+.inp{padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#ecf6ef;font-size:.9rem;width:100%}
+.inp:focus{outline:none;border-color:var(--gold)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="ph">
+  <a href="javascript:history.back()" class="bk">&#8592;</a>
+  <div class="pt">Partiya / Seriya Nazorati</div>
+  <button class="btn btn-o btn-sm" id="btnDisable">Muddati tugaganlarni yopish</button>
+  <button class="btn btn-g" id="btnNew" style="margin-left:.5rem">+ Yangi partiya</button>
+</div>
+
+<div class="pc">
+  <div class="sg" id="stats">
+    <div class="sc se"><div class="sl">Muddati tugagan</div><div class="sv" id="sExp">—</div></div>
+    <div class="sc scr"><div class="sl">7 kun qoldi</div><div class="sv" id="sCrit">—</div></div>
+    <div class="sc sw"><div class="sl">30 kun qoldi</div><div class="sv" id="sWarn">—</div></div>
+    <div class="sc sk"><div class="sl">Muddati yaxshi</div><div class="sv" id="sOk">—</div></div>
+  </div>
+
+  <div class="fi">
+    <div class="fc active" data-f="all">Barchasi</div>
+    <div class="fc" data-f="expired">Muddati tugagan</div>
+    <div class="fc" data-f="critical">Kritik (7 kun)</div>
+    <div class="fc" data-f="warning">Ogohlantirish (30 kun)</div>
+    <div class="fc" data-f="ok">Yaxshi</div>
+  </div>
+
+  <div class="tb">
+    <input class="si" id="productSearch" placeholder="Mahsulot nomi bo'yicha...">
+    <input class="si" id="daysFilter" type="number" min="1" max="365" value="365" placeholder="N kun ichida" style="max-width:150px">
+    <button class="btn btn-o" id="btnReport">Hisobot (30 kun)</button>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th>Mahsulot</th>
+        <th>Seriya №</th>
+        <th>Ishlab chiqaruvchi</th>
+        <th>Ishlab ch. sanasi</th>
+        <th>Yaroqlilik muddati</th>
+        <th>Qoldi (kun)</th>
+        <th>Miqdor</th>
+        <th>Holat</th>
+        <th>Amallar</th>
+      </tr></thead>
+      <tbody id="batchTbl"></tbody>
+    </table>
+  </div>
+  <div class="empty" id="emptyMsg" style="display:none">
+    <div style="font-size:2.5rem;margin-bottom:.75rem">📦</div>
+    Partiyalar topilmadi
+  </div>
+  <div style="text-align:center;margin-top:1rem">
+    <button class="btn btn-o" id="btnMore" style="display:none">Ko'proq yuklash</button>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="batchModal">
+  <div class="modal">
+    <div class="modal-h">
+      <div class="modal-t" id="modalTitle">Yangi partiya</div>
+      <button class="close" id="closeModal">&times;</button>
+    </div>
+    <div class="form-g">
+      <label class="lbl">Mahsulot *
+        <input class="inp" id="fProductSearch" placeholder="Mahsulot nomi yoki barkod...">
+        <select class="inp" id="fProduct" style="margin-top:.375rem">
+          <option value="">Mahsulot tanlang</option>
+        </select>
+      </label>
+      <div class="row2">
+        <label class="lbl">Seriya raqami *
+          <input class="inp" id="fBatch" placeholder="LOT-2024-001">
+        </label>
+        <label class="lbl">Ishlab chiqaruvchi
+          <input class="inp" id="fManuf" placeholder="Pharmachim">
+        </label>
+      </div>
+      <div class="row2">
+        <label class="lbl">Ishlab chiq. sanasi
+          <input class="inp" id="fMfgDate" type="date">
+        </label>
+        <label class="lbl">Yaroqlilik muddati *
+          <input class="inp" id="fExpDate" type="date">
+        </label>
+      </div>
+      <div class="row2">
+        <label class="lbl">Miqdor *
+          <input class="inp" id="fQty" type="number" min="0" step="0.01" placeholder="100">
+        </label>
+        <label class="lbl">Kelish narxi (so'm)
+          <input class="inp" id="fCost" type="number" min="0" step="100" placeholder="5000">
+        </label>
+      </div>
+      <label class="lbl">Izoh
+        <textarea class="inp" id="fNotes" rows="2"></textarea>
+      </label>
+      <div style="display:flex;gap:.75rem;justify-content:flex-end">
+        <button class="btn btn-o" id="cancelModal">Bekor</button>
+        <button class="btn btn-g" id="saveModal">Saqlash</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { API } from '../js/core/api.js';
+import { showToast } from '../js/ui/toast.js';
+import { features, Feature } from '../js/core/features.js';
+
+const api = new API();
+let page = 1, currentFilter = 'all', editId = null;
+const PAGE_SIZE = 30;
+
+await features.load();
+if (!features.isEnabled(Feature.BATCH_TRACKING)) {
+  document.body.innerHTML = '<div style="padding:3rem;text-align:center;color:#9fcbb9">Bu funksiya sizning tarifingizda mavjud emas.</div>';
+}
+
+async function loadStats() {
+  try {
+    const report = await api.get('/batches/expiry-report?days=365');
+    let exp=0, crit=0, warn=0, ok=0;
+    report.forEach(r => {
+      if (r.status==='expired') exp++;
+      else if (r.status==='critical') crit++;
+      else if (r.status==='warning') warn++;
+      else ok++;
+    });
+    document.getElementById('sExp').textContent = exp;
+    document.getElementById('sCrit').textContent = crit;
+    document.getElementById('sWarn').textContent = warn;
+    document.getElementById('sOk').textContent = ok;
+  } catch(e) {}
+}
+
+async function loadBatches(reset=false) {
+  if (reset) { page = 1; document.getElementById('batchTbl').innerHTML = ''; }
+  const days = document.getElementById('daysFilter').value || 365;
+  const params = new URLSearchParams({ page, page_size: PAGE_SIZE, expiring_in_days: days });
+
+  try {
+    const data = await api.get(`/batches/?${params}`);
+    const today = new Date();
+    let rows = data.items;
+
+    if (currentFilter !== 'all') {
+      rows = rows.filter(b => {
+        const d = Math.floor((new Date(b.expiry_date) - today) / 86400000);
+        if (currentFilter === 'expired') return d < 0;
+        if (currentFilter === 'critical') return d >= 0 && d <= 7;
+        if (currentFilter === 'warning') return d > 7 && d <= 30;
+        if (currentFilter === 'ok') return d > 30;
+        return true;
+      });
+    }
+
+    renderRows(rows, reset);
+    document.getElementById('btnMore').style.display = (page * PAGE_SIZE < data.total) ? '' : 'none';
+    document.getElementById('emptyMsg').style.display = (data.items.length === 0 && page === 1) ? '' : 'none';
+  } catch(e) { showToast('Xatolik: ' + e.message, 'error'); }
+}
+
+function statusBadge(days) {
+  if (days < 0) return `<span class="badge b-exp">Muddati o'tgan</span>`;
+  if (days <= 7)  return `<span class="badge b-crit">Kritik</span>`;
+  if (days <= 30) return `<span class="badge b-warn">Ogohlantirish</span>`;
+  return `<span class="badge b-ok">Yaxshi</span>`;
+}
+
+function renderRows(items, reset) {
+  const tbl = document.getElementById('batchTbl');
+  if (reset) tbl.innerHTML = '';
+  const today = new Date();
+  items.forEach(b => {
+    const d = Math.floor((new Date(b.expiry_date) - today) / 86400000);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-weight:600">${b.product?.name || `ID:${b.product_id}`}</td>
+      <td style="font-family:monospace;color:var(--gold)">${b.batch_number}</td>
+      <td style="color:var(--text2)">${b.manufacturer||'—'}</td>
+      <td style="color:var(--text2)">${b.manufacture_date||'—'}</td>
+      <td>${b.expiry_date}</td>
+      <td style="font-weight:700;color:${d<0?'#ef4444':d<=7?'#f59e0b':d<=30?'#3b82f6':'#10b981'}">${d}</td>
+      <td>${b.quantity}</td>
+      <td>${statusBadge(d)}</td>
+      <td>
+        <button class="btn btn-o btn-sm edit-btn" data-id="${b.id}">Tahrirlash</button>
+      </td>`;
+    tbl.appendChild(tr);
+  });
+  document.querySelectorAll('.edit-btn').forEach(b => b.onclick = () => openEdit(+b.dataset.id));
+}
+
+async function openEdit(id) {
+  editId = id;
+  try {
+    const b = await api.get(`/batches/${id}`);
+    document.getElementById('modalTitle').textContent = 'Partiyani tahrirlash';
+    document.getElementById('fBatch').value = b.batch_number;
+    document.getElementById('fManuf').value = b.manufacturer || '';
+    document.getElementById('fMfgDate').value = b.manufacture_date || '';
+    document.getElementById('fExpDate').value = b.expiry_date;
+    document.getElementById('fQty').value = b.quantity;
+    document.getElementById('fCost').value = b.cost_price;
+    document.getElementById('fNotes').value = b.notes || '';
+    document.getElementById('batchModal').classList.add('open');
+  } catch(e) { showToast('Xatolik', 'error'); }
+}
+
+// Products search
+let allProducts = [];
+async function loadProducts() {
+  try {
+    const data = await api.get('/products/all');
+    allProducts = data;
+    const sel = document.getElementById('fProduct');
+    sel.innerHTML = '<option value="">Mahsulot tanlang</option>' +
+      data.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  } catch(e) {}
+}
+
+document.getElementById('fProductSearch').oninput = function() {
+  const q = this.value.toLowerCase();
+  const sel = document.getElementById('fProduct');
+  sel.innerHTML = '<option value="">Mahsulot tanlang</option>' +
+    allProducts.filter(p => p.name.toLowerCase().includes(q) || (p.barcode||'').includes(q))
+      .map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+};
+
+// Modal
+function openNew() {
+  editId = null;
+  document.getElementById('modalTitle').textContent = 'Yangi partiya';
+  ['fBatch','fManuf','fMfgDate','fExpDate','fQty','fCost','fNotes','fProductSearch'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fProduct').value = '';
+  document.getElementById('batchModal').classList.add('open');
+  loadProducts();
+}
+
+document.getElementById('btnNew').onclick = openNew;
+document.getElementById('closeModal').onclick = () => document.getElementById('batchModal').classList.remove('open');
+document.getElementById('cancelModal').onclick = () => document.getElementById('batchModal').classList.remove('open');
+
+document.getElementById('saveModal').onclick = async () => {
+  const batchNum = document.getElementById('fBatch').value.trim();
+  const expDate = document.getElementById('fExpDate').value;
+  const qty = parseFloat(document.getElementById('fQty').value);
+
+  if (!expDate || !batchNum || isNaN(qty)) {
+    showToast('Seriya raqami, yaroqlilik muddati va miqdor majburiy', 'error'); return;
+  }
+
+  const body = {
+    batch_number: batchNum,
+    manufacturer: document.getElementById('fManuf').value.trim() || null,
+    manufacture_date: document.getElementById('fMfgDate').value || null,
+    expiry_date: expDate,
+    quantity: qty,
+    cost_price: parseFloat(document.getElementById('fCost').value) || 0,
+    notes: document.getElementById('fNotes').value.trim() || null,
+  };
+
+  try {
+    if (editId) {
+      await api.put(`/batches/${editId}`, body);
+    } else {
+      const pid = document.getElementById('fProduct').value;
+      if (!pid) { showToast('Mahsulot tanlang', 'error'); return; }
+      await api.post('/batches/', { ...body, product_id: +pid });
+    }
+    showToast('Saqlandi', 'success');
+    document.getElementById('batchModal').classList.remove('open');
+    loadBatches(true);
+    loadStats();
+  } catch(e) { showToast('Xatolik: ' + e.message, 'error'); }
+};
+
+document.getElementById('btnDisable').onclick = async () => {
+  if (!confirm('Muddati tugagan partiyalarni yopishni tasdiqlaysizmi?')) return;
+  try {
+    const res = await api.post('/batches/check-and-disable-expired', {});
+    showToast(res.message, 'success');
+    loadBatches(true);
+    loadStats();
+  } catch(e) { showToast('Xatolik', 'error'); }
+};
+
+document.getElementById('btnReport').onclick = async () => {
+  try {
+    const report = await api.get('/batches/expiry-report?days=30');
+    if (!report.length) { showToast('30 kun ichida muddati tugaydigan partiya yo\'q', 'info'); return; }
+    let csv = 'Mahsulot,Seriya,Muddati,Qoldi (kun),Miqdor,Holat\n';
+    report.forEach(r => { csv += `"${r.product_name}","${r.batch_number||''}","${r.expiry_date}","${r.days_left}","${r.quantity}","${r.status}"\n`; });
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `expiry_report_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  } catch(e) { showToast('Xatolik', 'error'); }
+};
+
+document.querySelectorAll('.fc').forEach(f => f.onclick = () => {
+  document.querySelectorAll('.fc').forEach(x => x.classList.remove('active'));
+  f.classList.add('active');
+  currentFilter = f.dataset.f;
+  loadBatches(true);
+});
+
+document.getElementById('productSearch').oninput = () => loadBatches(true);
+document.getElementById('btnMore').onclick = () => { page++; loadBatches(); };
+
+loadStats();
+loadBatches(true);
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Stol | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4af37;--gold-dim:rgba(212,175,55,.15);--bg:#0a0a0f;--bg2:#12121e;--bg3:#1a1a2e;--border:rgba(255,255,255,.1);--text2:#9a9ab8;--r:.625rem;--r2:1rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:#f0f0f8;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center}
+.logo{width:64px;height:64px;background:var(--gold-dim);border:2px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.75rem;margin:0 auto 1rem}
+.cafe-name{font-size:1.25rem;font-weight:700;color:var(--gold);margin-bottom:.25rem}
+.table-name{font-size:2.5rem;font-weight:800;margin:.75rem 0 .25rem}
+.table-sub{font-size:.9rem;color:var(--text2);margin-bottom:2rem}
+.actions{display:flex;flex-direction:column;gap:.75rem;width:100%;max-width:320px;margin:0 auto}
+.btn{width:100%;padding:1rem;border-radius:var(--r2);font-size:1rem;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;justify-content:center;gap:.625rem;transition:.2s;font-family:inherit}
+.btn-call{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#07070f}
+.btn-call:hover{box-shadow:0 0 24px rgba(212,175,55,.4)}
+.btn-bill{background:var(--bg2);border:1px solid var(--border);color:#f0f0f8}
+.btn-bill:hover{border-color:var(--gold);color:var(--gold)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.status{margin-top:1.25rem;font-size:.875rem;padding:.625rem 1.25rem;border-radius:var(--r);transition:.3s}
+.status.sent{background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3)}
+.status.error{background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)}
+.status.ack{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(212,175,55,.3)}
+.divider{width:100%;max-width:320px;height:1px;background:var(--border);margin:1.5rem 0}
+.footer{font-size:.75rem;color:var(--text2)}
+</style>
+</head>
+<body>
+
+<div class="logo" id="cafeIcon">🍽️</div>
+<div class="cafe-name" id="cafeName">XENORA</div>
+<div class="table-name" id="tableName">—</div>
+<div class="table-sub">Xizmat uchun tugmani bosing</div>
+
+<div class="actions">
+  <button class="btn btn-call" id="callBtn" onclick="callWaiter('call')">
+    🔔 Ofitsiant chaqirish
+  </button>
+  <button class="btn btn-bill" id="billBtn" onclick="callWaiter('bill')">
+    🧾 Hisob-kitob so'rash
+  </button>
+</div>
+
+<div class="status" id="statusMsg" style="display:none"></div>
+
+<div class="divider"></div>
+<div class="footer">Powered by XENORA</div>
+
+<script>
+const params    = new URLSearchParams(location.search);
+const cafeId    = parseInt(params.get('cafe'))   || 0;
+const tableId   = parseInt(params.get('table'))  || 0;
+const tableName = params.get('tname') || ('Stol ' + tableId);
+const cafeName  = params.get('cname') || 'XENORA';
+
+document.getElementById('tableName').textContent = tableName;
+document.getElementById('cafeName').textContent  = cafeName;
+
+const WS_URL = (location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws/waiter'
+             + (cafeId ? `?cafe_id=${cafeId}` : '');
+
+let ws, cooldown = false;
+
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen  = () => {};
+  ws.onclose = () => setTimeout(connect, 5000);
+  ws.onerror = () => {};
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'call_cleared' && msg.table_id === tableId) {
+        showStatus('Ofitsiant yetib keladi!', 'ack');
+        enableBtns(true);
+        cooldown = false;
+      }
+    } catch {}
+  };
+}
+
+function callWaiter(reason) {
+  if (cooldown) return;
+  cooldown = true;
+  enableBtns(false);
+
+  const send = () => {
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'call_waiter',
+        table_id:   tableId,
+        table_name: tableName,
+        reason,
+        timestamp:  new Date().toISOString(),
+      }));
+      showStatus(reason === 'bill' ? 'Hisob-kitob so\'raldi!' : 'Ofitsiant chaqirildi!', 'sent');
+      setTimeout(() => { enableBtns(true); cooldown = false; }, 30000);
+    } else {
+      showStatus('Ulanish xatosi. Qayta urinib ko\'ring.', 'error');
+      enableBtns(true); cooldown = false;
+    }
+  };
+
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connect();
+    setTimeout(send, 600);
+  } else {
+    send();
+  }
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent  = msg;
+  el.className    = 'status ' + type;
+  el.style.display = '';
+}
+
+function enableBtns(on) {
+  document.getElementById('callBtn').disabled = !on;
+  document.getElementById('billBtn').disabled = !on;
+}
+
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Happy Hour | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--r:.5rem;--r2:.875rem;--r3:1.125rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto}
+.info-bar{background:var(--gold-dim);border:1px solid rgba(212,180,108,.2);border-radius:var(--r2);padding:1rem 1.25rem;margin-bottom:1.25rem;font-size:.875rem;color:var(--text2)}
+.info-bar strong{color:var(--gold)}
+.active-now{display:inline-flex;align-items:center;gap:.375rem;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:var(--green);border-radius:99px;padding:.2rem .625rem;font-size:.75rem;font-weight:600;margin-left:.5rem}
+.list{display:flex;flex-direction:column;gap:.75rem}
+.hhcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.125rem 1.25rem;display:flex;gap:1rem;align-items:flex-start;transition:.2s}
+.hhcard:hover{border-color:var(--border2)}
+.hhcard.inactive{opacity:.55}
+.hhcard.now-active{border-color:rgba(16,185,129,.35);box-shadow:0 0 16px rgba(16,185,129,.08)}
+.hh-time{flex-shrink:0;text-align:center;background:var(--bg3);border-radius:var(--r);padding:.625rem .875rem;min-width:80px}
+.hh-time .tr{font-size:1rem;font-weight:700;color:var(--gold)}.hh-time .days{font-size:.7rem;color:var(--text3);margin-top:.2rem}
+.hh-info{flex:1}
+.hh-name{font-weight:700;font-size:.9375rem;margin-bottom:.2rem}
+.hh-disc{font-size:1.125rem;font-weight:700;color:var(--gold);margin-bottom:.25rem}
+.hh-applies{font-size:.8125rem;color:var(--text2)}
+.hh-acts{display:flex;gap:.375rem;flex-shrink:0;align-items:center}
+.badge-now{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3);padding:.2rem .5rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:500px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}.mf .btn{flex:1}
+.fg{margin-bottom:1rem}.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.fg input:focus,.fg select:focus{border-color:var(--gold)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.days-wrap{display:flex;gap:.375rem;flex-wrap:wrap}
+.day-btn{padding:.35rem .625rem;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text2);font-size:.8125rem;cursor:pointer;transition:.2s}
+.day-btn.sel{background:var(--gold-dim);border-color:rgba(212,180,108,.4);color:var(--gold);font-weight:600}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Happy Hour qoidalari</h1>
+  <button class="btn btn-gold" id="addBtn">+ Yangi qoida</button>
+</header>
+<div class="pc">
+  <div class="info-bar">
+    <strong>Happy Hour</strong> — belgilangan vaqt oralig'ida avtomatik chegirma qo'llanadi. POS buyurtma berish vaqtida aktiv qoidalar tekshiriladi.
+  </div>
+  <div class="list" id="list"><div class="empty">Yuklanmoqda...</div></div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="mc">
+    <div class="mh"><h3 id="mTitle">Yangi happy hour</h3><div class="mc-x" onclick="cm()">×</div></div>
+    <div class="mb">
+      <input type="hidden" id="eid">
+      <div class="fg"><label>Nomi *</label><input id="eName" placeholder="Tushlik chegirmasi..."></div>
+      <div class="fr2">
+        <div class="fg"><label>Chegirma turi</label>
+          <select id="eDiscType">
+            <option value="percentage">Foiz (%)</option>
+            <option value="fixed">Belgilangan (so'm)</option>
+          </select>
+        </div>
+        <div class="fg"><label>Chegirma miqdori *</label><input type="number" id="eDiscVal" min="0" step="1" placeholder="15"></div>
+      </div>
+      <div class="fr2">
+        <div class="fg"><label>Boshlanish *</label><input type="time" id="eFrom"></div>
+        <div class="fg"><label>Tugash *</label><input type="time" id="eTo"></div>
+      </div>
+      <div class="fg">
+        <label>Hafta kunlari</label>
+        <div class="days-wrap" id="daysWrap">
+          <button type="button" class="day-btn sel" data-d="0">Du</button>
+          <button type="button" class="day-btn sel" data-d="1">Se</button>
+          <button type="button" class="day-btn sel" data-d="2">Ch</button>
+          <button type="button" class="day-btn sel" data-d="3">Pa</button>
+          <button type="button" class="day-btn sel" data-d="4">Ju</button>
+          <button type="button" class="day-btn" data-d="5">Sh</button>
+          <button type="button" class="day-btn" data-d="6">Ya</button>
+        </div>
+      </div>
+      <div class="fg"><label>Qo'llanish</label>
+        <select id="eApplies">
+          <option value="all">Barcha mahsulotlarga</option>
+          <option value="category">Kategoriya bo'yicha</option>
+        </select>
+      </div>
+      <div class="fg" id="catFg" style="display:none"><label>Kategoriya</label>
+        <select id="eCat"><option value="">Tanlang...</option></select>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="cm()">Bekor</button>
+      <button class="btn btn-gold" id="saveBtn" onclick="save()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1',tok=()=>localStorage.getItem('access_token');
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,b)=>fetch(`${BASE}${u}`,{method:'POST',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  del:u=>fetch(`${BASE}${u}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+};
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+const DAY_NAMES=['Du','Se','Ch','Pa','Ju','Sh','Ya'];
+const DAY_FULL=['Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba','Yakshanba'];
+
+let rules=[],categories=[],editId=null;
+
+async function load(){
+  const [rRes,cRes]=await Promise.all([
+    api.get('/happy-hours/').catch(()=>null),
+    api.get('/categories/?page_size=200').catch(()=>null),
+  ]);
+  rules=Array.isArray(rRes)?rRes:rRes?.items??[];
+  categories=cRes?.items??(Array.isArray(cRes)?cRes:[]);
+  const catSel=document.getElementById('eCat');
+  catSel.innerHTML='<option value="">Tanlang...</option>'+categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  render();
+}
+
+function getSelectedDays(){
+  return [...document.querySelectorAll('.day-btn.sel')].map(b=>parseInt(b.dataset.d));
+}
+
+function render(){
+  const el=document.getElementById('list');
+  if(!rules.length){el.innerHTML='<div class="empty">Happy Hour qoidalari yo\'q</div>';return;}
+  el.innerHTML=rules.map(h=>{
+    const days=(h.weekdays||[]).map(d=>DAY_NAMES[d]||'').join(', ');
+    const disc=h.discount_type==='percentage'?h.discount_value+'%':new Intl.NumberFormat('uz-UZ').format(h.discount_value)+' so\'m';
+    const applies=h.applies_to==='all'?'Barcha mahsulotlar':h.applies_to==='category'?'Kategoriya bo\'yicha':'Mahsulot bo\'yicha';
+    return `<div class="hhcard${h.is_active===false?' inactive':''}${h.is_now_active?' now-active':''}">
+      <div class="hh-time"><div class="tr">${h.time_from}–${h.time_to}</div><div class="days">${days||'—'}</div></div>
+      <div class="hh-info">
+        <div class="hh-name">${esc(h.name)}${h.is_now_active?'<span class="badge-now" style="margin-left:.5rem">AKTIV</span>':''}</div>
+        <div class="hh-disc">${disc} chegirma</div>
+        <div class="hh-applies">${applies}</div>
+      </div>
+      <div class="hh-acts">
+        <button class="btn btn-out btn-sm" onclick="openEdit(${h.id})">Tahrir</button>
+        <button class="btn btn-sm ${h.is_active!==false?'btn-out':'btn-gold'}" onclick="toggle(${h.id},${h.is_active!==false})">${h.is_active!==false?"O'chirish":'Yoqish'}</button>
+        <button class="btn btn-out btn-sm" style="color:var(--red);border-color:rgba(239,68,68,.3)" onclick="del(${h.id})">O'chirish</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function om(){document.getElementById('modal').classList.add('open');}
+function cm(){document.getElementById('modal').classList.remove('open');}
+
+function openAdd(){
+  editId=null;
+  document.getElementById('mTitle').textContent='Yangi happy hour';
+  document.getElementById('eid').value='';
+  document.getElementById('eName').value='';
+  document.getElementById('eDiscType').value='percentage';
+  document.getElementById('eDiscVal').value='';
+  document.getElementById('eFrom').value='12:00';
+  document.getElementById('eTo').value='14:00';
+  document.getElementById('eApplies').value='all';
+  document.getElementById('catFg').style.display='none';
+  // Reset days: Mon-Fri selected
+  document.querySelectorAll('.day-btn').forEach(b=>{b.classList.toggle('sel',[0,1,2,3,4].includes(parseInt(b.dataset.d)));});
+  om();
+}
+
+function openEdit(id){
+  const h=rules.find(x=>x.id===id);if(!h)return;
+  editId=id;
+  document.getElementById('mTitle').textContent='Tahrirlash';
+  document.getElementById('eid').value=h.id;
+  document.getElementById('eName').value=h.name||'';
+  document.getElementById('eDiscType').value=h.discount_type||'percentage';
+  document.getElementById('eDiscVal').value=h.discount_value||'';
+  document.getElementById('eFrom').value=h.time_from||'12:00';
+  document.getElementById('eTo').value=h.time_to||'14:00';
+  document.getElementById('eApplies').value=h.applies_to||'all';
+  document.getElementById('catFg').style.display=h.applies_to==='category'?'':'none';
+  document.getElementById('eCat').value=h.category_id||'';
+  const wd=h.weekdays||[];
+  document.querySelectorAll('.day-btn').forEach(b=>b.classList.toggle('sel',wd.includes(parseInt(b.dataset.d))));
+  om();
+}
+
+async function save(){
+  const name=document.getElementById('eName').value.trim();
+  const discVal=parseFloat(document.getElementById('eDiscVal').value)||0;
+  const tf=document.getElementById('eFrom').value;
+  const tt=document.getElementById('eTo').value;
+  if(!name||!discVal||!tf||!tt){showT('Nomi, chegirma va vaqt majburiy','warning');return;}
+  const days=getSelectedDays();
+  if(!days.length){showT('Kamida bitta kun tanlang','warning');return;}
+  const applies=document.getElementById('eApplies').value;
+  const body={name,discount_type:document.getElementById('eDiscType').value,discount_value:discVal,time_from:tf,time_to:tt,weekdays:days,applies_to:applies,category_id:applies==='category'?(parseInt(document.getElementById('eCat').value)||null):null};
+  const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='...';
+  try{
+    if(editId) await api.patch(`/happy-hours/${editId}`,body);
+    else       await api.post('/happy-hours/',body);
+    showT('Saqlandi','success');cm();load();
+  }catch{showT('Xatolik','error');}
+  finally{btn.disabled=false;btn.textContent='Saqlash';}
+}
+
+async function toggle(id,cur){
+  await api.patch(`/happy-hours/${id}`,{is_active:!cur}).catch(()=>null);
+  showT(cur?"O'chirildi":'Yoqildi','success');load();
+}
+
+async function del(id){
+  if(!confirm('Qoidani o\'chirasizmi?'))return;
+  await api.del(`/happy-hours/${id}`).catch(()=>null);
+  showT("O'chirildi",'success');load();
+}
+
+function showT(m,t='info'){const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b'};const el=document.createElement('div');el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${c[t]};color:${c[t]};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4)`;el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+document.getElementById('addBtn').addEventListener('click',openAdd);
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))cm();});
+document.querySelectorAll('.day-btn').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('sel')));
+document.getElementById('eApplies').addEventListener('change',e=>{document.getElementById('catFg').style.display=e.target.value==='category'?'':'none';});
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Davomat | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;
+  --primary-color:var(--gold);--bg-secondary:var(--bg3);--border-color:var(--border2);--text-secondary:var(--text2);
+  --r:.5rem;--r2:.875rem;--r3:1.125rem;
+  --accent-color:var(--gold)
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+/* Header */
+.page-header{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+.header-left{display:flex;align-items:center;gap:.75rem}
+.back-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s;flex-shrink:0}
+.back-btn:hover{border-color:var(--gold);color:var(--gold)}
+.header-left h1{font-size:1.125rem;font-weight:700;color:var(--gold)}
+.header-center{flex:1;display:flex;justify-content:center}
+.date-selector{display:flex;align-items:center;gap:.375rem}
+.header-right{display:flex;align-items:center;gap:.5rem}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-primary:hover{box-shadow:var(--gold-glow)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .625rem;font-size:.8125rem}
+/* Selects/inputs in header */
+.date-selector input{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.4rem .75rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.date-selector input:focus{border-color:var(--gold)}
+/* Summary */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;padding:1.5rem 1.5rem 0;max-width:1280px;margin:0 auto}
+.summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem;text-align:center}
+.summary-card.present{border-color:rgba(16,185,129,.3)}.summary-card.absent{border-color:rgba(239,68,68,.2)}.summary-card.late{border-color:rgba(245,158,11,.2)}
+.summary-value{display:block;font-size:1.625rem;font-weight:700;color:var(--gold)}
+.summary-card.present .summary-value{color:var(--green)}.summary-card.absent .summary-value{color:var(--red)}.summary-card.late .summary-value{color:var(--yellow)}
+.summary-label{display:block;font-size:.75rem;color:var(--text3);margin-top:.25rem}
+/* Filter bar */
+.filter-bar{display:flex;gap:.75rem;align-items:center;padding:1.25rem 1.5rem;max-width:1280px;margin:0 auto;flex-wrap:wrap}
+.search-wrapper{flex:1;max-width:320px}
+.search-wrapper input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.search-wrapper input:focus{border-color:var(--gold)}
+select{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text2);font-size:.875rem;outline:none;cursor:pointer;font-family:inherit;transition:.2s}
+select:focus{border-color:var(--gold)}
+/* Table */
+.table-container{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin:0 1.5rem 1.5rem;max-width:1280px;margin-left:auto;margin-right:auto;margin-bottom:1.5rem}
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border)}
+.data-table td{padding:.875rem 1rem;border-bottom:1px solid var(--border);font-size:.875rem}
+.data-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.data-table tbody tr:last-child td{border-bottom:none}
+/* Status badges */
+.status-badge{padding:.2rem .625rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.status-badge.present{background:rgba(16,185,129,.12);color:var(--green)}
+.status-badge.absent{background:rgba(239,68,68,.1);color:var(--red)}
+.status-badge.late{background:rgba(245,158,11,.12);color:var(--yellow)}
+/* Action buttons */
+.action-btn{padding:.35rem .625rem;border-radius:var(--r);cursor:pointer;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:.8125rem;margin-right:.25rem;transition:.2s}
+.action-btn:hover{border-color:var(--gold);color:var(--gold)}
+/* Modal */
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.modal-content{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.modal-header h2{font-size:1rem;font-weight:700}
+.modal-close{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.25rem;transition:.2s;line-height:1}
+.modal-close:hover{border-color:var(--gold);color:var(--gold)}
+.modal-body{padding:1.25rem;overflow-y:auto;flex:1}
+.modal-footer{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}
+.modal-footer .btn{flex:1}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.form-group input,.form-group select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.form-group input:focus,.form-group select:focus{border-color:var(--gold)}
+/* Attendance status colors in table */
+.att-present td:first-child{border-left:2px solid var(--green)}
+.att-late td:first-child{border-left:2px solid var(--yellow)}
+.att-absent td:first-child{border-left:2px solid var(--red)}
+@media(max-width:900px){.summary-grid{grid-template-columns:repeat(2,1fr)}.header-center{order:3;width:100%;flex-basis:100%}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="page-header">
+  <div class="header-left">
+    <a href="pos.html" class="back-btn">←</a>
+    <h1>Davomat</h1>
+  </div>
+  <div class="header-center">
+    <div class="date-selector">
+      <button class="btn btn-outline" id="prevDay">‹</button>
+      <input type="date" id="selectedDate">
+      <button class="btn btn-outline" id="nextDay">›</button>
+      <button class="btn btn-outline" id="todayBtn">Bugun</button>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-primary" id="checkInBtn">✓ Check-in</button>
+  </div>
+</header>
+
+<div class="summary-grid">
+  <div class="summary-card"><span class="summary-value" id="totalEmployees">0</span><span class="summary-label">Jami xodimlar</span></div>
+  <div class="summary-card present"><span class="summary-value" id="presentCount">0</span><span class="summary-label">Keldi</span></div>
+  <div class="summary-card absent"><span class="summary-value" id="absentCount">0</span><span class="summary-label">Kelmadi</span></div>
+  <div class="summary-card late"><span class="summary-value" id="lateCount">0</span><span class="summary-label">Kech qoldi</span></div>
+</div>
+
+<div class="filter-bar">
+  <div class="search-wrapper"><input type="text" id="searchInput" placeholder="Xodim qidirish..."></div>
+  <select id="cafeFilter"><option value="">Barcha kafelar</option></select>
+  <select id="statusFilter">
+    <option value="">Barcha holatlar</option>
+    <option value="present">Keldi</option>
+    <option value="absent">Kelmadi</option>
+    <option value="late">Kech qoldi</option>
+  </select>
+</div>
+
+<div class="table-container">
+  <table class="data-table" id="attendanceTable">
+    <thead>
+      <tr>
+        <th>Xodim</th><th>Lavozim</th><th>Kafe</th><th>Check-in</th>
+        <th>Check-out</th><th>Ish vaqti</th><th>Holat</th><th>Amallar</th>
+      </tr>
+    </thead>
+    <tbody id="attendanceTableBody"></tbody>
+  </table>
+</div>
+
+<div class="modal" id="checkinModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Check-in</h2>
+      <button class="modal-close btn" onclick="document.getElementById('checkinModal').classList.remove('open')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Xodim *</label>
+        <select id="employeeSelect"><option value="">Xodim tanlang</option></select>
+      </div>
+      <div class="form-group">
+        <label>PIN-kod</label>
+        <input type="password" id="pinInput" placeholder="****" maxlength="4" pattern="[0-9]{4}">
+      </div>
+      <div class="form-group">
+        <label>Izoh</label>
+        <input type="text" id="notesInput" placeholder="Izoh (ixtiyoriy)">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close" onclick="document.getElementById('checkinModal').classList.remove('open')">Bekor qilish</button>
+      <button class="btn btn-primary" id="confirmCheckin">Tasdiqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script type="module" src="../js/modules/attendance.js"></script>
+</body>
+</html>

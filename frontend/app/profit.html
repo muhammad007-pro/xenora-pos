@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Foyda tahlili | XENORA</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--red:#ef4444;--blue:#60a5fa;
+  --r:.5rem;--r2:.875rem
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.pc{padding:1.5rem;max-width:1280px;margin:0 auto}
+.period-bar{display:flex;gap:.375rem;margin-bottom:1.5rem}
+.pb{padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:.2s}
+.pb.active{background:var(--gold-dim);border-color:rgba(212,180,108,.3);color:var(--gold)}
+/* Stat cards — auto-fill so'ni biznes turiga qarab o'zgaradi */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.125rem}
+.sl{font-size:.7rem;color:var(--text3);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.04em}
+.sv{font-size:1.35rem;font-weight:700}
+.ss{font-size:.75rem;margin-top:.3rem;color:var(--text3)}
+.sc.net{border-color:rgba(212,180,108,.35);background:linear-gradient(135deg,var(--bg2),rgba(212,180,108,.06))}
+.sc.warn{border-color:rgba(239,68,68,.3);background:linear-gradient(135deg,var(--bg2),rgba(239,68,68,.04))}
+/* Cards */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:.8125rem;font-weight:600;color:var(--text2);margin-bottom:1rem;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:.5rem}
+.chart-wrap{position:relative;height:260px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:.55rem .75rem;text-align:left;font-size:.7rem;font-weight:600;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)}
+.tbl td{padding:.55rem .75rem;font-size:.8125rem;border-bottom:1px solid var(--border)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.num{text-align:right}
+.tbl th.num{text-align:right}
+.pos{color:var(--green);font-weight:600}
+.neg{color:var(--red);font-weight:600}
+.gold{color:var(--gold);font-weight:600}
+.badge{padding:.1rem .45rem;border-radius:99px;font-size:.7rem;font-weight:600}
+.b-low{background:rgba(239,68,68,.12);color:var(--red)}
+.b-ok{background:rgba(16,185,129,.12);color:var(--green)}
+.rank{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;background:var(--bg3);color:var(--text2)}
+.r1{background:var(--gold);color:#03110c}.r2{background:#c0c0c0;color:#03110c}.r3{background:#cd7f32;color:#03110c}
+/* Expenses */
+.exp-form{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr auto;gap:.625rem;margin-bottom:.625rem}
+.exp-rec{display:flex;align-items:center;gap:.875rem;margin-bottom:1rem;font-size:.8125rem;color:var(--text2);flex-wrap:wrap}
+.rec-toggle{display:flex;align-items:center;gap:.4rem;cursor:pointer}
+.inp-sm{width:64px;padding:.35rem .5rem;display:inline-block}
+.b-rec{background:rgba(96,165,250,.14);color:var(--blue)}
+.b-sal{background:rgba(212,180,108,.16);color:var(--gold)}
+.inp{width:100%;padding:.55rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-size:.8125rem;font-family:inherit}
+.inp:focus{border-color:rgba(212,180,108,.4)}
+.btn{padding:.55rem 1.125rem;border-radius:var(--r);font-size:.8125rem;font-weight:600;cursor:pointer;border:none;background:var(--gold);color:#03110c;transition:.2s}
+.btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.del-btn{background:transparent;border:1px solid var(--border);border-radius:var(--r);color:var(--red);cursor:pointer;padding:.25rem .55rem;font-size:.75rem;transition:.2s}
+.del-btn:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3)}
+.ld{text-align:center;padding:2.5rem;color:var(--text3);font-size:.875rem}
+.empty{text-align:center;padding:1.75rem;color:var(--text3);font-size:.8125rem}
+@media(max-width:1000px){.sg{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.exp-form{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="admin.html" class="bk">←</a>
+  <h1 class="ph-title">💰 Foyda tahlili</h1>
+</header>
+
+<div class="pc">
+  <div class="period-bar">
+    <button class="pb active" data-p="today">Bugun</button>
+    <button class="pb" data-p="week">7 kun</button>
+    <button class="pb" data-p="month">30 kun</button>
+  </div>
+
+  <!-- Summary kartalar — JS tomonidan dinamik to'ldiriladi -->
+  <div class="sg" id="sg"><div class="sc" style="grid-column:1/-1"><div class="ld">Yuklanmoqda...</div></div></div>
+
+  <!-- Timeline chart -->
+  <div class="card">
+    <div class="card-title" id="timelineTitle">📈 Daromad va foyda dinamikasi (30 kun)</div>
+    <div class="chart-wrap"><canvas id="chTimeline"></canvas></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title" id="topBestTitle">🏆 Eng foydali (TOP-10, 30 kun)</div>
+      <div id="topBest"><div class="ld">Yuklanmoqda...</div></div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title" id="topWorstTitle">⚠️ Eng kam foydali (narxini ko'rib chiqing)</div>
+      <div id="topWorst"><div class="ld">Yuklanmoqda...</div></div>
+    </div>
+  </div>
+
+  <!-- By category -->
+  <div class="card">
+    <div class="card-title" id="byCatTitle">📂 Kategoriya bo'yicha foyda (30 kun)</div>
+    <div id="byCat"><div class="ld">Yuklanmoqda...</div></div>
+  </div>
+
+  <!-- Expenses -->
+  <div class="card">
+    <div class="card-title">🧾 Xarajatlar (ijara, oylik, kommunal...)</div>
+    <div class="exp-form">
+      <input class="inp" id="exName" placeholder="Nomi (masalan: Yanvar ijara)">
+      <select class="inp" id="exCat">
+        <option value="rent">Ijara</option>
+        <option value="salary">Oylik</option>
+        <option value="utility">Kommunal</option>
+        <option value="supplies">Xomashyo/jihoz</option>
+        <option value="marketing">Marketing</option>
+        <option value="other" selected>Boshqa</option>
+      </select>
+      <input class="inp" id="exAmount" type="number" placeholder="Summa (UZS)">
+      <input class="inp" id="exDate" type="date">
+      <button class="btn" id="exBtn" onclick="addExpense()">+ Qo'shish</button>
+    </div>
+    <div class="exp-rec">
+      <label class="rec-toggle"><input type="checkbox" id="exRecurring" onchange="toggleRecur()"> 🔁 Takroriy (har oy avtomatik takrorlansin)</label>
+      <span id="exRecDayWrap" style="display:none">
+        oyning <input class="inp inp-sm" id="exRecDay" type="number" min="1" max="31" placeholder="kuni"> -kuni
+      </span>
+    </div>
+    <div id="expList"><div class="ld">Yuklanmoqda...</div></div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok  = () => localStorage.getItem('access_token');
+const api  = {
+  get:  u => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post: (u,b) => fetch(`${BASE}${u}`,{method:'POST',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json().then(d=>({ok:r.ok,data:d}))),
+  del:  u => fetch(`${BASE}${u}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+};
+
+const fmt = n => new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));
+const CAT_LABELS = {rent:'Ijara',salary:'Oylik',utility:'Kommunal',supplies:'Xomashyo',marketing:'Marketing',other:'Boshqa'};
+
+const PRODUCT_TYPES  = new Set(['restaurant','cafe','fast_food','store','supermarket','pharmacy']);
+const SERVICE_TYPES  = new Set(['salon','fitness','auto_service','school','dry_cleaning']);
+const MEMBER_TYPES   = new Set(['fitness','school']);
+
+let period   = 'today';
+let bizType  = 'restaurant';
+let chTimeline = null;
+
+Chart.defaults.color       = '#9fcbb9';
+Chart.defaults.borderColor = 'rgba(255,255,255,.06)';
+Chart.defaults.font.family = 'Inter,system-ui,sans-serif';
+Chart.defaults.font.size   = 11;
+
+// ── Yordamchi: karta HTML ─────────────────────────────────────────────────────
+function sc(label, value, sub='', cls='') {
+  return `<div class="sc${cls?' '+cls:''}">
+    <div class="sl">${label}</div>
+    <div class="sv${value<0?' neg':''}">${fmt(value)}</div>
+    ${sub?`<div class="ss">${sub}</div>`:''}
+  </div>`;
+}
+function scNet(value, sub='') {
+  return `<div class="sc net">
+    <div class="sl">SOF FOYDA</div>
+    <div class="sv ${value>=0?'pos':'neg'}">${fmt(value)}</div>
+    ${sub?`<div class="ss">${sub}</div>`:''}
+  </div>`;
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+async function loadSummary() {
+  const d = await api.get(`/profit/summary?period=${period}`).catch(()=>null);
+  if (!d) { document.getElementById('sg').innerHTML = '<div class="sc" style="grid-column:1/-1"><div class="empty">API bilan bog\'lanib bo\'lmadi</div></div>'; return; }
+  bizType = d.business_type || 'restaurant';
+  window._bizType = bizType;   // test va debug uchun
+
+  const sg = document.getElementById('sg');
+  const netSub = `sof marja ${d.net_margin_pct||0}%`;
+
+  if (PRODUCT_TYPES.has(bizType)) {
+    // ── Mahsulot asosli ──────────────────────────────────────────────────────
+    let cards = ''
+      + sc('Jami savdo',     d.revenue,      `${d.orders_count||0} ta buyurtma`, 'gold-border')
+      + sc('Jami tan narx',  d.cost)
+      + sc('Yalpi foyda',    d.gross_profit, `marja ${d.margin_pct||0}%`)
+      + sc('Xarajatlar',    -d.expenses)
+      + scNet(d.net_profit,  netSub);
+
+    if (bizType === 'pharmacy' && d.expired_loss > 0) {
+      cards += `<div class="sc warn">
+        <div class="sl">Muddati o'tgan dorilar</div>
+        <div class="sv neg">−${fmt(d.expired_loss)}</div>
+        <div class="ss">ombordagi zarar</div>
+      </div>`;
+    }
+    sg.innerHTML = cards;
+
+  } else if (SERVICE_TYPES.has(bizType)) {
+    // ── Xizmat asosli ────────────────────────────────────────────────────────
+    if (MEMBER_TYPES.has(bizType) && d.membership_revenue > 0) {
+      const aptRev = d.revenue - d.membership_revenue;
+      sg.innerHTML = ''
+        + sc('Uchrashuvlar',    aptRev,             `${d.appointments_count||0} ta`)
+        + sc("A'zolik daromadi", d.membership_revenue)
+        + sc('Material narxi',  d.material_cost)
+        + sc('Usta komissiyasi', d.commission_cost)
+        + sc('Xarajatlar',     -d.expenses)
+        + scNet(d.net_profit,   netSub);
+    } else {
+      sg.innerHTML = ''
+        + sc('Jami daromad',    d.revenue,           `${d.appointments_count||0} ta uchrashuv`)
+        + sc('Material narxi',  d.material_cost,     '')
+        + sc('Usta komissiyasi', d.commission_cost,  '')
+        + sc('Xarajatlar',     -d.expenses)
+        + scNet(d.net_profit,   netSub);
+    }
+
+  } else if (bizType === 'hotel') {
+    // ── Mehmonxona ───────────────────────────────────────────────────────────
+    sg.innerHTML = ''
+      + sc('Xona daromadi',    d.room_revenue,    `${d.bookings_count||0} ta bron`)
+      + sc('Xizmat daromadi',  d.service_revenue, `${d.appointments_count||0} ta xizmat`)
+      + sc('Jami tan narx',    d.total_cost,      'xona + xizmat')
+      + sc('Xarajatlar',      -d.expenses)
+      + scNet(d.net_profit,    netSub);
+
+  } else {
+    // fallback
+    sg.innerHTML = ''
+      + sc('Jami savdo',    d.revenue,      `${d.orders_count||0} ta buyurtma`)
+      + sc('Jami tan narx', d.cost)
+      + sc('Yalpi foyda',   d.gross_profit, `marja ${d.margin_pct||0}%`)
+      + sc('Xarajatlar',   -d.expenses)
+      + scNet(d.net_profit, netSub);
+  }
+
+  // Oltin chiziq birinchi kartaga
+  const first = sg.querySelector('.sc');
+  if (first) first.style.borderColor = 'rgba(212,180,108,.3)';
+}
+
+// ── Timeline chart ────────────────────────────────────────────────────────────
+async function loadTimeline() {
+  const d = await api.get('/profit/timeline?days=30&group=day').catch(()=>null);
+  if (!d) return;
+
+  const isService = SERVICE_TYPES.has(bizType) || bizType === 'hotel';
+  document.getElementById('timelineTitle').textContent =
+    `📈 Daromad va foyda dinamikasi (30 kun)`;
+
+  const labels = d.points.map(p => p.date ? p.date.slice(5) : '');
+  const datasets = [
+    {label:'Daromad',   data:d.points.map(p=>p.revenue),    borderColor:'#d4b46c', backgroundColor:'rgba(212,180,108,.08)', fill:true, tension:.35, pointRadius:2},
+    {label:'Sof foyda', data:d.points.map(p=>p.net_profit), borderColor:'#10b981', tension:.35, pointRadius:2},
+  ];
+  // Xizmat asosli bo'lmasa tan narxni ham ko'rsat
+  if (!isService) {
+    datasets.splice(1, 0,
+      {label:'Tan narx', data:d.points.map(p=>p.cost), borderColor:'#60a5fa', tension:.35, pointRadius:2}
+    );
+  }
+
+  if (chTimeline) chTimeline.destroy();
+  chTimeline = new Chart(document.getElementById('chTimeline'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{boxWidth:12,boxHeight:2}}},
+      scales:{y:{ticks:{callback:v=>fmt(v)}}}
+    }
+  });
+}
+
+// ── TOP mahsulot/xizmat jadvallari ────────────────────────────────────────────
+function productTable(items, isWorst) {
+  if (!items.length) return '<div class="empty">Ma\'lumot yo\'q</div>';
+  return `<table class="tbl">
+    <thead><tr>
+      <th></th><th>Mahsulot</th>
+      <th class="num">Sotildi</th>
+      <th class="num">Foyda</th>
+      <th class="num">Marja</th>
+    </tr></thead>
+    <tbody>${items.map((p,i)=>`<tr>
+      <td><span class="rank ${!isWorst&&i<3?'r'+(i+1):''}">${i+1}</span></td>
+      <td>${esc(p.name)}<div style="font-size:.7rem;color:var(--text3)">${fmt(p.price)} / tan ${fmt(p.cost_price)}</div></td>
+      <td class="num">${p.qty_sold}</td>
+      <td class="num ${p.profit>=0?'pos':'neg'}">${fmt(p.profit)}</td>
+      <td class="num"><span class="badge ${p.margin_pct<15?'b-low':'b-ok'}">${p.margin_pct}%</span></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function serviceTable(items, isWorst) {
+  if (!items.length) return '<div class="empty">Ma\'lumot yo\'q</div>';
+  return `<table class="tbl">
+    <thead><tr>
+      <th></th><th>Xizmat</th>
+      <th class="num">Soni</th>
+      <th class="num">Material</th>
+      <th class="num">Komissiya</th>
+      <th class="num">Foyda</th>
+      <th class="num">Marja</th>
+    </tr></thead>
+    <tbody>${items.map((s,i)=>`<tr>
+      <td><span class="rank ${!isWorst&&i<3?'r'+(i+1):''}">${i+1}</span></td>
+      <td>${esc(s.name)}<div style="font-size:.7rem;color:var(--text3)">${fmt(s.price)} so'm / narx ${s.commission_pct||0}% kom</div></td>
+      <td class="num">${s.count||0}</td>
+      <td class="num" style="color:var(--text2)">${fmt(s.material_cost)}</td>
+      <td class="num" style="color:var(--text2)">${fmt(s.commission_cost)}</td>
+      <td class="num ${s.profit>=0?'pos':'neg'}">${fmt(s.profit)}</td>
+      <td class="num"><span class="badge ${s.margin_pct<15?'b-low':'b-ok'}">${s.margin_pct}%</span></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+async function loadTops() {
+  const isService = SERVICE_TYPES.has(bizType) || bizType === 'hotel';
+  const noun = isService ? 'xizmatlar' : 'mahsulotlar';
+  document.getElementById('topBestTitle').textContent  = `🏆 Eng foydali ${noun} (TOP-10, 30 kun)`;
+  document.getElementById('topWorstTitle').textContent = `⚠️ Eng kam foydali ${noun} (narxini ko'rib chiqing)`;
+
+  const [best, worst] = await Promise.all([
+    api.get('/profit/top-products?limit=10&order=best&days=30').catch(()=>null),
+    api.get('/profit/top-products?limit=10&order=worst&days=30').catch(()=>null),
+  ]);
+
+  const render = isService ? serviceTable : productTable;
+  document.getElementById('topBest').innerHTML  = best  ? render(best.items,  false) : '<div class="empty">Xatolik</div>';
+  document.getElementById('topWorst').innerHTML = worst ? render(worst.items, true)  : '<div class="empty">Xatolik</div>';
+}
+
+// ── By category ───────────────────────────────────────────────────────────────
+async function loadByCat() {
+  const isService = SERVICE_TYPES.has(bizType) || bizType === 'hotel';
+  document.getElementById('byCatTitle').textContent =
+    `📂 ${isService ? 'Xizmat turi' : 'Kategoriya'} bo'yicha foyda (30 kun)`;
+
+  const d = await api.get('/profit/by-category?days=30').catch(()=>null);
+  const el = document.getElementById('byCat');
+  if (!d || !d.items.length) { el.innerHTML = '<div class="empty">Ma\'lumot yo\'q</div>'; return; }
+
+  const maxRev = Math.max(...d.items.map(c=>c.revenue), 1);
+  const costLabel = isService ? 'Mat+Kom' : 'Tan narx';
+
+  el.innerHTML = `<table class="tbl">
+    <thead><tr>
+      <th>${isService ? 'Xizmat turi' : 'Kategoriya'}</th>
+      <th style="width:28%"></th>
+      <th class="num">Daromad</th>
+      <th class="num">${costLabel}</th>
+      <th class="num">Foyda</th>
+      <th class="num">Marja</th>
+    </tr></thead>
+    <tbody>${d.items.map(c=>`<tr>
+      <td style="font-weight:600">${esc(c.name)}</td>
+      <td><div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden">
+        <div style="height:100%;width:${(c.revenue/maxRev*100).toFixed(0)}%;background:var(--gold);border-radius:3px"></div>
+      </div></td>
+      <td class="num gold">${fmt(c.revenue)}</td>
+      <td class="num" style="color:var(--text2)">${fmt(c.cost)}</td>
+      <td class="num ${c.profit>=0?'pos':'neg'}">${fmt(c.profit)}</td>
+      <td class="num"><span class="badge ${c.margin_pct<15?'b-low':'b-ok'}">${c.margin_pct}%</span></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+// ── Expenses ──────────────────────────────────────────────────────────────────
+async function loadExpenses() {
+  const d = await api.get(`/profit/expenses?period=month`).catch(()=>null);
+  const el = document.getElementById('expList');
+  if (!d) { el.innerHTML = '<div class="empty">Xatolik</div>'; return; }
+  if (!d.items.length) { el.innerHTML = '<div class="empty">Oxirgi 30 kunda xarajat kiritilmagan</div>'; return; }
+  el.innerHTML = `<table class="tbl">
+    <thead><tr><th>Sana</th><th>Nomi</th><th>Turi</th><th class="num">Summa</th><th></th></tr></thead>
+    <tbody>${d.items.map(e=>`<tr>
+      <td style="color:var(--text2)">${e.expense_date}</td>
+      <td>${esc(e.name)} ${expBadges(e)}</td>
+      <td><span class="badge" style="background:var(--bg3);color:var(--text2)">${CAT_LABELS[e.category]||e.category}</span></td>
+      <td class="num neg">−${fmt(e.amount)}</td>
+      <td class="num">${e.salary_id
+          ? `<span style="font-size:.7rem;color:var(--text3)">salary modulida</span>`
+          : `<button class="del-btn" onclick="delExpense(${e.id})">O'chirish</button>`}</td>
+    </tr>`).join('')}
+    <tr><td colspan="3" style="font-weight:700">Jami (30 kun)</td><td class="num neg" style="font-weight:700">−${fmt(d.total)}</td><td></td></tr>
+    </tbody></table>`;
+}
+
+// Xarajat yonidagi belgilar: maosh-avto / takroriy shablon / takroriy nusxa
+function expBadges(e) {
+  let b = '';
+  if (e.salary_id)              b += ` <span class="badge b-sal">👤 Maosh (avto)</span>`;
+  if (e.is_recurring)           b += ` <span class="badge b-rec">🔁 Takroriy${e.recurrence_period==='weekly'?' (hafta)':' (oy)'}</span>`;
+  else if (e.recurrence_parent_id) b += ` <span class="badge b-rec">🔁 oylik nusxa</span>`;
+  return b;
+}
+
+function toggleRecur() {
+  const on = document.getElementById('exRecurring').checked;
+  document.getElementById('exRecDayWrap').style.display = on ? 'inline' : 'none';
+}
+
+async function addExpense() {
+  const name   = document.getElementById('exName').value.trim();
+  const amount = parseFloat(document.getElementById('exAmount').value);
+  if (!name || !amount || amount <= 0) { alert('Nomi va summa kiritilishi shart'); return; }
+  const btn = document.getElementById('exBtn');
+  btn.disabled = true;
+  const isRec = document.getElementById('exRecurring').checked;
+  const recDay = parseInt(document.getElementById('exRecDay').value);
+  const res = await api.post('/profit/expenses', {
+    name, amount,
+    category:     document.getElementById('exCat').value,
+    expense_date: document.getElementById('exDate').value || undefined,
+    is_recurring: isRec,
+    recurrence_period: isRec ? 'monthly' : undefined,
+    recurrence_day: (isRec && recDay) ? recDay : undefined,
+  }).catch(()=>null);
+  btn.disabled = false;
+  if (!res || !res.ok) { alert(res?.data?.detail || 'Xatolik'); return; }
+  document.getElementById('exName').value   = '';
+  document.getElementById('exAmount').value = '';
+  document.getElementById('exRecurring').checked = false;
+  document.getElementById('exRecDay').value = '';
+  toggleRecur();
+  loadExpenses(); loadSummary(); loadTimeline();
+}
+
+async function delExpense(id) {
+  if (!confirm("Xarajatni o'chirmoqchimisiz?")) return;
+  await api.del(`/profit/expenses/${id}`).catch(()=>null);
+  loadExpenses(); loadSummary(); loadTimeline();
+}
+
+// ── Period switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.pb').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.pb').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  period = b.dataset.p;
+  loadSummary();
+}));
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.getElementById('exDate').value = new Date().toISOString().slice(0,10);
+
+// Summary avval yuklanadi — bizType aniqlansin, keyin qolganlar
+loadSummary().then(() => {
+  loadTimeline();
+  loadTops();
+  loadByCat();
+});
+loadExpenses();
+</script>
+</body>
+</html>

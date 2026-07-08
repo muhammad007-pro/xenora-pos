@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Abonementlar | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;--r:.625rem;--r2:1rem}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;flex-shrink:0}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.3rem .75rem;font-size:.8125rem}
+.btn-danger{background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--danger)}
+.btn-danger:hover{background:rgba(239,68,68,.1)}
+.btn-green{background:transparent;border:1px solid rgba(16,185,129,.3);color:var(--success)}
+.btn-green:hover{background:rgba(16,185,129,.1)}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+
+/* Stats */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{padding:1.25rem;border-radius:var(--r2);border:1.5px solid var(--border);background:var(--bg2)}
+.sc-gold{border-color:rgba(212,180,108,.4);background:rgba(212,180,108,.06)}
+.sc-green{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.06)}
+.sc-warn{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.06)}
+.sc-gray{border-color:var(--border);background:var(--bg2)}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.375rem}
+.sv{font-size:1.875rem;font-weight:800;line-height:1}
+.sc-gold .sv{color:var(--gold)}.sc-green .sv{color:var(--success)}.sc-warn .sv{color:var(--warning)}.sc-gray .sv{color:var(--text2)}
+.ss{font-size:.75rem;color:var(--text2);margin-top:.25rem}
+
+/* Filters */
+.fi{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.fc{padding:.3rem .875rem;border-radius:99px;font-size:.8125rem;font-weight:500;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:.2s}
+.fc.active,.fc:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.srch{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;width:240px;font-family:inherit}
+.srch:focus{border-color:var(--gold)}
+
+/* Table */
+.tw{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{padding:.625rem 1rem;text-align:left;font-size:.75rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--bg3)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+td{padding:.75rem 1rem;font-size:.875rem;vertical-align:middle}
+.td-b{font-weight:600}
+.td-s{font-size:.75rem;color:var(--text2)}
+.td-acts{display:flex;gap:.375rem;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;padding:.15rem .5rem;border-radius:4px;font-size:.6875rem;font-weight:600;white-space:nowrap}
+.bg-green{background:rgba(16,185,129,.12);color:var(--success)}
+.bg-warn{background:rgba(245,158,11,.12);color:var(--warning)}
+.bg-red{background:rgba(239,68,68,.12);color:var(--danger)}
+.bg-gray{background:rgba(255,255,255,.07);color:var(--text2)}
+.bg-blue{background:rgba(59,130,246,.12);color:var(--info)}
+.visits-bar{display:flex;align-items:center;gap:.5rem}
+.vb-track{flex:1;height:5px;background:var(--bg4);border-radius:3px;min-width:60px;overflow:hidden}
+.vb-fill{height:100%;border-radius:3px;background:var(--gold);transition:width .3s}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+
+/* Modal */
+.modal-wrap{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+.modal-wrap.open{opacity:1;visibility:visible}
+.modal-wrap.open .modal-box{transform:scale(1) translateY(0)}
+.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px)}
+.modal-box{position:relative;background:var(--bg2);border:1px solid rgba(212,180,108,.2);border-radius:1.5rem;width:100%;max-width:480px;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;transform:scale(.95) translateY(10px);transition:transform .2s}
+.modal-box.narrow{max-width:400px}
+.mh{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.mh h3{font-size:1rem;font-weight:700}
+.mc{padding:1.25rem;overflow-y:auto;display:flex;flex-direction:column;gap:.875rem}
+.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem;flex-shrink:0}
+.close-btn{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3);cursor:pointer;background:var(--bg3);border:none;font-size:1rem}
+.close-btn:hover{color:var(--danger)}
+.fgrp label{display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem}
+.fgrp{display:flex;flex-direction:column;gap:0}
+.inp{width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit;font-size:.875rem;transition:border-color .2s}
+.inp:focus{border-color:rgba(212,180,108,.4)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.info-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.875rem;font-size:.875rem}
+.info-box .ib-name{font-weight:700;font-size:.9375rem;margin-bottom:.25rem}
+.info-box .ib-sub{color:var(--text2);font-size:.8125rem}
+
+@media(max-width:768px){.sg{grid-template-columns:repeat(2,1fr)}.fi{flex-wrap:wrap}.srch{width:100%}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="javascript:history.back()" class="bk">←</a>
+  <h1 class="ph-title">🎫 Abonementlar</h1>
+  <button class="btn btn-gold" id="addBtn" onclick="openNewModal()">+ Yangi abonement</button>
+</header>
+
+<div class="pc">
+  <!-- Stats -->
+  <div class="sg">
+    <div class="sc sc-green"><div class="sl">Faol</div><div class="sv" id="cntActive">—</div><div class="ss">joriy abonementlar</div></div>
+    <div class="sc sc-warn"><div class="sl">Tugayotgan (7 kun)</div><div class="sv" id="cntExpiring">—</div><div class="ss">tezda yangilash kerak</div></div>
+    <div class="sc sc-gray"><div class="sl">Muddati o'tgan</div><div class="sv" id="cntExpired">—</div><div class="ss">faolsizlashtirilgan</div></div>
+    <div class="sc sc-gold"><div class="sl">Jami</div><div class="sv" id="cntTotal">—</div><div class="ss">barcha abonementlar</div></div>
+  </div>
+
+  <!-- Filters + Search -->
+  <div class="fi">
+    <span class="fc active" data-f="">Barchasi</span>
+    <span class="fc" data-f="active">🟢 Faol</span>
+    <span class="fc expiring-btn" data-f="expiring">⚠️ Tugayotgan</span>
+    <span class="fc" data-f="expired">🔴 O'tgan</span>
+    <span class="fc" data-f="cancelled">⛔ Bekor</span>
+    <input class="srch" id="srch" placeholder="Mijoz ismi bo'yicha qidirish...">
+    <button class="btn btn-out btn-sm" onclick="loadAll()">↻ Yangilash</button>
+    <a class="btn btn-out btn-sm" href="appointments.html">📅 Randevular →</a>
+  </div>
+
+  <!-- Table -->
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>Mijoz</th><th>Plan / Narx</th><th>Muddat</th><th>Tashrif</th><th>Holat</th><th>Amallar</th>
+        </tr>
+      </thead>
+      <tbody id="mbList"><tr><td colspan="6" class="empty">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- New Membership Modal -->
+<div class="modal-wrap" id="newModal">
+  <div class="modal-overlay" onclick="closeNew()"></div>
+  <div class="modal-box">
+    <div class="mh"><h3>Yangi abonement</h3><button class="close-btn" onclick="closeNew()">✕</button></div>
+    <div class="mc">
+      <div class="fgrp">
+        <label>Mijoz *</label>
+        <select id="nmCust" class="inp"><option value="">— tanlang —</option></select>
+      </div>
+      <div class="grid2">
+        <div class="fgrp">
+          <label>Plan nomi *</label>
+          <input id="nmPlan" class="inp" placeholder="Standart, Premium..." list="plansList">
+          <datalist id="plansList">
+            <option value="Standart">
+            <option value="Premium">
+            <option value="VIP">
+            <option value="Oylik">
+            <option value="Choraklik">
+            <option value="Yillik">
+          </datalist>
+        </div>
+        <div class="fgrp">
+          <label>Narxi (UZS)</label>
+          <input id="nmPrice" type="number" min="0" class="inp" placeholder="0">
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="fgrp">
+          <label>Boshlanish sanasi *</label>
+          <input id="nmStart" type="date" class="inp">
+        </div>
+        <div class="fgrp">
+          <label>Tugash sanasi *</label>
+          <input id="nmEnd" type="date" class="inp">
+        </div>
+      </div>
+      <div class="fgrp">
+        <label>Tashrif soni (0 = cheksiz)</label>
+        <input id="nmVisits" type="number" min="0" class="inp" placeholder="0">
+      </div>
+      <div class="fgrp">
+        <label>Izoh</label>
+        <input id="nmNote" class="inp" placeholder="Ixtiyoriy...">
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" style="flex:1" onclick="closeNew()">Bekor</button>
+      <button class="btn btn-gold" style="flex:2" id="nmSave" onclick="saveNew()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Extend Modal -->
+<div class="modal-wrap" id="extModal">
+  <div class="modal-overlay" onclick="closeExt()"></div>
+  <div class="modal-box narrow">
+    <div class="mh"><h3>Abonementni uzaytirish</h3><button class="close-btn" onclick="closeExt()">✕</button></div>
+    <div class="mc">
+      <div class="info-box">
+        <div class="ib-name" id="extName">—</div>
+        <div class="ib-sub">Joriy muddat: <span id="extCurEnd" style="color:var(--gold)">—</span></div>
+      </div>
+      <div class="fgrp">
+        <label>Yangi tugash sanasi *</label>
+        <input id="extEnd" type="date" class="inp">
+      </div>
+      <div class="fgrp">
+        <label>Qo'shimcha tashriflar (+)</label>
+        <input id="extVisitsAdd" type="number" min="0" class="inp" placeholder="0 = o'zgartirmaslik">
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" style="flex:1" onclick="closeExt()">Bekor</button>
+      <button class="btn btn-gold" style="flex:2" id="extSave" onclick="saveExt()">Uzaytirish</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toasts" style="position:fixed;top:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;width:280px"></div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok  = () => localStorage.getItem('access_token');
+if (!tok()) location.href = '../shared/login.html';
+
+const api = {
+  get:    u     => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:   (u,b) => fetch(`${BASE}${u}`,{method:'POST',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}),
+  patch:  (u,b) => fetch(`${BASE}${u}`,{method:'PATCH',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}),
+  del:    u     => fetch(`${BASE}${u}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok()}}),
+};
+
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.style.cssText = 'padding:.75rem 1rem;border-radius:.625rem;font-size:.8125rem;background:#0b2e23;border:1px solid;animation:fadeIn .2s ease;box-shadow:0 8px 24px rgba(0,0,0,.4)';
+  el.style.borderColor = type==='success'?'rgba(16,185,129,.4)':type==='error'?'rgba(239,68,68,.4)':'rgba(255,255,255,.08)';
+  el.style.color = type==='success'?'#10b981':type==='error'?'#ef4444':'#9fcbb9';
+  el.textContent = msg;
+  const c = document.getElementById('toasts');
+  c.appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtMoney(n){ return Math.round(n||0).toLocaleString('uz-UZ'); }
+
+function daysLeft(endDate) {
+  const diff = Math.ceil((new Date(endDate) - new Date()) / 86400000);
+  return diff;
+}
+
+function statusInfo(m) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const end   = new Date(m.end_date);
+  if (m.status === 'cancelled') return { cls:'bg-red', lbl:'Bekor' };
+  if (m.status === 'frozen')    return { cls:'bg-blue', lbl:'Muzlatilgan' };
+  if (m.status === 'expired' || end < today) return { cls:'bg-gray', lbl:"Muddati o'tgan" };
+  const dl = daysLeft(m.end_date);
+  if (dl <= 7)  return { cls:'bg-warn', lbl:`${dl} kun qoldi` };
+  return { cls:'bg-green', lbl:'Faol' };
+}
+
+let allData = [], fltStatus = '', srchQ = '';
+
+async function loadAll() {
+  try {
+    const params = new URLSearchParams({ page_size: 100 });
+    if (fltStatus === 'expiring') params.set('expiring', 'true');
+    else if (fltStatus)           params.set('status', fltStatus);
+
+    const [data, custs] = await Promise.all([
+      api.get('/memberships/?' + params),
+      api.get('/customers/?page_size=200'),
+    ]);
+    allData = data.items || [];
+    updateStats(data);
+    renderTable(allData);
+    populateCustSelect(custs.items || []);
+  } catch (e) { toast('Yuklanmadi: ' + e.message, 'error'); }
+}
+
+function updateStats(data) {
+  const items = data.items || [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  document.getElementById('cntTotal').textContent    = data.total || items.length;
+  document.getElementById('cntActive').textContent   = items.filter(m=>m.status==='active' && new Date(m.end_date)>=today).length;
+  document.getElementById('cntExpiring').textContent = items.filter(m=>{if(m.status!=='active')return false;const d=daysLeft(m.end_date);return d>=0&&d<=7;}).length;
+  document.getElementById('cntExpired').textContent  = items.filter(m=>m.status==='expired'||new Date(m.end_date)<today).length;
+}
+
+function renderTable(items) {
+  const q = srchQ.toLowerCase();
+  const rows = items.filter(m => !q || (m.customer?.full_name||'').toLowerCase().includes(q) || (m.customer?.phone||'').includes(q));
+  const body = document.getElementById('mbList');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty">Abonement topilmadi</td></tr>'; return; }
+  body.innerHTML = rows.map(m => {
+    const cust   = m.customer || {};
+    const {cls, lbl} = statusInfo(m);
+    const visTotal = m.visits_total || 0;
+    const visUsed  = m.visits_used  || 0;
+    const visPct   = visTotal > 0 ? Math.min(100, Math.round(visUsed/visTotal*100)) : 100;
+    const visColor = visTotal > 0 && visUsed >= visTotal ? 'var(--danger)' : visPct > 75 ? 'var(--warning)' : 'var(--gold)';
+    const visLbl   = visTotal > 0 ? `${visUsed}/${visTotal}` : `${visUsed} (∞)`;
+    return `<tr>
+      <td>
+        <div class="td-b">${cust.full_name||'—'}</div>
+        <div class="td-s">${cust.phone||''}</div>
+      </td>
+      <td>
+        <div class="td-b">${m.plan_name||'—'}</div>
+        <div class="td-s" style="color:var(--gold)">${fmtMoney(m.price)} UZS</div>
+      </td>
+      <td>
+        <div class="td-s">${fmtDate(m.start_date)}</div>
+        <div class="td-b">${fmtDate(m.end_date)}</div>
+      </td>
+      <td>
+        <div class="visits-bar">
+          <div class="vb-track"><div class="vb-fill" style="width:${visPct}%;background:${visColor}"></div></div>
+          <span class="td-s">${visLbl}</span>
+        </div>
+      </td>
+      <td><span class="badge ${cls}">${lbl}</span></td>
+      <td class="td-acts">
+        ${m.status==='active'?`<button class="btn btn-green btn-sm" onclick="addVisit(${m.id},'${(cust.full_name||'').replace(/'/g,"\\'")}')">+Tashrif</button>`:''}
+        <button class="btn btn-out btn-sm" onclick="openExt(${m.id},'${(cust.full_name||'').replace(/'/g,"\\'")}','${m.end_date}',${m.visits_total||0})">Uzaytirish</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMembership(${m.id},'${(cust.full_name||'').replace(/'/g,"\\'")}')">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Add Visit ─────────────────────────────────────────────────────────────────
+async function addVisit(id, name) {
+  try {
+    const res = await api.post(`/memberships/${id}/visit`, {});
+    if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    toast(`${name} — tashrif qo'shildi`, 'success');
+    loadAll();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deleteMembership(id, name) {
+  if (!confirm(`"${name}" abonementini o'chirmoqchimisiz?`)) return;
+  try {
+    const res = await api.del(`/memberships/${id}`);
+    if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    toast("O'chirildi", 'success');
+    loadAll();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ── New membership modal ───────────────────────────────────────────────────────
+function openNewModal() {
+  document.getElementById('nmCust').value   = '';
+  document.getElementById('nmPlan').value   = '';
+  document.getElementById('nmPrice').value  = '';
+  const today = new Date().toISOString().split('T')[0];
+  const month = new Date(Date.now()+30*86400000).toISOString().split('T')[0];
+  document.getElementById('nmStart').value  = today;
+  document.getElementById('nmEnd').value    = month;
+  document.getElementById('nmVisits').value = '0';
+  document.getElementById('nmNote').value   = '';
+  document.getElementById('newModal').classList.add('open');
+  setTimeout(()=>document.getElementById('nmPlan').focus(), 100);
+}
+function closeNew() { document.getElementById('newModal').classList.remove('open'); }
+
+async function saveNew() {
+  const custId = parseInt(document.getElementById('nmCust').value);
+  const plan   = document.getElementById('nmPlan').value.trim();
+  const price  = parseFloat(document.getElementById('nmPrice').value) || 0;
+  const start  = document.getElementById('nmStart').value;
+  const end    = document.getElementById('nmEnd').value;
+  if (!custId) { toast('Mijoz tanlang', 'error'); return; }
+  if (!plan)   { toast("Plan nomini kiriting", 'error'); return; }
+  if (!start || !end) { toast("Sanalarni kiriting", 'error'); return; }
+  const btn = document.getElementById('nmSave');
+  btn.disabled=true; btn.textContent='Saqlanmoqda...';
+  try {
+    const res = await api.post('/memberships/', {
+      customer_id: custId, plan_name: plan, price,
+      start_date: start, end_date: end,
+      visits_total: parseInt(document.getElementById('nmVisits').value)||0,
+      notes: document.getElementById('nmNote').value.trim()||null,
+    });
+    if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    closeNew();
+    toast("Abonement qo'shildi", 'success');
+    loadAll();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled=false; btn.textContent='Saqlash'; }
+}
+
+// ── Extend modal ──────────────────────────────────────────────────────────────
+let _extId = null, _extCurVisits = 0;
+
+function openExt(id, name, endDate, visTotal) {
+  _extId = id; _extCurVisits = visTotal;
+  document.getElementById('extName').textContent = name;
+  document.getElementById('extCurEnd').textContent = fmtDate(endDate);
+  document.getElementById('extEnd').value = endDate;
+  document.getElementById('extVisitsAdd').value = '0';
+  document.getElementById('extModal').classList.add('open');
+  setTimeout(()=>document.getElementById('extEnd').focus(), 100);
+}
+function closeExt() { document.getElementById('extModal').classList.remove('open'); }
+
+async function saveExt() {
+  const newEnd  = document.getElementById('extEnd').value;
+  const addV    = parseInt(document.getElementById('extVisitsAdd').value)||0;
+  if (!newEnd) { toast("Sana kiriting", 'error'); return; }
+  const payload = { end_date: newEnd, status: 'active' };
+  if (addV > 0) payload.visits_total = _extCurVisits + addV;
+  const btn = document.getElementById('extSave');
+  btn.disabled=true; btn.textContent='Saqlanmoqda...';
+  try {
+    const res = await api.patch(`/memberships/${_extId}`, payload);
+    if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    closeExt();
+    toast('Uzaytirildi', 'success');
+    loadAll();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { btn.disabled=false; btn.textContent='Uzaytirish'; }
+}
+
+// ── Customer select populate ───────────────────────────────────────────────────
+function populateCustSelect(custs) {
+  const sel = document.getElementById('nmCust');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— mijoz tanlang —</option>' +
+    custs.map(c=>`<option value="${c.id}">${c.full_name||'—'} ${c.phone?'('+c.phone+')':''}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+// ── Filters & search ──────────────────────────────────────────────────────────
+document.querySelectorAll('.fc').forEach(fc => fc.addEventListener('click', () => {
+  fltStatus = fc.dataset.f || '';
+  document.querySelectorAll('.fc').forEach(x => x.classList.remove('active'));
+  fc.classList.add('active');
+  loadAll();
+}));
+
+let srchT;
+document.getElementById('srch').addEventListener('input', e => {
+  srchQ = e.target.value;
+  clearTimeout(srchT);
+  srchT = setTimeout(() => renderTable(allData), 250);
+});
+
+loadAll();
+</script>
+</body>
+</html>

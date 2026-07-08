@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Environment
+backend/.env
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+_start_*.log
+backend/logs/
+
+# Uploads
+backend/static/uploads/
+
+# Generated report exports (mijoz/savdo ma'lumotlari bo'lishi mumkin)
+backend/static/exports/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node
+node_modules/
+npm-debug.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+nginx/ssl/
+
+# Backup
+backend/backup/
+
+# Android Capacitor sync output (npx cap sync bilan qayta generatsiya qilinadi)
+android/android/app/src/main/assets/public/
+android/android/app/build/
+android/android/.gradle/
+android/.gradle/
+
+# Electron build output
+android/dist/
+electron/dist/
+
+# Node
+android/node_modules/
+electron/node_modules/
+
+# Log fayllar
+*.log
+backend/_start_*.log
+

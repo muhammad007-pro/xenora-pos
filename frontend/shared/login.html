@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#d4b46c">
+<title>Kirish — XENORA</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 30px rgba(212,180,108,.3);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --border:rgba(212,180,108,.2);--border2:rgba(255,255,255,.08);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --success:#10b981;--danger:#ef4444;
+  --r:0.625rem;--r2:1rem;--r3:1.5rem;
+  --tr:200ms cubic-bezier(.4,0,.2,1);
+}
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
+button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:inherit;color:inherit}
+input{font-family:inherit;font-size:inherit}
+
+/* ── Background ── */
+.bg-grid{
+  position:fixed;inset:0;
+  background-image:linear-gradient(rgba(212,180,108,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(212,180,108,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+}
+.bg-glow{
+  position:fixed;top:-20%;left:50%;transform:translateX(-50%);
+  width:600px;height:600px;
+  background:radial-gradient(ellipse at center,rgba(212,180,108,.08) 0%,transparent 65%);
+  pointer-events:none;
+}
+.bg-glow2{
+  position:fixed;bottom:-10%;right:-10%;
+  width:400px;height:400px;
+  background:radial-gradient(ellipse at center,rgba(31,176,132,.06) 0%,transparent 65%);
+  pointer-events:none;
+}
+
+/* ── Wrap ── */
+.auth-wrap{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:1.5rem;position:relative;z-index:1;
+}
+
+/* ── Card ── */
+.auth-card{
+  width:100%;max-width:420px;
+  background:rgba(10,32,24,.6);
+  border:1px solid var(--border);
+  border-radius:1.5rem;
+  padding:2.5rem;
+  backdrop-filter:blur(26px) saturate(1.25);
+  -webkit-backdrop-filter:blur(26px) saturate(1.25);
+  box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px rgba(212,180,108,.08),0 0 60px rgba(212,180,108,.12);
+  position:relative;overflow:hidden;
+}
+.auth-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,180,108,.5),transparent);
+}
+
+/* ── Logo ── */
+.auth-logo{text-align:center;margin-bottom:2rem}
+.logo-icon{
+  width:72px;height:72px;border-radius:50%;
+  background:var(--gold-dim);border:2px solid rgba(212,180,108,.4);
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1rem;font-size:2rem;
+  box-shadow:0 0 24px rgba(212,180,108,.2);
+}
+.auth-title{font-size:1.625rem;font-weight:800;color:var(--gold);letter-spacing:-.02em;margin-bottom:.25rem}
+.auth-sub{font-size:.875rem;color:var(--text2)}
+
+/* ── Tabs ── */
+.auth-tabs{display:flex;background:var(--bg3);border-radius:var(--r);padding:3px;gap:3px;margin-bottom:1.75rem}
+.tab-btn{
+  flex:1;padding:.5rem;text-align:center;border-radius:calc(var(--r) - 2px);
+  font-size:.875rem;font-weight:500;color:var(--text2);transition:all var(--tr);
+}
+.tab-btn.active{background:var(--gold-dim);color:var(--gold);font-weight:600}
+
+/* ── Form ── */
+.form-group{margin-bottom:1.125rem}
+.form-label{display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.5rem}
+.input-wrap{
+  display:flex;align-items:center;
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:var(--r2);overflow:hidden;
+  transition:border-color var(--tr),box-shadow var(--tr);
+}
+.input-wrap:focus-within{border-color:rgba(212,180,108,.5);box-shadow:0 0 0 3px rgba(212,180,108,.08)}
+.input-icon{width:44px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0}
+.form-input{
+  flex:1;height:48px;padding:0 .875rem 0 0;
+  background:transparent;border:none;color:var(--text);
+  font-size:.9375rem;outline:none;
+}
+.form-input::placeholder{color:var(--text3)}
+.toggle-pass{
+  width:44px;height:48px;display:flex;align-items:center;justify-content:center;
+  color:var(--text3);transition:color var(--tr);flex-shrink:0;
+}
+.toggle-pass:hover{color:var(--gold)}
+.input-error{display:none;font-size:.75rem;color:var(--danger);margin-top:.375rem;padding-left:.25rem}
+.input-wrap.has-error{border-color:rgba(239,68,68,.5)}
+.input-wrap.has-error+.input-error{display:block}
+
+/* ── PIN pad ── */
+.pin-display{
+  display:flex;justify-content:center;gap:.75rem;margin-bottom:1.25rem;
+}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .2s}
+.pin-dot.filled{background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(212,180,108,.5)}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.625rem;margin-bottom:1.25rem}
+.pin-key{
+  aspect-ratio:1;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:var(--r2);font-size:1.5rem;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  transition:all var(--tr);
+}
+.pin-key:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.pin-key:active{transform:scale(.93)}
+.pin-key.pin-0{grid-column:2}
+.pin-key.pin-del{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:var(--danger);font-size:1rem}
+.pin-key.pin-del:hover{background:rgba(239,68,68,.2)}
+
+/* ── Remember + forgot ── */
+.form-extras{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+.check-wrap{display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.8125rem;color:var(--text2)}
+.check-wrap input{display:none}
+.custom-check{
+  width:18px;height:18px;border-radius:4px;border:1.5px solid var(--border2);
+  background:var(--bg3);display:flex;align-items:center;justify-content:center;
+  transition:all var(--tr);flex-shrink:0;
+}
+.check-wrap input:checked+.custom-check{background:var(--gold-dim);border-color:var(--gold)}
+.check-wrap input:checked+.custom-check::after{content:'✓';font-size:.625rem;color:var(--gold);font-weight:700}
+.forgot-link{font-size:.8125rem;color:var(--text2);transition:color var(--tr)}
+.forgot-link:hover{color:var(--gold)}
+
+/* ── Submit ── */
+.btn-login{
+  width:100%;padding:.875rem;border-radius:var(--r2);
+  background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);
+  color:#03110c;font-size:1rem;font-weight:700;letter-spacing:.02em;
+  transition:all var(--tr);position:relative;overflow:hidden;
+}
+.btn-login:hover{box-shadow:var(--gold-glow);transform:translateY(-1px)}
+.btn-login:active{transform:scale(.98)}
+.btn-login:disabled{opacity:.5;pointer-events:none}
+.btn-login .spinner{
+  display:none;width:20px;height:20px;border:2px solid rgba(7,7,15,.3);
+  border-top-color:#03110c;border-radius:50%;animation:spin .7s linear infinite;
+  margin:0 auto;
+}
+.btn-login.loading .btn-text{display:none}
+.btn-login.loading .spinner{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Error box ── */
+.error-box{
+  display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+  border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1.25rem;
+  font-size:.8125rem;color:var(--danger);display:flex;align-items:center;gap:.5rem;
+}
+.error-box.show{display:flex}
+
+/* ── Footer ── */
+.auth-footer{text-align:center;margin-top:1.5rem;font-size:.75rem;color:var(--text3)}
+.version-tag{
+  position:absolute;top:.75rem;right:.875rem;
+  font-size:.625rem;color:var(--text3);font-family:monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOGIN PREMIUM (login5) — cinematik atmosfera. VIZUAL qatlam only.
+   Auth/forma/JS tegilmaydi. auth-wrap z-index:1 → forma har doim ustda.
+   ═══════════════════════════════════════════════════════════════ */
+/* deeper cinematic body ramp */
+body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 46%,#03110c 100%)}
+
+/* ── Atmosphere layer (fixed, behind the card) ── */
+.login-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.login-atmos::before{ /* faint girih star texture */
+  content:'';position:absolute;inset:0;opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='68' height='68'%3E%3Cpath d='M34 5l7 22 22 7-22 7-7 22-7-22-22-7 22-7z' fill='none' stroke='%23d4b46c' stroke-width='1'/%3E%3C/svg%3E");
+  background-size:68px 68px;
+}
+/* rotating girih mandala (16-fold) */
+.la-mandala{
+  position:absolute;top:50%;left:50%;width:165vmin;height:165vmin;
+  transform:translate(-50%,-50%);opacity:.07;
+  animation:laSpin 120s linear infinite;
+}
+.la-mandala svg{width:100%;height:100%;display:block}
+@keyframes laSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+/* breathing emerald + gold light blobs */
+.la-glow{position:absolute;border-radius:50%;filter:blur(70px);mix-blend-mode:screen;opacity:.5}
+.la-glow.g1{width:46vmin;height:46vmin;top:-10%;left:4%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:laBreathe 18s ease-in-out infinite}
+.la-glow.g2{width:42vmin;height:42vmin;bottom:-12%;right:2%;background:radial-gradient(circle,#d4b46c,transparent 70%);animation:laBreathe 22s ease-in-out infinite 2s}
+.la-glow.g3{width:34vmin;height:34vmin;top:28%;right:22%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:laBreathe 16s ease-in-out infinite 1s}
+.la-glow.g4{width:30vmin;height:30vmin;bottom:6%;left:16%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:laBreathe 20s ease-in-out infinite 3s}
+@keyframes laBreathe{0%,100%{transform:scale(.9);opacity:.3}50%{transform:scale(1.18);opacity:.6}}
+/* floating gold particles (built by isolated visual IIFE) */
+.la-particle{position:absolute;bottom:-14px;border-radius:50%;background:radial-gradient(circle,#ecdca8,#d4b46c);opacity:.6;animation:laFloat linear infinite}
+@keyframes laFloat{
+  0%{transform:translateY(0) scale(.5);opacity:0}
+  12%{opacity:.7}
+  88%{opacity:.7}
+  100%{transform:translateY(-104vh) scale(1);opacity:0}
+}
+
+/* ── Cinematic brand intro ── */
+.auth-card{animation:laCardIn .9s cubic-bezier(.2,.8,.25,1) both}
+@keyframes laCardIn{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+.logo-icon{animation:laLogoIn 1.1s cubic-bezier(.2,.8,.25,1) both}
+@keyframes laLogoIn{0%{opacity:0;transform:scale(.4) rotate(-28deg)}60%{opacity:1}100%{opacity:1;transform:none}}
+.logo-icon::after{ /* expanding light-ring burst on entrance */
+  content:'';position:absolute;inset:-2px;border-radius:50%;pointer-events:none;
+  animation:laRing 1.7s ease-out .3s both;
+}
+@keyframes laRing{0%{box-shadow:0 0 0 0 rgba(212,180,108,.45)}100%{box-shadow:0 0 0 24px rgba(212,180,108,0)}}
+.auth-title{animation:laTitleIn 1s ease .25s both}
+@keyframes laTitleIn{0%{opacity:0;letter-spacing:.55em;filter:blur(5px)}100%{opacity:1;letter-spacing:-.02em;filter:none}}
+.auth-sub{animation:laFadeUp .8s ease .5s both}
+.auth-tabs{animation:laFadeUp .7s ease .58s both}
+#tabPassword{animation:laFadeUp .7s ease .68s both}
+@keyframes laFadeUp{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+
+/* ── Input focus: zumrad-tilla porlash ── */
+.input-wrap:focus-within{
+  border-color:rgba(212,180,108,.6);
+  box-shadow:0 0 0 3px rgba(212,180,108,.12),0 0 18px rgba(212,180,108,.16);
+}
+.input-wrap:focus-within .input-icon{color:var(--gold)}
+
+/* ── Submit: hover sheen sweep ── */
+.btn-login::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(120deg,transparent 32%,rgba(255,255,255,.45) 48%,transparent 64%);
+  transform:translateX(-130%);transition:transform .7s ease;
+}
+.btn-login:hover::after{transform:translateX(130%)}
+
+/* ── Reduced motion: animatsiya o'chadi ── */
+@media (prefers-reduced-motion:reduce){
+  .la-mandala,.la-glow,.la-particle{animation:none!important}
+  .la-particle{display:none}
+  .auth-card,.logo-icon,.logo-icon::after,.auth-title,.auth-sub,.auth-tabs,#tabPassword,.btn-login::after{animation:none!important;transition:none!important}
+}
+
+/* ── Mobil: og'ir qatlamlarni yengillashtir ── */
+@media (max-width:640px){
+  .la-mandala,.la-particle{display:none}
+  .la-glow{filter:blur(46px);opacity:.32}
+}
+
+/* ── Light mode (himoya — login hozir dark) ── */
+[data-theme="light"] body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#f4f0e4 0%,#e9f1ea 50%,#e2ebe4 100%)}
+[data-theme="light"] .la-mandala{opacity:.05}
+[data-theme="light"] .la-glow{mix-blend-mode:normal;opacity:.14;filter:blur(80px)}
+[data-theme="light"] .login-atmos::before{opacity:.05}
+[data-theme="light"] .auth-card{background:rgba(255,255,255,.72)}
+
+/* ── Do'kon kodi bosqichi + do'kon nishoni (kod tizimi) ── */
+.store-badge{
+  display:flex;align-items:center;justify-content:space-between;gap:.75rem;
+  background:var(--gold-dim);border:1px solid rgba(212,180,108,.3);border-radius:var(--r2);
+  padding:.6875rem .9rem;margin-bottom:1.25rem;
+}
+.store-badge-info{display:flex;align-items:center;gap:.5rem;color:var(--gold);font-weight:700;font-size:.9375rem;min-width:0}
+.store-badge-info span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.change-store{background:none;border:none;color:var(--text2);font-size:.75rem;cursor:pointer;text-decoration:underline;padding:.25rem;white-space:nowrap;flex-shrink:0;font-family:inherit}
+.change-store:hover{color:var(--gold)}
+#storeCodeInput{letter-spacing:.08em;font-variant-numeric:tabular-nums}
+#stepCode,#stepAuth{animation:laFadeUp .4s ease both}
+.code-hint{font-size:.75rem;color:var(--text3);margin-top:.5rem;text-align:center;line-height:1.4}
+
+/* ── Super-admin (platforma egasi) kodsiz kirish yo'li ── */
+.sa-divider{display:flex;align-items:center;gap:.75rem;margin:1.25rem 0 .5rem;color:var(--text3)}
+.sa-divider::before,.sa-divider::after{content:'';flex:1;height:1px;background:var(--border2)}
+.sa-divider span{font-size:.6875rem;letter-spacing:.04em}
+.sa-link{
+  display:flex;align-items:center;justify-content:center;gap:.4rem;margin:0 auto;
+  font-size:.8125rem;color:var(--text2);background:none;border:none;
+  padding:.4rem .5rem;transition:color var(--tr);opacity:.8;
+}
+.sa-link svg{width:14px;height:14px;flex-shrink:0}
+.sa-link:hover{color:var(--gold);opacity:1}
+/* Platforma administratori nishoni (zumrad — do'kon nishonidan farqli) */
+.sa-badge{
+  display:none;align-items:center;justify-content:space-between;gap:.75rem;
+  background:rgba(31,176,132,.1);border:1px solid rgba(31,176,132,.32);border-radius:var(--r2);
+  padding:.6875rem .9rem;margin-bottom:1.25rem;
+}
+.sa-badge-info{display:flex;align-items:center;gap:.5rem;color:var(--success);font-weight:700;font-size:.9rem;min-width:0}
+.sa-badge-info span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* sa-mode: super-admin holatida do'kon nishoni/tab/PIN yashiriladi, faqat telefon+parol */
+.auth-card.sa-mode .store-badge{display:none!important}
+.auth-card.sa-mode .auth-tabs{display:none!important}
+.auth-card.sa-mode #tabPin{display:none!important}
+.auth-card.sa-mode #saBadge{display:flex!important}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="bg-glow2"></div>
+
+<!-- ── LOGIN PREMIUM atmosfera (vizual qatlam, forma ortida) ── -->
+<div class="login-atmos" aria-hidden="true">
+  <div class="la-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="laPetal" d="M300 300 L312 150 L300 68 L288 150 Z" fill="none" stroke="#d4b46c" stroke-width="1.1"/></defs>
+      <g fill="none" stroke="#d4b46c" stroke-width="1.1">
+        <circle cx="300" cy="300" r="252"/><circle cx="300" cy="300" r="190"/>
+        <circle cx="300" cy="300" r="120"/><circle cx="300" cy="300" r="60"/>
+        <rect x="160" y="160" width="280" height="280"/>
+        <rect x="160" y="160" width="280" height="280" transform="rotate(45 300 300)"/>
+        <polygon points="300,88 423,160 423,440 300,512 177,440 177,160"/>
+      </g>
+      <g>
+        <use href="#laPetal" transform="rotate(0 300 300)"/><use href="#laPetal" transform="rotate(22.5 300 300)"/>
+        <use href="#laPetal" transform="rotate(45 300 300)"/><use href="#laPetal" transform="rotate(67.5 300 300)"/>
+        <use href="#laPetal" transform="rotate(90 300 300)"/><use href="#laPetal" transform="rotate(112.5 300 300)"/>
+        <use href="#laPetal" transform="rotate(135 300 300)"/><use href="#laPetal" transform="rotate(157.5 300 300)"/>
+        <use href="#laPetal" transform="rotate(180 300 300)"/><use href="#laPetal" transform="rotate(202.5 300 300)"/>
+        <use href="#laPetal" transform="rotate(225 300 300)"/><use href="#laPetal" transform="rotate(247.5 300 300)"/>
+        <use href="#laPetal" transform="rotate(270 300 300)"/><use href="#laPetal" transform="rotate(292.5 300 300)"/>
+        <use href="#laPetal" transform="rotate(315 300 300)"/><use href="#laPetal" transform="rotate(337.5 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="la-glow g1"></div>
+  <div class="la-glow g2"></div>
+  <div class="la-glow g3"></div>
+  <div class="la-glow g4"></div>
+</div>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="version-tag">v2.0</div>
+
+    <div class="auth-logo">
+      <div class="logo-icon"><svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M24 2 L30 12 L42 12 L36 22 L42 32 L30 32 L24 42 L18 32 L6 32 L12 22 L6 12 L18 12 Z" fill="none" stroke="var(--accent-gold,#D4B46C)" stroke-width="1.4"/><path d="M24 9 L28 16 L36 16 L31 23 L33 31 L24 27 L15 31 L17 23 L12 16 L20 16 Z" fill="var(--accent-gold,#D4B46C)" opacity=".85"/><circle cx="24" cy="22" r="4" fill="var(--primary,#0E6B4F)" stroke="#EBD297" stroke-width="1"/></svg></div>
+      <div class="auth-title">XENORA</div>
+      <div class="auth-sub">Universal kassa tizimi</div>
+    </div>
+
+    <!-- ═══ BOSQICH 1: Do'kon kodi ═══ -->
+    <div id="stepCode">
+      <div class="form-group">
+        <label class="form-label">Do'kon kodi</label>
+        <div class="input-wrap" id="codeWrap">
+          <div class="input-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="1.8"/><path d="M9 22V12h6v10" stroke="currentColor" stroke-width="1.8"/></svg>
+          </div>
+          <input class="form-input" type="text" id="storeCodeInput" placeholder="100.200.2" inputmode="decimal" autocomplete="off" autofocus>
+        </div>
+        <div class="input-error" id="codeError" style="display:none"></div>
+      </div>
+      <button type="button" class="btn-login" id="resolveBtn">
+        <span class="btn-text">Davom etish</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="code-hint">Do'kon kodini administratordan oling</div>
+
+      <!-- Super-admin (platforma egasi) — kodsiz kirish -->
+      <div class="sa-divider"><span>yoki</span></div>
+      <button type="button" class="sa-link" id="superAdminLink">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Platforma administratori
+      </button>
+    </div>
+
+    <!-- ═══ BOSQICH 2: Do'kon aniqlangач — kim kirmoqda ═══ -->
+    <div id="stepAuth" style="display:none">
+    <!-- Platforma administratori nishoni (faqat sa-mode'da ko'rinadi) -->
+    <div class="sa-badge" id="saBadge">
+      <div class="sa-badge-info">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Platforma administratori</span>
+      </div>
+      <button type="button" class="change-store" id="saBackBtn">← Kod bilan kirish</button>
+    </div>
+
+    <div class="store-badge">
+      <div class="store-badge-info">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="currentColor" stroke-width="1.8"/></svg>
+        <span id="storeName">—</span>
+      </div>
+      <button type="button" class="change-store" id="changeStoreBtn">Boshqa do'kon</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="auth-tabs">
+      <button class="tab-btn active" data-tab="password">Admin (parol)</button>
+      <button class="tab-btn" data-tab="pin">Xodim (PIN)</button>
+    </div>
+
+    <!-- Error box -->
+    <div class="error-box" id="errorBox">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span id="errorMsg">Login yoki parol noto'g'ri</span>
+    </div>
+
+    <!-- Password form -->
+    <div id="tabPassword">
+      <form id="loginForm" autocomplete="on">
+        <div class="form-group">
+          <label class="form-label">Telefon raqam</label>
+          <div class="input-wrap" id="userWrap">
+            <div class="input-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" stroke="currentColor" stroke-width="1.8"/></svg>
+            </div>
+            <input class="form-input" type="tel" id="username" name="username" placeholder="+998 90 123 45 67" autocomplete="tel" inputmode="tel" autofocus required>
+          </div>
+          <div class="input-error">Telefon raqam kiritilmagan</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Parol</label>
+          <div class="input-wrap" id="passWrap">
+            <div class="input-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="1.8"/></svg>
+            </div>
+            <input class="form-input" type="password" id="password" name="password" placeholder="Parolni kiriting" autocomplete="current-password" required>
+            <button type="button" class="toggle-pass" id="togglePass" tabindex="-1">
+              <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+            </button>
+          </div>
+          <div class="input-error">Parol kiritilmagan</div>
+        </div>
+
+        <div class="form-extras">
+          <label class="check-wrap">
+            <input type="checkbox" id="rememberMe">
+            <span class="custom-check"></span>
+            Meni eslab qol
+          </label>
+          <a href="#" class="forgot-link">Parolni unutdingizmi?</a>
+        </div>
+
+        <button type="submit" class="btn-login" id="loginBtn">
+          <span class="btn-text">Kirish</span>
+          <div class="spinner"></div>
+        </button>
+      </form>
+    </div>
+
+    <!-- PIN form (xodim) — filial ro'yxati YO'Q, do'kon kod bilan aniqlangan -->
+    <div id="tabPin" style="display:none">
+      <div class="pin-display" id="pinDisplay">
+        <div class="pin-dot" data-i="0"></div>
+        <div class="pin-dot" data-i="1"></div>
+        <div class="pin-dot" data-i="2"></div>
+        <div class="pin-dot" data-i="3"></div>
+      </div>
+      <div class="pin-grid">
+        <button class="pin-key" data-d="1">1</button>
+        <button class="pin-key" data-d="2">2</button>
+        <button class="pin-key" data-d="3">3</button>
+        <button class="pin-key" data-d="4">4</button>
+        <button class="pin-key" data-d="5">5</button>
+        <button class="pin-key" data-d="6">6</button>
+        <button class="pin-key" data-d="7">7</button>
+        <button class="pin-key" data-d="8">8</button>
+        <button class="pin-key" data-d="9">9</button>
+        <button class="pin-key pin-0" data-d="0">0</button>
+        <button class="pin-key pin-del" id="pinDel">⌫</button>
+      </div>
+      <button class="btn-login" id="pinLoginBtn">
+        <span class="btn-text">Kirish</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
+    </div><!-- /stepAuth -->
+
+    <div class="auth-footer">
+      © 2026 XENORA — Barcha huquqlar himoyalangan
+    </div>
+  </div>
+</div>
+
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+
+// ── Redirect if already logged in ────────────────────────────────────────────
+if (localStorage.getItem('access_token')) {
+  const _u = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
+  const _role = _u.role?.name || _u.role || '';
+  location.href = _role === 'kitchen' ? '../app/kitchen.html' : '../app/pos.html';
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tabPassword').style.display = btn.dataset.tab === 'password' ? '' : 'none';
+    document.getElementById('tabPin').style.display      = btn.dataset.tab === 'pin' ? '' : 'none';
+    hideError();
+  });
+});
+
+// ── Password toggle ───────────────────────────────────────────────────────────
+let passVisible = false;
+document.getElementById('togglePass').addEventListener('click', () => {
+  passVisible = !passVisible;
+  document.getElementById('password').type = passVisible ? 'text' : 'password';
+  document.getElementById('eyeIcon').innerHTML = passVisible
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" stroke="currentColor" stroke-width="1.8"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke="currentColor" stroke-width="1.8"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="1.8"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>';
+});
+
+// ── Error helpers ─────────────────────────────────────────────────────────────
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  document.getElementById('errorMsg').textContent = msg;
+  box.classList.add('show');
+}
+function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+
+// ── Rol bo'yicha bosh sahifa ────────────────────────────────────────────────
+// admin/manager → admin paneli, kassir/ofitsiant → POS, oshpaz → oshxona ekrani
+function roleHomePage(user) {
+  // Super-admin (platforma egasi, tenant_id=null) → platforma paneli (owner), tenant paneli emas
+  if (user && user.is_superuser) return '../owner/cafes.html';
+  const role = ((user && (user.role?.name || user.role)) || '').toLowerCase();
+  if (role.includes('admin') || role.includes('manager') || role.includes('menej')) return '../app/admin.html';
+  if (role.includes('kitchen') || role.includes('oshpaz') || role.includes('chef')) return '../app/kitchen.html';
+  // Himoya: role'siz (bo'sh) tenant user — POS kassir emas, admin.html'ga (xavfsiz default)
+  if (!role) return '../app/admin.html';
+  // cashier/kassir, waiter/ofitsiant va boshqalar → POS
+  return '../app/pos.html';
+}
+
+// ── Login API ─────────────────────────────────────────────────────────────────
+async function doLogin(username, password, btn) {
+  if (!username || !password) { showError('Login va parol kiritilishi shart'); return; }
+  hideError();
+  btn.classList.add('loading'); btn.disabled = true;
+  try {
+    const form = new FormData();
+    form.append('username', username);
+    form.append('password', password);
+    const res  = await fetch(API_BASE + '/auth/login', { method:'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Xatolik yuz berdi');
+    localStorage.setItem('access_token', data.access_token);
+    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+
+    // Foydalanuvchi ma'lumotlarini olish
+    const me = await fetch(API_BASE + '/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + data.access_token }
+    });
+    if (me.ok) {
+      const user = await me.json();
+      localStorage.setItem('user', JSON.stringify(user));
+      location.href = roleHomePage(user);
+    } else {
+      location.href = '../app/pos.html';
+    }
+  } catch (err) {
+    showError(err.message || 'Login yoki parol noto\'g\'ri');
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
+}
+
+// ── Password form ─────────────────────────────────────────────────────────────
+document.getElementById('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  await doLogin(u, p, document.getElementById('loginBtn'));
+});
+
+// ── Do'kon kodi (access_code) oqimi — filial ro'yxati YO'Q ────────────────────
+let accessCode = '';
+function showCodeErr(msg){ const e=document.getElementById('codeError'); e.textContent=msg; e.style.display='block'; document.getElementById('codeWrap').classList.add('has-error'); }
+function hideCodeErr(){ const e=document.getElementById('codeError'); e.style.display='none'; document.getElementById('codeWrap').classList.remove('has-error'); }
+
+async function resolveStore(code, btn){
+  code = (code||'').trim();
+  if(!code){ showCodeErr('Do\'kon kodini kiriting'); return; }
+  hideCodeErr();
+  if(btn){ btn.classList.add('loading'); btn.disabled=true; }
+  try{
+    const res = await fetch(API_BASE + '/auth/resolve-code?code=' + encodeURIComponent(code));
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || 'Do\'kon topilmadi');
+    accessCode = code;
+    localStorage.setItem('store_access_code', code);   // qurilmada saqlanadi (native app — qayta terish shart emas)
+    document.querySelector('.auth-card').classList.remove('sa-mode');  // do'kon oqimi — sa-mode'dan chiqish
+    document.getElementById('storeName').textContent = data.name || 'Do\'kon';
+    document.getElementById('stepCode').style.display = 'none';
+    document.getElementById('stepAuth').style.display = '';
+  }catch(err){
+    showCodeErr(err.message || 'Do\'kon topilmadi, kodni tekshiring');
+  }finally{
+    if(btn){ btn.classList.remove('loading'); btn.disabled=false; }
+  }
+}
+
+document.getElementById('resolveBtn').addEventListener('click', () =>
+  resolveStore(document.getElementById('storeCodeInput').value, document.getElementById('resolveBtn')));
+document.getElementById('storeCodeInput').addEventListener('keydown', e => {
+  if(e.key==='Enter'){ e.preventDefault(); document.getElementById('resolveBtn').click(); }
+  else hideCodeErr();
+});
+document.getElementById('changeStoreBtn').addEventListener('click', () => {
+  accessCode=''; localStorage.removeItem('store_access_code');
+  document.getElementById('stepAuth').style.display='none';
+  document.getElementById('stepCode').style.display='';
+  document.getElementById('storeCodeInput').focus();
+  hideError();
+});
+
+// ── Super-admin (platforma egasi) — kodsiz telefon+parol kirish ──
+// Do'kon kodi YO'Q (platforma egasi do'konga tegishli emas). Parol → doLogin →
+// roleHomePage is_superuser bo'lsa owner/cafes.html. Do'kon admin/xodim kod oqimi tegilmaydi.
+function enterSuperAdminMode(){
+  document.querySelector('.auth-card').classList.add('sa-mode');
+  accessCode = '';                                    // PIN o'chadi (do'konga bog'liq)
+  document.getElementById('stepCode').style.display = 'none';
+  document.getElementById('stepAuth').style.display = '';
+  document.getElementById('tabPassword').style.display = '';  // faqat parol formasi
+  document.getElementById('tabPin').style.display = 'none';
+  hideError();
+  setTimeout(() => document.getElementById('username').focus(), 60);
+}
+document.getElementById('superAdminLink').addEventListener('click', enterSuperAdminMode);
+document.getElementById('saBackBtn').addEventListener('click', () => {
+  document.querySelector('.auth-card').classList.remove('sa-mode');
+  document.getElementById('stepAuth').style.display = 'none';
+  document.getElementById('stepCode').style.display = '';
+  document.getElementById('storeCodeInput').focus();
+  hideError();
+});
+
+// Native app: saqlangan kod bo'lsa — avtomatik do'kon aniqlanadi (qayta terish shart emas)
+(function(){
+  const saved = localStorage.getItem('store_access_code');
+  if(saved){ document.getElementById('storeCodeInput').value = saved; resolveStore(saved, null); }
+})();
+
+// ── PIN logic ─────────────────────────────────────────────────────────────────
+let pinCode = '';
+function updatePinDisplay() {
+  document.querySelectorAll('.pin-dot').forEach((dot, i) => {
+    dot.classList.toggle('filled', i < pinCode.length);
+  });
+}
+document.querySelectorAll('.pin-key[data-d]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (pinCode.length >= 4) return;
+    pinCode += btn.dataset.d;
+    updatePinDisplay();
+    if (pinCode.length === 4) setTimeout(() => pinLoginBtn.click(), 150);
+  });
+});
+document.getElementById('pinDel').addEventListener('click', () => {
+  pinCode = pinCode.slice(0, -1);
+  updatePinDisplay();
+});
+const pinLoginBtn = document.getElementById('pinLoginBtn');
+pinLoginBtn.addEventListener('click', async () => {
+  if (!accessCode) { showError('Do\'kon aniqlanmagan'); return; }
+  if (pinCode.length < 4) { showError('4 xonali PIN kodni kiriting'); return; }
+  hideError();
+  pinLoginBtn.classList.add('loading'); pinLoginBtn.disabled = true;
+  try {
+    const res = await fetch(API_BASE + '/auth/pin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: pinCode, access_code: accessCode })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'PIN noto\'g\'ri');
+    localStorage.setItem('access_token', data.access_token);
+    if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+    const me = await fetch(API_BASE + '/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + data.access_token }
+    });
+    if (me.ok) {
+      const user = await me.json();
+      localStorage.setItem('user', JSON.stringify(user));
+      location.href = roleHomePage(user);
+    } else {
+      location.href = '../app/pos.html';
+    }
+  } catch (err) {
+    showError(err.message || 'PIN noto\'g\'ri');
+    pinCode = ''; updatePinDisplay();
+  } finally {
+    pinLoginBtn.classList.remove('loading'); pinLoginBtn.disabled = false;
+  }
+});
+
+// ── Remember username ──────────────────────────────────────────────────────────
+const saved = localStorage.getItem('saved_username');
+if (saved) {
+  document.getElementById('username').value = saved;
+  document.getElementById('rememberMe').checked = true;
+}
+document.getElementById('loginForm').addEventListener('submit', () => {
+  const u = document.getElementById('username').value.trim();
+  if (document.getElementById('rememberMe').checked) localStorage.setItem('saved_username', u);
+  else localStorage.removeItem('saved_username');
+});
+
+// ── Keyboard support ──────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tab = document.querySelector('.tab-btn.active');
+  if (tab?.dataset.tab === 'pin') {
+    if (e.key >= '0' && e.key <= '9') {
+      const btn = document.querySelector(`.pin-key[data-d="${e.key}"]`);
+      btn?.click();
+    }
+    if (e.key === 'Backspace') document.getElementById('pinDel').click();
+    if (e.key === 'Enter') pinLoginBtn.click();
+  }
+});
+</script>
+<!-- LOGIN PREMIUM: suzuvchi zarralar (vizual, auth'dan mustaqil) -->
+<script>
+(function(){
+  var host = document.querySelector('.login-atmos');
+  if (!host) return;
+  var reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if (reduce || window.innerWidth <= 640) return;
+  for (var i = 0; i < 16; i++){
+    var p = document.createElement('span');
+    p.className = 'la-particle';
+    var sz = (2 + Math.random() * 3).toFixed(1);
+    p.style.left = (Math.random() * 100).toFixed(2) + '%';
+    p.style.width = p.style.height = sz + 'px';
+    p.style.animationDuration = (10 + Math.random() * 10).toFixed(1) + 's';
+    p.style.animationDelay = (-Math.random() * 20).toFixed(1) + 's';
+    p.style.opacity = (0.4 + Math.random() * 0.4).toFixed(2);
+    host.appendChild(p);
+  }
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('../pwa/service-worker.js')
+        .catch(() => {});
+}
+</script>
+<script type="module">
+import { initErrorHandler } from '../js/core/error-handler.js';
+initErrorHandler();
+</script>
+</body>
+</html>

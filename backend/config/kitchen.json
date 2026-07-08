@@ -1,0 +1,12 @@
+{
+  "stations": [
+    "Grill",
+    "Fryer",
+    "Salat",
+    "Pizza",
+    "Drinks",
+    "Dessert"
+  ],
+  "auto_print": true,
+  "sound_enabled": true
+}

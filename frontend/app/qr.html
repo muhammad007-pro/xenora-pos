@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Kodlar — XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0e0c;--bg2:#1a1816;--bg3:#222018;--border:rgba(255,255,255,.08);
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.1);
+  --text:#f0ede8;--text2:#9d9890;--text3:#5a5751;
+  --r:12px;--r2:8px;--tr:.18s ease;
+  --success:#10b981;--danger:#ef4444;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+
+/* ─── Page header ─── */
+.ph{
+  position:sticky;top:0;z-index:20;background:rgba(15,14,12,.92);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--border);
+  padding:.875rem 1.25rem;display:flex;align-items:center;gap:.875rem;
+}
+.bk{
+  display:flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:8px;background:var(--bg3);
+  border:1px solid var(--border);color:var(--text2);text-decoration:none;
+  transition:all var(--tr);flex-shrink:0;
+}
+.bk:hover{border-color:rgba(212,180,108,.3);color:var(--gold);transform:scale(1.05)}
+.ph-title{font-size:1rem;font-weight:700;color:var(--gold)}
+.ph-sub{font-size:.75rem;color:var(--text3);margin-left:auto}
+
+/* ─── Content ─── */
+.pc{padding:1.25rem;max-width:960px;margin:0 auto}
+
+/* ─── Info banner ─── */
+.url-banner{
+  background:var(--gold-dim);border:1px solid rgba(212,180,108,.2);border-radius:var(--r);
+  padding:.875rem 1rem;margin-bottom:1.25rem;
+  display:flex;align-items:flex-start;gap:.75rem;
+}
+.url-banner svg{flex-shrink:0;opacity:.7;margin-top:1px}
+.url-banner-body{}
+.url-banner-title{font-size:.8125rem;font-weight:600;color:var(--gold);margin-bottom:.25rem}
+.url-banner-url{font-size:.75rem;color:var(--text2);word-break:break-all;font-family:monospace}
+
+/* ─── Stats ─── */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:1.5rem}
+.sc{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  padding:1rem;transition:all var(--tr);
+  animation:scIn .28s ease backwards;
+}
+.sc:hover{border-color:rgba(212,180,108,.2);transform:translateY(-1px)}
+@keyframes scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.sc:nth-child(1){animation-delay:.04s}.sc:nth-child(2){animation-delay:.09s}.sc:nth-child(3){animation-delay:.14s}
+.sl{font-size:.6875rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.375rem}
+.sv{font-size:1.5rem;font-weight:700;color:var(--gold)}
+.ss{font-size:.75rem;color:var(--text3);margin-top:.25rem}
+
+/* ─── Section header ─── */
+.sec-head{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem}
+.sec-title{font-size:.875rem;font-weight:600;color:var(--text)}
+.sec-badge{background:var(--gold-dim);color:var(--gold);border-radius:10px;
+  padding:.15rem .5rem;font-size:.6875rem;font-weight:700}
+.sec-right{margin-left:auto}
+
+/* ─── QR grid ─── */
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem}
+
+/* ─── QR card ─── */
+.qr-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+  overflow:hidden;display:flex;flex-direction:column;
+  animation:scIn .25s ease backwards;
+  transition:border-color var(--tr),transform var(--tr);
+}
+.qr-card:hover{border-color:rgba(212,180,108,.2);transform:translateY(-2px)}
+.qr-card-head{
+  padding:.75rem .875rem .5rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:.5rem;
+}
+.qr-num{font-size:.875rem;font-weight:700;color:var(--text)}
+.qr-section{font-size:.6875rem;color:var(--text3);margin-left:auto;
+  background:var(--bg3);border-radius:4px;padding:.1rem .4rem}
+.qr-canvas-wrap{
+  background:#fff;padding:1rem;display:flex;align-items:center;justify-content:center;
+  min-height:160px;
+}
+.qr-canvas-wrap canvas{max-width:100%}
+.qr-url{padding:.375rem .875rem;font-size:.6875rem;color:var(--text3);
+  font-family:monospace;word-break:break-all;border-bottom:1px solid var(--border);
+  line-height:1.5}
+.qr-actions{display:flex;gap:.5rem;padding:.75rem .875rem}
+.btn-qr{
+  flex:1;padding:.5rem;border-radius:var(--r2);font-size:.75rem;font-weight:600;
+  cursor:pointer;transition:all var(--tr);border:1px solid var(--border);
+  background:var(--bg3);color:var(--text2);
+}
+.btn-qr:hover{border-color:rgba(212,180,108,.3);color:var(--gold)}
+.btn-qr.primary{background:var(--gold-dim);border-color:rgba(212,180,108,.3);color:var(--gold)}
+.btn-qr.primary:hover{background:rgba(212,180,108,.18)}
+
+/* ─── Loading ─── */
+#loadingState{
+  display:flex;flex-direction:column;align-items:center;gap:1rem;
+  padding:3rem;color:var(--text3);
+}
+.spin{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── Print ─── */
+@media print{
+  .ph,.qr-actions,.url-banner,.sg,.sec-head .sec-right{display:none!important}
+  .qr-card{break-inside:avoid;border:1px solid #ccc;margin-bottom:1rem}
+  .qr-canvas-wrap{background:#fff}
+  body{background:#fff;color:#000}
+  .qr-num{color:#000}.qr-url{color:#444}
+  .pc{padding:0}
+}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+
+<div class="ph">
+  <a class="bk" href="admin.html" title="Admin panelga qaytish">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </a>
+  <span class="ph-title">QR-Menyu Kodlar</span>
+  <span class="ph-sub" id="cafeCodeLabel"></span>
+</div>
+
+<div class="pc">
+
+  <div class="url-banner">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="color:var(--gold)">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <div class="url-banner-body">
+      <div class="url-banner-title">Mijoz skanerlaydi → ushbu sahifa ochiladi</div>
+      <div class="url-banner-url" id="menuUrlTemplate">—</div>
+    </div>
+  </div>
+
+  <div class="sg">
+    <div class="sc">
+      <div class="sl">Jami stollar</div>
+      <div class="sv" id="statTables">—</div>
+      <div class="ss">QR kod kerak</div>
+    </div>
+    <div class="sc">
+      <div class="sl">Kafe kodi</div>
+      <div class="sv" id="statCode" style="font-size:1.125rem">—</div>
+      <div class="ss">URL identifikator</div>
+    </div>
+    <div class="sc">
+      <div class="sl">Menyu sahifasi</div>
+      <div class="sv" style="font-size:.875rem;margin-top:.25rem">public-menu.html</div>
+      <div class="ss">Login talab qilinmaydi</div>
+    </div>
+  </div>
+
+  <div class="sec-head">
+    <span class="sec-title">Stollar QR kodlari</span>
+    <span class="sec-badge" id="tableCount">0</span>
+    <div class="sec-right">
+      <button class="btn-qr primary" onclick="window.print()" style="padding:.4rem .875rem">
+        🖨️ Hammasini chop etish
+      </button>
+    </div>
+  </div>
+
+  <div id="loadingState">
+    <div class="spin"></div>
+    <span>Stollar yuklanmoqda...</span>
+  </div>
+
+  <div class="qr-grid" id="qrGrid" style="display:none"></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+const _lport  = location.port;
+const _isDev  = ['5500','5501','3000','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(location.hostname);
+const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const ORIGIN   = location.origin;
+
+const tok = () => localStorage.getItem('access_token');
+if (!tok()) location.href = '../shared/login.html';
+
+function getUser() { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } }
+
+async function apiFetch(path, opts = {}) {
+  const r = await fetch(API_BASE + path, {
+    ...opts,
+    headers: { 'Authorization': 'Bearer ' + tok(), 'Content-Type': 'application/json', ...(opts.headers || {}) }
+  });
+  if (r.status === 401) { location.href = '../shared/login.html'; return null; }
+  return r.ok ? r.json() : null;
+}
+
+async function init() {
+  const user = getUser();
+  const tenantId = user.tenant_id;
+  if (!tenantId) { showErr('tenant_id topilmadi'); return; }
+
+  // Get cafe info (code)
+  const cafe = await apiFetch(`/cafes/${tenantId}`);
+  if (!cafe) { showErr('Kafe ma\'lumoti yuklanmadi'); return; }
+
+  const cafeCode = cafe.code;
+  const menuUrl  = `${ORIGIN}/public-menu.html?cafe=${cafeCode}&table={table_id}`;
+
+  document.getElementById('cafeCodeLabel').textContent = 'Kod: ' + cafeCode;
+  document.getElementById('menuUrlTemplate').textContent = menuUrl;
+  document.getElementById('statCode').textContent = cafeCode;
+
+  // Get tables
+  const tables = await apiFetch('/tables/all');
+  const list = Array.isArray(tables) ? tables : (tables?.data || []);
+
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('statTables').textContent = list.length;
+  document.getElementById('tableCount').textContent = list.length;
+
+  if (!list.length) {
+    document.getElementById('qrGrid').style.display = '';
+    document.getElementById('qrGrid').innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--text3)">
+        <p>Stollar topilmadi. Avval stollarni qo'shing.</p>
+        <a href="tables.html" style="color:var(--gold);font-size:.875rem;text-decoration:none">→ Stollar boshqaruvi</a>
+      </div>`;
+    return;
+  }
+
+  renderQRCards(list, cafeCode);
+}
+
+function renderQRCards(tables, cafeCode) {
+  const grid = document.getElementById('qrGrid');
+  grid.style.display = '';
+  grid.innerHTML = '';
+
+  tables.forEach((table, i) => {
+    const url = `${ORIGIN}/public-menu.html?cafe=${cafeCode}&table=${table.id}`;
+
+    const card = document.createElement('div');
+    card.className = 'qr-card';
+    card.style.animationDelay = (i * 0.04) + 's';
+    card.innerHTML = `
+      <div class="qr-card-head">
+        <span class="qr-num">Stol #${table.number}</span>
+        ${table.section ? `<span class="qr-section">${table.section}</span>` : ''}
+      </div>
+      <div class="qr-canvas-wrap" id="qr-wrap-${table.id}"></div>
+      <div class="qr-url">${url}</div>
+      <div class="qr-actions">
+        <button class="btn-qr primary" onclick="downloadQR(${table.id}, ${table.number})">⬇ Yuklash</button>
+        <button class="btn-qr" onclick="printOne(${table.id}, ${table.number})">🖨 Chop</button>
+      </div>`;
+    grid.appendChild(card);
+
+    // Generate QR code
+    new QRCode(document.getElementById(`qr-wrap-${table.id}`), {
+      text:          url,
+      width:         140,
+      height:        140,
+      colorDark:     '#111111',
+      colorLight:    '#ffffff',
+      correctLevel:  QRCode.CorrectLevel.M,
+    });
+  });
+}
+
+function downloadQR(tableId, tableNum) {
+  const wrap   = document.getElementById(`qr-wrap-${tableId}`);
+  const canvas = wrap.querySelector('canvas');
+  if (!canvas) { alert('QR kod hali yaratilmadi'); return; }
+  const link = document.createElement('a');
+  link.download = `stol_${tableNum}_qr.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function printOne(tableId, tableNum) {
+  const wrap   = document.getElementById(`qr-wrap-${tableId}`);
+  const canvas = wrap.querySelector('canvas');
+  if (!canvas) return;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Stol #${tableNum} QR</title>
+    <style>body{margin:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;min-height:100vh;font-family:sans-serif;gap:1rem}
+    h2{font-size:1.5rem}p{font-size:.875rem;color:#555}</style></head>
+    <body><h2>Stol #${tableNum}</h2>
+    <img src="${canvas.toDataURL()}" style="width:200px;height:200px">
+    <p>QR kodni skanlang va buyurtma bering</p>
+    <script>window.onload=()=>{window.print();window.close()}<\/script>
+    </body></html>`);
+  win.document.close();
+}
+
+function showErr(msg) {
+  document.getElementById('loadingState').innerHTML = `<p style="color:var(--danger)">${msg}</p>`;
+}
+
+init();
+</script>
+</body>
+</html>

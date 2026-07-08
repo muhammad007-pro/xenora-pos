@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Hisobotlar | XENORA</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--red:#ef4444;--r:.5rem;--r2:.875rem
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow);transform:translateY(-1px)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-1px)}
+.btn-sm{padding:.375rem .75rem;font-size:.8125rem}
+.btn-green{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#10b981}
+.btn-green:hover{background:rgba(16,185,129,.25)}
+.btn-red{background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.25);color:#ef4444}
+.btn-red:hover{background:rgba(239,68,68,.22)}
+.pc{padding:1.5rem;max-width:1260px;margin:0 auto}
+/* Tabs */
+.tabs{display:flex;gap:.375rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.tab{padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2);transition:.2s}
+.tab.active{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,180,108,.3)}
+.tab:hover:not(.active){color:var(--text);border-color:var(--border2)}
+/* Toolbar */
+.toolbar{display:flex;gap:.625rem;margin-bottom:1.25rem;align-items:center;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:.875rem 1rem}
+.toolbar label{font-size:.75rem;color:var(--text3);margin-right:.25rem}
+.toolbar input[type="date"],.toolbar select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.4rem .75rem;color:var(--text);font-size:.8125rem;outline:none;font-family:inherit;transition:.2s}
+.toolbar input[type="date"]:focus,.toolbar select:focus{border-color:var(--gold)}
+.toolbar select option{background:var(--bg3)}
+.period-btns{display:flex;gap:.3rem;flex-wrap:wrap}
+.pb{padding:.35rem .65rem;border-radius:var(--r);font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text3);transition:.2s}
+.pb.active,.pb:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.toolbar-right{margin-left:auto;display:flex;gap:.5rem}
+/* Stats */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.125rem;transition:.2s}
+.sc:hover{border-color:rgba(212,180,108,.2)}
+.sl{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.2rem}
+.sv{font-size:1.55rem;font-weight:700;color:var(--gold)}
+.ss{font-size:.75rem;color:var(--text2);margin-top:.15rem}
+/* Chart */
+.chart-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1rem;margin-bottom:1.25rem}
+.chart-title{font-size:.875rem;font-weight:600;color:var(--text2);margin-bottom:.875rem}
+.chart-box{position:relative;height:220px}
+/* Table */
+.tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin-bottom:1.25rem}
+.tbl-title{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1rem;border-bottom:1px solid var(--border);font-size:.875rem;font-weight:600;color:var(--text2)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl thead th{padding:.65rem 1rem;text-align:left;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl tbody tr:not(:last-child) td{border-bottom:1px solid var(--border)}
+.tbl tbody tr:hover{background:rgba(255,255,255,.02)}
+.tbl td{padding:.65rem 1rem;font-size:.8125rem}
+.amt{font-weight:600;color:var(--gold)}
+.badge{display:inline-block;padding:.2em .55em;border-radius:99px;font-size:.7rem;font-weight:700}
+.badge-ok{background:rgba(16,185,129,.15);color:#10b981}
+.badge-low{background:rgba(245,158,11,.15);color:#f59e0b}
+.badge-out{background:rgba(239,68,68,.15);color:#ef4444}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+.loader{text-align:center;padding:3rem;color:var(--text3);font-size:.875rem}
+/* Export bar */
+.export-bar{display:flex;gap:.5rem;justify-content:flex-end;margin-bottom:1rem}
+/* Grid 2 cols */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:700px){.g2{grid-template-columns:1fr}}
+/* Animations */
+@keyframes pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ph{animation:pgIn .22s ease backwards}
+.sc{animation:pgIn .3s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.08s}
+.sg>.sc:nth-child(3){animation-delay:.12s}
+.sg>.sc:nth-child(4){animation-delay:.16s}
+.sg>.sc:nth-child(5){animation-delay:.20s}
+
+/* ═══════════════════════════════════════════════════════════════
+   HISOBOTLAR PREMIUM — atmosfera + glass + count-up + empty + skeleton.
+   Vizual only. JS/DOM/id/class tegilmaydi. Dashboard darajasi (egasi ekrani).
+   ═══════════════════════════════════════════════════════════════ */
+/* light mode o'zgaruvchilari (sahifada yo'q edi — qo'shildi) */
+[data-theme="light"]{
+  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.12);
+  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
+}
+
+/* zumrad-qora gradient fon */
+body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#0b291e 0%,#05160f 50%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+
+/* content atmosfera ustида */
+.ph{z-index:30}
+.pc{position:relative;z-index:1}
+
+/* ── Atmosfera qatlami — fixed, ortда, shaffof joylardan ── */
+.rep-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.ra-mandala{position:absolute;top:36%;left:64%;width:120vmin;height:120vmin;transform:translate(-50%,-50%);opacity:.04;animation:raSpin 200s linear infinite}
+.ra-mandala svg{width:100%;height:100%;display:block}
+@keyframes raSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.ra-glow{position:absolute;border-radius:50%;filter:blur(75px);mix-blend-mode:screen;opacity:.24}
+.ra-glow.g1{width:46vmin;height:46vmin;top:-10%;left:2%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:raBreathe 26s ease-in-out infinite}
+.ra-glow.g2{width:40vmin;height:40vmin;bottom:-12%;right:0%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:raBreathe 32s ease-in-out infinite 3s}
+.ra-glow.g3{width:32vmin;height:32vmin;top:30%;right:30%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:raBreathe 22s ease-in-out infinite 1.5s}
+@keyframes raBreathe{0%,100%{transform:scale(.95);opacity:.16}50%{transform:scale(1.12);opacity:.3}}
+[data-theme="light"] .ra-glow{mix-blend-mode:normal;opacity:.11;filter:blur(88px)}
+[data-theme="light"] .ra-mandala{opacity:.05}
+
+/* ── Glass panellar ── */
+.sc{background:rgba(11,46,35,.6);backdrop-filter:blur(10px) saturate(1.15);-webkit-backdrop-filter:blur(10px) saturate(1.15);box-shadow:0 4px 22px rgba(0,0,0,.18),inset 0 1px 0 rgba(212,180,108,.06)}
+[data-theme="light"] .sc{background:rgba(255,255,255,.7)}
+.sc:hover{border-color:rgba(212,180,108,.35);box-shadow:0 8px 30px rgba(212,180,108,.12)}
+.toolbar,.chart-wrap,.tbl-wrap{
+  background:linear-gradient(180deg,rgba(11,46,35,.72),rgba(8,34,26,.78));
+  backdrop-filter:blur(12px) saturate(1.12);-webkit-backdrop-filter:blur(12px) saturate(1.12);
+  border-color:rgba(212,180,108,.14);
+}
+[data-theme="light"] .toolbar,[data-theme="light"] .chart-wrap,[data-theme="light"] .tbl-wrap{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,249,250,.9))}
+.tbl thead th{background:rgba(212,180,108,.05)}
+/* fokus tilla glow */
+.toolbar input:focus,.toolbar select:focus{box-shadow:0 0 0 3px rgba(212,180,108,.14)}
+/* tugma sheen */
+.btn-gold{position:relative;overflow:hidden}
+.btn-gold::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%);transform:translateX(-130%);transition:transform .6s ease}
+.btn-gold:hover::after{transform:translateX(130%)}
+.btn:active{transform:scale(.97)}
+
+/* ── EMPTY STATE (diagramma ikonка + matn) ── */
+.empty{color:var(--text2);font-weight:600;line-height:1.4}
+.empty::before{
+  content:'';display:block;width:54px;height:54px;margin:0 auto .85rem;opacity:.5;
+  background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4b46c' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Crect x='7' y='11' width='3' height='6'/%3E%3Crect x='12' y='7' width='3' height='10'/%3E%3Crect x='17' y='13' width='3' height='4'/%3E%3C/svg%3E");
+  animation:repFloat 3.5s ease-in-out infinite;
+}
+@keyframes repFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+/* ── SKELETON (yuklanish — shimmer bloklar) ── */
+@keyframes repShimmer{0%{background-position:-450px 0}100%{background-position:450px 0}}
+.loader{display:flex;flex-direction:column;gap:1.25rem;padding:.5rem 0;font-size:0;color:transparent}
+.loader::before,.loader::after{
+  content:'';border-radius:var(--r2);
+  background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(212,180,108,.12) 37%,rgba(255,255,255,.04) 63%);
+  background-size:900px 100%;animation:repShimmer 1.4s linear infinite;
+}
+.loader::before{height:96px}
+.loader::after{height:280px;animation-delay:.2s}
+
+/* ── Micro: jadval qatorlari yengil paydo bo'lish ── */
+.tbl-wrap,.chart-wrap{animation:pgIn .32s ease .06s backwards}
+.tbl tbody tr{animation:pgIn .26s ease backwards}
+.tbl tbody tr:nth-child(2){animation-delay:.03s}
+.tbl tbody tr:nth-child(3){animation-delay:.06s}
+.tbl tbody tr:nth-child(4){animation-delay:.09s}
+.tbl tbody tr:nth-child(5){animation-delay:.12s}
+.tbl tbody tr:nth-child(6){animation-delay:.15s}
+.tbl tbody tr:nth-child(7){animation-delay:.18s}
+.tbl tbody tr:nth-child(8){animation-delay:.21s}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion:reduce){
+  .ra-mandala,.ra-glow,.empty::before,.loader::before,.loader::after,.btn-gold::after,
+  .tbl-wrap,.chart-wrap,.tbl tbody tr,.sc{animation:none!important;transition:none!important}
+}
+/* ── Mobil: og'ir qatlam yengil ── */
+@media (max-width:768px){
+  .ra-mandala{display:none}
+  .ra-glow{filter:blur(48px);opacity:.14}
+  .sc,.toolbar,.chart-wrap,.tbl-wrap{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+</style>
+</head>
+<body>
+<!-- ── HISOBOTLAR atmosfera (yengil vizual qatlam, panellar ortida) ── -->
+<div class="rep-atmos" aria-hidden="true">
+  <div class="ra-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="raPetal" d="M300 300 L311 165 L300 92 L289 165 Z" fill="none" stroke="#d4b46c" stroke-width="1"/></defs>
+      <g fill="none" stroke="#d4b46c" stroke-width="1">
+        <circle cx="300" cy="300" r="240"/><circle cx="300" cy="300" r="170"/><circle cx="300" cy="300" r="100"/>
+        <polygon points="300,96 477,300 300,504 123,300"/>
+        <rect x="180" y="180" width="240" height="240" transform="rotate(45 300 300)"/>
+      </g>
+      <g>
+        <use href="#raPetal" transform="rotate(0 300 300)"/><use href="#raPetal" transform="rotate(45 300 300)"/>
+        <use href="#raPetal" transform="rotate(90 300 300)"/><use href="#raPetal" transform="rotate(135 300 300)"/>
+        <use href="#raPetal" transform="rotate(180 300 300)"/><use href="#raPetal" transform="rotate(225 300 300)"/>
+        <use href="#raPetal" transform="rotate(270 300 300)"/><use href="#raPetal" transform="rotate(315 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="ra-glow g1"></div>
+  <div class="ra-glow g2"></div>
+  <div class="ra-glow g3"></div>
+</div>
+
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Hisobotlar</h1>
+  <button class="btn btn-out btn-sm" onclick="window.print()">Chop etish</button>
+</header>
+
+<div class="pc">
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="sales">Savdo</button>
+    <button class="tab" data-tab="profit">Foyda</button>
+    <button class="tab" data-tab="inventory">Ombor</button>
+    <button class="tab" data-tab="staff">Xodimlar</button>
+    <button class="tab" data-tab="customers">Mijozlar</button>
+    <button class="tab" data-tab="tax">Soliq/Fiskal</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="period-btns">
+      <button class="pb active" data-days="0" onclick="setPeriod(0,this)">Bugun</button>
+      <button class="pb" data-days="7" onclick="setPeriod(7,this)">Hafta</button>
+      <button class="pb" data-days="30" onclick="setPeriod(30,this)">Oy</button>
+      <button class="pb" data-days="365" onclick="setPeriod(365,this)">Yil</button>
+    </div>
+    <label>Dan:</label>
+    <input type="date" id="dateFrom">
+    <label>Gacha:</label>
+    <input type="date" id="dateTo">
+    <label>Filial:</label>
+    <select id="branchSel"><option value="">Barchasi</option></select>
+    <div class="toolbar-right">
+      <button class="btn btn-gold" onclick="loadReport()">Yuklash</button>
+      <button class="btn btn-green btn-sm" onclick="doExport('excel')">⬇ Excel</button>
+      <button class="btn btn-red btn-sm" onclick="doExport('pdf')">⬇ PDF</button>
+    </div>
+  </div>
+
+  <!-- Report area -->
+  <div id="reportArea"><div class="loader">Hisobot yuklanmoqda...</div></div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport=window.location.port;
+const _isDev=['5500','5501','3000','4200','8080'].includes(_lport)&&['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev?'http://localhost:8000/api/v1':'/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  raw:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}})
+};
+
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function fmtD(d){if(!d)return'—';return new Date(d).toLocaleDateString('uz-UZ');}
+
+// ── Dates ──────────────────────────────────────────────────────────────────────
+const today=new Date().toISOString().split('T')[0];
+document.getElementById('dateFrom').value=today;
+document.getElementById('dateTo').value=today;
+
+function setPeriod(days,btn){
+  document.querySelectorAll('.pb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const to=new Date();
+  const from=new Date();
+  from.setDate(from.getDate()-days);
+  document.getElementById('dateTo').value=to.toISOString().split('T')[0];
+  document.getElementById('dateFrom').value=from.toISOString().split('T')[0];
+}
+
+// Remove active from period btns when date manually changed
+['dateFrom','dateTo'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{
+    document.querySelectorAll('.pb').forEach(b=>b.classList.remove('active'));
+  });
+});
+
+// ── Tab ────────────────────────────────────────────────────────────────────────
+let currentTab='sales';
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  currentTab=t.dataset.tab;
+  loadReport();
+}));
+
+// ── Branches ───────────────────────────────────────────────────────────────────
+async function loadBranches(){
+  try{
+    const list=await api.get('/reports/branches');
+    const sel=document.getElementById('branchSel');
+    list.forEach(b=>{
+      const o=document.createElement('option');
+      o.value=b.id; o.textContent=b.name;
+      sel.appendChild(o);
+    });
+  }catch(e){}
+}
+loadBranches();
+
+// ── Chart instances ────────────────────────────────────────────────────────────
+let _charts={};
+function destroyChart(id){if(_charts[id]){_charts[id].destroy();delete _charts[id];}}
+function makeBarChart(id,labels,datasets,opts={}){
+  destroyChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  _charts[id]=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#9fcbb9',font:{size:11}}},tooltip:{callbacks:{label:ctx=>fmtN(ctx.raw)+' so\'m'}}},
+      scales:{
+        x:{ticks:{color:'#5c8775',maxRotation:45,font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#5c8775',callback:v=>fmtN(v),font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}}
+      },
+      ...opts
+    }
+  });
+}
+function makeLineChart(id,labels,datasets){
+  destroyChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  _charts[id]=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#9fcbb9',font:{size:11}}}},
+      scales:{
+        x:{ticks:{color:'#5c8775',maxRotation:45,font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#5c8775',callback:v=>fmtN(v),font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}}
+      }
+    }
+  });
+}
+function makeDoughnutChart(id,labels,values,colors){
+  destroyChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx)return;
+  _charts[id]=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels,datasets:[{data:values,backgroundColor:colors,borderWidth:0}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{color:'#9fcbb9',font:{size:11}}},
+               tooltip:{callbacks:{label:c=>fmtN(c.raw)+' so\'m'}}}
+    }
+  });
+}
+
+// ── Load ───────────────────────────────────────────────────────────────────────
+async function loadReport(){
+  const df=document.getElementById('dateFrom').value;
+  const dt=document.getElementById('dateTo').value;
+  const br=document.getElementById('branchSel').value;
+  const area=document.getElementById('reportArea');
+  area.innerHTML='<div class="loader">Yuklanmoqda...</div>';
+
+  let params=`?date_from=${df}&date_to=${dt}`;
+  if(br) params+=`&branch_id=${br}`;
+
+  try{
+    if(currentTab==='sales')     await renderSales(params,df,dt);
+    else if(currentTab==='profit')    await renderProfit(params);
+    else if(currentTab==='inventory') await renderInventory(br?`?branch_id=${br}`:'');
+    else if(currentTab==='staff')     await renderStaff(params);
+    else if(currentTab==='customers') await renderCustomers(params);
+    else if(currentTab==='tax')       await renderTax(params);
+  }catch(e){
+    area.innerHTML=`<div class="empty">Xatolik: ${e.message}</div>`;
+  }
+}
+
+// ── SAVDO ──────────────────────────────────────────────────────────────────────
+async function renderSales(params){
+  const d=await api.get('/reports/sales'+params);
+  const area=document.getElementById('reportArea');
+
+  const methodColors=['#d4b46c','#10b981','#1fb084','#f59e0b','#ef4444'];
+  const mLabels=d.payment_methods.map(m=>m.method||'?');
+  const mValues=d.payment_methods.map(m=>m.total);
+
+  area.innerHTML=`
+  <div class="sg">
+    <div class="sc"><div class="sl">Jami savdo</div><div class="sv">${fmtN(d.total_sales)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Buyurtmalar</div><div class="sv">${d.orders_count}</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">O'rtacha chek</div><div class="sv">${fmtN(d.avg_check)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Tranzaksiyalar</div><div class="sv">${d.transactions_count}</div><div class="ss">ta</div></div>
+  </div>
+  <div class="g2">
+    <div class="chart-wrap">
+      <div class="chart-title">Kunlik savdo (so'm)</div>
+      <div class="chart-box"><canvas id="chSalesDaily"></canvas></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">To'lov usullari</div>
+      <div class="chart-box"><canvas id="chSalesMethod"></canvas></div>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-title">Kunlik taqsimot</div>
+    <table class="tbl"><thead><tr><th>Sana</th><th>Jami (so'm)</th><th>Tranzaksiyalar</th></tr></thead>
+    <tbody>${d.daily_sales.map(r=>`<tr><td>${r.date}</td><td class="amt">${fmtN(r.total)}</td><td>${r.count}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
+    </table>
+  </div>`;
+
+  makeBarChart('chSalesDaily',
+    d.daily_sales.map(r=>r.date),
+    [{label:'Savdo',data:d.daily_sales.map(r=>r.total),backgroundColor:'rgba(212,180,108,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}]
+  );
+  makeDoughnutChart('chSalesMethod',mLabels,mValues,methodColors);
+}
+
+// ── FOYDA ──────────────────────────────────────────────────────────────────────
+async function renderProfit(params){
+  const d=await api.get('/reports/profit'+params);
+  const area=document.getElementById('reportArea');
+  const marginColor=d.margin_pct>=30?'#10b981':d.margin_pct>=15?'#f59e0b':'#ef4444';
+
+  area.innerHTML=`
+  <div class="sg">
+    <div class="sc"><div class="sl">Daromad</div><div class="sv">${fmtN(d.total_revenue)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Xarajat (tannarx)</div><div class="sv">${fmtN(d.total_cost)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Sof foyda</div><div class="sv" style="color:${d.total_profit>=0?'#10b981':'#ef4444'}">${fmtN(d.total_profit)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Marja</div><div class="sv" style="color:${marginColor}">${d.margin_pct}%</div><div class="ss">foydalilik</div></div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-title">Kunlik daromad / xarajat / foyda</div>
+    <div class="chart-box"><canvas id="chProfit"></canvas></div>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-title">Top foydali mahsulotlar</div>
+    <table class="tbl"><thead><tr><th>Mahsulot</th><th>Daromad</th><th>Xarajat</th><th>Foyda</th><th>Marja%</th><th>Soni</th></tr></thead>
+    <tbody>${d.top_products.map(p=>`<tr>
+      <td>${p.name}</td>
+      <td class="amt">${fmtN(p.revenue)}</td>
+      <td>${fmtN(p.cost)}</td>
+      <td class="amt" style="color:${p.profit>=0?'#10b981':'#ef4444'}">${fmtN(p.profit)}</td>
+      <td><span class="badge ${p.margin_pct>=30?'badge-ok':p.margin_pct>=15?'badge-low':'badge-out'}">${p.margin_pct}%</span></td>
+      <td>${p.qty}</td>
+    </tr>`).join('')||'<tr><td colspan="6" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
+    </table>
+  </div>`;
+
+  makeLineChart('chProfit',
+    d.daily.map(r=>r.date),
+    [
+      {label:'Daromad',data:d.daily.map(r=>r.revenue),borderColor:'#d4b46c',backgroundColor:'rgba(212,180,108,.1)',tension:.35,fill:true},
+      {label:'Xarajat',data:d.daily.map(r=>r.cost),borderColor:'#1fb084',backgroundColor:'rgba(31,176,132,.08)',tension:.35,fill:true},
+      {label:'Foyda',data:d.daily.map(r=>r.profit),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.08)',tension:.35,fill:true}
+    ]
+  );
+}
+
+// ── OMBOR ──────────────────────────────────────────────────────────────────────
+async function renderInventory(params){
+  const d=await api.get('/reports/inventory'+params);
+  const area=document.getElementById('reportArea');
+
+  area.innerHTML=`
+  <div class="sg">
+    <div class="sc"><div class="sl">Jami pozitsiya</div><div class="sv">${d.total_items}</div><div class="ss">ta mahsulot</div></div>
+    <div class="sc"><div class="sl">Ombor qiymati</div><div class="sv">${fmtN(d.total_value)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Kam qoldiq</div><div class="sv" style="color:#f59e0b">${d.low_stock_count}</div><div class="ss">ta mahsulot</div></div>
+    <div class="sc"><div class="sl">Tugagan</div><div class="sv" style="color:#ef4444">${d.out_of_stock_count}</div><div class="ss">ta mahsulot</div></div>
+  </div>
+  ${d.low_stock_count?`
+  <div class="tbl-wrap">
+    <div class="tbl-title" style="color:#f59e0b">⚠ Kam qoldiq mahsulotlar</div>
+    <table class="tbl"><thead><tr><th>Mahsulot</th><th>Mavjud</th><th>Minimum</th><th>Birlik</th></tr></thead>
+    <tbody>${d.low_stock.map(i=>`<tr>
+      <td>${i.product_name}</td>
+      <td style="color:#f59e0b;font-weight:700">${i.quantity}</td>
+      <td>${i.min_threshold}</td>
+      <td>${i.unit}</td>
+    </tr>`).join('')}</tbody>
+    </table>
+  </div>`:''}
+  <div class="tbl-wrap">
+    <div class="tbl-title">Barcha mahsulotlar</div>
+    <table class="tbl"><thead><tr><th>Mahsulot</th><th>Miqdor</th><th>Birlik</th><th>Min</th><th>Qiymat</th><th>Holat</th></tr></thead>
+    <tbody>${d.items.map(i=>`<tr>
+      <td>${i.product_name}</td>
+      <td>${i.quantity}</td>
+      <td>${i.unit}</td>
+      <td>${i.min_threshold}</td>
+      <td class="amt">${fmtN(i.value)}</td>
+      <td><span class="badge ${i.is_out?'badge-out':i.is_low?'badge-low':'badge-ok'}">${i.is_out?'TUG':i.is_low?'KAM':'OK'}</span></td>
+    </tr>`).join('')||'<tr><td colspan="6" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+// ── XODIMLAR ───────────────────────────────────────────────────────────────────
+async function renderStaff(params){
+  const d=await api.get('/reports/staff'+params);
+  const area=document.getElementById('reportArea');
+  const maxS=Math.max(...d.staff.map(s=>s.total_sales),1);
+
+  area.innerHTML=`
+  <div class="sg">
+    <div class="sc"><div class="sl">Faol xodimlar</div><div class="sv">${d.staff.length}</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Jami savdo</div><div class="sv">${fmtN(d.staff.reduce((a,s)=>a+s.total_sales,0))}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Jami buyurtma</div><div class="sv">${d.staff.reduce((a,s)=>a+s.orders_count,0)}</div><div class="ss">ta</div></div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-title">Xodim savdosi</div>
+    <div class="chart-box"><canvas id="chStaff"></canvas></div>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-title">Xodimlar samaradorligi</div>
+    <table class="tbl"><thead><tr><th>#</th><th>Xodim</th><th>Buyurtmalar</th><th>Jami savdo</th><th>O'rtacha chek</th></tr></thead>
+    <tbody>${d.staff.map((s,i)=>`<tr>
+      <td>${i+1}</td>
+      <td>${s.name||'—'}</td>
+      <td>${s.orders_count}</td>
+      <td class="amt">${fmtN(s.total_sales)}</td>
+      <td>${fmtN(s.avg_check)}</td>
+    </tr>`).join('')||'<tr><td colspan="5" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
+    </table>
+  </div>`;
+
+  makeBarChart('chStaff',
+    d.staff.map(s=>s.name||'?'),
+    [{label:'Savdo (so\'m)',data:d.staff.map(s=>s.total_sales),backgroundColor:'rgba(212,180,108,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}],
+    {indexAxis:'y'}
+  );
+}
+
+// ── MIJOZLAR ───────────────────────────────────────────────────────────────────
+async function renderCustomers(params){
+  const d=await api.get('/reports/customers'+params);
+  const area=document.getElementById('reportArea');
+
+  area.innerHTML=`
+  <div class="sg">
+    <div class="sc"><div class="sl">Yangi mijozlar</div><div class="sv">${d.new_customers}</div><div class="ss">davr ichida</div></div>
+    <div class="sc"><div class="sl">Faol (davr)</div><div class="sv">${d.active_in_period}</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Sodiq (3+ tashrif)</div><div class="sv">${d.total_loyal}</div><div class="ss">ta</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-title">Top 20 mijoz</div>
+    <table class="tbl"><thead><tr><th>#</th><th>Ism</th><th>Telefon</th><th>Tashriflar</th><th>Sarflagan</th><th>Ball</th></tr></thead>
+    <tbody>${d.top_customers.map((c,i)=>`<tr>
+      <td>${i+1}</td>
+      <td>${c.name}</td>
+      <td>${c.phone||'—'}</td>
+      <td>${c.total_visits}</td>
+      <td class="amt">${fmtN(c.total_spent)}</td>
+      <td><span class="badge badge-ok">${c.points}</span></td>
+    </tr>`).join('')||'<tr><td colspan="6" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+// ── SOLIQ ──────────────────────────────────────────────────────────────────────
+async function renderTax(params){
+  const d=await api.get('/reports/tax'+params);
+  const area=document.getElementById('reportArea');
+
+  area.innerHTML=`
+  <div class="sg">
+    <div class="sc"><div class="sl">Brutto daromad</div><div class="sv">${fmtN(d.gross_revenue)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">QQS (${d.vat_rate_pct}%)</div><div class="sv" style="color:#ef4444">${fmtN(d.vat_amount)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Netto (davlat)</div><div class="sv" style="color:#10b981">${fmtN(d.net_amount)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Tranzaksiyalar</div><div class="sv">${d.transactions_count}</div><div class="ss">ta</div></div>
+  </div>
+  <div class="g2">
+    <div class="chart-wrap">
+      <div class="chart-title">Kunlik brutto daromad</div>
+      <div class="chart-box"><canvas id="chTaxDaily"></canvas></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">To'lov usullari</div>
+      <div class="chart-box"><canvas id="chTaxMethod"></canvas></div>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <div class="tbl-title">Kunlik jadval</div>
+    <table class="tbl"><thead><tr><th>Sana</th><th>Brutto (so'm)</th><th>QQS</th><th>Netto</th><th>Tranzaksiyalar</th></tr></thead>
+    <tbody>${d.daily.map(r=>{const vr=d.vat_rate_pct/100;return`<tr>
+      <td>${r.date}</td>
+      <td class="amt">${fmtN(r.gross)}</td>
+      <td>${fmtN(r.gross*vr/(1+vr))}</td>
+      <td>${fmtN(r.gross/(1+vr))}</td>
+      <td>${r.count}</td>
+    </tr>`;}).join('')||'<tr><td colspan="5" class="empty">--</td></tr>'}</tbody>
+    </table>
+  </div>`;
+
+  makeBarChart('chTaxDaily',
+    d.daily.map(r=>r.date),
+    [{label:'Brutto',data:d.daily.map(r=>r.gross),backgroundColor:'rgba(212,180,108,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}]
+  );
+  makeDoughnutChart('chTaxMethod',
+    d.by_method.map(m=>m.method),
+    d.by_method.map(m=>m.total),
+    ['#d4b46c','#10b981','#1fb084','#f59e0b']
+  );
+}
+
+// ── EXPORT ─────────────────────────────────────────────────────────────────────
+async function doExport(fmt){
+  const df=document.getElementById('dateFrom').value;
+  const dt=document.getElementById('dateTo').value;
+  const br=document.getElementById('branchSel').value;
+  let params=`?report_type=${currentTab}&date_from=${df}&date_to=${dt}&format=${fmt}`;
+  if(br) params+=`&branch_id=${br}`;
+  try{
+    const resp=await api.raw('/reports/export'+params);
+    if(!resp.ok){alert('Eksport xatosi');return;}
+    const blob=await resp.blob();
+    const ext=fmt==='excel'?'xlsx':fmt;
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`${currentTab}_${df}_${dt}.${ext}`; a.click();
+    URL.revokeObjectURL(url);
+  }catch(e){alert('Eksport xatosi: '+e.message);}
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────────
+setPeriod(30, document.querySelector('[data-days="30"]'));
+document.querySelector('[data-days="0"]').classList.remove('active');
+document.querySelector('[data-days="30"]').classList.add('active');
+loadReport();
+</script>
+
+<!-- Hisobot kartalari count-up (vizual only — oxirgi frame ANIQ qiymatni tiklaydi,
+     format/foiz/ishora buzilmaydi; hisobot JS'iga tegmaydi) -->
+<script>
+(function(){
+  var area = document.getElementById('reportArea');
+  if (!area) return;
+  var reduced = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var fmt = new Intl.NumberFormat('uz-UZ');
+
+  function countUp(el){
+    if (el.dataset.cu) return;
+    el.dataset.cu = '1';
+    var raw = (el.textContent || '').trim();
+    // faqat sof butun sonlar (pul/son) — foiz/o'nlik/harf bo'lsa aniq qoldiramiz
+    if (/[%.a-zA-Z]/.test(raw)) return;
+    var neg = raw.charAt(0) === '-';
+    var digits = raw.replace(/[^\d]/g, '');
+    if (!digits) return;
+    var target = parseInt(digits, 10);
+    if (reduced || target <= 0) return;          // matn aslidagicha qoladi
+    var dur = 750, t0 = performance.now();
+    el.textContent = (neg ? '-' : '') + fmt.format(0);
+    function step(now){
+      var p = Math.min((now - t0) / dur, 1);
+      var e = 1 - Math.pow(1 - p, 3);
+      if (p < 1){ el.textContent = (neg ? '-' : '') + fmt.format(Math.round(target * e)); requestAnimationFrame(step); }
+      else      { el.textContent = raw; }         // ANIQ original qiymat
+    }
+    requestAnimationFrame(step);
+  }
+
+  function scan(){ area.querySelectorAll('.sv:not([data-cu])').forEach(countUp); }
+  new MutationObserver(function(){ requestAnimationFrame(scan); })
+    .observe(area, { childList:true, subtree:true });
+  scan();
+})();
+</script>
+</body>
+</html>

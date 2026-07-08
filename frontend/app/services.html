@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Xizmatlar | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--r:.5rem;--r2:.875rem;--r3:1.125rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;align-items:center;flex-wrap:wrap}
+.sw{position:relative;flex:1;max-width:320px}
+.sw input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem .5rem 2.25rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.sw input:focus{border-color:var(--gold)}
+.sw svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.cat-sel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text2);font-size:.875rem;outline:none;cursor:pointer;font-family:inherit}
+.cat-sel:focus{border-color:var(--gold)}
+.count{font-size:.8125rem;color:var(--text3);margin-left:auto}
+/* Cards grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.875rem}
+.svc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;transition:.2s}
+.svc-card:hover{border-color:var(--border2)}
+.svc-card.inactive{opacity:.55}
+.svc-accent{height:3px}
+.svc-body{padding:1.125rem}
+.svc-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
+.svc-name{font-size:1rem;font-weight:700}
+.svc-cat{font-size:.75rem;color:var(--text3);margin-top:.15rem}
+.svc-price{font-size:1.125rem;font-weight:700;color:var(--gold)}
+.svc-dur{font-size:.75rem;color:var(--text2);margin-top:.125rem;text-align:right}
+.svc-desc{font-size:.8125rem;color:var(--text2);margin-bottom:.875rem}
+.svc-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem}
+.svc-meta span{font-size:.75rem;background:var(--bg3);border:1px solid var(--border);border-radius:.375rem;padding:.2rem .5rem;color:var(--text2)}
+.svc-meta .hi{color:var(--gold);border-color:rgba(212,180,108,.25);background:rgba(212,180,108,.07)}
+.svc-acts{display:flex;gap:.5rem}
+.empty{text-align:center;padding:3rem;color:var(--text3);grid-column:1/-1}
+/* Modal */
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}
+.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}
+.mf .btn{flex:1}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold)}
+.fg textarea{resize:vertical;min-height:60px}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Xizmatlar</h1>
+  <button class="btn btn-gold" id="addBtn">+ Yangi xizmat</button>
+</header>
+<div class="pc">
+  <div class="toolbar">
+    <div class="sw">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" placeholder="Xizmat qidirish...">
+    </div>
+    <select class="cat-sel" id="catSel">
+      <option value="">Barcha kategoriyalar</option>
+      <option value="hair">Soch</option>
+      <option value="nail">Tirnoq</option>
+      <option value="massage">Massaj</option>
+      <option value="fitness">Fitnes</option>
+      <option value="repair">Ta'mirlash</option>
+      <option value="course">Kurs</option>
+      <option value="other">Boshqa</option>
+    </select>
+    <span class="count" id="cnt"></span>
+  </div>
+  <div class="grid" id="grid"><div class="empty">Yuklanmoqda...</div></div>
+</div>
+
+<div class="modal" id="editModal">
+  <div class="mc">
+    <div class="mh"><h3 id="editTitle">Yangi xizmat</h3><div class="mc-x" onclick="cm()">×</div></div>
+    <div class="mb">
+      <input type="hidden" id="eid">
+      <div class="fg"><label>Xizmat nomi *</label><input id="eName" placeholder="Soch kesish"></div>
+      <div class="fr2">
+        <div class="fg"><label>Kategoriya</label>
+          <select id="eCat">
+            <option value="">Tanlang</option>
+            <option value="hair">Soch</option>
+            <option value="nail">Tirnoq</option>
+            <option value="massage">Massaj</option>
+            <option value="fitness">Fitnes</option>
+            <option value="repair">Ta'mirlash</option>
+            <option value="course">Kurs</option>
+            <option value="other">Boshqa</option>
+          </select>
+        </div>
+        <div class="fg"><label>Rang</label><input id="eColor" type="color" value="#d4b46c" style="height:38px;cursor:pointer;padding:.25rem"></div>
+      </div>
+      <div class="fr2">
+        <div class="fg"><label>Narx (so'm) *</label><input id="ePrice" type="number" min="0" step="1000" placeholder="50000"></div>
+        <div class="fg"><label>Davomiyligi (daqiqa)</label><input id="eDur" type="number" min="5" step="5" value="30"></div>
+      </div>
+      <div class="fr2">
+        <div class="fg"><label>Material xarajati (so'm)</label><input id="eCostPrice" type="number" min="0" step="100" placeholder="0" title="Soch bo'yog'i, ehtiyot qism va boshqa materiallar narxi"></div>
+        <div class="fg"><label>Usta komissiyasi (%)</label><input id="eCommPct" type="number" min="0" max="100" step="1" placeholder="0" title="Ustaga beriladigan foiz (0–100)"></div>
+      </div>
+      <div class="fg"><label>Tavsif</label><textarea id="eDesc" placeholder="Xizmat haqida qisqacha..."></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="cm()">Bekor</button>
+      <button class="btn btn-gold" id="saveBtn" onclick="save()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1',tok=()=>localStorage.getItem('access_token');
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,b)=>fetch(`${BASE}${u}`,{method:'POST',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+};
+const CAT={hair:'Soch',nail:'Tirnoq',massage:'Massaj',fitness:'Fitnes',repair:"Ta'mirlash",course:'Kurs',other:'Boshqa'};
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+let all=[];
+
+function renderMeta(s){
+  const cost=s.cost_price||0, comm=s.commission_pct||0, price=s.price||0;
+  if(!cost && !comm) return '';
+  const totalCost=cost+price*(comm/100);
+  const margin=price>0?Math.round((price-totalCost)/price*100):0;
+  const tags=[];
+  if(cost) tags.push(`<span>Material: ${fmtN(cost)} so'm</span>`);
+  if(comm) tags.push(`<span>Komissiya: ${comm}%</span>`);
+  tags.push(`<span class="hi">Marja: ${margin}%</span>`);
+  return `<div class="svc-meta">${tags.join('')}</div>`;
+}
+
+async function load(){
+  const res=await api.get('/services/?page_size=500').catch(()=>null);
+  all=res?.items??(Array.isArray(res)?res:res?.data?.items??[]);
+  filter();
+}
+
+function filter(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const cat=document.getElementById('catSel').value;
+  let list=all;
+  if(q) list=list.filter(s=>(s.name||'').toLowerCase().includes(q));
+  if(cat) list=list.filter(s=>s.category===cat);
+  document.getElementById('cnt').textContent=list.length+' ta';
+  render(list);
+}
+
+function render(list){
+  const grid=document.getElementById('grid');
+  if(!list.length){grid.innerHTML='<div class="empty">Xizmatlar topilmadi</div>';return;}
+  grid.innerHTML=list.map(s=>`
+    <div class="svc-card${s.is_active===false?' inactive':''}">
+      <div class="svc-accent" style="background:${s.color||'var(--gold)'}"></div>
+      <div class="svc-body">
+        <div class="svc-row">
+          <div><div class="svc-name">${esc(s.name)}</div><div class="svc-cat">${CAT[s.category]||s.category||'—'}</div></div>
+          <div><div class="svc-price">${fmtN(s.price)} so'm</div><div class="svc-dur">${s.duration_minutes||0} daqiqa</div></div>
+        </div>
+        ${s.description?`<div class="svc-desc">${esc(s.description)}</div>`:''}
+        ${renderMeta(s)}
+        <div class="svc-acts">
+          <button class="btn btn-out btn-sm" onclick="openEdit(${s.id})">Tahrirlash</button>
+          <button class="btn btn-sm ${s.is_active!==false?'btn-out':'btn-gold'}" onclick="toggle(${s.id},${s.is_active!==false})">${s.is_active!==false?"O'chirish":'Yoqish'}</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function om(){document.getElementById('editModal').classList.add('open');}
+function cm(){document.getElementById('editModal').classList.remove('open');}
+
+function openAdd(){
+  document.getElementById('editTitle').textContent='Yangi xizmat';
+  document.getElementById('eid').value='';
+  document.getElementById('eName').value='';document.getElementById('eCat').value='';
+  document.getElementById('ePrice').value='';document.getElementById('eDur').value=30;
+  document.getElementById('eColor').value='#d4b46c';document.getElementById('eDesc').value='';
+  document.getElementById('eCostPrice').value='';document.getElementById('eCommPct').value='';
+  om();
+}
+
+function openEdit(id){
+  const s=all.find(x=>x.id===id);if(!s)return;
+  document.getElementById('editTitle').textContent='Xizmatni tahrirlash';
+  document.getElementById('eid').value=s.id;
+  document.getElementById('eName').value=s.name||'';document.getElementById('eCat').value=s.category||'';
+  document.getElementById('ePrice').value=s.price||'';document.getElementById('eDur').value=s.duration_minutes||30;
+  document.getElementById('eColor').value=s.color||'#d4b46c';document.getElementById('eDesc').value=s.description||'';
+  document.getElementById('eCostPrice').value=s.cost_price||'';
+  document.getElementById('eCommPct').value=s.commission_pct||'';
+  om();
+}
+
+async function save(){
+  const name=document.getElementById('eName').value.trim();
+  const price=parseFloat(document.getElementById('ePrice').value)||0;
+  if(!name){showT('Nom majburiy','warning');return;}
+  const id=document.getElementById('eid').value;
+  const cost_price=parseFloat(document.getElementById('eCostPrice').value)||0;
+  const commission_pct=parseFloat(document.getElementById('eCommPct').value)||0;
+  const body={name,category:document.getElementById('eCat').value||null,price,duration_minutes:parseInt(document.getElementById('eDur').value)||30,color:document.getElementById('eColor').value,description:document.getElementById('eDesc').value||null,cost_price,commission_pct};
+  const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='...';
+  try{
+    if(id) await api.patch(`/services/${id}`,body);
+    else   await api.post('/services/',body);
+    showT('Saqlandi','success');cm();await load();
+  }catch{showT('Xatolik','error');}
+  finally{btn.disabled=false;btn.textContent='Saqlash';}
+}
+
+async function toggle(id,cur){
+  await api.patch(`/services/${id}`,{is_active:!cur}).catch(()=>null);
+  showT(cur?"O'chirildi":'Yoqildi','success');await load();
+}
+
+function showT(m,t='info'){const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b'};const el=document.createElement('div');el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${c[t]};color:${c[t]};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4)`;el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+document.getElementById('addBtn').addEventListener('click',openAdd);
+document.getElementById('searchInput').addEventListener('input',filter);
+document.getElementById('catSel').addEventListener('change',filter);
+document.getElementById('editModal').addEventListener('click',e=>{if(e.target===document.getElementById('editModal'))cm();});
+load();
+</script>
+</body>
+</html>

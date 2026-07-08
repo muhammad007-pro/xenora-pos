@@ -1,0 +1,199 @@
+<!-- Navbar komponenti -->
+<nav class="app-navbar glass">
+    <div class="navbar-brand">
+        <img src="../assets/icons/logo.svg" alt="Logo" class="navbar-logo">
+        <span class="brand-text">Resto<span>POS</span></span>
+    </div>
+    
+    <ul class="navbar-menu">
+        <li class="nav-item">
+            <a href="../index.html" class="nav-link">Bosh sahifa</a>
+        </li>
+        <li class="nav-item dropdown">
+            <button class="nav-link dropdown-toggle">
+                Modullar
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <ul class="dropdown-menu glass">
+                <li><a href="../app/pos.html">POS Terminal</a></li>
+                <li><a href="../app/kitchen.html">Oshxona Displey</a></li>
+                <li><a href="../app/admin.html">Admin Panel</a></li>
+                <li><a href="../app/analytics.html">Analitika</a></li>
+                <li><a href="../app/inventory.html">Ombor</a></li>
+            </ul>
+        </li>
+        <li class="nav-item">
+            <a href="#features" class="nav-link">Xususiyatlar</a>
+        </li>
+        <li class="nav-item">
+            <a href="#pricing" class="nav-link">Narxlar</a>
+        </li>
+        <li class="nav-item">
+            <a href="#contact" class="nav-link">Aloqa</a>
+        </li>
+    </ul>
+    
+    <div class="navbar-actions">
+        <button class="theme-toggle btn-icon glass" id="navbarThemeToggle">
+            <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="5" fill="currentColor"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2"/>
+            </svg>
+        </button>
+        <a href="../shared/login.html" class="btn btn-outline btn-sm">Kirish</a>
+        <a href="../shared/login.html?register=true" class="btn btn-primary btn-sm">Ro'yxatdan o'tish</a>
+    </div>
+    
+    <button class="mobile-menu-toggle btn-icon glass" id="navbarMobileToggle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+    </button>
+</nav>
+
+<style>
+.app-navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.navbar-logo {
+    width: 40px;
+    height: 40px;
+}
+
+.brand-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.brand-text span {
+    color: var(--primary);
+}
+
+.navbar-menu {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nav-link {
+    padding: 0.5rem 1rem;
+    color: var(--gray-600);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color var(--transition-fast);
+    border-radius: var(--radius-md);
+}
+
+[data-theme="dark"] .nav-link {
+    color: var(--gray-400);
+}
+
+.nav-link:hover {
+    color: var(--primary);
+}
+
+.dropdown {
+    position: relative;
+}
+
+.dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 200px;
+    padding: 0.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all var(--transition-base);
+}
+
+.dropdown:hover .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-menu li {
+    list-style: none;
+}
+
+.dropdown-menu a {
+    display: block;
+    padding: 0.5rem 1rem;
+    color: inherit;
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast);
+}
+
+.dropdown-menu a:hover {
+    background: var(--glass-bg-light);
+    color: var(--primary);
+}
+
+.navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.mobile-menu-toggle {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .navbar-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        padding: 1rem;
+        border-bottom: 1px solid var(--glass-border);
+    }
+    
+    .navbar-menu.open {
+        display: flex;
+    }
+    
+    .mobile-menu-toggle {
+        display: flex;
+    }
+    
+    .navbar-actions {
+        margin-left: auto;
+        margin-right: 1rem;
+    }
+}
+</style>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Naценka Siyosati — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .kpi-row     { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .kpi-card    { background:var(--surface1); border:1px solid var(--border); border-radius:.75rem; padding:1rem 1.25rem; }
+  .kpi-label   { font-size:.75rem; color:var(--text2); margin-bottom:.375rem; }
+  .kpi-value   { font-size:1.5rem; font-weight:800; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .table-wrap  { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .badge { display:inline-block; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .badge-global   { background:#dbeafe; color:#1e40af; }
+  .badge-category { background:#fef3c7; color:#92400e; }
+  .badge-product  { background:#d1fae5; color:#065f46; }
+  .badge-active   { background:#d1fae5; color:#065f46; }
+  .badge-inactive { background:#f3f4f6; color:#6b7280; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box  { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:620px; width:96%; max-height:92vh; overflow-y:auto; }
+  .modal-title{ font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row   { margin-bottom:.875rem; }
+  .form-label { font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .preview-table { width:100%; border-collapse:collapse; font-size:.8125rem; margin-top:1rem; }
+  .preview-table th { background:var(--surface2); padding:.5rem; text-align:left; }
+  .preview-table td { padding:.4rem .5rem; border-bottom:1px solid var(--border); }
+  .price-up   { color:#10b981; font-weight:700; }
+  .price-down { color:#ef4444; font-weight:700; }
+  .price-same { color:var(--text2); }
+  .action-btns { display:flex; gap:.5rem; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">💰 Naценka Siyosati</h1>
+      <button class="btn" id="btnAdd">+ Yangi siyosat</button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Jami siyosat</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Faol</div>
+        <div class="kpi-value" id="kpiActive" style="color:#10b981">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Global siyosat</div>
+        <div class="kpi-value" id="kpiGlobal">—</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label class="form-label">Qamrov</label>
+        <select class="inp" id="filterScope" style="width:160px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="global">Global</option>
+          <option value="category">Kategoriya</option>
+          <option value="product">Tovar</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Holat</label>
+        <select class="inp" id="filterActive" style="width:140px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="true">Faol</option>
+          <option value="false">Nofaol</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Qamrov</th>
+            <th>Foiz</th>
+            <th>Min narx</th>
+            <th>Holat</th>
+            <th>Amallar</th>
+          </tr>
+        </thead>
+        <tbody id="policyTbody">
+          <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text2)">Yuklanmoqda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- CREATE / EDIT MODAL -->
+<div class="modal-overlay" id="modalCreate">
+  <div class="modal-box">
+    <div class="modal-title" id="modalCreateTitle">Yangi naценka siyosati</div>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <label class="form-label">Nom *</label>
+      <input class="inp" id="fName" placeholder="Masalan: Oziq-ovqat 30%">
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Qamrov</label>
+        <select class="inp" id="fScope" onchange="onScopeChange()">
+          <option value="global">Global (barchasi)</option>
+          <option value="category">Kategoriya</option>
+          <option value="product">Tovar</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Naценka foizi (%) *</label>
+        <input class="inp" type="number" id="fPct" placeholder="30" min="0" max="500" step="0.5">
+      </div>
+    </div>
+    <div class="form-row" id="categoryRow" style="display:none">
+      <label class="form-label">Kategoriya</label>
+      <select class="inp" id="fCategory"><option value="">— tanlang —</option></select>
+    </div>
+    <div class="form-row" id="productRow" style="display:none">
+      <label class="form-label">Tovar</label>
+      <select class="inp" id="fProduct"><option value="">— tanlang —</option></select>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Minimal narx (ixtiyoriy)</label>
+        <input class="inp" type="number" id="fMinPrice" placeholder="0">
+      </div>
+      <div class="form-row" style="display:flex;align-items:flex-end;gap:.5rem;padding-bottom:.875rem">
+        <label style="display:flex;align-items:center;gap:.5rem;font-size:.875rem;cursor:pointer">
+          <input type="checkbox" id="fActive" checked> Faol
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="closeModal()">Bekor</button>
+      <button class="btn" onclick="savePolicy()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div class="modal-overlay" id="modalPreview">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-title">Ko'rib chiqish — narx o'zgarishlari</div>
+    <p style="font-size:.8125rem;color:var(--text2);margin-bottom:1rem" id="previewInfo"></p>
+    <div style="overflow-x:auto">
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>Tovar</th>
+            <th>Tan narx</th>
+            <th>Hozirgi narx</th>
+            <th>Yangi narx</th>
+            <th>Farq</th>
+          </tr>
+        </thead>
+        <tbody id="previewTbody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalPreview').classList.remove('active')">Yopish</button>
+      <button class="btn btn-danger" id="btnApplyConfirm">Narxlarni yangilash</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API }     from '/js/core/api.js';
+import { toast }   from '/js/core/toast.js';
+
+const api = new API();
+await Sidebar.init();
+
+let policies = [];
+let categories = [];
+let allProducts = [];
+
+async function loadSupport() {
+  const [catRes, prodRes] = await Promise.all([
+    api.get('/categories/?page_size=200'),
+    api.get('/products/?page_size=500'),
+  ]);
+  categories  = catRes.items || catRes || [];
+  allProducts = prodRes.items || prodRes || [];
+
+  const catSel  = document.getElementById('fCategory');
+  const prodSel = document.getElementById('fProduct');
+  catSel.innerHTML  = '<option value="">— tanlang —</option>' + categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  prodSel.innerHTML = '<option value="">— tanlang —</option>' + allProducts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+window.onScopeChange = function() {
+  const scope = document.getElementById('fScope').value;
+  document.getElementById('categoryRow').style.display = scope === 'category' ? '' : 'none';
+  document.getElementById('productRow').style.display  = scope === 'product'  ? '' : 'none';
+};
+
+window.load = async function() {
+  const scope   = document.getElementById('filterScope').value;
+  const active  = document.getElementById('filterActive').value;
+  let url = '/markup-policies/?page_size=200';
+  if (scope)  url += `&scope=${scope}`;
+  if (active) url += `&is_active=${active}`;
+  const res = await api.get(url);
+  policies = res.items || res || [];
+
+  document.getElementById('kpiTotal').textContent  = policies.length;
+  document.getElementById('kpiActive').textContent = policies.filter(p=>p.is_active).length;
+  document.getElementById('kpiGlobal').textContent = policies.filter(p=>p.scope==='global').length;
+
+  const scopeLabel = { global:'Global', category:'Kategoriya', product:'Tovar' };
+  document.getElementById('policyTbody').innerHTML = policies.length === 0
+    ? `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text2)">Siyosat yo'q</td></tr>`
+    : policies.map(p => `
+      <tr>
+        <td><strong>${p.name}</strong></td>
+        <td>
+          <span class="badge badge-${p.scope}">${scopeLabel[p.scope]||p.scope}</span>
+          ${p.category_name ? `<span style="font-size:.8rem;color:var(--text2);margin-left:.4rem">${p.category_name}</span>` : ''}
+          ${p.product_name  ? `<span style="font-size:.8rem;color:var(--text2);margin-left:.4rem">${p.product_name}</span>`  : ''}
+        </td>
+        <td><strong style="color:#159a70">${p.markup_pct}%</strong></td>
+        <td>${p.min_price ? fmtMoney(p.min_price) : '—'}</td>
+        <td><span class="badge badge-${p.is_active?'active':'inactive'}">${p.is_active?'Faol':'Nofaol'}</span></td>
+        <td>
+          <div class="action-btns">
+            <button class="btn btn-sm" onclick="previewPolicy(${p.id},'${escHtml(p.name)}',${p.markup_pct})">Ko'rish</button>
+            <button class="btn btn-sm" onclick="editPolicy(${p.id})">Tahrir</button>
+            <button class="btn btn-sm btn-danger" onclick="deletePolicy(${p.id})">O'ch</button>
+          </div>
+        </td>
+      </tr>`).join('');
+};
+
+function fmtMoney(n) { return Number(n).toLocaleString('uz-UZ') + ' so\'m'; }
+function escHtml(s)  { return String(s).replace(/[<>"'&]/g, c=>({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c])); }
+
+window.previewPolicy = async function(id, name, pct) {
+  document.getElementById('previewInfo').textContent = `"${name}" — ${pct}% naценka qo'llanilganda narxlar:`;
+  document.getElementById('previewTbody').innerHTML = '<tr><td colspan="5" style="text-align:center">Yuklanmoqda...</td></tr>';
+  document.getElementById('modalPreview').classList.add('active');
+
+  const rows = await api.get(`/markup-policies/preview/${id}`);
+  document.getElementById('previewTbody').innerHTML = rows.map(r => {
+    const diff = r.diff || 0;
+    const cls  = diff > 0 ? 'price-up' : diff < 0 ? 'price-down' : 'price-same';
+    const sign = diff > 0 ? '+' : '';
+    return `<tr style="${!r.will_change?'opacity:.5':''}">
+      <td>${escHtml(r.name)}</td>
+      <td>${fmtMoney(r.cost_price)}</td>
+      <td>${fmtMoney(r.old_price)}</td>
+      <td class="${cls}">${fmtMoney(r.new_price)}</td>
+      <td class="${cls}">${sign}${fmtMoney(diff)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center">Mahsulot topilmadi</td></tr>';
+
+  document.getElementById('btnApplyConfirm').onclick = () => applyPolicy(id);
+};
+
+window.applyPolicy = async function(id) {
+  if (!confirm('Narxlarni yangilashni tasdiqlaysizmi?')) return;
+  const res = await api.post(`/markup-policies/apply`, { policy_id: id, product_ids: [] });
+  toast(res.message || 'Narxlar yangilandi', 'success');
+  document.getElementById('modalPreview').classList.remove('active');
+  load();
+};
+
+window.editPolicy = function(id) {
+  const p = policies.find(x=>x.id===id); if (!p) return;
+  document.getElementById('modalCreateTitle').textContent = 'Siyosatni tahrirlash';
+  document.getElementById('editId').value    = p.id;
+  document.getElementById('fName').value     = p.name;
+  document.getElementById('fScope').value    = p.scope;
+  document.getElementById('fPct').value      = p.markup_pct;
+  document.getElementById('fMinPrice').value = p.min_price || '';
+  document.getElementById('fActive').checked = p.is_active;
+  document.getElementById('fCategory').value = p.category_id || '';
+  document.getElementById('fProduct').value  = p.product_id  || '';
+  onScopeChange();
+  document.getElementById('modalCreate').classList.add('active');
+};
+
+window.savePolicy = async function() {
+  const id      = document.getElementById('editId').value;
+  const name    = document.getElementById('fName').value.trim();
+  const pct     = parseFloat(document.getElementById('fPct').value);
+  if (!name || isNaN(pct)) { toast('Nom va foizni kiriting', 'error'); return; }
+
+  const body = {
+    name,
+    scope:       document.getElementById('fScope').value,
+    markup_pct:  pct,
+    min_price:   parseFloat(document.getElementById('fMinPrice').value) || null,
+    is_active:   document.getElementById('fActive').checked,
+    category_id: parseInt(document.getElementById('fCategory').value) || null,
+    product_id:  parseInt(document.getElementById('fProduct').value)  || null,
+  };
+
+  if (id) await api.patch(`/markup-policies/${id}`, body);
+  else     await api.post('/markup-policies/', body);
+  toast('Saqlandi', 'success');
+  closeModal();
+  load();
+};
+
+window.deletePolicy = async function(id) {
+  if (!confirm('Siyosatni o\'chirishni tasdiqlaysizmi?')) return;
+  await api.delete(`/markup-policies/${id}`);
+  toast('O\'chirildi', 'success');
+  load();
+};
+
+window.closeModal = function() {
+  document.getElementById('modalCreate').classList.remove('active');
+  document.getElementById('editId').value = '';
+  document.getElementById('modalCreateTitle').textContent = 'Yangi naценka siyosati';
+};
+
+document.getElementById('btnAdd').onclick = () => {
+  closeModal();
+  document.getElementById('modalCreate').classList.add('active');
+};
+document.getElementById('modalCreate').addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+
+await loadSupport();
+load();
+</script>
+</body>
+</html>

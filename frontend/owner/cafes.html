@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Mijozlar | XENORA Super Admin</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s;flex-shrink:0}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.pc{padding:1.5rem;max-width:1400px;margin:0 auto}
+/* Stats bar */
+.sg{display:grid;grid-template-columns:repeat(5,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1rem 1.25rem;cursor:pointer;transition:.2s}
+.sc:hover,.sc.active{border-color:var(--gold);background:var(--gold-dim)}
+.sl{font-size:.6875rem;color:var(--text3);margin-bottom:.25rem;text-transform:uppercase;letter-spacing:.5px}
+.sv{font-size:1.5rem;font-weight:700;color:#ecf6ef}
+.sv.gold{color:var(--gold)}
+.sv.red{color:#ef4444}
+.sv.yellow{color:#f59e0b}
+.sv.green{color:#10b981}
+/* Search bar */
+.sbar{display:flex;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.sin{flex:1;min-width:200px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem 1rem;color:#ecf6ef;font-size:.875rem;outline:none}
+.sin:focus{border-color:var(--gold)}
+.ssel{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .75rem;color:#ecf6ef;font-size:.875rem;outline:none;cursor:pointer}
+.ssel:focus{border-color:var(--gold)}
+/* Table */
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse;font-size:.8125rem}
+.tbl th{text-align:left;padding:.625rem 1rem;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border2);white-space:nowrap}
+.tbl td{padding:.625rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.tbl tr:last-child td{border:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .6rem;border-radius:99px;font-size:.6875rem;font-weight:600}
+.badge.active{background:rgba(16,185,129,.15);color:#10b981}
+.badge.trial{background:rgba(59,130,246,.15);color:#60a5fa}
+.badge.blocked{background:rgba(239,68,68,.15);color:#ef4444}
+.badge.expired{background:rgba(107,114,128,.12);color:#9ca3af}
+.plan-badge{padding:.15rem .5rem;border-radius:99px;font-size:.6875rem;font-weight:700}
+.plan-badge.free{background:rgba(107,114,128,.15);color:#9ca3af}
+.plan-badge.pro{background:rgba(212,180,108,.15);color:var(--gold)}
+.code-chip{display:inline-flex;align-items:center;gap:.25rem;padding:.1rem .45rem;border-radius:6px;font-size:.72rem;font-weight:700;font-family:monospace;letter-spacing:.5px;background:rgba(212,180,108,.12);color:var(--gold);border:1px solid rgba(212,180,108,.3);cursor:pointer;transition:.15s}
+.code-chip:hover{background:rgba(212,180,108,.25)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;text-decoration:none;white-space:nowrap}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.bred{background:transparent;border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.bred:hover{background:rgba(239,68,68,.1)}
+.bgreen{background:transparent;border:1px solid rgba(16,185,129,.3);color:#10b981}
+.bgreen:hover{background:rgba(16,185,129,.1)}
+.bsm{padding:.3rem .75rem;font-size:.75rem}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center}
+.overlay.open{display:flex}
+.mbox{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);width:min(640px,95vw);max-height:90vh;overflow-y:auto}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border2)}
+.mh h2{font-size:1rem;font-weight:700;color:var(--gold)}
+.mb{padding:1.25rem 1.5rem}
+.mf{padding:1rem 1.5rem;border-top:1px solid var(--border2);display:flex;gap:.75rem;justify-content:flex-end}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:#ecf6ef;font-size:.875rem;outline:none}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold)}
+.fg textarea{resize:vertical;min-height:60px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.875rem}
+.section-title{font-size:.75rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:1rem 0 .75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border2)}
+/* Empty state */
+.empty{text-align:center;padding:3rem 1rem;color:var(--text3)}
+/* Days left */
+.days-warn{color:#f59e0b;font-weight:600}
+.days-ok{color:var(--text2)}
+.days-expired{color:#ef4444;font-weight:600}
+@media(max-width:900px){.sg{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}.tbl th:nth-child(n+6),.tbl td:nth-child(n+6){display:none}}
+@media(max-width:600px){.sg{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header class="ph">
+  <a href="dashboard.html" class="bk" title="Bosh sahifa">←</a>
+  <h1 class="pt">👥 Mijozlar boshqaruvi</h1>
+  <button class="btn bg" onclick="openModal('add')">+ Yangi mijoz</button>
+</header>
+
+<div class="pc">
+  <!-- Stats -->
+  <div class="sg">
+    <div class="sc" onclick="filterStatus('')" id="st-all">
+      <div class="sl">Jami</div><div class="sv gold" id="cnt-all">—</div>
+    </div>
+    <div class="sc" onclick="filterStatus('active')" id="st-active">
+      <div class="sl">Faol</div><div class="sv green" id="cnt-active">—</div>
+    </div>
+    <div class="sc" onclick="filterStatus('trial')" id="st-trial">
+      <div class="sl">Sinov</div><div class="sv" style="color:#60a5fa" id="cnt-trial">—</div>
+    </div>
+    <div class="sc" onclick="filterStatus('expired')" id="st-expired">
+      <div class="sl">Muddati tugagan</div><div class="sv yellow" id="cnt-expired">—</div>
+    </div>
+    <div class="sc" onclick="filterStatus('blocked')" id="st-blocked">
+      <div class="sl">Bloklangan</div><div class="sv red" id="cnt-blocked">—</div>
+    </div>
+  </div>
+
+  <!-- Search & filter -->
+  <div class="sbar">
+    <input class="sin" id="searchInp" placeholder="Ism, telefon, kod bo'yicha qidirish..." oninput="debouncedLoad()">
+    <select class="ssel" id="planFilter" onchange="load()">
+      <option value="">Barcha tariflar</option>
+      <option value="free">FREE</option>
+      <option value="pro">PRO</option>
+    </select>
+    <button class="btn bo" onclick="load()">↻ Yangilash</button>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Biznes nomi</th>
+          <th>Egasi / Telefon</th>
+          <th>Biznes turi</th>
+          <th>Tarif</th>
+          <th>Obuna tugashi</th>
+          <th>Holat</th>
+          <th>Amallar</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="7" class="empty">Yuklanmoqda...</td></tr></tbody>
+    </table>
+  </div>
+  <div style="margin-top:.75rem;font-size:.8125rem;color:var(--text3)" id="pager"></div>
+</div>
+
+<!-- ── ADD/EDIT MODAL ─── -->
+<div class="overlay" id="addModal">
+  <div class="mbox">
+    <div class="mh">
+      <h2 id="modalTitle">Yangi mijoz ro'yxatdan o'tkazish</h2>
+      <button class="btn bo bsm" onclick="closeModal('add')">✕</button>
+    </div>
+    <div class="mb">
+      <div class="section-title">Biznes ma'lumotlari</div>
+      <div class="grid2">
+        <div class="fg"><label>Biznes nomi *</label><input id="f-name" placeholder="Restoran nomi"></div>
+        <div class="fg">
+          <label>Biznes turi *</label>
+          <select id="f-btype" onchange="previewFeatures()">
+            <option value="restaurant">🍽️ Restoran</option>
+            <option value="cafe">☕ Kafe</option>
+            <option value="fast_food">🍔 Fast Food</option>
+            <option value="store">🏪 Magazin</option>
+            <option value="supermarket">🛒 Supermarket</option>
+            <option value="pharmacy">💊 Dorixona</option>
+            <option value="salon">💇 Go'zallik saloni</option>
+            <option value="fitness">💪 Fitnes</option>
+            <option value="auto_service">🔧 Auto servis</option>
+            <option value="school">📚 Kurs/Maktab</option>
+            <option value="dry_cleaning">👔 Kimyoviy tozalash</option>
+            <option value="hotel">🏨 Mehmonxona</option>
+          </select>
+        </div>
+        <!-- Feature preview -->
+        <div style="grid-column:1/-1">
+          <div id="featurePreview" style="background:var(--bg3);border:1px solid rgba(212,180,108,.2);border-radius:var(--r);padding:.75rem 1rem;font-size:.75rem">
+            <div style="color:var(--text3);margin-bottom:.5rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Avtomatik yoqiladigan funksiyalar</div>
+            <div id="featureTags" style="display:flex;flex-wrap:wrap;gap:.375rem"></div>
+          </div>
+        </div>
+
+        <div class="fg"><label>Egasi (to'liq ism) *</label><input id="f-oname" placeholder="Alisher Uzoqov"></div>
+        <div class="fg"><label>Egasi telefoni *</label><input id="f-ophone" placeholder="+998 90 123 45 67"></div>
+        <div class="fg"><label>Manzil</label><input id="f-addr" placeholder="Toshkent sh, ..."></div>
+        <div class="fg"><label>Email</label><input id="f-email" type="email" placeholder="info@biznes.uz"></div>
+      </div>
+
+      <div class="section-title">Tarif va obuna</div>
+      <div class="grid2">
+        <div class="fg">
+          <label>Tarif *</label>
+          <select id="f-plan">
+            <option value="free">FREE — bepul</option>
+            <option value="pro">PRO — 990,000 UZS/oy</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Obuna muddati (oy)</label>
+          <input id="f-months" type="number" min="0" max="24" value="1" placeholder="0 = muddatsiz">
+        </div>
+        <div class="fg">
+          <label>Sinov muddati (kun)</label>
+          <input id="f-trial" type="number" min="0" max="90" value="0" placeholder="0 = sinov yo'q">
+        </div>
+      </div>
+
+      <div class="section-title">Admin foydalanuvchi</div>
+      <div class="grid2">
+        <div class="fg"><label>Username *</label><input id="f-uname" placeholder="biznes_admin"></div>
+        <div class="fg"><label>Email</label><input id="f-uemail" type="email" placeholder="admin@biznes.uz"></div>
+        <div class="fg"><label>Parol (bo'sh = avtomatik)</label><input id="f-upass" type="password" placeholder="Ixtiyoriy"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bo" onclick="closeModal('add')">Bekor qilish</button>
+      <button class="btn bg" id="saveBtn" onclick="saveTenant()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDIT MODAL (super-admin: tarif, kod, admin login) ─── -->
+<div class="overlay" id="editModal">
+  <div class="mbox" style="max-width:480px">
+    <div class="mh"><h2>Do'konni boshqarish</h2><button class="btn bo bsm" onclick="closeModal('edit')">✕</button></div>
+    <div class="mb">
+      <div id="edit-name" style="font-weight:700;font-size:1.05rem;margin-bottom:.75rem"></div>
+
+      <div class="section-title">Do'kon kirish kodi</div>
+      <div class="fg">
+        <label>Mijozga beriladigan login kodi</label>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input id="edit-code" readonly style="font-family:monospace;font-weight:700;letter-spacing:1px;color:var(--gold)">
+          <button class="btn bg bsm" type="button" onclick="copyCode(document.getElementById('edit-code').value)">📋 Nusxa</button>
+        </div>
+      </div>
+
+      <div class="section-title">Tarif rejasi</div>
+      <div class="fg">
+        <label>Tarif (o'zgartirilsa darhol qo'llanadi)</label>
+        <select id="edit-plan">
+          <option value="free">FREE — bepul</option>
+          <option value="pro">PRO — 990,000 UZS/oy</option>
+        </select>
+      </div>
+
+      <div class="section-title">Admin login</div>
+      <div class="grid2">
+        <div class="fg"><label>Login telefoni</label><input id="edit-phone" placeholder="+998 90 123 45 67"></div>
+        <div class="fg"><label>Yangi parol (bo'sh = o'zgarmaydi)</label>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <input id="edit-pass" placeholder="Bo'sh qoldiring yoki yangi">
+            <button class="btn bo bsm" type="button" onclick="genPass()" title="Avto-generatsiya">🎲</button>
+          </div>
+        </div>
+      </div>
+      <div id="edit-uname" style="font-size:.72rem;color:var(--text3)"></div>
+    </div>
+    <div class="mf">
+      <button class="btn bo" onclick="closeModal('edit')">Bekor qilish</button>
+      <button class="btn bg" id="editSaveBtn" onclick="saveEdit()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── BLOCK MODAL ─── -->
+<div class="overlay" id="blockModal">
+  <div class="mbox" style="max-width:420px">
+    <div class="mh"><h2>Bloklash sababi</h2><button class="btn bo bsm" onclick="closeModal('block')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Sabab</label><textarea id="block-reason" placeholder="Nima uchun bloklanmoqda..."></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn bo" onclick="closeModal('block')">Bekor qilish</button>
+      <button class="btn bred" onclick="confirmBlock()">Bloklash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── RESULT MODAL ─── -->
+<div class="overlay" id="resultModal">
+  <div class="mbox" style="max-width:420px">
+    <div class="mh"><h2>Natija</h2><button class="btn bo bsm" onclick="closeModal('result')">✕</button></div>
+    <div class="mb"><pre id="resultText" style="font-size:.8rem;color:var(--gold);white-space:pre-wrap;word-break:break-all"></pre></div>
+    <div class="mf"><button class="btn bg" onclick="closeModal('result')">OK</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard } from '../js/core/auth-guard.js';
+AuthGuard.check('superuser');
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+if(!tok()) location.href='../shared/login.html';
+
+async function _apiFetch(url, opts={}) {
+  const r = await fetch(`${BASE}${url}`, {
+    ...opts,
+    headers: { Authorization:'Bearer '+tok(), ...(opts.headers||{}) }
+  });
+  if (r.status === 401) { localStorage.removeItem('access_token'); location.href='../shared/login.html'; return null; }
+  return r.json();
+}
+const api={
+  get:  u      => _apiFetch(u),
+  post: (u,b)  => _apiFetch(u, {method:'POST',  headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}),
+  patch:(u,b)  => _apiFetch(u, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)}),
+};
+
+const BTLABELS={restaurant:'🍽️ Restoran',cafe:'☕ Kafe',fast_food:'🍔 Fast Food',store:'🏪 Magazin',
+  supermarket:'🛒 Supermarket',pharmacy:'💊 Dorixona',salon:'💇 Go\'zallik saloni',fitness:'💪 Fitnes',
+  auto_service:'🔧 Auto servis',school:'📚 Kurs/Maktab',hotel:'🏨 Mehmonxona',dry_cleaning:'👔 Kimyoviy tozalash'};
+
+const FEATURE_MATRIX={
+  restaurant:['kitchen_display','table_management','waiter','table_reservation','recipe','scale','inventory','loyalty','delivery','qr_menu','modifiers','combo','happy_hour','table_merge','courses','waiter_call','tips','customer_history','voice_order'],
+  cafe:      ['kitchen_display','table_management','waiter','recipe','scale','inventory','loyalty','qr_menu','modifiers','happy_hour','waiter_call','tips','customer_history','voice_order'],
+  fast_food: ['kitchen_display','recipe','inventory','loyalty','delivery','combo','modifiers','voice_order'],
+  store:     ['barcode','scale','inventory','loyalty'],
+  supermarket:['barcode','scale','inventory','loyalty'],
+  pharmacy:  ['barcode','expiry_date','inventory','loyalty'],
+  salon:     ['time_booking','services','inventory','loyalty'],
+  fitness:   ['time_booking','services','loyalty'],
+  auto_service:['time_booking','services','inventory'],
+  school:    ['time_booking','services','loyalty'],
+  hotel:     ['table_reservation','time_booking','services','inventory','loyalty'],
+  dry_cleaning:['time_booking','services','inventory'],
+};
+const FEATURE_LABELS={
+  kitchen_display:'🍳 Oshxona ekrani',table_management:'🪑 Stol boshqaruvi',
+  waiter:'🧑‍🍽️ Ofitsiant',table_reservation:'📅 Stol bron',recipe:'📋 Retsept',
+  barcode:'📊 Shtrix-kod',scale:'⚖️ Tarozi',expiry_date:'📆 Yaroqlilik muddati',
+  time_booking:'🕐 Vaqt bronlash',services:'🛎️ Xizmatlar',inventory:'📦 Ombor',
+  loyalty:'⭐ Sodiqlik',delivery:'🚚 Yetkazib berish',qr_menu:'📱 QR-menyu',
+  modifiers:'🔧 Modifikatorlar',combo:'🍱 Kombo/Set',happy_hour:'⏰ Happy Hour',
+  table_merge:'🔗 Stol birlashtirish',courses:'🥗 Kursli ovqat',waiter_call:'🔔 Ofitsiant chaqirish',
+  tips:'💰 Choy puli',customer_history:'📊 Mijoz tarixi',voice_order:'🎤 Ovozli buyurtma',
+};
+
+function previewFeatures(){
+  const bt=document.getElementById('f-btype').value;
+  const features=FEATURE_MATRIX[bt]||[];
+  document.getElementById('featureTags').innerHTML=features.map(f=>
+    `<span style="background:rgba(212,180,108,.12);border:1px solid rgba(212,180,108,.25);color:#d4b46c;padding:.15rem .55rem;border-radius:99px;white-space:nowrap">${FEATURE_LABELS[f]||f}</span>`
+  ).join('');
+}
+
+let allTenants=[];
+let currentFilter='';
+let blockTargetId=null;
+let debTimer=null;
+
+function debouncedLoad(){clearTimeout(debTimer);debTimer=setTimeout(load,400);}
+
+async function load(){
+  const search=document.getElementById('searchInp').value;
+  const plan=document.getElementById('planFilter').value;
+  let url=`/super-admin/tenants?page_size=200`;
+  if(search) url+=`&search=${encodeURIComponent(search)}`;
+  if(plan) url+=`&plan=${plan}`;
+  if(currentFilter) url+=`&status=${currentFilter}`;
+  const res=await api.get(url).catch(()=>null);
+  allTenants=res?.items||[];
+  renderStats(res);
+  renderTable(allTenants);
+}
+
+function renderStats(res){
+  if(!res) return;
+  const all=res.total||0;
+  document.getElementById('cnt-all').textContent=all;
+  // Per-status counts from data
+  const counts={active:0,trial:0,expired:0,blocked:0};
+  (allTenants).forEach(t=>{ if(counts[t.tenant_status]!==undefined) counts[t.tenant_status]++; });
+  document.getElementById('cnt-active').textContent=counts.active;
+  document.getElementById('cnt-trial').textContent=counts.trial;
+  document.getElementById('cnt-expired').textContent=counts.expired;
+  document.getElementById('cnt-blocked').textContent=counts.blocked;
+}
+
+function filterStatus(s){
+  currentFilter=s;
+  document.querySelectorAll('.sc').forEach(el=>el.classList.remove('active'));
+  const map={'':'all','active':'active','trial':'trial','expired':'expired','blocked':'blocked'};
+  const el=document.getElementById('st-'+(map[s]||'all'));
+  if(el) el.classList.add('active');
+  load();
+}
+
+function renderTable(items){
+  const tbody=document.getElementById('tbody');
+  if(!items.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">Mijozlar topilmadi</td></tr>`;return;}
+  tbody.innerHTML=items.map(t=>{
+    const st=statusBadge(t.tenant_status);
+    const plan=planBadge(t.subscription_plan);
+    const daysHtml=daysLeftHtml(t.days_left,t.tenant_status);
+    const actions=actionBtns(t);
+    return `<tr>
+      <td>
+        <div style="font-weight:600">${esc(t.name)}</div>
+        <div style="font-size:.75rem;color:var(--text3)">${esc(t.code||'')}</div>
+        ${t.access_code ? `<div style="margin-top:.25rem"><span class="code-chip" onclick="copyCode('${esc(t.access_code)}')" title="Nusxa olish (mijozga berish)">🔑 ${esc(t.access_code)}</span></div>` : ''}
+      </td>
+      <td>
+        <div>${esc(t.owner_name||'—')}</div>
+        <div style="font-size:.75rem;color:var(--text3)">${esc(t.owner_phone||t.phone||'—')}</div>
+      </td>
+      <td style="font-size:.75rem">${BTLABELS[t.business_type]||t.business_type||'—'}</td>
+      <td>${plan}</td>
+      <td>${daysHtml}</td>
+      <td>${st}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function statusBadge(s){
+  const map={active:'Faol',trial:'Sinov',blocked:'Bloklangan',expired:'Tugagan'};
+  return `<span class="badge ${s}">${map[s]||s}</span>`;
+}
+function planBadge(p){
+  const names={free:'FREE',pro:'PRO'};
+  return `<span class="plan-badge ${p}">${names[p]||p}</span>`;
+}
+function daysLeftHtml(days,status){
+  if(status==='blocked') return `<span style="color:var(--text3);font-size:.75rem">—</span>`;
+  if(status==='expired') return `<span class="days-expired">Tugagan</span>`;
+  if(status==='trial') return `<span style="color:#60a5fa;font-size:.75rem">Sinov</span>`;
+  if(days===null||days===undefined) return `<span style="color:var(--text3);font-size:.75rem">Muddatsiz</span>`;
+  if(days<0) return `<span class="days-expired">${Math.abs(days)} kun o'tdi</span>`;
+  if(days<=7) return `<span class="days-warn">${days} kun qoldi</span>`;
+  return `<span class="days-ok">${days} kun</span>`;
+}
+function actionBtns(t){
+  let html='<div style="display:flex;gap:.375rem;flex-wrap:wrap">';
+  html+=`<button class="btn bg bsm" onclick="openEdit(${t.id})" title="Tahrirlash (tarif, kod, parol)">✎ Tahrirlash</button>`;
+  html+=`<a href="subscriptions.html?tenant=${t.id}" class="btn bo bsm" title="To'lov">💳</a>`;
+  if(t.tenant_status==='blocked'){
+    html+=`<button class="btn bgreen bsm" onclick="unblock(${t.id})">✓ Qulfdan chiqar</button>`;
+  } else {
+    html+=`<button class="btn bred bsm" onclick="startBlock(${t.id})">⊘ Bloklash</button>`;
+  }
+  return html+'</div>';
+}
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(name){
+  document.getElementById(name+'Modal').classList.add('open');
+  if(name==='add') previewFeatures();
+}
+function closeModal(name){document.getElementById(name+'Modal').classList.remove('open');}
+
+async function saveTenant(){
+  const name=document.getElementById('f-name').value.trim();
+  const ownerName=document.getElementById('f-oname').value.trim();
+  const ownerPhone=document.getElementById('f-ophone').value.trim();
+  const uname=document.getElementById('f-uname').value.trim();
+  if(!name||!ownerName||!ownerPhone||!uname){alert('Majburiy maydonlarni to\'ldiring');return;}
+
+  const btn=document.getElementById('saveBtn');
+  btn.disabled=true; btn.textContent='Saqlanmoqda...';
+
+  const res=await api.post('/super-admin/tenants',{
+    name,
+    business_type:document.getElementById('f-btype').value,
+    owner_name:ownerName,
+    owner_phone:ownerPhone,
+    email:document.getElementById('f-email').value||null,
+    address:document.getElementById('f-addr').value||null,
+    subscription_plan:document.getElementById('f-plan').value,
+    months:parseInt(document.getElementById('f-months').value)||0,
+    trial_days:parseInt(document.getElementById('f-trial').value)||0,
+    admin_username:uname,
+    admin_email:document.getElementById('f-uemail').value||null,
+    admin_password:document.getElementById('f-upass').value||null,
+  }).catch(e=>({detail:e.message}));
+
+  btn.disabled=false; btn.textContent='Saqlash';
+
+  if(res?.success){
+    closeModal('add');
+    document.getElementById('resultText').textContent=
+      `✅ Yaratildi!\n\nKirish kodi: ${res.access_code}\nTenant: ${res.tenant_code}\nUsername: ${res.admin_username}\nParol: ${res.admin_password}`;
+    openModal('result');
+    load();
+  } else {
+    alert('Xato: '+(res?.detail||JSON.stringify(res)));
+  }
+}
+
+// ── BLOCK ─────────────────────────────────────────────────────────────────────
+function startBlock(id){blockTargetId=id;openModal('block');}
+
+async function confirmBlock(){
+  const reason=document.getElementById('block-reason').value;
+  const res=await api.post(`/super-admin/tenants/${blockTargetId}/block`,{reason}).catch(()=>null);
+  closeModal('block');
+  if(res?.success) load(); else alert('Xato yuz berdi');
+}
+
+async function unblock(id){
+  if(!confirm('Qulfdan chiqarilsinmi?')) return;
+  const res=await api.post(`/super-admin/tenants/${id}/unblock`,{}).catch(()=>null);
+  if(res?.success) load(); else alert('Xato yuz berdi');
+}
+
+// ── EDIT (tarif + kod + admin login) ─────────────────────────────────────────
+let editTargetId=null, editOrigPlan=null, editOrigPhone=null;
+
+function toast(msg){
+  let el=document.getElementById('_toast');
+  if(!el){el=document.createElement('div');el.id='_toast';
+    el.style.cssText='position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);background:var(--gold);color:#07070f;padding:.6rem 1.2rem;border-radius:8px;font-weight:700;font-size:.85rem;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,.4);transition:opacity .3s';
+    document.body.appendChild(el);}
+  el.textContent=msg; el.style.opacity='1';
+  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.opacity='0';},1800);
+}
+
+function copyCode(code){
+  if(!code) return;
+  (navigator.clipboard?.writeText(code) || Promise.reject()).then(
+    ()=>toast('Nusxa olindi: '+code),
+    ()=>{ // clipboard yo'q — fallback
+      const i=document.createElement('input');i.value=code;document.body.appendChild(i);i.select();
+      try{document.execCommand('copy');toast('Nusxa olindi: '+code);}catch{alert('Kod: '+code);}
+      i.remove();
+    }
+  );
+}
+
+function genPass(){
+  const cs='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let p=''; for(let i=0;i<10;i++) p+=cs[Math.floor(Math.random()*cs.length)];
+  document.getElementById('edit-pass').value=p;
+}
+
+async function openEdit(id){
+  const t=allTenants.find(x=>x.id===id);
+  if(!t) return;
+  editTargetId=id; editOrigPlan=t.subscription_plan||'free';
+  document.getElementById('edit-name').textContent=t.name;
+  document.getElementById('edit-code').value=t.access_code||'—';
+  document.getElementById('edit-plan').value=editOrigPlan;
+  document.getElementById('edit-phone').value='';
+  document.getElementById('edit-pass').value='';
+  document.getElementById('edit-uname').textContent='';
+  editOrigPhone='';
+  openModal('edit');
+  // admin login ma'lumotini olish
+  const a=await api.get(`/super-admin/tenants/${id}/admin`).catch(()=>null);
+  if(a?.admin){
+    editOrigPhone=a.admin.phone||'';
+    document.getElementById('edit-phone').value=a.admin.phone||'';
+    document.getElementById('edit-uname').textContent='Username: '+(a.admin.username||'—');
+  } else {
+    document.getElementById('edit-uname').textContent='Admin foydalanuvchi topilmadi';
+  }
+}
+
+async function saveEdit(){
+  const id=editTargetId;
+  const btn=document.getElementById('editSaveBtn');
+  btn.disabled=true; btn.textContent='Saqlanmoqda...';
+  let msgs=[];
+  try{
+    // 1) Tarif (o'zgargan bo'lsa)
+    const plan=document.getElementById('edit-plan').value;
+    if(plan!==editOrigPlan){
+      const r=await api.patch(`/super-admin/tenants/${id}`,{subscription_plan:plan}).catch(e=>({detail:e.message}));
+      if(r?.success) msgs.push('Tarif → '+plan.toUpperCase()); else throw new Error(r?.detail||'Tarif saqlanmadi');
+    }
+    // 2) Admin login (telefon va/yoki parol)
+    const phone=document.getElementById('edit-phone').value.trim();
+    const pass=document.getElementById('edit-pass').value.trim();
+    const body={};
+    if(phone && phone!==editOrigPhone) body.phone=phone;
+    if(pass) body.password=pass;
+    if(Object.keys(body).length){
+      const r=await api.patch(`/super-admin/tenants/${id}/admin`,body).catch(e=>({detail:e.message}));
+      if(!r?.success) throw new Error(r?.detail||'Admin saqlanmadi');
+      if(body.phone) msgs.push('Telefon → '+r.phone);
+      if(r.password) msgs.push('Yangi parol: '+r.password);
+    }
+  }catch(e){
+    btn.disabled=false; btn.textContent='Saqlash';
+    alert('Xato: '+e.message); return;
+  }
+  btn.disabled=false; btn.textContent='Saqlash';
+  closeModal('edit');
+  load();
+  if(msgs.length){
+    document.getElementById('resultText').textContent='✅ Saqlandi!\n\n'+msgs.join('\n');
+    openModal('result');
+  } else {
+    toast('O\'zgarish yo\'q');
+  }
+}
+
+// init
+filterStatus('');
+</script>
+</body>
+</html>

@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Sozlamalar | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
+  --border:rgba(212,180,108,.18);--border2:rgba(255,255,255,.08);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --success:#10b981;--danger:#ef4444;--warning:#f59e0b;
+  --r:.625rem;--r2:1rem;
+}
+.page-wrap{display:flex;flex-direction:column;min-height:100vh}
+.page-header{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2)}
+.back-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.back-btn:hover{border-color:var(--gold);color:var(--gold)}
+.page-title{font-size:1.125rem;font-weight:700;color:var(--gold)}
+.page-content{flex:1;padding:1.5rem;max-width:760px;margin:0 auto;width:100%}
+
+/* Tabs */
+.stab-list{display:flex;gap:.375rem;margin-bottom:1.5rem;background:var(--bg3);padding:4px;border-radius:var(--r2);flex-wrap:wrap}
+.stab{flex:1;padding:.5rem;text-align:center;border-radius:calc(var(--r2) - 2px);font-size:.8125rem;font-weight:500;color:var(--text2);cursor:pointer;transition:.2s;min-width:100px;border:none;background:none}
+.stab.active{background:var(--gold-dim);color:var(--gold);font-weight:600}
+
+/* Section */
+.settings-section{display:none}
+.settings-section.active{display:block}
+.setting-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.375rem;margin-bottom:1rem}
+.setting-card-title{font-size:.9375rem;font-weight:700;margin-bottom:1.125rem;color:var(--text)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.form-row.full{grid-template-columns:1fr}
+.form-group{margin-bottom:1rem}
+.form-group:last-child{margin-bottom:0}
+.form-group label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5625rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold)}
+.form-group textarea{resize:vertical;min-height:80px}
+.form-hint{font-size:.75rem;color:var(--text3);margin-top:.25rem}
+
+/* Business type grid */
+.btype-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem}
+.btype-card{background:var(--bg3);border:1.5px solid var(--border2);border-radius:var(--r2);padding:1rem;text-align:center;cursor:pointer;transition:all .2s}
+.btype-card:hover{border-color:rgba(212,180,108,.4)}
+.btype-card.selected{background:var(--gold-dim);border-color:var(--gold)}
+.btype-icon{font-size:2rem;margin-bottom:.5rem}
+.btype-name{font-size:.8125rem;font-weight:600;color:var(--text)}
+.btype-card.selected .btype-name{color:var(--gold)}
+.btype-desc{font-size:.6875rem;color:var(--text3);margin-top:.25rem}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5625rem 1.25rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:0 0 20px rgba(212,180,108,.4)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.save-row{display:flex;justify-content:flex-end;margin-top:1.25rem}
+
+/* Toggle */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:.625rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.toggle-row:last-child{border:none}
+.toggle-label{font-size:.875rem}
+.toggle-hint{font-size:.75rem;color:var(--text3);margin-top:.125rem}
+.toggle-switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg4);border-radius:12px;cursor:pointer;transition:.3s}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle-switch input:checked+.toggle-slider{background:var(--gold)}
+.toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px)}
+
+/* Status badges */
+.badge{display:inline-flex;align-items:center;padding:.25rem .75rem;border-radius:99px;font-size:.6875rem;font-weight:600}
+.badge-success{background:rgba(16,185,129,.15);color:#10b981}
+.badge-warning{background:rgba(245,158,11,.15);color:#f59e0b}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+
+/* ═══════════════════════════════════════════════════════════════
+   SOZLAMALAR PREMIUM — YENGIL atmosfera + glass + light mode.
+   Vizual only. JS/toggle/saqlash funksiyasiga tegilmaydi.
+   ═══════════════════════════════════════════════════════════════ */
+/* light mode o'zgaruvchilari (sahifada yo'q edi — qo'shildi, ≥4.5:1) */
+[data-theme="light"]{
+  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;--bg4:#d8dee4;
+  --border:rgba(201,168,76,.3);--border2:rgba(0,0,0,.1);
+  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
+  --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
+}
+
+/* tinch zumrad-qora fon ramp (body bg #03110c ni almashtiradi) */
+body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0a2419 0%,#05150e 50%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%);color:var(--text)}
+
+/* content atmosfera ustида */
+.page-wrap{position:relative;z-index:1}
+.page-header{position:relative;z-index:30}
+
+/* ── Atmosfera qatlami — fixed, ortда, shaffof joylardan ── */
+.set-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.sa-mandala{position:absolute;top:36%;left:66%;width:110vmin;height:110vmin;transform:translate(-50%,-50%);opacity:.03;animation:saSpin 240s linear infinite}
+.sa-mandala svg{width:100%;height:100%;display:block}
+@keyframes saSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.sa-glow{position:absolute;border-radius:50%;filter:blur(80px);mix-blend-mode:screen;opacity:.2}
+.sa-glow.g1{width:46vmin;height:46vmin;top:-10%;left:-4%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:saBreathe 32s ease-in-out infinite}
+.sa-glow.g2{width:40vmin;height:40vmin;bottom:-12%;right:-4%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:saBreathe 38s ease-in-out infinite 5s}
+@keyframes saBreathe{0%,100%{transform:scale(.95);opacity:.14}50%{transform:scale(1.08);opacity:.25}}
+[data-theme="light"] .sa-glow{mix-blend-mode:normal;opacity:.1;filter:blur(90px)}
+[data-theme="light"] .sa-mandala{opacity:.04}
+
+/* ── Glass: sozlama bo'lim kartalari + tilla aksent sarlavha ── */
+.setting-card{
+  background:linear-gradient(180deg,rgba(11,46,35,.74),rgba(8,34,26,.8));
+  backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);
+  border-color:rgba(212,180,108,.16);box-shadow:0 4px 24px rgba(0,0,0,.18),inset 0 1px 0 rgba(212,180,108,.06);
+}
+[data-theme="light"] .setting-card{background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(248,249,250,.92))}
+.setting-card-title{position:relative;padding-left:.7rem;color:var(--text)}
+.setting-card-title::before{content:'';position:absolute;left:0;top:.12em;bottom:.12em;width:3px;border-radius:2px;background:linear-gradient(180deg,#1fb084,#e2c97a)}
+
+/* tabs — yengil glass konteyner */
+.stab-list{background:rgba(11,46,35,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(212,180,108,.12)}
+[data-theme="light"] .stab-list{background:rgba(255,255,255,.6)}
+.stab.active{box-shadow:0 2px 10px rgba(212,180,108,.14)}
+
+/* input/select/textarea fokus — tilla glow */
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{box-shadow:0 0 0 3px rgba(212,180,108,.14),0 0 12px rgba(212,180,108,.1)}
+
+/* business type kartalar — yengil tint (ko'p bo'lishi mumkin, blur YO'Q) */
+.btype-card{background:rgba(11,46,35,.5)}
+[data-theme="light"] .btype-card{background:rgba(255,255,255,.62)}
+
+/* ── Toggle KO'RINISHI (funksiya tegilmaydi — faqat .toggle-slider stili) ──
+   yoniq = zumrad→tilla gradient + porlash, o'chiq = kulrang */
+.toggle-slider{background:var(--bg4);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+.toggle-slider:before{box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.toggle-switch input:checked+.toggle-slider{background:linear-gradient(135deg,#1fb084,#d4b46c);box-shadow:0 0 10px rgba(212,180,108,.4),inset 0 0 0 1px rgba(212,180,108,.3)}
+
+/* tugma sheen + press */
+.btn-gold{position:relative;overflow:hidden}
+.btn-gold::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%);transform:translateX(-130%);transition:transform .6s ease}
+.btn-gold:hover::after{transform:translateX(130%)}
+.btn:active{transform:scale(.97)}
+
+/* ── Micro: faol bo'lim kartalari yengil paydo bo'lish (stagger) ── */
+.settings-section.active .setting-card{animation:_pgIn .3s ease backwards}
+.settings-section.active .setting-card:nth-child(2){animation-delay:.05s}
+.settings-section.active .setting-card:nth-child(3){animation-delay:.1s}
+.settings-section.active .setting-card:nth-child(4){animation-delay:.15s}
+.settings-section.active .setting-card:nth-child(5){animation-delay:.2s}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion:reduce){
+  .sa-mandala,.sa-glow,.btn-gold::after,.settings-section.active .setting-card{animation:none!important;transition:none!important}
+}
+/* ── Mobil: og'ir qatlam yengil ── */
+@media (max-width:768px){
+  .sa-mandala{display:none}
+  .sa-glow{filter:blur(50px);opacity:.14}
+  .setting-card{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+</style>
+</head>
+<body>
+<!-- ── SOZLAMALAR atmosfera (yengil vizual qatlam, panellar ortida) ── -->
+<div class="set-atmos" aria-hidden="true">
+  <div class="sa-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="saPetal" d="M300 300 L311 165 L300 92 L289 165 Z" fill="none" stroke="#d4b46c" stroke-width="1"/></defs>
+      <g fill="none" stroke="#d4b46c" stroke-width="1">
+        <circle cx="300" cy="300" r="240"/><circle cx="300" cy="300" r="170"/><circle cx="300" cy="300" r="100"/>
+        <polygon points="300,96 477,300 300,504 123,300"/>
+        <rect x="180" y="180" width="240" height="240" transform="rotate(45 300 300)"/>
+      </g>
+      <g>
+        <use href="#saPetal" transform="rotate(0 300 300)"/><use href="#saPetal" transform="rotate(45 300 300)"/>
+        <use href="#saPetal" transform="rotate(90 300 300)"/><use href="#saPetal" transform="rotate(135 300 300)"/>
+        <use href="#saPetal" transform="rotate(180 300 300)"/><use href="#saPetal" transform="rotate(225 300 300)"/>
+        <use href="#saPetal" transform="rotate(270 300 300)"/><use href="#saPetal" transform="rotate(315 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="sa-glow g1"></div>
+  <div class="sa-glow g2"></div>
+</div>
+
+<div class="page-wrap">
+  <header class="page-header">
+    <a href="admin.html" class="back-btn">←</a>
+    <h1 class="page-title">⚙️ Sozlamalar</h1>
+  </header>
+  <div class="page-content">
+
+    <div class="stab-list">
+      <button class="stab active" data-tab="biznes">🏪 Biznes turi</button>
+      <button class="stab" data-tab="umumiy">🔧 Umumiy</button>
+      <button class="stab" data-tab="printer">🖨️ Printer</button>
+      <button class="stab" data-tab="tolov">💳 To'lov</button>
+      <button class="stab" data-tab="backup">💾 Zaxira nusxa</button>
+      <button class="stab" data-tab="fiskal">🧾 Soliq</button>
+      <button class="stab pharmacy-only" data-tab="dorixona" style="display:none">💊 Dorixona</button>
+      <button class="stab salon-only" data-tab="salon" style="display:none">💇 Salon</button>
+      <button class="stab store-only" data-tab="b2b" style="display:none">🏭 B2B</button>
+    </div>
+
+    <!-- BIZNES TURI -->
+    <div class="settings-section active" id="tab-biznes">
+      <div class="setting-card">
+        <div class="setting-card-title">Biznes turini tanlang</div>
+        <p style="font-size:.8125rem;color:var(--text3);margin-bottom:1.25rem">
+          Biznes turini o'zgartirish sidebar menyusini va mavjud funksiyalarni avtomatik yangilaydi.
+        </p>
+        <div class="btype-grid" id="btypeGrid">
+          <!-- JS to'ldiradi -->
+        </div>
+        <div class="save-row" style="margin-top:1.25rem">
+          <button class="btn btn-gold" id="saveBtypeBtn">✓ Saqlash</button>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-card-title">Filial ma'lumotlari</div>
+        <div class="form-row">
+          <div class="form-group"><label>Filial nomi</label><input id="cafeName" placeholder="Mening Do'konim"></div>
+          <div class="form-group"><label>Telefon</label><input id="cafePhone" placeholder="+998901234567"></div>
+        </div>
+        <div class="form-row full">
+          <div class="form-group"><label>Manzil</label><input id="cafeAddress" placeholder="Toshkent, Chilonzor"></div>
+        </div>
+        <div class="save-row">
+          <button class="btn btn-gold" id="saveCafeBtn">✓ Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- UMUMIY -->
+    <div class="settings-section" id="tab-umumiy">
+      <div class="setting-card">
+        <div class="setting-card-title">Ilova sozlamalari</div>
+        <div class="form-row">
+          <div class="form-group"><label>Valyuta belgisi</label><input id="cfgCurrency" placeholder="UZS"></div>
+          <div class="form-group"><label>Til</label>
+            <select id="cfgLang">
+              <option value="uz">O'zbek</option>
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Soliq stavkasi (%)</label><input id="cfgTax" type="number" min="0" max="100" placeholder="12"></div>
+          <div class="form-group"><label>Servis haqi (%)</label><input id="cfgService" type="number" min="0" max="100" placeholder="10"></div>
+        </div>
+        <div style="margin-bottom:1rem">
+          <div class="toggle-row">
+            <div><div class="toggle-label">Soliqni ko'rsatish</div><div class="toggle-hint">Chekda soliq alohida ko'rsatiladi</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="cfgShowTax"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Servis haqi yoqish</div><div class="toggle-hint">Jami summasiga qo'shiladi</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="cfgShowService"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="save-row">
+          <button class="btn btn-gold" id="saveAppBtn">✓ Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRINTER (ESC/POS — universal) -->
+    <div class="settings-section" id="tab-printer">
+      <div class="setting-card">
+        <div class="setting-card-title">Chek printeri (ESC/POS)</div>
+        <div class="toggle-row" style="margin-bottom:1rem">
+          <div><div class="toggle-label">ESC/POS chop etish yoqilgan</div><div class="toggle-hint">O'chiq bo'lsa — brauzer chop etish (window.print) ishlatiladi</div></div>
+          <label class="toggle-switch"><input type="checkbox" id="printerEnabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Ulanish rejimi</label>
+            <select id="printerMode">
+              <option value="mock">Mock (printer yo'q — faylga/log)</option>
+              <option value="network">Tarmoq printer (IP:9100)</option>
+              <option value="usb">USB printer</option>
+              <option value="spooler">Lokal port (COM / LPT)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Kenglik (mm)</label>
+            <select id="printerWidth">
+              <option value="58">58 mm (32 belgi)</option>
+              <option value="80" selected>80 mm (48 belgi)</option>
+            </select>
+          </div>
+        </div>
+        <!-- Tarmoq -->
+        <div class="form-row full pm-network" style="display:none">
+          <div class="form-group"><label>Printer IP / Port</label><input id="printerIP" placeholder="192.168.1.100:9100"></div>
+        </div>
+        <!-- USB -->
+        <div class="form-row pm-usb" style="display:none">
+          <div class="form-group"><label>Vendor ID</label><input id="printerVendor" placeholder="0x04b8"></div>
+          <div class="form-group"><label>Product ID</label><input id="printerProduct" placeholder="0x0e15"></div>
+        </div>
+        <!-- Spooler -->
+        <div class="form-row full pm-spooler" style="display:none">
+          <div class="form-group"><label>Lokal port</label><input id="printerSpoolerPort" placeholder="COM1 / /dev/usb/lp0"></div>
+        </div>
+        <div style="margin-bottom:1rem">
+          <div class="toggle-row">
+            <div><div class="toggle-label">Avtomatik chop etish</div><div class="toggle-hint">To'lovdan so'ng chek avtomatik chiqadi</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="printerAutoPrint"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">Oshxona chipi</div><div class="toggle-hint">Buyurtma oshxona printeriga yuboriladi</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="printerKitchen"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="save-row" style="gap:.75rem">
+          <button class="btn btn-outline" id="testPrinterBtn">📄 Test chop etish</button>
+          <button class="btn btn-gold" id="savePrinterBtn">✓ Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TO'LOV -->
+    <div class="settings-section" id="tab-tolov">
+      <div class="setting-card">
+        <div class="setting-card-title">To'lov usullari</div>
+        <div style="margin-bottom:1rem">
+          <div class="toggle-row">
+            <div><div class="toggle-label">💵 Naqd pul</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="paymentCash" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">💳 Karta (POS-terminal)</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="paymentCard" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">📱 Payme</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="paymentPayme"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">📱 Click</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="paymentClick"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">🏦 Pul o'tkazma</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="paymentTransfer"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="save-row">
+          <button class="btn btn-gold" id="savePaymentBtn">✓ Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOLIQ / FISKAL -->
+    <div class="settings-section" id="tab-fiskal">
+      <div class="setting-card">
+        <div class="setting-card-title">Fiskal integratsiya (O'zbekiston Soliq Qo'mitasi)</div>
+        <p style="font-size:.8125rem;color:var(--text3);margin-bottom:1.25rem">
+          Yoqilsa — chekda OFD fiskal QR kod ko'rsatiladi. O'chirilsa — oddiy chek.
+        </p>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Fiskal integratsiya yoqilgan</div><div class="toggle-hint">Soliq.uz OFD API bilan ishlash</div></div>
+          <label class="toggle-switch"><input type="checkbox" id="fiscalEnabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div style="margin-top:1rem;display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+          <div class="form-group">
+            <label>Rejim</label>
+            <select id="fiscalMode" class="form-control">
+              <option value="mock">🧪 Mock (sinash — real OFD yo'q)</option>
+              <option value="live">🔴 Live (real OFD API)</option>
+            </select>
+          </div>
+          <div class="form-group" id="fiscalOperatorWrap">
+            <label>Operator</label>
+            <select id="fiscalOperatorSelect" class="form-control">
+              <option value="soliquz">Soliq.uz (davlat OFD)</option>
+              <option value="soliqpro">SoliqPro (xususiy)</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:.75rem">
+          <div class="fiscal-field" style="margin-bottom:1rem">
+            <div class="form-row">
+              <div class="form-group"><label>INN / STIR (soliq raqami)</label><input id="fiscalINN" placeholder="123456789" maxlength="9" inputmode="numeric"></div>
+              <div class="form-group"><label>Kassa ID (terminal ID)</label><input id="fiscalKassaId" placeholder="KKM001"></div>
+            </div>
+          </div>
+          <div class="fiscal-field" id="fiscalLiveFields" style="margin-bottom:1rem">
+            <div class="form-row">
+              <div class="form-group"><label>API kalit (token)</label><input id="fiscalApiKey" type="password" placeholder="••••••••••••"></div>
+              <div class="form-group"><label>Operator nomi / izoh</label><input id="fiscalOperator" placeholder="Ixtiyoriy"></div>
+            </div>
+          </div>
+          <div class="fiscal-field" id="fiscalEndpointWrap">
+            <div class="form-group"><label>API endpoint (ixtiyoriy, standart ishlatish uchun bo'sh qoldiring)</label><input id="fiscalEndpoint" placeholder="https://ofd.soliq.uz/api/v1/receipt"></div>
+          </div>
+        </div>
+        <div id="fiscalMockInfo" style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:var(--r);padding:.75rem 1rem;margin-top:.75rem;font-size:.8125rem;color:var(--text2)">
+          <strong style="color:#3b82f6">🧪 Mock rejim:</strong> Haqiqiy OFD ga so'rov ketmaydi. Soxta fiskal raqam va QR generatsiya qilinadi. Real API kaliti kelguncha sinash uchun.
+        </div>
+        <div style="background:rgba(212,180,108,.08);border:1px solid rgba(212,180,108,.2);border-radius:var(--r);padding:1rem;margin-top:1rem;font-size:.8125rem;color:var(--text2)">
+          <strong style="color:var(--gold)">QR format:</strong>
+          Chekda avtomatik <code style="background:var(--bg4);padding:.125rem .375rem;border-radius:.25rem">consumer.invoice.uz</code>
+          havolasi bilan fiskal QR kod chiqadi. Mijoz skaner qilib tekshira oladi.
+        </div>
+        <div class="save-row" style="gap:.75rem">
+          <button class="btn btn-outline" id="testFiscalBtn">🔗 Ulanishni tekshirish</button>
+          <button class="btn btn-gold" id="saveFiscalBtn">✓ Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DORIXONA (pharmacy-only) -->
+    <div class="settings-section" id="tab-dorixona">
+      <div class="setting-card">
+        <div class="setting-card-title">Dorixona Funksiyalari</div>
+        <p style="font-size:.8125rem;color:var(--text3);margin-bottom:1.25rem">
+          Quyidagi funksiyalarni yoqing yoki o'chiring. O'zgarish darhol kuchga kiradi.
+        </p>
+        <div id="pharmacyToggles">
+          <div class="toggle-row">
+            <div><div class="toggle-label">📋 Retsept arxivi</div><div class="toggle-hint">Shifokor retseptlarini saqlash va qidirish</div></div>
+            <label class="toggle-switch"><input type="checkbox" data-flag="prescription_archive"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">🔄 Dori analogları</div><div class="toggle-hint">Bir xil faol moddali dorilarni ko'rsatish</div></div>
+            <label class="toggle-switch"><input type="checkbox" data-flag="drug_analogs"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">📦 Partiya nazorati</div><div class="toggle-hint">Seriya raqami, ishlab chiqaruvchi, sana</div></div>
+            <label class="toggle-switch"><input type="checkbox" data-flag="batch_tracking"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">💊 Dozaj ma'lumoti</div><div class="toggle-hint">Dozaj, shakl, qabul tartibi chekda chiqadi</div></div>
+            <label class="toggle-switch"><input type="checkbox" data-flag="dosage_info"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">🔒 Retseptli nazorat</div><div class="toggle-hint">Retsept talab qiladigan dorini sotishda ogohlantirish</div></div>
+            <label class="toggle-switch"><input type="checkbox" data-flag="rx_required"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><div class="toggle-label">⏰ Yaroqlilik nazorati</div><div class="toggle-hint">30 kun qolsa ogohlantirish, tugaganlar avtomatik yopiladi</div></div>
+            <label class="toggle-switch"><input type="checkbox" data-flag="expiry_date"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="save-row" style="margin-top:1rem">
+          <button class="btn btn-gold" id="savePharmacyFlags">✓ Saqlash</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SALON (salon-only) -->
+    <div class="settings-section" id="tab-salon">
+      <div class="setting-card">
+        <div class="setting-card-title">Salon maxsus funksiyalar</div>
+        <p style="font-size:.8125rem;color:var(--text3);margin-bottom:1.25rem">
+          Faqat Go'zallik saloni turida ko'rinadigan funksiyalar. Har birini alohida yoqish/o'chirish mumkin.
+        </p>
+        <div id="salonToggles">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Onlayn bron (bo'sh vaqt)</div>
+              <div class="toggle-desc">Mijoz xizmatga vaqt band qiladi, ikki marta bron bo'lmaydi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="online_booking">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Usta haftalik jadvali</div>
+              <div class="toggle-desc">Ish vaqti (09:00–18:00) va dam olish kunlari sozlamasi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="staff_schedule">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Oldin / Keyin fotosuratlari</div>
+              <div class="toggle-desc">Xizmatdan oldin va keyin rasm saqlash, mijoz tarixiga biriktiriladi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="before_after_photo">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Mijoz tarixi va reyting</div>
+              <div class="toggle-desc">Tashriflar, xizmatlar, usta, sarflagan pul — doimiy mijozlar ajralib turadi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="salon_client_history">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Usta komissiya hisoboti</div>
+              <div class="toggle-desc">Har usta uchun kunlik/oylik ishlagan pul va foiz hisoblash</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="commission_report">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <button class="btn" id="saveSalonFlags" style="margin-top:1.5rem">Saqlash</button>
+      </div>
+    </div>
+
+    <!-- B2B (store/supermarket-only) -->
+    <div class="settings-section" id="tab-b2b">
+      <div class="setting-card">
+        <div class="setting-card-title">B2B Oldi-Berdi (Magazin / Supermarket)</div>
+        <p style="font-size:.8125rem;color:var(--text3);margin-bottom:1.25rem">
+          Firmalar bilan oldi-berdi moduli. Yetkazib beruvchi kartochkasi, priyomka, qarz nazorati.
+        </p>
+        <div id="b2bToggles">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🏭 Yetkazib beruvchi kartochkasi</div>
+              <div class="toggle-desc">INN, shartnoma, otsrochka, mas'ul shaxs — firma bazasi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="supplier_card">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">📋 Priyomka (qabul akti)</div>
+              <div class="toggle-desc">Nakladnoy bo'yicha tovar qabul qilish, brak hisobi, omborga avtomatik tushirish</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="purchase_receipt">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">💳 Firmaga qarz nazorati</div>
+              <div class="toggle-desc">Har firma bo'yicha qarz qoldig'i, muddati o'tgan to'lovlar qizil rangda</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="supplier_debt">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">↩ Firmaga vozvrat</div>
+              <div class="toggle-desc">Brak yoki noto'g'ri tovarni firmaga qaytarish, qarzdan ayirish</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="supplier_return">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-card-title" style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">Tovar Harakati — BOSQICH 25</div>
+        <div id="b2bMovementToggles">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🗑️ Utilizatsiya / Spisaniye</div>
+              <div class="toggle-desc">Buzilgan, muddati tugagan, brak tovarni hisobdan chiqarish va zarar yozish</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="write_off">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🔄 Peresort (xato tuzatish)</div>
+              <div class="toggle-desc">Xato kirgan tovarni boshqa tovarга almashtirish, inventory to'g'rilash</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="goods_regrade">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">↩ Vozvrat+ (kengaytirilgan)</div>
+              <div class="toggle-desc">Brak/omborga yo'naltirish tanlovi, chek bo'yicha qidirish, almashtirish</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="customer_return_ext">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🚚 Ichki ko'chirish</div>
+              <div class="toggle-desc">Filiallar orasida tovar harakati, ombor avtomatik yangilanadi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="internal_transfer">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">📊 Zarar hisoboti</div>
+              <div class="toggle-desc">Utilizatsiya va brak bo'yicha jami zarar, davr va sabab bo'yicha tahlil</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="loss_report">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-card-title" style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">Narx, Aksiya va Markirovka — BOSQICH 26</div>
+        <div id="b2bPriceToggles">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">💰 Naценka siyosati</div>
+              <div class="toggle-desc">Tan narxga foiz qo'shib sotuv narxini avtomatik hisoblash va qo'llash</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="markup_policy">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🎁 Bonus karta tizimi</div>
+              <div class="toggle-desc">Mijozlarga ball to'plash va sarflash imkoniyati bilan sodiqlik tizimi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="bonus_card">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🔏 Asl belgisi (Markirovka)</div>
+              <div class="toggle-desc">O'zbekiston "Asl belgisi" tizimi — DataMatrix/QR kod orqali tovar haqiqiyligini nazorat</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="markirovka">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="setting-card-title" style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">Aqlli Hisobot va Nazorat — BOSQICH 27</div>
+        <div id="b2bAnalyticsToggles">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">📊 Magazin Dashboard</div>
+              <div class="toggle-desc">Bugungi savdo, foyda, top tovarlar, kam qoldiq, firma qarzlari — hammasi bir ekranda</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="store_dashboard">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🔴🟡🟢 ABC Tahlil</div>
+              <div class="toggle-desc">Tovarlarni foyda ulushi bo'yicha A (80%), B (15%), C (5%) guruhiga ajratish</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="abc_analysis">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">⚠️ Avto-Zakaz (minimal qoldiq)</div>
+              <div class="toggle-desc">Har tovarга minimal qoldiq belgilash. Tugayotganda ogohlantirish va zakaz ro'yxati</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="auto_reorder">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">🔄 Oborot Tahlili</div>
+              <div class="toggle-desc">Tovar qancha tez sotiladi: tez ketadi / sekin / o'lik tovar. Aksiyaga qo'yish tavsiyasi</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="turnover_analysis">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">⏰ Peak Soatlar</div>
+              <div class="toggle-desc">Qaysi soat va kun eng ko'p savdo bo'ladi — xodim jadvalini moslashga yordam</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" data-feature="peak_hours">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <button class="btn" id="saveB2bFlags" style="margin-top:1.5rem">Saqlash</button>
+      </div>
+    </div>
+
+    <!-- ZAXIRA NUSXA (tenant backup/restore — tenant-backup.js to'ldiradi) -->
+    <div class="settings-section" id="tab-backup">
+      <div class="setting-card">
+        <div class="setting-card-title">💾 Zaxira nusxa (Backup)</div>
+        <p style="font-size:.8125rem;color:var(--text3);margin-bottom:1.25rem">
+          Do'kon ma'lumotini (mahsulot, buyurtma, mijoz, ombor, sozlamalar...) o'z kompyuteringizga zaxiralang.
+          Zaxira <b style="color:var(--text2)">kunda 2 marta — 14:00 va 22:00 — avtomatik</b> olinadi (ilova ochiq bo'lsa)
+          va <code style="background:var(--bg4);padding:.1rem .4rem;border-radius:.25rem">Hujjatlar/XENORA-Backup</code> papkasiga saqlanadi.
+          Kerak bo'lganda o'sha zaxiradan tiklash mumkin.
+        </p>
+        <div id="xenoraBackupPanel">
+          <p style="color:var(--text3);font-size:.8125rem">Yuklanmoqda...</p>
+        </div>
+        <div style="margin-top:1rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.22);border-radius:var(--r);padding:.7rem .9rem;font-size:.78rem;color:var(--text2)">
+          ⚠️ <b style="color:var(--warning)">Tiklash</b> hozirgi ma'lumotni zaxira bilan almashtiradi (loginlar, filial, obuna saqlanadi). Tiklashdan oldin joriy holat avtomatik zaxiralanadi.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE  = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const token = () => localStorage.getItem('access_token');
+if (!token()) { location.href = '../shared/login.html'; }
+
+const api = {
+  get:    (u)    => fetch(`${BASE}${u}`, {headers:{Authorization:'Bearer '+token()}}).then(r=>r.json()),
+  patch:  (u, d) => fetch(`${BASE}${u}`, {method:'PATCH', headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'}, body:JSON.stringify(d)}).then(r=>r.json()),
+  post:   (u, d={}) => fetch(`${BASE}${u}`, {method:'POST', headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'}, body:JSON.stringify(d)}).then(r=>r.json()),
+};
+
+// ── PRO Tier: flaglar ro'yxati (feature_flags.py FEATURE_TIERS bilan mos) ──────
+const PRO_FLAGS = new Set([
+  'credit_sales','wholesale_pricing','promotions','departments',
+  'supplier_accounting','supplier_card','supplier_debt','supplier_return',
+  'purchase_receipt','write_off','goods_regrade','markup_policy',
+  'bonus_card','abc_analysis','auto_reorder','turnover_analysis',
+  'peak_hours','loss_report','customer_return_ext','internal_transfer',
+  'markirovka'
+]);
+
+function isProFlag(flag) { return PRO_FLAGS.has(flag); }
+
+// PRO lock: barcha data-feature checkboxlarni tekshirib, PRO bo'lsa qulflaydi
+function applyProLocks() {
+  document.querySelectorAll('input[data-feature], input[data-flag]').forEach(chk => {
+    const flag = chk.dataset.feature || chk.dataset.flag;
+    if (!isProFlag(flag)) return;
+    chk.disabled = true;
+    chk.style.accentColor = '#9ca3af';
+    const row = chk.closest('.toggle-row');
+    if (!row) return;
+    if (row.querySelector('.pro-lock-badge')) return; // already applied
+    row.style.opacity = '0.7';
+    const labelEl = row.querySelector('.toggle-label');
+    if (labelEl && !labelEl.querySelector('.pro-lock-badge')) {
+      const badge = document.createElement('span');
+      badge.className = 'pro-lock-badge';
+      badge.innerHTML = ' <span style="display:inline-flex;align-items:center;gap:2px;background:rgba(212,180,108,.18);border:1px solid rgba(212,180,108,.35);border-radius:99px;padding:1px 7px;font-size:.68rem;font-weight:700;color:#d4b46c;vertical-align:middle">🔒 PRO</span>';
+      labelEl.appendChild(badge);
+    }
+    row.addEventListener('click', (e) => {
+      if (e.target === chk || chk.contains(e.target)) {
+        e.preventDefault();
+        toast('Bu funksiya PRO tarifda. Super Admin bilan bog\'laning.', 'warning');
+      }
+    });
+  });
+}
+
+// Yangi unified feature save: faqat FREE flaglarni yangi endpoint orqali yuboradi
+async function saveFeatureFlags(flagsList, sectionName) {
+  try {
+    const cafe = await api.get('/cafes/');
+    const c = cafe.items?.[0] || cafe[0] || null;
+    if (!c) { toast('Kafe topilmadi','error'); return; }
+
+    const enabledFeatures  = [];
+    const disabledFeatures = [];
+    flagsList.forEach(flag => {
+      if (isProFlag(flag)) return; // PRO flaglarni o'tkazib yuborish
+      const chk = document.querySelector(`input[data-feature="${flag}"], input[data-flag="${flag}"]`);
+      if (!chk) return;
+      if (chk.checked) enabledFeatures.push(flag);
+      else disabledFeatures.push(flag);
+    });
+
+    if (enabledFeatures.length === 0 && disabledFeatures.length === 0) {
+      toast('Saqlash uchun FREE flag topilmadi', 'info'); return;
+    }
+
+    const res = await api.patch('/cafes/my/features', { enabled: enabledFeatures, disabled: disabledFeatures });
+    if (res.ok || res.message) toast(sectionName + ' saqlandi', 'success');
+    else toast(res.detail || 'Xatolik', 'error');
+  } catch(e) { toast('Xatolik: ' + e.message, 'error'); }
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.stab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Business types ─────────────────────────────────────────────────────────────
+const BUSINESS_TYPES = [
+  { value:'restaurant', icon:'🍽️', name:'Restoran',  desc:'Stol, oshxona' },
+  { value:'cafe',       icon:'☕',  name:'Kafe',      desc:'Stol, KDS' },
+  { value:'fast_food',  icon:'🍔',  name:'Fast Food', desc:'Tez ovqat' },
+  { value:'store',      icon:'🏪',  name:'Magazin',   desc:'Barcode, inventar' },
+  { value:'supermarket',icon:'🛒',  name:'Supermarket',desc:'Og\'irlik, kod' },
+  { value:'pharmacy',   icon:'💊',  name:'Dorixona',  desc:'Muddati, retsept' },
+  { value:'salon',      icon:'💇',  name:'Salon',     desc:'Bron, xizmat' },
+  { value:'fitness',    icon:'💪',  name:'Fitnes',    desc:'A\'zolik, mashg\'ulot' },
+  { value:'auto_service',icon:'🔧', name:'Auto servis',desc:'Buyurtma, avtomobil' },
+  { value:'school',     icon:'📚',  name:'Kurs/Maktab',desc:'Dars jadvali' },
+  { value:'hotel',      icon:'🏨',  name:'Mehmonxona',desc:'Xona bron' },
+  { value:'dry_cleaning',icon:'👔', name:'Kimyoviy',  desc:'Buyurtma, holat' },
+];
+
+let selectedBtype = 'cafe';
+let currentCafeId = null;
+
+function renderBtypes() {
+  document.getElementById('btypeGrid').innerHTML = BUSINESS_TYPES.map(b => `
+    <div class="btype-card${b.value===selectedBtype?' selected':''}" data-v="${b.value}">
+      <div class="btype-icon">${b.icon}</div>
+      <div class="btype-name">${b.name}</div>
+      <div class="btype-desc">${b.desc}</div>
+    </div>`).join('');
+  document.querySelectorAll('.btype-card').forEach(card => {
+    card.addEventListener('click', () => {
+      selectedBtype = card.dataset.v;
+      renderBtypes();
+    });
+  });
+}
+
+async function loadCafeInfo() {
+  const res = await api.get('/cafes/');
+  const cafe = res.items?.[0] || res[0] || null;
+  if (!cafe) return;
+  currentCafeId   = cafe.id;
+  selectedBtype   = cafe.business_type || 'cafe';
+  document.getElementById('cafeName').value    = cafe.name    || '';
+  document.getElementById('cafePhone').value   = cafe.phone   || '';
+  document.getElementById('cafeAddress').value = cafe.address || '';
+  renderBtypes();
+}
+
+document.getElementById('saveBtypeBtn').onclick = async () => {
+  if (!currentCafeId) { toast('Filial topilmadi','error'); return; }
+  const res = await api.patch(`/cafes/${currentCafeId}`, { business_type: selectedBtype });
+  if (res.id || res.message) {
+    toast('Biznes turi saqlandi. Sahifani yangilang.','success');
+    localStorage.setItem('business_type', selectedBtype);
+  } else toast(res.detail||'Xatolik','error');
+};
+
+document.getElementById('saveCafeBtn').onclick = async () => {
+  if (!currentCafeId) return;
+  const d = {
+    name:    document.getElementById('cafeName').value.trim(),
+    phone:   document.getElementById('cafePhone').value.trim()||undefined,
+    address: document.getElementById('cafeAddress').value.trim()||undefined,
+  };
+  const res = await api.patch(`/cafes/${currentCafeId}`, d);
+  if (res.id) toast('Saqlandi','success');
+  else toast(res.detail||'Xatolik','error');
+};
+
+// ── App settings ───────────────────────────────────────────────────────────────
+async function loadAppSettings() {
+  const r = await api.get('/settings/app').catch(()=>({}));
+  if (!r || r.detail) return;
+  if (r.currency)     document.getElementById('cfgCurrency').value     = r.currency;
+  if (r.language)     document.getElementById('cfgLang').value         = r.language;
+  if (r.tax_rate!=null) document.getElementById('cfgTax').value        = r.tax_rate;
+  if (r.service_rate!=null) document.getElementById('cfgService').value= r.service_rate;
+  document.getElementById('cfgShowTax').checked     = !!r.show_tax;
+  document.getElementById('cfgShowService').checked = !!r.show_service;
+}
+
+document.getElementById('saveAppBtn').onclick = async () => {
+  const d = {
+    currency:     document.getElementById('cfgCurrency').value.trim()||'UZS',
+    language:     document.getElementById('cfgLang').value,
+    tax_rate:     parseFloat(document.getElementById('cfgTax').value)||12,
+    service_rate: parseFloat(document.getElementById('cfgService').value)||10,
+    show_tax:     document.getElementById('cfgShowTax').checked,
+    show_service: document.getElementById('cfgShowService').checked,
+  };
+  const res = await api.patch('/settings/app', d);
+  if (res.message) toast('Sozlamalar saqlandi','success');
+  else toast(res.detail||'Xatolik','error');
+};
+
+// ── Printer (ESC/POS universal) ───────────────────────────────────────────────
+// Rejimga qarab tegishli maydonlarni ko'rsatish
+function _applyPrinterMode() {
+  const m = document.getElementById('printerMode').value;
+  document.querySelectorAll('.pm-network').forEach(e => e.style.display = m==='network' ? '' : 'none');
+  document.querySelectorAll('.pm-usb').forEach(e => e.style.display = m==='usb' ? '' : 'none');
+  document.querySelectorAll('.pm-spooler').forEach(e => e.style.display = m==='spooler' ? '' : 'none');
+}
+document.getElementById('printerMode').addEventListener('change', _applyPrinterMode);
+
+async function loadPrinterSettings() {
+  const r = await api.get('/settings/printer').catch(()=>({}));
+  if (!r || r.detail) return;
+  document.getElementById('printerEnabled').checked = !!r.enabled;
+  if (r.mode)  document.getElementById('printerMode').value  = r.mode;
+  if (r.width) document.getElementById('printerWidth').value = String(r.width);
+  if (r.ip)    document.getElementById('printerIP').value    = r.ip;
+  if (r.vendor_id)    document.getElementById('printerVendor').value  = r.vendor_id;
+  if (r.product_id)   document.getElementById('printerProduct').value = r.product_id;
+  if (r.spooler_port) document.getElementById('printerSpoolerPort').value = r.spooler_port;
+  document.getElementById('printerAutoPrint').checked = !!r.auto_print;
+  document.getElementById('printerKitchen').checked   = !!r.kitchen_print;
+  _applyPrinterMode();
+}
+
+document.getElementById('testPrinterBtn').onclick = async () => {
+  const res = await api.post('/settings/printer/test');
+  toast(res.message || (res.success ? 'Test yuborildi' : 'Xatolik'), res.success ? 'success' : 'error');
+};
+
+document.getElementById('savePrinterBtn').onclick = async () => {
+  const d = {
+    enabled:      document.getElementById('printerEnabled').checked,
+    mode:         document.getElementById('printerMode').value,
+    width:        parseInt(document.getElementById('printerWidth').value),
+    ip:           document.getElementById('printerIP').value.trim(),
+    vendor_id:    document.getElementById('printerVendor').value.trim(),
+    product_id:   document.getElementById('printerProduct').value.trim(),
+    spooler_port: document.getElementById('printerSpoolerPort').value.trim(),
+    auto_print:   document.getElementById('printerAutoPrint').checked,
+    kitchen_print:document.getElementById('printerKitchen').checked,
+  };
+  const res = await api.patch('/settings/printer', d);
+  if (res.message) toast('Saqlandi','success');
+  else toast(res.detail||'Xatolik','error');
+};
+
+// ── Payment ────────────────────────────────────────────────────────────────────
+async function loadPaymentSettings() {
+  const r = await api.get('/settings/payment').catch(()=>({}));
+  if (!r || r.detail) return;
+  if (r.methods) {
+    document.getElementById('paymentCash').checked     = r.methods.includes('cash');
+    document.getElementById('paymentCard').checked     = r.methods.includes('card');
+    document.getElementById('paymentPayme').checked    = r.methods.includes('payme');
+    document.getElementById('paymentClick').checked    = r.methods.includes('click');
+    document.getElementById('paymentTransfer').checked = r.methods.includes('transfer');
+  }
+}
+
+document.getElementById('savePaymentBtn').onclick = async () => {
+  const methods = ['cash','card','payme','click','transfer'].filter(m =>
+    document.getElementById('payment'+m[0].toUpperCase()+m.slice(1)).checked
+  );
+  const res = await api.patch('/settings/payment', { methods });
+  if (res.message) toast('Saqlandi','success');
+  else toast(res.detail||'Xatolik','error');
+};
+
+// ── Zaxira nusxa (tenant backup/restore) — UI va mantiq: js/core/tenant-backup.js
+//    "Zaxira nusxa" tab'idagi #xenoraBackupPanel'ни o'sha modul to'ldiradi.
+//    Eski server backup (/settings/backup/*) UI olib tashlandi — tenant-scoped'га ko'chdi.
+
+// ── Fiscal / Tax (O'zbekiston Soliq) ──────────────────────────────────────────
+async function loadFiscalSettings() {
+  const r = await api.get('/settings/fiscal').catch(()=>({}));
+  if (!r || r.detail) return;
+  document.getElementById('fiscalEnabled').checked          = !!r.enabled;
+  document.getElementById('fiscalMode').value               = r.mode       || 'mock';
+  document.getElementById('fiscalOperatorSelect').value     = r.operator   || 'soliquz';
+  document.getElementById('fiscalINN').value                = r.inn        || '';
+  document.getElementById('fiscalKassaId').value            = r.kassa_id   || '';
+  document.getElementById('fiscalApiKey').value             = r.api_key    || '';
+  document.getElementById('fiscalOperator').value           = r.operator_note || '';
+  document.getElementById('fiscalEndpoint').value           = r.endpoint   || '';
+  toggleFiscalFields(!!r.enabled);
+  toggleFiscalMode(r.mode || 'mock');
+}
+
+function toggleFiscalMode(mode) {
+  const isLive  = mode === 'live';
+  const liveWrap = document.getElementById('fiscalLiveFields');
+  const mockInfo = document.getElementById('fiscalMockInfo');
+  if (liveWrap) liveWrap.style.display  = isLive ? '' : 'none';
+  if (mockInfo) mockInfo.style.display  = isLive ? 'none' : '';
+}
+
+document.getElementById('fiscalMode')?.addEventListener('change', function() {
+  toggleFiscalMode(this.value);
+});
+
+function toggleFiscalFields(enabled) {
+  document.querySelectorAll('.fiscal-field').forEach(el => {
+    el.style.opacity = enabled ? '1' : '.4';
+    el.querySelectorAll('input,select').forEach(i => i.disabled = !enabled);
+  });
+}
+
+document.getElementById('fiscalEnabled').onchange = function() {
+  toggleFiscalFields(this.checked);
+};
+
+document.getElementById('saveFiscalBtn').onclick = async () => {
+  const d = {
+    enabled:       document.getElementById('fiscalEnabled').checked,
+    mode:          document.getElementById('fiscalMode')?.value || 'mock',
+    operator:      document.getElementById('fiscalOperatorSelect')?.value || 'soliquz',
+    operator_note: document.getElementById('fiscalOperator').value.trim(),
+    inn:           document.getElementById('fiscalINN').value.trim(),
+    kassa_id:      document.getElementById('fiscalKassaId').value.trim(),
+    api_key:       document.getElementById('fiscalApiKey').value.trim(),
+    endpoint:      document.getElementById('fiscalEndpoint').value.trim(),
+  };
+  const res = await api.patch('/settings/fiscal', d);
+  if (res.message) toast('Fiskal sozlamalar saqlandi','success');
+  else toast(res.detail||'Xatolik','error');
+};
+
+document.getElementById('testFiscalBtn').onclick = async () => {
+  const inn = document.getElementById('fiscalINN').value.trim();
+  if (!inn) { toast('INN (STIR) kiriting','error'); return; }
+  const res = await api.post('/settings/fiscal/test');
+  if (res.success||res.message) toast(res.message||'Ulanish muvaffaqiyatli','success');
+  else toast(res.detail||res.error||'Ulanish xatoligi','error');
+};
+
+function genFiscalQR(receiptData) {
+  const { amount, check_num, kassa_id, inn, date } = receiptData;
+  const dateStr = new Date(date||Date.now()).toISOString().replace(/[-:T]/g,'').slice(0,14);
+  return `https://consumer.invoice.uz/check?t=${dateStr}&s=${Math.round(amount*100)}&fn=${kassa_id||'0'}&i=${check_num||'0'}&fp=${inn||'0'}&n=1`;
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const bg = type==='success'?'#10b981':type==='error'?'#ef4444':type==='warning'?'#f59e0b':'#3b82f6';
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;padding:.75rem 1.25rem;border-radius:.625rem;font-size:.875rem;font-weight:500;color:#fff;background:${bg};box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.textContent=msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+// ── Dorixona flaglari ──────────────────────────────────────────────────────────
+const PHARMACY_FLAGS = ['prescription_archive','drug_analogs','batch_tracking','dosage_info','rx_required','expiry_date'];
+
+async function loadPharmacyFlags() {
+  try {
+    const cafe = await api.get('/cafes/');
+    const c = cafe.items?.[0] || cafe[0] || null;
+    if (!c) return;
+    const enabled = c.enabled_features || [];
+    const disabled = c.disabled_features || [];
+    const btype = c.business_type || 'cafe';
+
+    // Dorixona tabini faqat pharmacy turida ko'rsat
+    const pharmTab = document.querySelector('.pharmacy-only');
+    if (pharmTab) pharmTab.style.display = btype === 'pharmacy' ? '' : 'none';
+
+    // Salon tab ko'rinishi
+    const salonTab = document.querySelector('.salon-only');
+    if (salonTab) salonTab.style.display = btype === 'salon' ? '' : 'none';
+
+    // B2B tab — faqat store/supermarket
+    const storeTab = document.querySelector('.store-only');
+    if (storeTab) storeTab.style.display = (btype === 'store' || btype === 'supermarket') ? '' : 'none';
+
+    // Business type matrisiga ko'ra default holat
+    const PHARMACY_DEFAULTS = PHARMACY_FLAGS;
+    PHARMACY_FLAGS.forEach(flag => {
+      const chk = document.querySelector(`input[data-flag="${flag}"]`);
+      if (!chk) return;
+      let isOn = PHARMACY_DEFAULTS.includes(flag); // default = barchasi on
+      if (enabled.includes(flag)) isOn = true;
+      if (disabled.includes(flag)) isOn = false;
+      chk.checked = isOn;
+    });
+  } catch(e) {}
+}
+
+document.getElementById('savePharmacyFlags')?.addEventListener('click', () =>
+  saveFeatureFlags(PHARMACY_FLAGS, 'Dorixona funksiyalari')
+);
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+renderBtypes();
+Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings()]);
+loadPharmacyFlags();
+loadSalonFlags();
+loadB2bFlags();
+// PRO lock — sahifa yuklangandan keyin barcha PRO togglelarni qulflash
+setTimeout(applyProLocks, 400);
+
+// ── B2B flaglari ───────────────────────────────────────────────────────────────
+const B2B_FLAGS = [
+    'supplier_card','purchase_receipt','supplier_debt','supplier_return',
+    // BOSQICH 25: Tovar harakati
+    'write_off','goods_regrade','customer_return_ext','internal_transfer','loss_report',
+    // BOSQICH 26: Narx, Aksiya va Markirovka
+    'markup_policy','bonus_card','markirovka',
+];
+
+async function loadB2bFlags() {
+  try {
+    const cafe = await api.get('/cafes/');
+    const c = cafe.items?.[0] || cafe[0] || null;
+    if (!c) return;
+    const enabled  = c.enabled_features  || [];
+    const disabled = c.disabled_features || [];
+    B2B_FLAGS.forEach(flag => {
+      const chk = document.querySelector(`#b2bToggles input[data-feature="${flag}"], #b2bMovementToggles input[data-feature="${flag}"], #b2bPriceToggles input[data-feature="${flag}"]`);
+      if (!chk) return;
+      let isOn = true;
+      if (enabled.includes(flag))  isOn = true;
+      if (disabled.includes(flag)) isOn = false;
+      chk.checked = isOn;
+    });
+  } catch(e) {}
+}
+
+document.getElementById('saveB2bFlags')?.addEventListener('click', () =>
+  saveFeatureFlags([
+    ...B2B_FLAGS,
+    'store_dashboard', // FREE (BOSQICH 27)
+    'abc_analysis','auto_reorder','turnover_analysis','peak_hours', // PRO — filtered inside
+  ], 'B2B funksiyalari')
+);
+
+// ── Salon flaglari ─────────────────────────────────────────────────────────────
+const SALON_FLAGS = ['online_booking','staff_schedule','before_after_photo','salon_client_history','commission_report'];
+
+async function loadSalonFlags() {
+  try {
+    const cafe = await api.get('/cafes/');
+    const c = cafe.items?.[0] || cafe[0] || null;
+    if (!c) return;
+    const enabled = c.enabled_features || [];
+    const disabled = c.disabled_features || [];
+    SALON_FLAGS.forEach(flag => {
+      const chk = document.querySelector(`#salonToggles input[data-feature="${flag}"]`);
+      if (!chk) return;
+      let isOn = true; // salon default = hammasi on
+      if (enabled.includes(flag)) isOn = true;
+      if (disabled.includes(flag)) isOn = false;
+      chk.checked = isOn;
+    });
+  } catch(e) {}
+}
+
+document.getElementById('saveSalonFlags')?.addEventListener('click', () =>
+  saveFeatureFlags(SALON_FLAGS, 'Salon funksiyalari')
+);
+</script>
+
+<!-- Zaxira nusxa (backup/restore) — "Zaxira nusxa" tab'idagi #xenoraBackupPanel'ни to'ldiradi -->
+<script type="module" src="../js/core/tenant-backup.js"></script>
+</body>
+</html>

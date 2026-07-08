@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline — XENORA</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <style>
+        .offline-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        .offline-card {
+            max-width: 450px;
+            padding: 3rem;
+        }
+        .offline-icon {
+            font-size: 5rem;
+            margin-bottom: 1.5rem;
+            opacity: 0.7;
+        }
+        .offline-title {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+        }
+        .offline-message {
+            color: var(--gray-500);
+            margin-bottom: 2rem;
+        }
+        .offline-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            padding: 0.75rem;
+            background: var(--warning-light);
+            border-radius: var(--radius-lg);
+            color: var(--warning);
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--warning);
+            animation: pulse 2s infinite;
+        }
+        .offline-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+        .cached-data-info {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--glass-border);
+            font-size: 0.875rem;
+            color: var(--gray-500);
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-card glass">
+            <div class="offline-icon">📡</div>
+            <h1 class="offline-title">Internet aloqasi yo'q</h1>
+            <p class="offline-message">
+                Siz hozir offline rejimdasiz. Ba'zi funksiyalar cheklangan bo'lishi mumkin.
+            </p>
+            <div class="offline-status">
+                <span class="status-dot"></span>
+                <span>Offline rejim</span>
+            </div>
+            <div class="offline-actions">
+                <button class="btn btn-primary" onclick="location.reload()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2"/>
+                        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Qayta urinish
+                </button>
+                <button class="btn btn-outline" onclick="window.history.back()">
+                    Orqaga
+                </button>
+            </div>
+            <div class="cached-data-info" id="cachedInfo">
+                <p>Kesh ma'lumotlari mavjud</p>
+                <small id="lastSync">So'nggi sinxronizatsiya: -</small>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Offline rejimda kesh ma'lumotlarini ko'rsatish
+        const lastSync = localStorage.getItem('last_sync');
+        if (lastSync) {
+            document.getElementById('lastSync').textContent = 
+                `So'nggi sinxronizatsiya: ${new Date(parseInt(lastSync)).toLocaleString('uz-UZ')}`;
+        }
+        
+        // Internet qayta ulanganda avtomatik yangilash
+        window.addEventListener('online', () => {
+            location.reload();
+        });
+    </script>
+</body>
+</html>

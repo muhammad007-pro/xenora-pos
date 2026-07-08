@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">XENORA</string>
+    <string name="title_activity_main">XENORA</string>
+    <string name="package_name">com.xenora.app</string>
+    <string name="custom_url_scheme">com.xenora.app</string>
+</resources>

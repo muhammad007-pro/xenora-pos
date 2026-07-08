@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Asl Belgisi — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .kpi-row     { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .kpi-card    { background:var(--surface1); border:1px solid var(--border); border-radius:.75rem; padding:1rem 1.25rem; }
+  .kpi-label   { font-size:.75rem; color:var(--text2); margin-bottom:.375rem; }
+  .kpi-value   { font-size:1.5rem; font-weight:800; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .verify-bar  { display:flex; gap:.5rem; margin-bottom:1.25rem; padding:1rem; background:var(--surface1); border:1px solid var(--border); border-radius:.875rem; align-items:flex-end; }
+  .verify-result { padding:.75rem 1rem; border-radius:.625rem; font-size:.875rem; font-weight:600; margin-top:.5rem; }
+  .verify-ok    { background:#d1fae5; color:#065f46; }
+  .verify-warn  { background:#fef3c7; color:#92400e; }
+  .verify-error { background:#fee2e2; color:#991b1b; }
+  .table-wrap  { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .code-cell { font-family:monospace; font-size:.8rem; color:#159a70; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+  .badge { display:inline-block; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .badge-active   { background:#d1fae5; color:#065f46; }
+  .badge-sold     { background:#dbeafe; color:#1e40af; }
+  .badge-returned { background:#fef3c7; color:#92400e; }
+  .badge-invalid  { background:#fee2e2; color:#991b1b; }
+  .action-btns { display:flex; gap:.375rem; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box  { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:580px; width:96%; max-height:92vh; overflow-y:auto; }
+  .modal-title{ font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row   { margin-bottom:.875rem; }
+  .form-label { font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🔏 Asl Belgisi (Markirovka)</h1>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-secondary" id="btnBulk">Toplu import</button>
+        <button class="btn" id="btnAdd">+ Yangi kod</button>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Jami kod</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Faol</div>
+        <div class="kpi-value" id="kpiActive" style="color:#10b981">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Sotilgan</div>
+        <div class="kpi-value" id="kpiSold" style="color:#159a70">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Qaytarilgan</div>
+        <div class="kpi-value" id="kpiReturned" style="color:#f59e0b">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Yaroqsiz</div>
+        <div class="kpi-value" id="kpiInvalid" style="color:#ef4444">—</div>
+      </div>
+    </div>
+
+    <!-- Kod tekshirish paneli -->
+    <div class="verify-bar">
+      <div style="flex:1">
+        <label class="form-label">Kod yoki DataMatrix — Asl belgisini tekshirish</label>
+        <input class="inp" id="verifyInput" placeholder="Kodni skanerlang yoki kiriting..." style="width:100%"
+               onkeydown="if(event.key==='Enter') verifyCode()">
+      </div>
+      <button class="btn" onclick="verifyCode()">Tekshirish</button>
+    </div>
+    <div id="verifyResult" style="display:none"></div>
+
+    <div class="filter-bar">
+      <div>
+        <label class="form-label">Holat</label>
+        <select class="inp" id="filterStatus" style="width:140px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="active">Faol</option>
+          <option value="sold">Sotilgan</option>
+          <option value="returned">Qaytarilgan</option>
+          <option value="invalid">Yaroqsiz</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Tovar</label>
+        <select class="inp" id="filterProduct" style="width:200px" onchange="load()">
+          <option value="">Barchasi</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Kod qidirish</label>
+        <input class="inp" id="filterSearch" placeholder="Kod..." style="width:200px" oninput="load()">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kod</th>
+            <th>Tovar</th>
+            <th>Turi</th>
+            <th>Holat</th>
+            <th>Skanerlangan</th>
+            <th>Qo'shilgan</th>
+            <th>Amallar</th>
+          </tr>
+        </thead>
+        <tbody id="markTbody">
+          <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text2)">Yuklanmoqda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ADD SINGLE MODAL -->
+<div class="modal-overlay" id="modalAdd">
+  <div class="modal-box">
+    <div class="modal-title">Yangi markirovka kodi</div>
+    <div class="form-row">
+      <label class="form-label">Tovar *</label>
+      <select class="inp" id="fProduct"><option value="">— tanlang —</option></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Kod (DataMatrix/QR) *</label>
+      <input class="inp" id="fCode" placeholder="Kodni skanerlang yoki kiriting">
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Kod turi</label>
+        <select class="inp" id="fMarkType">
+          <option value="datamatrix">DataMatrix</option>
+          <option value="qr">QR kod</option>
+          <option value="barcode">Barcode</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Partiya (ixtiyoriy)</label>
+        <select class="inp" id="fBatch"><option value="">— tanlanmagan —</option></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalAdd').classList.remove('active')">Bekor</button>
+      <button class="btn" onclick="addMark()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK IMPORT MODAL -->
+<div class="modal-overlay" id="modalBulk">
+  <div class="modal-box">
+    <div class="modal-title">Toplu kod import</div>
+    <div class="form-row">
+      <label class="form-label">Tovar *</label>
+      <select class="inp" id="bulkProduct"><option value="">— tanlang —</option></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Kod turi</label>
+      <select class="inp" id="bulkMarkType">
+        <option value="datamatrix">DataMatrix</option>
+        <option value="qr">QR kod</option>
+        <option value="barcode">Barcode</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Kodlar (har qator — alohida kod) *</label>
+      <textarea class="inp" id="bulkCodes" rows="8" placeholder="010123456789
+010987654321
+..."></textarea>
+    </div>
+    <div id="bulkPreviewCount" style="font-size:.8125rem;color:var(--text2);margin-bottom:.875rem"></div>
+    <div style="display:flex;gap:.75rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('modalBulk').classList.remove('active')">Bekor</button>
+      <button class="btn" onclick="bulkImport()">Import qilish</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API }     from '/js/core/api.js';
+import { toast }   from '/js/core/toast.js';
+
+const api = new API();
+await Sidebar.init();
+
+let marks = [];
+let products = [];
+let batches  = [];
+
+async function loadSupport() {
+  const [pRes, bRes] = await Promise.all([
+    api.get('/products/?page_size=500'),
+    api.get('/batches/?page_size=200').catch(()=>({ items:[] })),
+  ]);
+  products = pRes.items || pRes || [];
+  batches  = bRes.items || bRes || [];
+
+  const opts = '<option value="">— tanlang —</option>' + products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  document.getElementById('fProduct').innerHTML    = opts;
+  document.getElementById('bulkProduct').innerHTML = opts;
+  document.getElementById('filterProduct').innerHTML = '<option value="">Barchasi</option>' + products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+
+  const bOpts = '<option value="">— tanlanmagan —</option>' + batches.map(b=>`<option value="${b.id}">${b.batch_number||b.id}</option>`).join('');
+  document.getElementById('fBatch').innerHTML = bOpts;
+}
+
+window.load = async function() {
+  const status  = document.getElementById('filterStatus').value;
+  const prod    = document.getElementById('filterProduct').value;
+  const search  = document.getElementById('filterSearch').value.trim();
+  let url = '/markirovka/?page_size=200';
+  if (status)  url += `&status=${status}`;
+  if (prod)    url += `&product_id=${prod}`;
+  if (search)  url += `&search=${encodeURIComponent(search)}`;
+  const res = await api.get(url);
+  marks = res.items || res || [];
+
+  document.getElementById('kpiTotal').textContent    = marks.length;
+  document.getElementById('kpiActive').textContent   = marks.filter(m=>m.status==='active').length;
+  document.getElementById('kpiSold').textContent     = marks.filter(m=>m.status==='sold').length;
+  document.getElementById('kpiReturned').textContent = marks.filter(m=>m.status==='returned').length;
+  document.getElementById('kpiInvalid').textContent  = marks.filter(m=>m.status==='invalid').length;
+
+  const statusLabel = { active:'Faol', sold:'Sotilgan', returned:'Qaytarilgan', invalid:'Yaroqsiz' };
+
+  document.getElementById('markTbody').innerHTML = marks.length === 0
+    ? `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text2)">Kod yo'q</td></tr>`
+    : marks.map(m => `
+      <tr>
+        <td><span class="code-cell" onclick="copyCode('${escHtml(m.mark_code)}')" title="${escHtml(m.mark_code)}">${escHtml(m.mark_code)}</span></td>
+        <td>${escHtml(m.product_name||'—')}</td>
+        <td><span style="font-size:.75rem;color:var(--text2)">${m.mark_type||'datamatrix'}</span></td>
+        <td><span class="badge badge-${m.status}">${statusLabel[m.status]||m.status}</span></td>
+        <td style="font-size:.8rem">${m.scanned_at ? m.scanned_at.replace('T',' ').slice(0,16) : '—'}</td>
+        <td style="font-size:.8rem">${m.created_at?.slice(0,10)||'—'}</td>
+        <td>
+          <div class="action-btns">
+            ${m.status !== 'sold' && m.status !== 'invalid' ? `<button class="btn btn-sm btn-danger" onclick="deleteMark(${m.id})">O'ch</button>` : ''}
+            ${m.status === 'sold' ? `<button class="btn btn-sm" onclick="returnMark(${m.id})">Qaytarish</button>` : ''}
+          </div>
+        </td>
+      </tr>`).join('');
+};
+
+function escHtml(s) { return String(s).replace(/[<>"'&]/g, c=>({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c])); }
+
+window.copyCode = function(code) {
+  navigator.clipboard.writeText(code).then(()=>toast('Kod nusxalandi', 'success')).catch(()=>{});
+};
+
+window.verifyCode = async function() {
+  const code = document.getElementById('verifyInput').value.trim();
+  if (!code) return;
+  const res = await api.get(`/markirovka/verify/${encodeURIComponent(code)}`);
+  const el  = document.getElementById('verifyResult');
+  el.style.display = '';
+  const cls = res.valid ? 'verify-ok' : (res.status==='sold'||res.status==='returned') ? 'verify-warn' : 'verify-error';
+  const icon = res.valid ? '✅' : res.status === 'not_found' ? '❌' : '⚠️';
+  el.innerHTML = `<div class="verify-result ${cls}">
+    ${icon} <strong>${res.message}</strong>
+    ${res.product_name ? `<br><span style="font-size:.8rem">Tovar: ${escHtml(res.product_name)}</span>` : ''}
+    ${res.scanned_at   ? `<br><span style="font-size:.8rem">Skanerlangan: ${res.scanned_at.replace('T',' ').slice(0,16)}</span>` : ''}
+  </div>`;
+};
+
+window.addMark = async function() {
+  const prodId = parseInt(document.getElementById('fProduct').value);
+  const code   = document.getElementById('fCode').value.trim();
+  if (!prodId || !code) { toast('Tovar va kodni kiriting', 'error'); return; }
+  await api.post('/markirovka/', {
+    product_id: prodId,
+    mark_code:  code,
+    mark_type:  document.getElementById('fMarkType').value,
+    batch_id:   parseInt(document.getElementById('fBatch').value) || null,
+  });
+  toast('Kod qo\'shildi', 'success');
+  document.getElementById('modalAdd').classList.remove('active');
+  document.getElementById('fCode').value = '';
+  load();
+};
+
+window.bulkImport = async function() {
+  const prodId = parseInt(document.getElementById('bulkProduct').value);
+  const raw    = document.getElementById('bulkCodes').value.trim();
+  if (!prodId || !raw) { toast('Tovar va kodlarni kiriting', 'error'); return; }
+  const codes = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  const res = await api.post(`/markirovka/bulk?product_id=${prodId}&mark_type=${document.getElementById('bulkMarkType').value}`, codes);
+  toast(res.message || `${codes.length} ta kod import qilindi`, 'success');
+  document.getElementById('modalBulk').classList.remove('active');
+  document.getElementById('bulkCodes').value = '';
+  load();
+};
+
+document.getElementById('bulkCodes').addEventListener('input', function() {
+  const n = this.value.split('\n').filter(l=>l.trim()).length;
+  document.getElementById('bulkPreviewCount').textContent = n > 0 ? `${n} ta kod aniqlandi` : '';
+});
+
+window.deleteMark = async function(id) {
+  if (!confirm('Kodni o\'chirishni tasdiqlaysizmi?')) return;
+  await api.delete(`/markirovka/${id}`);
+  toast('O\'chirildi', 'success');
+  load();
+};
+
+window.returnMark = async function(id) {
+  if (!confirm('Kodni "Qaytarilgan" holatiga o\'tkazasizmi?')) return;
+  await api.post(`/markirovka/${id}/return`);
+  toast('Holat yangilandi', 'success');
+  load();
+};
+
+document.getElementById('btnAdd').onclick   = () => document.getElementById('modalAdd').classList.add('active');
+document.getElementById('btnBulk').onclick  = () => document.getElementById('modalBulk').classList.add('active');
+document.getElementById('modalAdd').addEventListener('click',  e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('active'); });
+document.getElementById('modalBulk').addEventListener('click', e => { if(e.target===e.currentTarget) e.currentTarget.classList.remove('active'); });
+
+await loadSupport();
+load();
+</script>
+</body>
+</html>

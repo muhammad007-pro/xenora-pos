@@ -1,0 +1,272 @@
+﻿<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foydalanuvchilar — XENORA Owner</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <style>
+        .users-container {
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+        
+        .filters-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+        }
+        
+        .search-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        
+        .search-wrapper input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+        }
+        
+        .search-wrapper svg {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+        
+        .filter-select {
+            padding: 0.75rem 2rem 0.75rem 1rem;
+            min-width: 180px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .user-name {
+            font-weight: 600;
+        }
+        
+        .user-email {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+        
+        .role-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--glass-bg);
+        }
+        
+        .role-badge.owner {
+            background: var(--primary-gradient);
+            color: var(--secondary-dark);
+        }
+        
+        .role-badge.admin {
+            background: var(--info-light);
+            color: var(--info);
+        }
+        
+        .cafe-badge {
+            padding: 0.125rem 0.5rem;
+            background: var(--glass-bg-light);
+            border-radius: 1rem;
+            font-size: 0.7rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="users-container">
+        <div class="page-header">
+            <h1>Foydalanuvchilar boshqaruvi</h1>
+            <button class="btn btn-primary" id="inviteUserBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Foydalanuvchi taklif qilish
+            </button>
+        </div>
+        
+        <div class="filters-bar glass">
+            <div class="search-wrapper">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                    <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <input type="search" placeholder="Ism, email yoki telefon...">
+            </div>
+            <select class="filter-select glass">
+                <option value="">Barcha rollar</option>
+                <option value="owner">Owner</option>
+                <option value="admin">Admin</option>
+                <option value="manager">Menejer</option>
+                <option value="waiter">Ofitsiant</option>
+                <option value="kitchen">Oshpaz</option>
+            </select>
+            <select class="filter-select glass">
+                <option value="">Barcha kafelar</option>
+                <option value="1">Premium Toshkent</option>
+                <option value="2">Premium Samarqand</option>
+                <option value="3">Premium Buxoro</option>
+            </select>
+            <select class="filter-select glass">
+                <option value="">Barcha holatlar</option>
+                <option value="active">Faol</option>
+                <option value="inactive">Nofaol</option>
+                <option value="pending">Kutilmoqda</option>
+            </select>
+        </div>
+        
+        <div class="table-card glass">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Foydalanuvchi</th>
+                        <th>Rol</th>
+                        <th>Kafe</th>
+                        <th>Telefon</th>
+                        <th>So'nggi faollik</th>
+                        <th>Holat</th>
+                        <th>Amallar</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Taklif qilish modal -->
+    <div class="modal" id="inviteModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Foydalanuvchi taklif qilish</h2>
+                <button class="modal-close btn-icon glass">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="inviteForm">
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" name="email" required placeholder="foydalanuvchi@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Ism *</label>
+                        <input type="text" name="name" required placeholder="Alisher Uzoqov">
+                    </div>
+                    <div class="form-group">
+                        <label>Rol *</label>
+                        <select name="role" required>
+                            <option value="">Rol tanlang</option>
+                            <option value="admin">Admin</option>
+                            <option value="manager">Menejer</option>
+                            <option value="waiter">Ofitsiant</option>
+                            <option value="kitchen">Oshpaz</option>
+                            <option value="cashier">Kassir</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kafe *</label>
+                        <select name="cafe_id" required>
+                            <option value="">Kafe tanlang</option>
+                            <option value="1">Premium Toshkent</option>
+                            <option value="2">Premium Samarqand</option>
+                            <option value="3">Premium Buxoro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Xabar (ixtiyoriy)</label>
+                        <textarea name="message" rows="3" placeholder="Taklif xabari..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline modal-close">Bekor qilish</button>
+                <button class="btn btn-primary" id="sendInviteBtn">Taklif yuborish</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+    import { AuthGuard } from '../js/core/auth-guard.js';
+    AuthGuard.check('superuser');   // platforma foydalanuvchilar paneli — faqat super-admin
+initErrorHandler();
+    </script>
+    <script>
+        const _lport = window.location.port;
+        const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+        const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+        const tok=()=>localStorage.getItem('access_token');
+        if(!tok()) location.href='../shared/login.html';
+
+        const ROLES={owner:'Owner',admin:'Admin',manager:'Menejer',waiter:'Ofitsiant',chef:'Oshpaz',oshpaz:'Oshpaz',cashier:'Kassir',kassir:'Kassir',pharmacist:'Farmatsevt'};
+        function roleText(r){return ROLES[(r||'').toLowerCase()]||r||'—';}
+
+        async function loadUsers(){
+            const q = document.getElementById('searchInput')?.value||'';
+            const url = `/users/?page_size=100${q?'&search='+encodeURIComponent(q):''}`;
+            const res = await fetch(`${BASE}${url}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()).catch(()=>null);
+            const users = res?.items || res || [];
+            const tbody = document.getElementById('usersTableBody');
+            if(!users.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:#5c5c7a">Foydalanuvchilar topilmadi</td></tr>';return;}
+            tbody.innerHTML = users.map(u=>`
+                <tr>
+                    <td>
+                        <div class="user-info">
+                            <div class="user-avatar" style="background:linear-gradient(135deg,#c9a84c,#e2c97a);display:flex;align-items:center;justify-content:center;color:#07070f;font-weight:bold;">
+                                ${(u.full_name||u.username||'?').charAt(0).toUpperCase()}
+                            </div>
+                            <div class="user-details">
+                                <span class="user-name">${u.full_name||u.username}</span>
+                                <span class="user-email">${u.email||u.username}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="role-badge">${u.is_superuser?'Owner':roleText(u.role?.name)}</span></td>
+                    <td>—</td>
+                    <td>${u.phone||'—'}</td>
+                    <td>${u.is_active?'Faol':'Nofaol'}</td>
+                    <td><span class="status-badge ${u.is_active?'active':'inactive'}">${u.is_active?'Faol':'Nofaol'}</span></td>
+                    <td>
+                        <div class="actions">
+                            <a href="../app/employees.html" class="btn-icon" title="Xodim kabineti">👤</a>
+                        </div>
+                    </td>
+                </tr>`).join('');
+        }
+
+        document.getElementById('searchInput')?.addEventListener('input', loadUsers);
+        loadUsers();
+    </script>
+</body>
+</html>

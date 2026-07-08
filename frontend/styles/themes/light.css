@@ -1,0 +1,245 @@
+/* Light Theme — XENORA zumrad-tilla (kuchli kontrast; token nomlari o'zgarmagan) */
+
+[data-theme="light"] {
+    /* Primary Colors */
+    --primary: #159a70;
+    --primary-light: #1fb084;
+    --primary-dark: #0e6e50;
+    --primary-gradient: linear-gradient(135deg, #159a70 0%, #1fb084 50%, #9a7b30 100%);
+
+    /* Secondary Colors (to'q zumrad — light'da quyuq elementlar uchun) */
+    --secondary: #10362a;
+    --secondary-light: #1c4d3c;
+    --secondary-dark: #0a2419;
+
+    /* Accent Colors */
+    --accent-gold: #9a7b30;
+    --accent-platinum: #e9e3d2;
+    --accent-bronze: #8a6a28;
+
+    /* Status Colors */
+    --success: #15935f;
+    --success-light: #d6f0e4;
+    --warning: #b7791f;
+    --warning-light: #fbf0d6;
+    --danger: #c0492b;
+    --danger-light: #f7e0d8;
+    --info: #1e7a8c;
+    --info-light: #d8eef2;
+
+    /* Neutral Colors (50 = eng yorug' sirt ... 900 = eng to'q matn) */
+    --gray-50: #fbf8f0;
+    --gray-100: #f3f0e4;
+    --gray-200: #e7e0ce;
+    --gray-300: #cfc6ae;
+    --gray-400: #6b8576;   /* muted matn — o'qilarli */
+    --gray-500: #4a6b5c;   /* dim matn — to'q */
+    --gray-600: #3a5949;
+    --gray-700: #28473a;
+    --gray-800: #1a3c2e;
+    --gray-900: #10362a;   /* asosiy matn — juda to'q zumrad */
+
+    /* Glassmorphism */
+    --glass-bg: rgba(251, 248, 240, 0.85);
+    --glass-bg-light: rgba(251, 248, 240, 0.55);
+    --glass-bg-dark: rgba(251, 248, 240, 0.92);
+    --glass-border: rgba(20, 90, 66, 0.18);
+    --glass-blur: blur(10px);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(16, 54, 42, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(16, 54, 42, 0.10);
+    --shadow-lg: 0 10px 15px -3px rgba(16, 54, 42, 0.12);
+    --shadow-xl: 0 20px 25px -5px rgba(16, 54, 42, 0.12);
+    --shadow-2xl: 0 25px 50px -12px rgba(16, 54, 42, 0.18);
+    --shadow-glow: 0 0 20px rgba(21, 154, 112, 0.22);
+    --shadow-premium: 0 20px 40px rgba(16, 54, 42, 0.10), 0 5px 15px rgba(154, 123, 48, 0.12);
+
+    /* Body Background */
+    body {
+        background: linear-gradient(135deg, #f3f0e4 0%, #e9e3d2 100%);
+        color: var(--gray-900);
+    }
+
+    /* Cards */
+    .card, .glass {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+    }
+
+    /* Inputs */
+    input, select, textarea {
+        background: #fbf8f0;
+        border-color: var(--gray-300);
+        color: var(--gray-900);
+    }
+
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-glow);
+    }
+
+    input::placeholder, textarea::placeholder {
+        color: var(--gray-400);
+    }
+
+    /* Tables */
+    .data-table tbody tr:hover {
+        background: var(--gray-50);
+    }
+
+    /* Modals */
+    .modal-content {
+        background: #fbf8f0;
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--gray-200);
+    }
+
+    .modal-overlay {
+        background: rgba(10, 36, 25, 0.35);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar-track {
+        background: var(--gray-200);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-dark);
+    }
+
+    /* Selection */
+    ::selection {
+        background: var(--primary);
+        color: white;
+    }
+}/* Light Theme */
+
+[data-theme="light"] {
+    /* Primary Colors */
+    --primary: #159a70;
+    --primary-light: #1fb084;
+    --primary-dark: #0e6e50;
+    --primary-gradient: linear-gradient(135deg, #159a70 0%, #1fb084 50%, #9a7b30 100%);
+
+    /* Secondary Colors (to'q zumrad — light'da quyuq elementlar uchun) */
+    --secondary: #10362a;
+    --secondary-light: #1c4d3c;
+    --secondary-dark: #0a2419;
+
+    /* Accent Colors */
+    --accent-gold: #9a7b30;
+    --accent-platinum: #e9e3d2;
+    --accent-bronze: #8a6a28;
+
+    /* Status Colors */
+    --success: #15935f;
+    --success-light: #d6f0e4;
+    --warning: #b7791f;
+    --warning-light: #fbf0d6;
+    --danger: #c0492b;
+    --danger-light: #f7e0d8;
+    --info: #1e7a8c;
+    --info-light: #d8eef2;
+
+    /* Neutral Colors (50 = eng yorug' sirt ... 900 = eng to'q matn) */
+    --gray-50: #fbf8f0;
+    --gray-100: #f3f0e4;
+    --gray-200: #e7e0ce;
+    --gray-300: #cfc6ae;
+    --gray-400: #6b8576;   /* muted matn — o'qilarli */
+    --gray-500: #4a6b5c;   /* dim matn — to'q */
+    --gray-600: #3a5949;
+    --gray-700: #28473a;
+    --gray-800: #1a3c2e;
+    --gray-900: #10362a;   /* asosiy matn — juda to'q zumrad */
+
+    /* Glassmorphism */
+    --glass-bg: rgba(251, 248, 240, 0.85);
+    --glass-bg-light: rgba(251, 248, 240, 0.55);
+    --glass-bg-dark: rgba(251, 248, 240, 0.92);
+    --glass-border: rgba(20, 90, 66, 0.18);
+    --glass-blur: blur(10px);
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(16, 54, 42, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(16, 54, 42, 0.10);
+    --shadow-lg: 0 10px 15px -3px rgba(16, 54, 42, 0.12);
+    --shadow-xl: 0 20px 25px -5px rgba(16, 54, 42, 0.12);
+    --shadow-2xl: 0 25px 50px -12px rgba(16, 54, 42, 0.18);
+    --shadow-glow: 0 0 20px rgba(21, 154, 112, 0.22);
+    --shadow-premium: 0 20px 40px rgba(16, 54, 42, 0.10), 0 5px 15px rgba(154, 123, 48, 0.12);
+
+    /* Body Background */
+    body {
+        background: linear-gradient(135deg, #f3f0e4 0%, #e9e3d2 100%);
+        color: var(--gray-900);
+    }
+
+    /* Cards */
+    .card, .glass {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+    }
+
+    /* Inputs */
+    input, select, textarea {
+        background: #fbf8f0;
+        border-color: var(--gray-300);
+        color: var(--gray-900);
+    }
+
+    input:focus, select:focus, textarea:focus {
+        border-color: var(--primary);
+        box-shadow: var(--shadow-glow);
+    }
+
+    input::placeholder, textarea::placeholder {
+        color: var(--gray-400);
+    }
+
+    /* Tables */
+    .data-table tbody tr:hover {
+        background: var(--gray-50);
+    }
+
+    /* Modals */
+    .modal-content {
+        background: #fbf8f0;
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--gray-200);
+    }
+
+    .modal-overlay {
+        background: rgba(10, 36, 25, 0.35);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar-track {
+        background: var(--gray-200);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-dark);
+    }
+
+    /* Selection */
+    ::selection {
+        background: var(--primary);
+        color: white;
+    }
+}

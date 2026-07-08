@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Auto servis | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
+  --border:rgba(212,180,108,.18);--border2:rgba(255,255,255,.08);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
+  --r:0.625rem;--r2:1rem;
+}
+.page-wrap{display:flex;flex-direction:column;height:100vh}
+.page-header{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);flex-shrink:0}
+.back-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:all .2s}
+.back-btn:hover{border-color:var(--gold);color:var(--gold)}
+.page-title{font-size:1.125rem;font-weight:700;color:var(--gold)}
+.page-content{flex:1;overflow-y:auto;padding:1.25rem}
+
+/* Tabs */
+.veh-tabs{display:flex;gap:.5rem;margin-bottom:1.25rem}
+.veh-tab{padding:.5rem 1.25rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:.875rem;font-weight:500;cursor:pointer;transition:all .2s}
+.veh-tab.active{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+
+/* Toolbar */
+.veh-toolbar{display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+.veh-search{flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none}
+.veh-search:focus{border-color:var(--gold)}
+.order-status-filter{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;cursor:pointer}
+
+/* Vehicle grid */
+.veh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
+.veh-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.125rem;transition:border-color .2s}
+.veh-card:hover{border-color:var(--gold)}
+.veh-plate{font-size:1.25rem;font-weight:800;color:var(--gold);letter-spacing:.05em;margin-bottom:.5rem}
+.veh-info{font-size:.875rem;color:var(--text2);margin-bottom:.25rem}
+.veh-color{font-size:.8125rem;color:var(--text3);margin-bottom:.25rem}
+.veh-owner{font-size:.8125rem;color:var(--text2);margin-bottom:.875rem}
+.veh-actions{display:flex;gap:.5rem}
+.veh-empty{text-align:center;padding:3rem;color:var(--text3);font-size:.9375rem}
+
+/* Order list */
+.order-list{display:flex;flex-direction:column;gap:.75rem}
+.order-item{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1rem 1.125rem;display:grid;grid-template-columns:auto 1fr 2fr 1fr auto auto;align-items:center;gap:1rem}
+.order-num{font-weight:700;color:var(--gold);white-space:nowrap}
+.order-vehicle{font-size:.875rem;color:var(--text2);white-space:nowrap}
+.order-desc{font-size:.875rem;color:var(--text)}
+.order-amount{font-weight:600;text-align:right;white-space:nowrap}
+.order-actions{display:flex;justify-content:flex-end}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:.25rem .625rem;border-radius:99px;font-size:.6875rem;font-weight:600;white-space:nowrap}
+.badge-warning{background:rgba(245,158,11,.15);color:#f59e0b}
+.badge-info{background:rgba(59,130,246,.15);color:#3b82f6}
+.badge-success{background:rgba(16,185,129,.15);color:#10b981}
+.badge-active{background:rgba(212,180,108,.15);color:#d4b46c}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .2s}
+.btn-primary{background:var(--gold-dim);border:1px solid var(--gold);color:var(--gold)}
+.btn-primary:hover{background:rgba(212,180,108,.25)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.3125rem .75rem;font-size:.8125rem}
+
+/* Modal */
+.modal-wrap{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-wrap.open{display:flex}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)}
+.modal-box{position:relative;z-index:1;background:var(--bg2);border:1px solid var(--border);border-radius:1.25rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:1.25rem 1.5rem;border-bottom:1px solid var(--border2)}
+.modal-header h3{font-size:1rem;font-weight:700}
+.close-btn{width:32px;height:32px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.modal-body{padding:1.25rem 1.5rem}
+.modal-footer{display:flex;gap:.75rem;padding:1rem 1.5rem;border-top:1px solid var(--border2);justify-content:flex-end}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .75rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--gold)}
+.form-group textarea{resize:vertical;min-height:72px}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="page-wrap">
+  <header class="page-header">
+    <a href="admin.html" class="back-btn">←</a>
+    <h1 class="page-title">🔧 Auto servis</h1>
+  </header>
+  <div class="page-content" id="vehicleContainer">
+    <div style="text-align:center;padding:3rem;color:var(--text3)">Yuklanmoqda...</div>
+  </div>
+</div>
+
+<!-- Vehicle form modal -->
+<div class="modal-wrap" id="vehicleModal">
+  <div class="modal-overlay" id="vehModalOverlay"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="vehModalTitle">Avtomobil</h3>
+      <button class="close-btn" id="vehModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="vehicleForm">
+        <div class="form-group"><label>Davlat raqami *</label><input name="plate_number" placeholder="01A 123 BC" required></div>
+        <div class="form-group"><label>Brend</label><input name="brand" placeholder="Chevrolet"></div>
+        <div class="form-group"><label>Model</label><input name="model" placeholder="Cobalt"></div>
+        <div class="form-group"><label>Yil</label><input name="year" type="number" min="1970" max="2030"></div>
+        <div class="form-group"><label>Rang</label><input name="color" placeholder="Oq"></div>
+        <div class="form-group"><label>Mijoz</label><select name="customer_id" id="vehCustomerSel"><option value="">— Tanlang —</option></select></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="vehCancelBtn">Bekor</button>
+      <button class="btn btn-primary" id="vehSaveBtn">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order form modal -->
+<div class="modal-wrap" id="orderModal">
+  <div class="modal-overlay" id="ordModalOverlay"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Yangi xizmat buyurtmasi</h3>
+      <button class="close-btn" id="ordModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="orderForm">
+        <div class="form-group"><label>Avtomobil</label><select name="vehicle_id" id="ordVehicleSel"><option value="">— Tanlang —</option></select></div>
+        <div class="form-group"><label>Muammo tavsifi *</label><textarea name="description" rows="3" required placeholder="Nima muammo?"></textarea></div>
+        <div class="form-group"><label>Narxi (so'm)</label><input name="total_amount" type="number" min="0" value="0"></div>
+        <div class="form-group"><label>Qabul sanasi</label><input name="intake_date" type="datetime-local" required></div>
+        <div class="form-group"><label>Izoh</label><textarea name="notes" rows="2"></textarea></div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="ordCancelBtn">Bekor</button>
+      <button class="btn btn-primary" id="ordSaveBtn">Yaratish</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const token = () => localStorage.getItem('access_token');
+if (!token()) { location.href = '../shared/login.html'; }
+
+const api = {
+  get:   (u, p={}) => fetch(`${BASE}${u}?${new URLSearchParams(p)}`, {headers:{Authorization:'Bearer '+token()}}).then(r=>r.json()),
+  post:  (u, d)    => fetch(`${BASE}${u}`, {method:'POST',  headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'}, body:JSON.stringify(d)}).then(r=>r.json()),
+  patch: (u, d)    => fetch(`${BASE}${u}`, {method:'PATCH', headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'}, body:JSON.stringify(d)}).then(r=>r.json()),
+  del:   (u)       => fetch(`${BASE}${u}`, {method:'DELETE',headers:{Authorization:'Bearer '+token()}}).then(r=>r.json()),
+};
+
+const fmt = n => Number(n||0).toLocaleString('uz-UZ') + ' UZS';
+
+const STATUS = {
+  pending:     {label:'Kutilmoqda', cls:'badge-warning'},
+  in_progress: {label:'Jarayonda',  cls:'badge-info'},
+  done:        {label:'Tayyor',     cls:'badge-success'},
+  delivered:   {label:'Topshirildi',cls:'badge-active'},
+};
+
+let vehicles=[], orders=[], customers=[], tab='vehicles', editVehicleId=null;
+
+async function load() {
+  const [vr, or_, cr] = await Promise.all([
+    api.get('/vehicles/', {page_size:200}),
+    api.get('/vehicles/orders/', {page_size:200}),
+    api.get('/customers/', {page_size:500}),
+  ]);
+  vehicles  = vr.items  || [];
+  orders    = or_.items || [];
+  customers = cr.items  || [];
+}
+
+function render() {
+  const c = document.getElementById('vehicleContainer');
+  c.innerHTML = `
+    <div class="veh-tabs">
+      <button class="veh-tab${tab==='vehicles'?' active':''}" data-tab="vehicles">🚗 Avtomobillar (${vehicles.length})</button>
+      <button class="veh-tab${tab==='orders'?' active':''}" data-tab="orders">🔧 Buyurtmalar (${orders.length})</button>
+    </div>
+    <div id="tabContent"></div>`;
+  c.querySelectorAll('.veh-tab').forEach(b=>b.addEventListener('click',()=>{
+    tab=b.dataset.tab; render();
+  }));
+  tab==='vehicles' ? renderVehicles() : renderOrders();
+}
+
+function renderVehicles(list=vehicles) {
+  document.getElementById('tabContent').innerHTML = `
+    <div class="veh-toolbar">
+      <input class="veh-search" placeholder="Davlat raqami, model...">
+      <button class="btn btn-primary" id="addVehBtn">+ Avtomobil</button>
+    </div>
+    <div class="veh-grid" id="vGrid">
+      ${list.length ? list.map(vCard).join('') : '<div class="veh-empty">Avtomobil topilmadi</div>'}
+    </div>`;
+  document.getElementById('addVehBtn').onclick = () => openVehicleModal();
+  document.querySelector('.veh-search').addEventListener('input', e=>{
+    const s=e.target.value.toLowerCase();
+    renderVehicles(s ? vehicles.filter(v=>
+      (v.plate_number||'').toLowerCase().includes(s)||
+      (v.brand||'').toLowerCase().includes(s)||
+      (v.model||'').toLowerCase().includes(s)
+    ) : vehicles);
+  });
+  bindVehicleEvents();
+}
+
+function vCard(v) {
+  const c = customers.find(x=>x.id===v.customer_id);
+  return `<div class="veh-card" data-id="${v.id}">
+    <div class="veh-plate">${v.plate_number}</div>
+    <div class="veh-info">${[v.brand,v.model,v.year].filter(Boolean).join(' · ')||'—'}</div>
+    ${v.color?`<div class="veh-color">🎨 ${v.color}</div>`:''}
+    ${c?`<div class="veh-owner">👤 ${c.name}</div>`:''}
+    <div class="veh-actions" style="margin-top:.75rem">
+      <button class="btn btn-sm btn-primary veh-order-btn">+ Buyurtma</button>
+      <button class="btn btn-sm btn-outline veh-edit-btn">✏️ Tahrir</button>
+    </div>
+  </div>`;
+}
+
+function bindVehicleEvents() {
+  document.querySelectorAll('.veh-order-btn').forEach(b=>{
+    const id=parseInt(b.closest('.veh-card').dataset.id);
+    b.onclick=()=>openOrderModal(id);
+  });
+  document.querySelectorAll('.veh-edit-btn').forEach(b=>{
+    const v=vehicles.find(x=>x.id==b.closest('.veh-card').dataset.id);
+    b.onclick=()=>openVehicleModal(v);
+  });
+}
+
+function renderOrders(list=orders) {
+  document.getElementById('tabContent').innerHTML = `
+    <div class="veh-toolbar">
+      <select class="order-status-filter">
+        <option value="">Barcha holatlar</option>
+        ${Object.entries(STATUS).map(([v,s])=>`<option value="${v}">${s.label}</option>`).join('')}
+      </select>
+      <button class="btn btn-primary" id="addOrdBtn">+ Yangi buyurtma</button>
+    </div>
+    <div class="order-list">
+      ${list.length ? list.map(oRow).join('') : '<div class="veh-empty">Buyurtma topilmadi</div>'}
+    </div>`;
+  document.getElementById('addOrdBtn').onclick = ()=>openOrderModal();
+  document.querySelector('.order-status-filter').addEventListener('change', e=>{
+    renderOrders(e.target.value ? orders.filter(o=>o.status===e.target.value) : orders);
+    bindOrderEvents();
+  });
+  bindOrderEvents();
+}
+
+function oRow(o) {
+  const v  = vehicles.find(x=>x.id===o.vehicle_id);
+  const st = STATUS[o.status]||{label:o.status,cls:''};
+  return `<div class="order-item" data-id="${o.id}">
+    <div class="order-num">${o.order_number||'#'+o.id}</div>
+    <div class="order-vehicle">${v?v.plate_number+' · '+(v.brand||''):'—'}</div>
+    <div class="order-desc">${o.description||''}</div>
+    <div class="order-amount">${fmt(o.total_amount)}</div>
+    <span class="badge ${st.cls}">${st.label}</span>
+    <div class="order-actions">
+      ${o.status!=='delivered'?`<button class="btn btn-sm btn-outline next-btn">Keyingi ›</button>`:''}
+    </div>
+  </div>`;
+}
+
+function bindOrderEvents() {
+  document.querySelectorAll('.next-btn').forEach(b=>{
+    const o=orders.find(x=>x.id==b.closest('.order-item').dataset.id);
+    b.onclick=()=>nextStatus(o);
+  });
+}
+
+async function nextStatus(o) {
+  const flow=['pending','in_progress','done','delivered'];
+  const idx=flow.indexOf(o.status);
+  if(idx<0||idx===flow.length-1) return;
+  const res=await api.patch(`/vehicles/orders/${o.id}`,{status:flow[idx+1]});
+  if(!res.detail){
+    toast(`Holat: ${STATUS[flow[idx+1]]?.label}`,'success');
+    await load(); render();
+  }
+}
+
+// ── Vehicle modal ──────────────────────────────────────────────────────────────
+function openVehicleModal(v=null) {
+  editVehicleId = v?.id||null;
+  document.getElementById('vehModalTitle').textContent = v ? 'Avtomobilni tahrirlash' : 'Yangi avtomobil';
+  const f = document.getElementById('vehicleForm');
+  f.plate_number.value = v?.plate_number||'';
+  f.brand.value        = v?.brand||'';
+  f.model.value        = v?.model||'';
+  f.year.value         = v?.year||'';
+  f.color.value        = v?.color||'';
+  const sel = document.getElementById('vehCustomerSel');
+  sel.innerHTML = '<option value="">— Tanlang —</option>' +
+    customers.map(c=>`<option value="${c.id}" ${v?.customer_id===c.id?'selected':''}>${c.name}</option>`).join('');
+  document.getElementById('vehicleModal').classList.add('open');
+}
+
+document.getElementById('vehModalClose').onclick  =
+document.getElementById('vehCancelBtn').onclick   =
+document.getElementById('vehModalOverlay').onclick = () => document.getElementById('vehicleModal').classList.remove('open');
+
+document.getElementById('vehSaveBtn').onclick = async () => {
+  const f = document.getElementById('vehicleForm');
+  if(!f.plate_number.value.trim()){toast('Davlat raqami kerak','error');return;}
+  const d={
+    plate_number: f.plate_number.value.trim(),
+    brand:        f.brand.value.trim()||undefined,
+    model:        f.model.value.trim()||undefined,
+    year:         f.year.value ? parseInt(f.year.value) : undefined,
+    color:        f.color.value.trim()||undefined,
+    customer_id:  f.customer_id.value ? parseInt(f.customer_id.value) : undefined,
+  };
+  Object.keys(d).forEach(k=>d[k]===undefined&&delete d[k]);
+  const res = editVehicleId
+    ? await api.patch(`/vehicles/${editVehicleId}`, d)
+    : await api.post('/vehicles/', d);
+  if(res.id){ toast('Saqlandi','success'); document.getElementById('vehicleModal').classList.remove('open'); await load(); render(); }
+  else toast(res.detail||'Xatolik','error');
+};
+
+// ── Order modal ────────────────────────────────────────────────────────────────
+function openOrderModal(vehicleId=null) {
+  const f = document.getElementById('orderForm');
+  f.description.value  = '';
+  f.total_amount.value = '0';
+  f.notes.value        = '';
+  f.intake_date.value  = new Date().toISOString().slice(0,16);
+  const sel = document.getElementById('ordVehicleSel');
+  sel.innerHTML = '<option value="">— Tanlang —</option>' +
+    vehicles.map(v=>`<option value="${v.id}" ${v.id===vehicleId?'selected':''}>${v.plate_number} · ${v.brand||''}</option>`).join('');
+  document.getElementById('orderModal').classList.add('open');
+}
+
+document.getElementById('ordModalClose').onclick  =
+document.getElementById('ordCancelBtn').onclick   =
+document.getElementById('ordModalOverlay').onclick = () => document.getElementById('orderModal').classList.remove('open');
+
+document.getElementById('ordSaveBtn').onclick = async () => {
+  const f = document.getElementById('orderForm');
+  if(!f.description.value.trim()){toast('Tavsif kerak','error');return;}
+  const d={
+    description:  f.description.value.trim(),
+    total_amount: parseFloat(f.total_amount.value)||0,
+    intake_date:  f.intake_date.value,
+    notes:        f.notes.value.trim()||undefined,
+    vehicle_id:   f.vehicle_id.value ? parseInt(f.vehicle_id.value) : undefined,
+  };
+  Object.keys(d).forEach(k=>d[k]===undefined&&delete d[k]);
+  const res = await api.post('/vehicles/orders/', d);
+  if(res.id){ toast('Buyurtma yaratildi','success'); document.getElementById('orderModal').classList.remove('open'); tab='orders'; await load(); render(); }
+  else toast(res.detail||'Xatolik','error');
+};
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;padding:.75rem 1.25rem;border-radius:.625rem;font-size:.875rem;font-weight:500;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};box-shadow:0 4px 12px rgba(0,0,0,.3);animation:fadeIn .2s`;
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(async()=>{
+  await load();
+  render();
+})();
+</script>
+</body>
+</html>

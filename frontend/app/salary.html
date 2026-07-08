@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Ish haqi | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--red:#ef4444;--yellow:#f59e0b;
+  --primary-color:var(--gold);--bg-secondary:var(--bg3);
+  --border-color:var(--border2);--text-secondary:var(--text2);
+  --r:.5rem;--r2:.875rem;--r3:1.125rem
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+/* Header */
+.page-header{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.back-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;flex-shrink:0;transition:.2s}
+.back-btn:hover{border-color:var(--gold);color:var(--gold)}
+.header-left{display:flex;align-items:center;gap:.75rem}
+.header-left h1{font-size:1.125rem;font-weight:700;color:var(--gold)}
+.header-center{flex:1;display:flex;justify-content:center}
+.month-selector{display:flex;align-items:center;gap:.5rem}
+.header-right{display:flex;align-items:center;gap:.5rem}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-primary:hover{box-shadow:var(--gold-glow)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+/* Selects */
+select{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;cursor:pointer;font-family:inherit;transition:.2s}
+select:focus{border-color:var(--gold)}
+/* Summary */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;padding:1.5rem 1.5rem 0;max-width:1280px;margin:0 auto}
+.summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem;text-align:center}
+.summary-card.paid{border-color:rgba(16,185,129,.3)}
+.summary-card.unpaid{border-color:rgba(239,68,68,.2)}
+.summary-value{display:block;font-size:1.625rem;font-weight:700;color:var(--gold)}
+.summary-card.paid .summary-value{color:var(--green)}
+.summary-card.unpaid .summary-value{color:var(--red)}
+.summary-label{display:block;font-size:.75rem;color:var(--text3);margin-top:.25rem}
+/* Filter bar */
+.filter-bar{display:flex;gap:.75rem;align-items:center;padding:1.25rem 1.5rem;max-width:1280px;margin:0 auto}
+.search-wrapper{flex:1;max-width:320px}
+.search-wrapper input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.search-wrapper input:focus{border-color:var(--gold)}
+/* Table */
+.table-container{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin:0 1.5rem 1.5rem;max-width:1280px;margin-left:auto;margin-right:auto}
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border)}
+.data-table td{padding:.875rem 1rem;border-bottom:1px solid var(--border);font-size:.875rem}
+.data-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.data-table tbody tr:last-child td{border-bottom:none}
+/* Badge */
+.status-badge,.salary-status{padding:.2rem .625rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.salary-status.paid{background:rgba(16,185,129,.12);color:var(--green)}
+.salary-status.unpaid{background:rgba(239,68,68,.1);color:var(--red)}
+.salary-status.partial{background:rgba(245,158,11,.12);color:var(--yellow)}
+/* Modal */
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.modal-content{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.modal-header h2{font-size:1rem;font-weight:700}
+.modal-close{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.25rem;transition:.2s;line-height:1}
+.modal-close:hover{border-color:var(--gold);color:var(--gold)}
+.modal-body{padding:1.25rem;overflow-y:auto;flex:1}
+.modal-footer{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}
+.modal-footer .btn{flex:1}
+.form-group{margin-bottom:1rem}
+.form-group label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.form-group input,.form-group textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.form-group input:focus{border-color:var(--gold)}
+.form-group input[readonly]{opacity:.6}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.875rem}
+.employee-info-display{background:var(--bg3);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem;color:var(--text2)}
+/* Action buttons in table */
+.action-btn{padding:.35rem .625rem;border-radius:var(--r);cursor:pointer;background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:.8125rem;margin-right:.25rem;transition:.2s}
+.action-btn:hover{border-color:var(--gold);color:var(--gold)}
+@media(max-width:900px){.summary-grid{grid-template-columns:repeat(2,1fr)}.month-selector{flex-wrap:wrap;gap:.25rem}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="page-header">
+  <div class="header-left">
+    <a href="pos.html" class="back-btn">←</a>
+    <h1>Ish haqi</h1>
+  </div>
+  <div class="header-center">
+    <div class="month-selector">
+      <button class="btn btn-outline" id="prevMonth">‹</button>
+      <select id="monthSelect"></select>
+      <select id="yearSelect"></select>
+      <button class="btn btn-outline" id="nextMonth">›</button>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-primary" id="calculateAllBtn">Hammasini hisoblash</button>
+  </div>
+</header>
+
+<div class="summary-grid">
+  <div class="summary-card"><span class="summary-value" id="totalSalary">0</span><span class="summary-label">Jami ish haqi</span></div>
+  <div class="summary-card paid"><span class="summary-value" id="paidSalary">0</span><span class="summary-label">To'langan</span></div>
+  <div class="summary-card unpaid"><span class="summary-value" id="unpaidSalary">0</span><span class="summary-label">To'lanmagan</span></div>
+  <div class="summary-card"><span class="summary-value" id="totalHours">0</span><span class="summary-label">Jami ish soati</span></div>
+</div>
+
+<div class="filter-bar">
+  <div class="search-wrapper"><input type="text" id="searchInput" placeholder="Xodim qidirish..."></div>
+  <select id="cafeFilter"><option value="">Barcha kafelar</option></select>
+  <select id="statusFilter">
+    <option value="">Barcha holatlar</option>
+    <option value="paid">To'langan</option>
+    <option value="unpaid">To'lanmagan</option>
+  </select>
+</div>
+
+<div class="table-container">
+  <table class="data-table" id="salaryTable">
+    <thead>
+      <tr>
+        <th>Xodim</th><th>Kafe</th><th>Lavozim</th><th>Ish soati</th>
+        <th>Soatlik</th><th>Asosiy</th><th>Bonus</th><th>Jami</th><th>Holat</th><th>Amallar</th>
+      </tr>
+    </thead>
+    <tbody id="salaryTableBody"></tbody>
+  </table>
+</div>
+
+<div class="modal" id="salaryModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Ish haqi hisoblash</h2>
+      <button class="modal-close btn" onclick="document.getElementById('salaryModal').classList.remove('open')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="employeeId">
+      <div class="employee-info-display" id="employeeInfo"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Ish soati</label><input type="number" id="totalHoursInput" step="0.5" min="0" readonly></div>
+        <div class="form-group"><label>Soatlik ish haqi</label><input type="number" id="hourlyRate" step="1000" min="0" readonly></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Asosiy ish haqi</label><input type="number" id="baseSalary" step="1000" min="0" readonly></div>
+        <div class="form-group"><label>Bonus</label><input type="number" id="bonus" step="1000" min="0" value="0"></div>
+      </div>
+      <div class="form-group"><label>Chegirma</label><input type="number" id="deduction" step="1000" min="0" value="0"></div>
+      <div class="form-group"><label>Jami ish haqi</label><input type="number" id="totalSalaryInput" step="1000" min="0" readonly></div>
+      <div class="form-group"><label>Izoh</label><textarea id="notes" rows="2" placeholder="Izoh (ixtiyoriy)" style="resize:vertical;min-height:60px"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline modal-close" onclick="document.getElementById('salaryModal').classList.remove('open')">Bekor</button>
+      <button class="btn btn-primary" id="saveSalaryBtn">Hisoblash va saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script type="module" src="../js/modules/salary.js"></script>
+</body>
+</html>

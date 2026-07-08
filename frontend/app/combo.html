@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Kombo menyular | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--r:.5rem;--r2:.875rem;--r3:1.125rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold:hover{box-shadow:var(--gold-glow)}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-sm{padding:.35rem .75rem;font-size:.8125rem}
+.btn-danger{background:transparent;border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.btn-danger:hover{border-color:var(--red);background:rgba(239,68,68,.1)}
+.pc{padding:1.5rem;max-width:1200px;margin:0 auto}
+.toolbar{display:flex;gap:.75rem;margin-bottom:1.25rem;align-items:center}
+.sw{position:relative;flex:1;max-width:320px}
+.sw input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem .5rem 2.25rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.sw input:focus{border-color:var(--gold)}
+.sw svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.cnt{font-size:.8125rem;color:var(--text3);margin-left:auto}
+/* Cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem}
+.ccard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;transition:.2s}
+.ccard:hover{border-color:var(--border2)}
+.ccard.inactive{opacity:.55}
+.ccard-head{padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.ccard-name{font-size:1rem;font-weight:700;margin-bottom:.25rem}
+.ccard-desc{font-size:.8125rem;color:var(--text2)}
+.ccard-price{display:flex;align-items:baseline;gap:.5rem;margin-top:.625rem}
+.price-val{font-size:1.25rem;font-weight:700;color:var(--gold)}
+.price-save{font-size:.75rem;color:var(--green);background:rgba(16,185,129,.1);padding:.1rem .4rem;border-radius:.25rem}
+.ccard-items{padding:.875rem 1.25rem}
+.combo-item{display:flex;align-items:center;gap:.5rem;padding:.3rem 0;font-size:.8125rem;color:var(--text2)}
+.combo-item:not(:last-child){border-bottom:1px solid var(--border)}
+.ci-qty{font-weight:700;color:var(--gold);min-width:20px}
+.ci-rep{font-size:.7rem;color:var(--text3);margin-left:.25rem}
+.ccard-foot{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}
+.ccard-foot .btn{flex:1}
+.empty{text-align:center;padding:3rem;color:var(--text3);grid-column:1/-1}
+/* Modal */
+.modal{display:none;position:fixed;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(4px)}
+.modal.open{display:flex}
+.mc{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r3);width:100%;max-width:540px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:1.125rem 1.25rem;border-bottom:1px solid var(--border)}
+.mh h3{font-size:1rem;font-weight:700}
+.mc-x{width:30px;height:30px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);font-size:1.2rem;transition:.2s}
+.mc-x:hover{border-color:var(--gold);color:var(--gold)}
+.mb{padding:1.25rem;overflow-y:auto;flex:1}.mf{padding:.875rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:.5rem}.mf .btn{flex:1}
+.fg{margin-bottom:1rem}.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.fg input:focus,.fg select:focus{border-color:var(--gold)}
+.fr2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.sec-title{font-size:.8125rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin:.75rem 0 .5rem}
+.items-list{display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem}
+.item-row{display:flex;gap:.5rem;align-items:center}
+.item-row select{flex:2}
+.item-row input{width:60px;flex-shrink:0}
+.item-row .rm{width:28px;height:28px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--red);font-size:.875rem;flex-shrink:0;transition:.2s}
+.item-row .rm:hover{border-color:var(--red)}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Kombo menyular</h1>
+  <button class="btn btn-gold" id="addBtn">+ Yangi kombo</button>
+</header>
+<div class="pc">
+  <div class="toolbar">
+    <div class="sw">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" id="searchInput" placeholder="Kombo qidirish...">
+    </div>
+    <span class="cnt" id="cnt"></span>
+  </div>
+  <div class="grid" id="grid"><div class="empty">Yuklanmoqda...</div></div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="mc">
+    <div class="mh"><h3 id="mTitle">Yangi kombo</h3><div class="mc-x" onclick="cm()">×</div></div>
+    <div class="mb">
+      <input type="hidden" id="eid">
+      <div class="fg"><label>Kombo nomi *</label><input id="eName" placeholder="Lunch set, Family box..."></div>
+      <div class="fg"><label>Tavsif</label><input id="eDesc" placeholder="Nima kiradi, kim uchun..."></div>
+      <div class="fr2">
+        <div class="fg"><label>Kombo narxi (so'm) *</label><input type="number" id="ePrice" min="0" step="1000"></div>
+        <div class="fg"><label>Amal qilish muddati (ixtiyoriy)</label><input type="date" id="eValidTo"></div>
+      </div>
+      <div class="sec-title">Tarkibdagi mahsulotlar</div>
+      <div class="items-list" id="itemsList"></div>
+      <button class="btn btn-out btn-sm" onclick="addItemRow()">+ Mahsulot qo'shish</button>
+    </div>
+    <div class="mf">
+      <button class="btn btn-out" onclick="cm()">Bekor</button>
+      <button class="btn btn-gold" id="saveBtn" onclick="save()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1',tok=()=>localStorage.getItem('access_token');
+const api={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,b)=>fetch(`${BASE}${u}`,{method:'POST',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  patch:(u,b)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
+  del:u=>fetch(`${BASE}${u}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+};
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+let combos=[],products=[],editId=null;
+
+async function load(){
+  const [cRes,pRes]=await Promise.all([
+    api.get('/combos/?is_active=null').catch(()=>api.get('/combos/').catch(()=>null)),
+    api.get('/products/?page_size=500').catch(()=>null),
+  ]);
+  combos=Array.isArray(cRes)?cRes:cRes?.items??[];
+  products=pRes?.items??(Array.isArray(pRes)?pRes:[]);
+  filter();
+}
+
+function filter(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  const list=q?combos.filter(c=>(c.name||'').toLowerCase().includes(q)):combos;
+  document.getElementById('cnt').textContent=list.length+' ta';
+  render(list);
+}
+
+function render(list){
+  const grid=document.getElementById('grid');
+  if(!list.length){grid.innerHTML='<div class="empty">Kombolar topilmadi</div>';return;}
+  grid.innerHTML=list.map(c=>`
+    <div class="ccard${c.is_active===false?' inactive':''}">
+      <div class="ccard-head">
+        <div class="ccard-name">${esc(c.name)}</div>
+        ${c.description?`<div class="ccard-desc">${esc(c.description)}</div>`:''}
+        <div class="ccard-price">
+          <span class="price-val">${fmtN(c.price)} so'm</span>
+          ${c.savings>0?`<span class="price-save">-${fmtN(c.savings)} tejov</span>`:''}
+        </div>
+      </div>
+      <div class="ccard-items">
+        ${(c.items||[]).map(i=>`<div class="combo-item"><span class="ci-qty">${i.quantity}x</span> ${esc(i.product_name||'?')} ${i.is_replaceable?'<span class="ci-rep">(almashtiriladi)</span>':''}</div>`).join('')||'<div style="color:var(--text3);font-size:.8125rem">Mahsulotlar yo\'q</div>'}
+      </div>
+      <div class="ccard-foot">
+        <button class="btn btn-out btn-sm" onclick="openEdit(${c.id})">Tahrirlash</button>
+        <button class="btn btn-sm ${c.is_active!==false?'btn-out':'btn-gold'}" onclick="toggle(${c.id},${c.is_active!==false})">${c.is_active!==false?"O'chirish":'Yoqish'}</button>
+      </div>
+    </div>`).join('');
+}
+
+function om(){document.getElementById('modal').classList.add('open');}
+function cm(){document.getElementById('modal').classList.remove('open');}
+
+function prodOptions(selId=null){
+  return products.map(p=>`<option value="${p.id}" ${p.id===selId?'selected':''}>${esc(p.name)} — ${fmtN(p.price)}</option>`).join('');
+}
+
+function addItemRow(pid=null,qty=1){
+  const row=document.createElement('div');row.className='item-row';
+  row.innerHTML=`<select>${prodOptions(pid)}</select><input type="number" value="${qty}" min="1" max="99" style="width:60px"><div class="rm" onclick="this.parentElement.remove()">×</div>`;
+  document.getElementById('itemsList').appendChild(row);
+}
+
+function openAdd(){
+  editId=null;
+  document.getElementById('mTitle').textContent='Yangi kombo';
+  document.getElementById('eid').value='';
+  ['eName','eDesc','ePrice','eValidTo'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('itemsList').innerHTML='';
+  addItemRow();
+  om();
+}
+
+function openEdit(id){
+  const c=combos.find(x=>x.id===id);if(!c)return;
+  editId=id;
+  document.getElementById('mTitle').textContent='Kombo tahrirlash';
+  document.getElementById('eid').value=c.id;
+  document.getElementById('eName').value=c.name||'';
+  document.getElementById('eDesc').value=c.description||'';
+  document.getElementById('ePrice').value=c.price||'';
+  document.getElementById('eValidTo').value=c.valid_to?(c.valid_to+'').substring(0,10):'';
+  document.getElementById('itemsList').innerHTML='';
+  if(c.items&&c.items.length){c.items.forEach(i=>addItemRow(i.product_id,i.quantity));}
+  else addItemRow();
+  om();
+}
+
+async function save(){
+  const name=document.getElementById('eName').value.trim();
+  const price=parseFloat(document.getElementById('ePrice').value)||0;
+  if(!name||!price){showT('Nomi va narxi majburiy','warning');return;}
+  const rows=[...document.getElementById('itemsList').querySelectorAll('.item-row')];
+  const items=rows.map(r=>({product_id:parseInt(r.querySelector('select').value),quantity:parseInt(r.querySelector('input').value)||1,is_replaceable:false})).filter(i=>i.product_id);
+  const validTo=document.getElementById('eValidTo').value;
+  const body={name,description:document.getElementById('eDesc').value||null,price,items,valid_to:validTo?validTo+'T23:59:00':null};
+  const btn=document.getElementById('saveBtn');btn.disabled=true;btn.textContent='...';
+  try{
+    if(editId) await api.patch(`/combos/${editId}`,body);
+    else       await api.post('/combos/',body);
+    showT('Saqlandi','success');cm();load();
+  }catch{showT('Xatolik','error');}
+  finally{btn.disabled=false;btn.textContent='Saqlash';}
+}
+
+async function toggle(id,cur){
+  await api.patch(`/combos/${id}`,{is_active:!cur}).catch(()=>null);
+  showT(cur?"O'chirildi":'Yoqildi','success');load();
+}
+
+function showT(m,t='info'){const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b'};const el=document.createElement('div');el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;background:var(--bg2);border:1px solid ${c[t]};color:${c[t]};padding:.625rem 1.125rem;border-radius:.5rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4)`;el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),3000);}
+
+document.getElementById('addBtn').addEventListener('click',openAdd);
+document.getElementById('searchInput').addEventListener('input',filter);
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))cm();});
+load();
+</script>
+</body>
+</html>

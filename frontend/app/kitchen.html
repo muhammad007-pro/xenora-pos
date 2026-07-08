@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#d4b46c">
+<title>Oshxona Displey — XENORA</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e1e34;
+  --border:rgba(212,180,108,.18);--border2:rgba(255,255,255,.07);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
+  --r:0.625rem;--r2:1rem;--r3:1.5rem;
+  --glass:rgba(15,15,28,.9);
+  --pending-glow:rgba(59,130,246,.25);
+  --preparing-glow:rgba(245,158,11,.25);
+  --ready-glow:rgba(16,185,129,.25);
+  --tr:180ms ease;
+}
+html,body{height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
+button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:inherit;color:inherit}
+
+/* ── Header ── */
+.kds-header{
+  height:56px;background:var(--bg2);border-bottom:1px solid var(--border2);
+  display:flex;align-items:center;padding:0 1.25rem;gap:1rem;flex-shrink:0;
+}
+.kds-logo{font-size:1.25rem;font-weight:900;color:var(--gold);letter-spacing:-.02em}
+.kds-logo span{color:var(--text2);font-weight:400;font-size:.875rem;margin-left:.5rem}
+.kds-clock{font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums;color:var(--gold);margin-left:auto}
+.kds-date{font-size:.75rem;color:var(--text2);text-align:right}
+.hdr-stat{display:flex;align-items:center;gap:.5rem;padding:.375rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r3);font-size:.8125rem}
+.hdr-stat .dot{width:8px;height:8px;border-radius:50%}
+.dot-blue{background:var(--info);box-shadow:0 0 6px var(--info)}
+.dot-amber{background:var(--warning);box-shadow:0 0 6px var(--warning);animation:pulse 1.5s infinite}
+.dot-green{background:var(--success);box-shadow:0 0 6px var(--success)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sound-btn{width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all var(--tr)}
+.sound-btn:hover{color:var(--gold);border-color:var(--gold)}
+.sound-btn.muted{color:var(--danger)}
+.ws-pill{display:flex;align-items:center;gap:.375rem;font-size:.75rem;color:var(--text3)}
+.ws-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:background .3s}
+.ws-pill .dot.on{background:var(--success);animation:pulse 2s infinite}
+
+/* ── Columns ── */
+.kds-body{flex:1;overflow-y:auto;padding:1rem;background:var(--bg)}
+.kds-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;align-content:start}
+.kds-col{display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+.col-head{
+  padding:.625rem 1rem;display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;border-bottom:2px solid;
+}
+.col-head.pending  {border-color:var(--info);background:rgba(59,130,246,.06)}
+.col-head.preparing{border-color:var(--warning);background:rgba(245,158,11,.06)}
+.col-head.ready    {border-color:var(--success);background:rgba(16,185,129,.06)}
+.col-title{font-size:.875rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:.5rem}
+.col-title.pending  {color:var(--info)}
+.col-title.preparing{color:var(--warning)}
+.col-title.ready    {color:var(--success)}
+.col-count{min-width:24px;height:24px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;padding:0 6px}
+.col-count.pending  {background:rgba(59,130,246,.2);color:var(--info)}
+.col-count.preparing{background:rgba(245,158,11,.2);color:var(--warning)}
+.col-count.ready    {background:rgba(16,185,129,.2);color:var(--success)}
+.col-body{flex:1;overflow-y:auto;padding:.625rem;display:flex;flex-direction:column;gap:.625rem}
+.col-body::-webkit-scrollbar{width:3px}
+.col-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.col-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.75rem;color:var(--text3);font-size:.875rem}
+.col-empty svg{opacity:.2}
+
+/* ── Order card ── */
+.order-card{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);
+  overflow:hidden;transition:all var(--tr);position:relative;
+}
+.order-card:hover{transform:translateY(-1px)}
+.order-card.urgent{border-color:rgba(239,68,68,.5);box-shadow:0 0 16px rgba(239,68,68,.15)}
+.order-card.pending  {box-shadow:0 4px 24px var(--pending-glow)}
+.order-card.preparing{box-shadow:0 4px 24px var(--preparing-glow);border-color:rgba(245,158,11,.3)}
+.order-card.ready    {box-shadow:0 4px 24px var(--ready-glow);border-color:rgba(16,185,129,.3)}
+.card-top{display:flex;align-items:center;gap:.5rem;padding:.625rem .875rem;border-bottom:1px solid var(--border2)}
+.order-num{font-size:1rem;font-weight:800;color:var(--gold)}
+.table-tag{padding:.1875rem .5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;font-size:.6875rem;font-weight:600}
+.order-type-tag{font-size:.625rem;padding:.125rem .375rem;border-radius:4px;font-weight:600;margin-left:auto}
+.type-dine{background:rgba(59,130,246,.15);color:var(--info)}
+.type-take{background:rgba(212,180,108,.15);color:var(--gold)}
+.type-del {background:rgba(16,185,129,.15);color:var(--success)}
+.urgent-badge{background:rgba(239,68,68,.2);color:var(--danger);font-size:.625rem;font-weight:700;padding:.125rem .375rem;border-radius:4px;animation:urgentFlash 1s infinite}
+@keyframes urgentFlash{0%,100%{opacity:1}50%{opacity:.4}}
+.card-items{padding:.5rem .875rem}
+.order-item{display:flex;align-items:center;gap:.5rem;padding:.25rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.order-item:last-child{border-bottom:none}
+.item-qty{min-width:28px;height:28px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:.8125rem;font-weight:700;color:var(--gold);flex-shrink:0}
+.item-name{flex:1;font-size:.8125rem;font-weight:500}
+.item-notes{font-size:.6875rem;color:var(--text2);margin-top:1px;font-style:italic}
+.item-status{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.item-status.done{background:rgba(16,185,129,.2);color:var(--success)}
+.card-footer{display:flex;align-items:center;justify-content:space-between;padding:.5rem .875rem;border-top:1px solid var(--border2);background:rgba(0,0,0,.2)}
+.card-timer{display:flex;align-items:center;gap:.375rem;font-size:.8125rem;font-variant-numeric:tabular-nums;font-weight:600}
+.card-timer svg{opacity:.6}
+.timer-ok    {color:var(--success)}
+.timer-warn  {color:var(--warning)}
+.timer-danger{color:var(--danger);animation:timerFlash 1s infinite}
+@keyframes timerFlash{0%,100%{opacity:1}50%{opacity:.5}}
+.waiter-tag{font-size:.6875rem;color:var(--text2)}
+.card-action{padding:.5rem .875rem;display:flex;gap:.375rem}
+.btn-start{
+  flex:1;padding:.5rem;border-radius:var(--r);font-size:.8125rem;font-weight:700;
+  background:rgba(59,130,246,.15);color:var(--info);border:1px solid rgba(59,130,246,.3);
+  transition:all var(--tr);
+}
+.btn-start:hover{background:rgba(59,130,246,.3)}
+.btn-ready{
+  flex:1;padding:.5rem;border-radius:var(--r);font-size:.8125rem;font-weight:700;
+  background:rgba(245,158,11,.15);color:var(--warning);border:1px solid rgba(245,158,11,.3);
+  transition:all var(--tr);
+}
+.btn-ready:hover{background:rgba(245,158,11,.3)}
+.btn-done{
+  flex:1;padding:.5rem;border-radius:var(--r);font-size:.8125rem;font-weight:700;
+  background:rgba(16,185,129,.15);color:var(--success);border:1px solid rgba(16,185,129,.3);
+  transition:all var(--tr);
+}
+.btn-done:hover{background:rgba(16,185,129,.3)}
+.btn-cancel{
+  width:36px;padding:.5rem;border-radius:var(--r);font-size:.8125rem;
+  background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.2);
+  transition:all var(--tr);
+}
+.btn-cancel:hover{background:rgba(239,68,68,.25)}
+
+/* ── Toast ── */
+#toasts{position:fixed;top:1rem;right:1rem;z-index:9000;display:flex;flex-direction:column;gap:.5rem;width:280px}
+.toast{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:.75rem 1rem;font-size:.8125rem;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:toastIn .2s ease}
+.toast.success{border-color:rgba(16,185,129,.4);color:var(--success)}
+.toast.error  {border-color:rgba(239,68,68,.4);color:var(--danger)}
+.toast.info   {border-color:rgba(59,130,246,.4);color:var(--info)}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── Layout wrap ── */
+.kds-wrap{display:flex;flex-direction:column;height:100vh}
+
+/* ── Stats bar ── */
+.stats-bar{
+  height:36px;background:var(--bg2);border-bottom:1px solid var(--border2);
+  display:flex;align-items:center;padding:0 1.25rem;gap:1.5rem;flex-shrink:0;
+  font-size:.75rem;color:var(--text2);
+}
+.sb-item{display:flex;align-items:center;gap:.375rem}
+.sb-val{font-weight:700;color:var(--text)}
+
+/* ── Refresh badge ── */
+.refresh-badge{position:fixed;bottom:1rem;right:1rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.5rem .75rem;font-size:.75rem;color:var(--text2);display:flex;align-items:center;gap:.5rem}
+
+/* ── Station nav ── */
+.station-nav{
+  height:42px;background:var(--bg2);border-bottom:1px solid var(--border2);
+  display:flex;align-items:center;padding:0 1rem;gap:.5rem;flex-shrink:0;overflow-x:auto;
+}
+.station-nav::-webkit-scrollbar{height:2px}
+.station-nav::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.stn-btn{
+  padding:.3125rem .75rem;border-radius:var(--r3);font-size:.75rem;font-weight:600;
+  border:1px solid var(--border2);background:var(--bg3);color:var(--text2);
+  white-space:nowrap;transition:all var(--tr);cursor:pointer;flex-shrink:0;
+}
+.stn-btn:hover{border-color:var(--gold);color:var(--gold)}
+.stn-btn.active{color:#03110c;border-color:transparent;font-weight:700}
+.stn-label{
+  padding:.25rem .625rem;border-radius:var(--r);font-size:.6875rem;font-weight:700;
+  color:#03110c;margin-left:.5rem;
+}
+
+/* ─── Kitchen premium enhancements ─── */
+@keyframes cardEnter{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes floatSm{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes colSlide{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes urgentGlow{0%,100%{box-shadow:0 0 16px rgba(239,68,68,.15)}50%{box-shadow:0 0 30px rgba(239,68,68,.5)}}
+@keyframes timerGlow{from{text-shadow:none}to{text-shadow:0 0 8px rgba(239,68,68,.7)}}
+
+/* Order card staggered entrance */
+.order-card{animation:cardEnter .25s ease backwards}
+.col-body .order-card:nth-child(2){animation-delay:.05s}
+.col-body .order-card:nth-child(3){animation-delay:.10s}
+.col-body .order-card:nth-child(4){animation-delay:.15s}
+.col-body .order-card:nth-child(5){animation-delay:.20s}
+.col-body .order-card:nth-child(6){animation-delay:.25s}
+.col-body .order-card:nth-child(7){animation-delay:.30s}
+
+/* Enhanced order card hover */
+.order-card:hover{transform:translateY(-2px)}
+.order-card.pending:hover  {box-shadow:0 8px 28px var(--pending-glow)}
+.order-card.preparing:hover{box-shadow:0 8px 28px var(--preparing-glow)}
+.order-card.ready:hover    {box-shadow:0 8px 28px var(--ready-glow)}
+
+/* Urgent card pulsing glow (replaces static shadow) */
+.order-card.urgent{animation:cardEnter .25s ease backwards,urgentGlow 2s ease-in-out 1s infinite}
+
+/* Timer danger text glow */
+.timer-danger{animation:timerFlash 1s infinite,timerGlow .8s ease-in-out infinite alternate}
+
+/* Column headers staggered entrance */
+.kds-col:nth-child(1) .col-head{animation:colSlide .3s ease .05s backwards}
+.kds-col:nth-child(2) .col-head{animation:colSlide .3s ease .12s backwards}
+.kds-col:nth-child(3) .col-head{animation:colSlide .3s ease .19s backwards}
+
+/* Empty state floating icon */
+.col-empty svg{opacity:.18;animation:floatSm 3.5s ease-in-out infinite}
+
+/* Action button hover lift */
+.btn-start:hover {transform:translateY(-1px);box-shadow:0 4px 14px rgba(59,130,246,.25)}
+.btn-ready:hover {transform:translateY(-1px);box-shadow:0 4px 14px rgba(245,158,11,.25)}
+.btn-done:hover  {transform:translateY(-1px);box-shadow:0 4px 14px rgba(16,185,129,.25)}
+.btn-cancel:hover{transform:translateY(-1px)}
+
+/* Header stat chips staggered entrance */
+.hdr-stat{animation:cardEnter .3s ease backwards}
+.kds-header .hdr-stat:nth-child(2){animation-delay:.05s}
+.kds-header .hdr-stat:nth-child(3){animation-delay:.10s}
+.kds-header .hdr-stat:nth-child(4){animation-delay:.15s}
+
+/* Sound button */
+.sound-btn:hover{border-color:var(--gold);transform:scale(1.05)}
+
+/* Stats bar entrance */
+.stats-bar{animation:colSlide .35s ease .08s backwards}
+
+/* Refresh badge */
+.refresh-badge{transition:all var(--tr)}
+.refresh-badge:hover{border-color:var(--gold);color:var(--text)}
+
+/* Toast shadow */
+.toast{box-shadow:0 8px 32px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.3)!important}
+
+/* ── Timer progress bar ── */
+.timer-bar-wrap{height:3px;background:var(--bg4);border-radius:2px;margin:.25rem .875rem .125rem;overflow:hidden}
+.timer-bar-fill{height:100%;border-radius:2px;transition:width .5s linear,background .5s}
+.timer-bar-ok   {background:var(--success)}
+.timer-bar-warn {background:var(--warning)}
+.timer-bar-danger{background:var(--danger);animation:pulse .8s infinite}
+
+/* ── Station sync bar ── */
+.station-sync{display:flex;gap:.375rem;flex-wrap:wrap;padding:.25rem .875rem .5rem;border-top:1px solid var(--border2)}
+.sync-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.6875rem;font-weight:600;
+  padding:.1875rem .5rem;border-radius:4px;border:1px solid}
+.sync-ready{background:rgba(16,185,129,.12);color:var(--success);border-color:rgba(16,185,129,.3)}
+.sync-wait {background:rgba(245,158,11,.12);color:var(--warning);border-color:rgba(245,158,11,.3);animation:pulse 2s infinite}
+.sync-dot  {width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* ── Screen flash overlay ── */
+@keyframes screenFlash{0%{opacity:.6}100%{opacity:0}}
+.screen-flash-el{position:fixed;inset:0;pointer-events:none;z-index:9998;animation:screenFlash .7s ease forwards}
+
+/* ── btn-served ── */
+.btn-served{
+  flex:1;padding:.5rem;border-radius:var(--r);font-size:.8125rem;font-weight:700;
+  background:rgba(16,185,129,.15);color:var(--success);border:1px solid rgba(16,185,129,.3);
+  transition:all var(--tr);
+}
+.btn-served:hover{background:rgba(16,185,129,.3);transform:translateY(-1px);box-shadow:0 4px 14px rgba(16,185,129,.25)}
+
+/* ═══ OSHXONA 1-bosqich — sodda zakaz kartasi (klik = tayyor) ═══ */
+.kcard{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);
+  overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 4px 20px rgba(0,0,0,.28);animation:cardEnter .25s ease backwards;
+}
+.kcard.overdue{border-color:rgba(239,68,68,.5);box-shadow:0 4px 24px rgba(239,68,68,.22)}
+/* Sarlavha — bosса BUTUN zakaz tayyor */
+.kcard-head{
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  padding:.7rem .85rem;cursor:pointer;user-select:none;
+  background:linear-gradient(135deg,rgba(212,180,108,.12),rgba(212,180,108,.03));
+  border-bottom:1px solid var(--border2);transition:background var(--tr);
+}
+.kcard-head:hover{background:linear-gradient(135deg,rgba(212,180,108,.22),rgba(212,180,108,.07))}
+.kcard-head:active{transform:scale(.995)}
+.kc-left{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.kc-num{font-size:1.15rem;font-weight:800;color:var(--gold)}
+.kc-table{font-size:.7rem;font-weight:700;padding:.12rem .5rem;border-radius:99px;background:rgba(255,255,255,.07);color:var(--text2)}
+.kc-hint{font-size:.6rem;color:var(--text3);width:100%;margin-top:.05rem}
+/* Vaqt sanagich — o'ng-tepa */
+.kc-timer{
+  display:inline-flex;align-items:center;gap:.3rem;font-variant-numeric:tabular-nums;
+  font-size:1.05rem;font-weight:800;padding:.2rem .55rem;border-radius:8px;white-space:nowrap;
+}
+.kc-timer.blue{color:#38bdf8;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3)}
+.kc-timer.red {color:#f87171;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.4)}
+@keyframes kBlink{0%,100%{opacity:1}50%{opacity:.55}}
+.kc-timer.red{animation:kBlink 1.1s ease-in-out infinite}
+/* Taomlar — har biri bosса o'sha taom tayyor */
+.kcard-items{padding:.4rem;display:flex;flex-direction:column;gap:.3rem}
+.kitem{
+  display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border-radius:var(--r);
+  cursor:pointer;transition:background var(--tr);border:1px solid transparent;
+}
+.kitem:hover{background:var(--bg3);border-color:var(--border2)}
+.kitem:active{transform:scale(.99)}
+.kitem.done{opacity:.5}
+.kitem.done .ki-name{text-decoration:line-through}
+.ki-qty{font-weight:800;color:var(--gold);min-width:1.9rem}
+.ki-name{flex:1;font-size:.9rem;font-weight:600}
+.ki-note{font-size:.72rem;color:var(--warning);font-style:italic}
+.ki-check{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border2);color:var(--text3)}
+.kitem.done .ki-check{background:rgba(16,185,129,.2);border-color:transparent;color:var(--success)}
+.kcard-foot{display:flex;align-items:center;gap:.5rem;padding:.45rem .7rem;border-top:1px solid var(--border2);font-size:.72rem;color:var(--text3)}
+.kc-cancel{margin-left:auto;padding:.25rem .55rem;border-radius:var(--r);color:var(--text3);border:1px solid var(--border2);transition:all var(--tr)}
+.kc-cancel:hover{color:var(--danger);border-color:rgba(239,68,68,.4)}
+.kc-order-note{padding:.3rem .6rem;font-size:.75rem;color:var(--warning);font-style:italic}
+@media (prefers-reduced-motion:reduce){ .kcard{animation:none} .kc-timer.red{animation:none} }
+
+/* ═══ OSHXONA 2-bosqich — Faol↔Tayyor tab + tayyor karta + qaytarish ═══ */
+.kds-tabs{display:flex;gap:.5rem;padding:.6rem 1rem 0}
+.kds-tab{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .95rem;border-radius:var(--r) var(--r) 0 0;
+  font-size:.85rem;font-weight:700;color:var(--text3);background:transparent;
+  border:1px solid transparent;border-bottom:2px solid transparent;transition:all var(--tr);
+}
+.kds-tab:hover{color:var(--text)}
+.kds-tab.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(212,180,108,.08)}
+.kt-badge{min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:rgba(255,255,255,.1);color:var(--text2);font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.kds-tab.active .kt-badge{background:var(--gold);color:#07120d}
+/* Tayyor karta — yashil ohang, sarlavha bosilmaydi */
+.kcard.ready-card{border-color:rgba(16,185,129,.3);box-shadow:0 4px 20px rgba(16,185,129,.14)}
+.kcard.ready-card .kcard-head{cursor:default;background:linear-gradient(135deg,rgba(16,185,129,.14),rgba(16,185,129,.03))}
+.kcard.ready-card .kcard-head:hover{background:linear-gradient(135deg,rgba(16,185,129,.14),rgba(16,185,129,.03))}
+.kc-ready-time{display:inline-flex;align-items:center;gap:.3rem;font-size:.85rem;font-weight:800;color:var(--success);background:rgba(16,185,129,.14);border:1px solid rgba(16,185,129,.3);padding:.2rem .55rem;border-radius:8px;white-space:nowrap}
+.kcard.ready-card .kitem{cursor:default}
+.kcard.ready-card .kitem:hover{background:transparent;border-color:transparent}
+.kc-reopen{margin-left:auto;padding:.4rem .8rem;border-radius:var(--r);font-weight:700;font-size:.8rem;color:var(--warning);background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.35);transition:all var(--tr)}
+.kc-reopen:hover{background:rgba(245,158,11,.28);transform:translateY(-1px)}
+
+/* ═══ OSHXONA 3-bosqich — stansiya sozlamasi (qurilma bo'yicha) ═══ */
+.gear-btn{width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all var(--tr)}
+.gear-btn:hover{color:var(--gold);border-color:var(--gold);transform:rotate(30deg) scale(1.05)}
+.gear-btn svg{transition:transform var(--tr)}
+/* Sozlama modal */
+.kds-modal-ov{position:fixed;inset:0;z-index:9600;display:none;align-items:center;justify-content:center;padding:1rem;background:rgba(3,17,12,.72);backdrop-filter:blur(6px)}
+.kds-modal-ov.open{display:flex;animation:toastIn .18s ease}
+.kds-modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r3);width:min(94vw,440px);max-height:82vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.kds-modal-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.25rem;border-bottom:1px solid var(--border2)}
+.kds-modal-head h3{font-size:1rem;font-weight:800;color:var(--gold);display:flex;align-items:center;gap:.5rem}
+.kds-modal-x{width:30px;height:30px;border-radius:8px;color:var(--text2);font-size:1.35rem;line-height:1;display:flex;align-items:center;justify-content:center;transition:all var(--tr)}
+.kds-modal-x:hover{color:var(--danger);background:rgba(239,68,68,.12)}
+.kds-modal-sub{padding:.85rem 1.25rem 0;font-size:.8rem;color:var(--text3);line-height:1.5}
+.stn-check-list{padding:.75rem 1.25rem 1rem;display:flex;flex-direction:column;gap:.4rem}
+.stn-check-row{display:flex;align-items:center;gap:.7rem;padding:.7rem .8rem;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);cursor:pointer;transition:all var(--tr);user-select:none}
+.stn-check-row:hover{border-color:var(--gold)}
+.stn-check-row.on{border-color:var(--gold);background:rgba(212,180,108,.1)}
+.stn-check-row input{width:1.15rem;height:1.15rem;accent-color:var(--gold);cursor:pointer;flex-shrink:0}
+.stn-check-row .stn-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.stn-check-row .stn-nm{flex:1;font-size:.9rem;font-weight:600;color:var(--text)}
+.stn-check-empty{padding:1.5rem;text-align:center;color:var(--text3);font-size:.85rem;line-height:1.6}
+.kds-modal-foot{display:flex;gap:.6rem;padding:1rem 1.25rem;border-top:1px solid var(--border2)}
+.kds-mbtn{flex:1;padding:.7rem;border-radius:var(--r);font-size:.85rem;font-weight:700;transition:all var(--tr);border:1px solid transparent}
+.kds-mbtn.ghost{color:var(--text2);border-color:var(--border2);background:var(--bg3)}
+.kds-mbtn.ghost:hover{color:var(--text);border-color:var(--gold)}
+.kds-mbtn.primary{color:#07120d;background:var(--gold);border-color:var(--gold)}
+.kds-mbtn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(212,180,108,.3)}
+.stn-gear-nav{margin-left:auto;display:inline-flex;align-items:center;gap:.35rem;color:var(--gold)!important;border-color:var(--gold)!important;background:rgba(212,180,108,.08)!important}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="kds-wrap">
+
+  <!-- Header -->
+  <header class="kds-header">
+    <div class="kds-logo">XENORA <span id="stationLabel">Oshxona</span></div>
+
+    <div class="hdr-stat">
+      <div class="dot dot-blue"></div>
+      <span id="pendingCount">0</span> kutmoqda
+    </div>
+    <div class="hdr-stat">
+      <div class="dot dot-amber"></div>
+      <span id="preparingCount">0</span> tayyorlanmoqda
+    </div>
+    <div class="hdr-stat">
+      <div class="dot dot-green"></div>
+      <span id="readyCount">0</span> tayyor
+    </div>
+
+    <div class="ws-pill" style="margin-left:.5rem">
+      <div class="dot" id="wsDot"></div>
+      <span id="wsLabel">Ulanmoqda...</span>
+    </div>
+
+    <button class="sound-btn" id="soundBtn" title="Ovoz">
+      <svg id="soundIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="2"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+
+    <button class="gear-btn" id="gearBtn" title="Stansiya sozlamasi" style="display:none">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div style="margin-left:auto;text-align:right">
+      <div class="kds-clock" id="clock">00:00:00</div>
+      <div class="kds-date" id="dateStr"></div>
+    </div>
+  </header>
+
+  <!-- Station nav -->
+  <div class="station-nav" id="stationNav" style="display:none">
+    <button class="stn-btn active" data-sid="" style="background:rgba(212,180,108,.2);border-color:var(--gold);color:var(--gold)">
+      Barchasi
+    </button>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="sb-item">Bugun: <span class="sb-val" id="todayOrders">—</span></div>
+    <div class="sb-item">Bajarilgan: <span class="sb-val" id="todayDone">—</span></div>
+    <div class="sb-item">O'rt. vaqt: <span class="sb-val" id="avgTime">—</span></div>
+    <div style="margin-left:auto;font-size:.6875rem">Har 30s yangilanadi</div>
+  </div>
+
+  <!-- OSHXONA 2-bosqich: Faol ↔ Tayyor zakazlar tab -->
+  <div class="kds-tabs">
+    <button class="kds-tab active" id="tabActive" data-view="active">🔥 Faol zakazlar <span class="kt-badge" id="tabActiveCount">0</span></button>
+    <button class="kds-tab" id="tabReady" data-view="ready">✓ Tayyor zakazlar <span class="kt-badge" id="tabReadyCount">0</span></button>
+  </div>
+
+  <!-- OSHXONA 1-bosqich: yagona zakaz grid'i (eng eski chapда). Tayyor bo'lганда zakaz yo'qoladi. -->
+  <div class="kds-body">
+    <div class="kds-grid" id="ordersGrid"></div>
+    <div class="col-empty" id="gridEmpty" style="display:none">
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none"><path d="M6 8h12v11a2 2 0 01-2 2H8a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="1.3"/><path d="M4 8h16M9 5v2M12 4v2M15 5v2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <span id="gridEmptyMsg">Faol zakaz yo'q</span>
+    </div>
+  </div>
+</div>
+
+<!-- OSHXONA 3-bosqich: stansiya sozlamasi (qurilma bo'yicha, localStorage) -->
+<div class="kds-modal-ov" id="stnSettingsOv">
+  <div class="kds-modal">
+    <div class="kds-modal-head">
+      <h3>⚙ Stansiya sozlamasi</h3>
+      <button class="kds-modal-x" id="stnClose" title="Yopish">&times;</button>
+    </div>
+    <p class="kds-modal-sub">Bu <b>qurilmada</b> qaysi stansiya taomlarini ko'rsatishni tanlang. Masalan: oshxonachi «Oshxona»ni, mangalchi «Mangal»ni belgilaydi. Tanlov shu qurilmada saqlanadi — har safar qayta tanlash shart emas. Hech narsa tanlanmasa — barcha stansiyalar ko'rinadi.</p>
+    <div class="stn-check-list" id="stnCheckList"></div>
+    <div class="kds-modal-foot">
+      <button class="kds-mbtn ghost" id="stnClear">Barchasi (tozalash)</button>
+      <button class="kds-mbtn primary" id="stnSave">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<div class="refresh-badge" id="refreshBadge">
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  Yangilandi: <span id="lastRefresh">—</span>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const WS_URL   = _isDev ? 'ws://localhost:8000/ws/kitchen' : (location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws/kitchen';
+const token    = localStorage.getItem('access_token');
+
+// ── Station state (OSHXONA 3-bosqich: qurilma bo'yicha tanlov, localStorage) ────
+// selStations = tanlangan stansiya ID lari. Bo'sh [] → barcha stansiya ko'rinadi.
+// Har QURILMA o'z tanlovini saqlaydi → ikki povar bitta akkaunt, har biri o'z ekranida
+// o'z stansiyasini tanlaydi.
+const _urlParams = new URLSearchParams(location.search);
+const STN_SEL_KEY = 'xenora_kds_stations_v1';
+function loadSel() {
+  try { const a = JSON.parse(localStorage.getItem(STN_SEL_KEY)); return Array.isArray(a) ? a.filter(Number.isInteger) : []; }
+  catch { return []; }
+}
+function saveSel(a) { try { localStorage.setItem(STN_SEL_KEY, JSON.stringify(a)); } catch {} }
+let selStations = loadSel();
+// Orqaga moslik: eski ?station_id=N havolalari hali ham ishlasin (bir marta seed).
+if (_urlParams.get('station_id')) {
+  const id = parseInt(_urlParams.get('station_id'));
+  if (id && !selStations.includes(id)) { selStations = [id]; saveSel(selStations); }
+}
+let _stations = [];               // displayli stansiyalar (/stations/public)
+let _rawData  = { pending:[], preparing:[], ready:[] };  // filtрlanmagan oxirgi javob
+
+let soundOn = true;
+let ws = null;
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('uz-UZ');
+  document.getElementById('dateStr').textContent = now.toLocaleDateString('uz-UZ',{weekday:'short',day:'numeric',month:'short'});
+}
+updateClock(); setInterval(updateClock, 1000);
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ── Sound ─────────────────────────────────────────────────────────────────────
+const soundBtn  = document.getElementById('soundBtn');
+const soundIcon = document.getElementById('soundIcon');
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  soundBtn.classList.toggle('muted', !soundOn);
+  soundIcon.innerHTML = soundOn
+    ? '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="2"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+    : '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="2"/><line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2"/><line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2"/>';
+});
+
+function playBell() {
+  if (!soundOn) return;
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.start(); osc.stop(ctx.currentTime + 0.8);
+  } catch {}
+}
+
+// Kechikkan buyurtma uchun alarm tovushi (2 marta past + 1 yuqori)
+function playAlarm() {
+  if (!soundOn) return;
+  try {
+    const ctx = new AudioContext();
+    [[0, 330], [0.28, 330], [0.56, 550]].forEach(([t, freq]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'square';
+      gain.gain.setValueAtTime(0.18, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.22);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.22);
+    });
+  } catch {}
+}
+
+// Tayyor bo'lganda ikki tonli signal
+function playReady() {
+  if (!soundOn) return;
+  try {
+    const ctx = new AudioContext();
+    [[0, 660], [0.22, 880]].forEach(([t, freq]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.25, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.35);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.35);
+    });
+  } catch {}
+}
+
+// Ekranni miltillatish — yangi buyurtma bildirishnomasiga
+function flashScreen(color = 'rgba(59,130,246,.18)') {
+  const el = document.createElement('div');
+  el.className = 'screen-flash-el';
+  el.style.background = color;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+// Ovozli e'lon (BOSQICH 9.15) — yangi buyurtma kelganda oshxonaga ovoz bilan aytiladi
+function announceOrder(order) {
+  if (!soundOn) return;
+  playBell();
+  if (!('speechSynthesis' in window)) return;
+  try {
+    const tableInfo = order.table?.name || order.table?.number
+      ? `${order.table.name || order.table.number}-stol`
+      : order.order_type === 'delivery' ? 'Yetkazib berish' : 'Olib ketish';
+    const itemNames = (order.items || []).slice(0, 3).map(i => i.product?.name || '').filter(Boolean).join(', ');
+    const text = `Yangi buyurtma. ${tableInfo}. ${itemNames}`;
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'uz-UZ';
+    utt.rate = 0.95;
+    utt.pitch = 1.05;
+    // uz-UZ ovozi bo'lmasa ru-RU yoki en-US ishlatiladi
+    const voices = window.speechSynthesis.getVoices();
+    const uzVoice = voices.find(v => v.lang.startsWith('uz')) ||
+                    voices.find(v => v.lang.startsWith('ru')) ||
+                    voices[0];
+    if (uzVoice) utt.voice = uzVoice;
+    window.speechSynthesis.speak(utt);
+  } catch {}
+}
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+function elapsed(ts) {
+  if (!ts) return { m:0, s:0, total_s:0, str:'—' };
+  const ms    = Date.now() - new Date(ts).getTime();
+  const m     = Math.floor(ms / 60000);
+  const s     = Math.floor((ms % 60000) / 1000);
+  return { m, s, total_s: Math.floor(ms / 1000), str: `${m}:${String(s).padStart(2,'0')}` };
+}
+
+// expectedMinutes — mahsulotning tayyorlash vaqti; 0 bo'lsa default ishlatiladi
+function timerClass(m, status, expectedMinutes) {
+  if (status === 'ready') return 'timer-ok';
+  const limit = expectedMinutes > 0 ? expectedMinutes : (status === 'preparing' ? 15 : 8);
+  const pct   = m / limit;
+  if (pct < 0.55) return 'timer-ok';
+  if (pct < 0.9)  return 'timer-warn';
+  return 'timer-danger';
+}
+
+// Timer progress bar foizi (0-100)
+function timerPct(m, expectedMinutes) {
+  const limit = expectedMinutes > 0 ? expectedMinutes : 15;
+  return Math.min(100, Math.round((m / limit) * 100));
+}
+
+// ── Vaqt sanagich: created_at + 15min. Qolgan>0 → HAVORANG (orqaga), ≤0 → QIZIL (+oldinga) ──
+const KITCHEN_LIMIT_MIN = 15;   // OSHXONA 1-bosqich: standart 15 min (keyingi bosqichда sozlanadi)
+function mmss(sec){ const s=Math.max(0,sec); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function kTimer(ts){
+  if(!ts) return { overdue:false, str:'—' };
+  const rem = KITCHEN_LIMIT_MIN*60000 - (Date.now() - new Date(ts).getTime());
+  return rem > 0
+    ? { overdue:false, str: mmss(Math.floor(rem/1000)) }
+    : { overdue:true,  str: '+' + mmss(Math.floor(-rem/1000)) };
+}
+
+// ── Render card (sodda: sarlavha bosса butun zakaz, taom bosса alohida) ────────
+function renderCard(order) {
+  const ts = order.created_at;
+  const t  = kTimer(ts);
+  const typeMap = { 'dine-in':'Stol', 'takeaway':'Olib ketish', 'delivery':'Yetkazish' };
+  const tableTag = order.table_number
+    ? `<span class="kc-table">Stol ${order.table_number}</span>`
+    : `<span class="kc-table">${typeMap[order.order_type]||'Olib ketish'}</span>`;
+
+  const div = document.createElement('div');
+  div.className = 'kcard' + (t.overdue ? ' overdue' : '');
+  div.dataset.id      = order.id;
+  div.dataset.timerTs = ts;
+
+  div.innerHTML = `
+    <div class="kcard-head" data-id="${order.id}" data-action="ready" title="Butun zakazни tayyor qilish">
+      <div class="kc-left">
+        <span class="kc-num">#${order.order_number}</span>
+        ${tableTag}
+        <span class="kc-hint">Bosing → butun zakaz tayyor</span>
+      </div>
+      <span class="kc-timer ${t.overdue?'red':'blue'}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="timer-val">${t.str}</span>
+      </span>
+    </div>
+    <div class="kcard-items">
+      ${(order.items||[]).map(item => `
+        <div class="kitem ${item.status==='ready'?'done':''}" data-item-id="${item.id}" data-action="item-ready" title="Shu taomni tayyor / bekor">
+          <span class="ki-qty">${item.quantity}×</span>
+          <div style="flex:1">
+            <div class="ki-name">${item.product_name}</div>
+            ${item.notes ? `<div class="ki-note">${item.notes}</div>` : ''}
+          </div>
+          <span class="ki-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3"/></svg></span>
+        </div>
+      `).join('')}
+      ${order.notes ? `<div class="kc-order-note">📝 ${order.notes}</div>` : ''}
+    </div>
+    <div class="kcard-foot">
+      ${order.waiter_name ? `<span>👤 ${order.waiter_name}</span>` : '<span></span>'}
+      <button class="kc-cancel" data-id="${order.id}" data-action="cancel" title="Bekor qilish">✕ Bekor</button>
+    </div>
+  `;
+  return div;
+}
+
+// ── Start timer updates (1s interval) ────────────────────────────────────────
+let _alarmAt = 0;  // throttle: har 45s dan bir marta
+function startTimers() {
+  setInterval(() => {
+    let hasOverdue = false;
+
+    document.querySelectorAll('.kcard').forEach(card => {
+      const ts = card.dataset.timerTs;
+      if (!ts) return;
+      const t = kTimer(ts);
+
+      const tv = card.querySelector('.timer-val');
+      if (tv) tv.textContent = t.str;
+
+      const timerEl = card.querySelector('.kc-timer');
+      if (timerEl) timerEl.className = 'kc-timer ' + (t.overdue ? 'red' : 'blue');
+
+      card.classList.toggle('overdue', t.overdue);
+      if (t.overdue) hasOverdue = true;
+    });
+
+    // Alarm: kechikkan (qizil) zakaz bo'lsa, 45s da bir marta
+    if (hasOverdue && Date.now() > _alarmAt) {
+      playAlarm();
+      _alarmAt = Date.now() + 45000;
+    }
+  }, 1000);
+}
+
+// ── Tayyor karta (faqat ko'rsatish + Qaytarish) ────────────────────────────────
+function renderReadyCard(order) {
+  const rt = order.updated_at || order.created_at;
+  const timeStr = rt ? new Date(rt).toLocaleTimeString('uz-UZ', {hour:'2-digit', minute:'2-digit'}) : '—';
+  const typeMap = { 'dine-in':'Stol', 'takeaway':'Olib ketish', 'delivery':'Yetkazish' };
+  const tableTag = order.table_number
+    ? `<span class="kc-table">Stol ${order.table_number}</span>`
+    : `<span class="kc-table">${typeMap[order.order_type]||'Olib ketish'}</span>`;
+
+  const div = document.createElement('div');
+  div.className = 'kcard ready-card';
+  div.dataset.id = order.id;
+  div.innerHTML = `
+    <div class="kcard-head">
+      <div class="kc-left"><span class="kc-num">#${order.order_number}</span>${tableTag}</div>
+      <span class="kc-ready-time" title="Tayyor bo'lган vaqti">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3"/></svg>${timeStr}
+      </span>
+    </div>
+    <div class="kcard-items">
+      ${(order.items||[]).map(item => `
+        <div class="kitem done">
+          <span class="ki-qty">${item.quantity}×</span>
+          <div style="flex:1"><div class="ki-name">${item.product_name}</div></div>
+          <span class="ki-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3"/></svg></span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="kcard-foot">
+      ${order.waiter_name ? `<span>👤 ${order.waiter_name}</span>` : '<span></span>'}
+      <button class="kc-reopen" data-id="${order.id}" data-action="reopen" title="Xato bosildimi? Faol holatga qaytarish">↩ Qaytarish</button>
+    </div>
+  `;
+  return div;
+}
+
+// ── Ma'lumot + ko'rinish (Faol ↔ Tayyor tab) ───────────────────────────────────
+let _lastData = { pending:[], preparing:[], ready:[] };
+let kdsView   = 'active';   // 'active' | 'ready'
+
+function renderGrid(data) {
+  _lastData = data || _lastData;
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const activeN = (_lastData.pending||[]).length + (_lastData.preparing||[]).length;
+  const readyN  = (_lastData.ready||[]).length;
+  setTxt('pendingCount',   (_lastData.pending||[]).length);
+  setTxt('preparingCount', (_lastData.preparing||[]).length);
+  setTxt('readyCount',     readyN);
+  setTxt('tabActiveCount', activeN);
+  setTxt('tabReadyCount',  readyN);
+  setTxt('lastRefresh',    new Date().toLocaleTimeString('uz-UZ'));
+  renderView();
+}
+
+function renderView() {
+  const grid     = document.getElementById('ordersGrid');
+  const empty    = document.getElementById('gridEmpty');
+  const emptyMsg = document.getElementById('gridEmptyMsg');
+  const isReady  = kdsView === 'ready';
+
+  const list = isReady
+    // Tayyor: eng yaqinda tayyor bo'lган birinchi
+    ? (_lastData.ready||[]).slice().sort((a, b) => new Date(b.updated_at||b.created_at) - new Date(a.updated_at||a.created_at))
+    // Faol: pending(+confirmed)+preparing, eng eski birinchi
+    : [...(_lastData.pending||[]), ...(_lastData.preparing||[])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  if (!list.length) {
+    grid.innerHTML = '';
+    if (emptyMsg) emptyMsg.textContent = isReady ? "Tayyor zakaz yo'q" : "Faol zakaz yo'q";
+    if (empty) empty.style.display = '';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = '';
+  list.forEach(order => grid.appendChild(isReady ? renderReadyCard(order) : renderCard(order)));
+}
+
+function switchView(v) {
+  kdsView = v;
+  document.getElementById('tabActive').classList.toggle('active', v === 'active');
+  document.getElementById('tabReady').classList.toggle('active', v === 'ready');
+  renderView();
+}
+
+// ── Card actions ──────────────────────────────────────────────────────────────
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  if (action === 'item-ready') {
+    await markItem(btn);              // alohida taom tayyor/bekor (toggle)
+  } else {
+    await updateStatus(btn.dataset.id, action);  // ready (butun zakaz) yoki cancel
+  }
+});
+
+// Alohida taom holatini almashtirish (tayyor ↔ bekor). Hammasi tayyor bo'lса backend zakazни chiqaradi.
+async function markItem(el) {
+  const itemId    = el.dataset.itemId;
+  const newStatus = el.classList.contains('done') ? 'pending' : 'ready';
+  try {
+    const res = await fetch(`${API_BASE}/kitchen/items/${itemId}/status?status=${newStatus}`, {
+      method : 'PATCH',
+      headers: { 'Authorization':'Bearer '+token },
+    });
+    if (!res.ok) { const d = await res.json().catch(()=>{}); throw new Error(d?.detail || res.statusText); }
+    if (newStatus === 'ready') playReady();
+    fetchOrders();
+  } catch (err) {
+    toast(err.message || 'Xatolik', 'error');
+  }
+}
+
+async function updateStatus(orderId, action) {
+  const endpointMap = {
+    start : `/kitchen/orders/${orderId}/start`,
+    ready : `/kitchen/orders/${orderId}/ready`,
+    served: `/kitchen/orders/${orderId}/served`,
+    reopen: `/kitchen/orders/${orderId}/reopen`,
+    cancel: `/orders/${orderId}`,
+  };
+  const methodMap = { start:'PATCH', ready:'PATCH', served:'PATCH', reopen:'PATCH', cancel:'DELETE' };
+  const bodyMap   = { cancel: JSON.stringify({status:'cancelled'}) };
+
+  try {
+    const res = await fetch(API_BASE + endpointMap[action], {
+      method : methodMap[action],
+      headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+      body   : bodyMap[action] || undefined,
+    });
+    if (!res.ok) { const d = await res.json().catch(()=>{}); throw new Error(d?.detail || res.statusText); }
+    if (action === 'ready')  playReady();
+    if (action === 'served') toast('Buyurtma berildi ✓', 'success');
+    if (action === 'reopen') toast('Zakaz faol holatga qaytarildi ↩', 'success');
+    fetchOrders();
+  } catch (err) {
+    toast(err.message || 'Xatolik', 'error');
+  }
+}
+
+// ── Stansiyalar: yuklash + nav chiplar + gear checklist ────────────────────────
+async function loadStations() {
+  try {
+    const branchId = (() => {
+      try { return JSON.parse(atob(token.split('.')[1])).branch_id || ''; } catch { return ''; }
+    })();
+    const url = API_BASE + '/stations/public' + (branchId ? '?branch_id=' + branchId : '');
+    const res  = await fetch(url);
+    if (!res.ok) return;
+    _stations = await res.json();
+    // Faqat mavjud (o'chirilmagan) stansiyalar tanlovda qolsin
+    const valid = new Set(_stations.map(s => s.id));
+    const cleaned = selStations.filter(id => valid.has(id));
+    if (cleaned.length !== selStations.length) { selStations = cleaned; saveSel(selStations); }
+
+    document.getElementById('gearBtn').style.display = _stations.length ? '' : 'none';
+    renderNav();
+    updateStationLabel();
+  } catch {}
+}
+
+// Stansiya nav chiplar — bosса TOGGLE (client filtri, sahifa qayta yuklanmaydi)
+function renderNav() {
+  const nav = document.getElementById('stationNav');
+  if (!_stations.length) { nav.style.display = 'none'; return; }
+  nav.style.display = '';
+  const allOn = selStations.length === 0;
+  let html = `<button class="stn-btn${allOn?' active':''}" data-sid=""
+      style="${allOn ? 'background:rgba(212,180,108,.2);border-color:var(--gold);color:var(--gold)' : ''}">Barchasi</button>`;
+  html += _stations.map(s => {
+    const on = selStations.includes(s.id);
+    return `<button class="stn-btn${on?' active':''}" data-sid="${s.id}"
+      style="${on ? `background:${s.color}22;border-color:${s.color};color:${s.color}` : ''}">${s.name}</button>`;
+  }).join('');
+  html += `<button class="stn-btn stn-gear-nav" data-gear="1" title="Stansiya sozlamasi">⚙ Sozlama</button>`;
+  nav.innerHTML = html;
+}
+
+// Header yorlig'i — nechta stansiya tanlangani
+function updateStationLabel() {
+  const el = document.getElementById('stationLabel');
+  if (!el) return;
+  if (!selStations.length) { el.textContent = _stations.length ? 'Barcha stansiyalar' : 'Oshxona'; return; }
+  if (selStations.length === 1) {
+    const s = _stations.find(x => x.id === selStations[0]);
+    el.textContent = s ? s.name : 'Oshxona';
+  } else {
+    el.textContent = selStations.length + ' ta stansiya';
+  }
+}
+
+// Tanlovni qo'llash: saqlash + nav/yorliq yangilash + qayta filtрlash (fetch shart emas)
+function applySelection() {
+  saveSel(selStations);
+  renderNav();
+  updateStationLabel();
+  renderGrid(filterByStations(_rawData));
+}
+
+// Client tomonda filtr: tanlangan stansiya taomlari (+ stansiyasiz taomlar — yo'qolmasin).
+// Bo'sh tanlov → hamma ko'rinadi. Displeysiz stansiya (kola/desert) backend'da allaqachon
+// chiqarib tashlangan (station_id=None → has_display=True bo'yicha), shu yergacha yetib kelmaydi.
+function filterByStations(data) {
+  data = data || _rawData;
+  if (!selStations.length) return data;
+  const sel = new Set(selStations);
+  const f = list => (list || []).map(o => ({
+    ...o,
+    items: (o.items || []).filter(it => it.station_id == null || sel.has(it.station_id)),
+  })).filter(o => (o.items || []).length);
+  return { pending: f(data.pending), preparing: f(data.preparing), ready: f(data.ready), completed: [] };
+}
+
+// ── Gear modal (checkbox sozlama) ──────────────────────────────────────────────
+function buildGearChecklist() {
+  const box = document.getElementById('stnCheckList');
+  if (!_stations.length) {
+    box.innerHTML = `<div class="stn-check-empty">Stansiya topilmadi.<br>Admin panelida (Stansiyalar) stansiya qo'shing.</div>`;
+    return;
+  }
+  const sel = new Set(selStations);
+  box.innerHTML = _stations.map(s => `
+    <label class="stn-check-row${sel.has(s.id)?' on':''}">
+      <input type="checkbox" value="${s.id}"${sel.has(s.id)?' checked':''}>
+      <span class="stn-dot" style="background:${s.color}"></span>
+      <span class="stn-nm">${s.name}</span>
+    </label>`).join('');
+  box.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => cb.closest('.stn-check-row').classList.toggle('on', cb.checked));
+  });
+}
+function openGear()  { buildGearChecklist(); document.getElementById('stnSettingsOv').classList.add('open'); }
+function closeGear() { document.getElementById('stnSettingsOv').classList.remove('open'); }
+
+// Nav chip / gear tugma bosishlari (delegatsiya — innerHTML almashsa ham ishlaydi)
+document.getElementById('stationNav').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  if (btn.dataset.gear) { openGear(); return; }
+  if (btn.dataset.sid === '') { selStations = []; applySelection(); return; }
+  const id = parseInt(btn.dataset.sid);
+  const i = selStations.indexOf(id);
+  if (i >= 0) selStations.splice(i, 1); else selStations.push(id);
+  applySelection();
+});
+document.getElementById('gearBtn').addEventListener('click', openGear);
+document.getElementById('stnClose').addEventListener('click', closeGear);
+document.getElementById('stnSettingsOv').addEventListener('click', e => { if (e.target.id === 'stnSettingsOv') closeGear(); });
+document.getElementById('stnClear').addEventListener('click', () => { selStations = []; applySelection(); closeGear(); toast('Barcha stansiyalar ko\'rsatiladi', 'info'); });
+document.getElementById('stnSave').addEventListener('click', () => {
+  selStations = [...document.querySelectorAll('#stnCheckList input:checked')].map(cb => parseInt(cb.value));
+  applySelection();
+  closeGear();
+  toast(selStations.length ? 'Stansiya sozlamasi saqlandi ✓' : 'Barcha stansiyalar ko\'rsatiladi', 'success');
+});
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function fetchOrders() {
+  try {
+    // station_id yubormaymiz — backend barcha DISPLAYLI stansiya (+ stansiyasiz) taomlarini
+    // qaytaradi (displeysiz kola/desert allaqachon chiqarilgan). Tanlangan stansiya bo'yicha
+    // filtrni client tomonda qilamiz (multi-select + qurilma bo'yicha localStorage tanlov).
+    const res = await fetch(API_BASE+'/kitchen/orders', {
+      headers: { 'Authorization':'Bearer '+token }
+    });
+    if (!res.ok) return;
+    _rawData = await res.json();
+    renderGrid(filterByStations(_rawData));
+  } catch {}
+}
+
+async function fetchStats() {
+  try {
+    const res = await fetch(API_BASE+'/kitchen/stats', {
+      headers: { 'Authorization':'Bearer '+token }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('todayOrders').textContent = data.total_orders ?? '—';
+    document.getElementById('todayDone').textContent   = data.completed_orders ?? '—';
+    document.getElementById('avgTime').textContent     = data.average_preparation_time ? data.average_preparation_time+' min' : '—';
+  } catch {}
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connectWS() {
+  if (!token) return;
+  ws = new WebSocket(`${WS_URL}?token=${token}`);
+  const dot   = document.getElementById('wsDot');
+  const label = document.getElementById('wsLabel');
+  ws.onopen  = () => { dot.classList.add('on'); label.textContent = 'Ulangan'; };
+  ws.onclose = () => { dot.classList.remove('on'); label.textContent = 'Ulanmagan'; setTimeout(connectWS, 4000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (['new_order','order_status_changed','order_confirmed'].includes(msg.type)) {
+        if (msg.type === 'new_order') {
+          announceOrder(msg.data || msg);
+          flashScreen('rgba(59,130,246,.22)');
+          toast(`🔔 Yangi buyurtma #${msg.order_number}!`, 'info');
+        }
+        fetchOrders();
+      } else if (msg.type === 'order_served') {
+        fetchOrders();
+      } else if (msg.type === 'voice_order') {
+        // POS dan ovozli e'lon so'rovi
+        if (!soundOn) return;
+        playBell();
+        if (!('speechSynthesis' in window)) return;
+        try {
+          const tableInfo = msg.table
+            ? `${msg.table.name || msg.table.number}-stol`
+            : 'Buyurtma';
+          const itemList = (msg.items || []).slice(0, 4)
+            .map(i => `${i.quantity} ta ${i.product_name}`).join(', ');
+          const text = `${tableInfo}. ${itemList}`;
+          const utt = new SpeechSynthesisUtterance(text);
+          utt.lang = 'uz-UZ';
+          utt.rate = 0.92;
+          const voices = window.speechSynthesis.getVoices();
+          const v = voices.find(v => v.lang.startsWith('uz')) ||
+                    voices.find(v => v.lang.startsWith('ru')) || voices[0];
+          if (v) utt.voice = v;
+          window.speechSynthesis.speak(utt);
+          toast(`Ovozli e'lon: ${tableInfo}`, 'info');
+        } catch {}
+      }
+    } catch {}
+  };
+}
+
+// ── Tab: Faol ↔ Tayyor zakazlar ────────────────────────────────────────────────
+document.getElementById('tabActive').addEventListener('click', () => switchView('active'));
+document.getElementById('tabReady').addEventListener('click',  () => switchView('ready'));
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+if (!token) { location.href = '../shared/login.html'; }
+else {
+  loadStations();
+  fetchOrders();
+  fetchStats();
+  setInterval(fetchOrders, 30000);
+  setInterval(fetchStats,  60000);
+  startTimers();
+  connectWS();
+}
+</script>
+</body>
+</html>

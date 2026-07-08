@@ -1,0 +1,25 @@
+            RestoPOS            
+     Z-HISOBOT (KUN YAKUNI)     
+================================
+Chop etildi:    21.06.2026 17:10
+Smena:                        #6
+Kassir:            Administrator
+Ochildi:        21.06.2026 17:08
+Yopildi:        21.06.2026 17:08
+--------------------------------
+SAVDO
+Naqd:                    104 200
+Karta/Click:                   0
+JAMI SOTUV:          104 200 UZS
+Sotuvlar soni:                 1
+Chegirmalar:               5 000
+--------------------------------
+KASSA
+Boshlang'ich:            100 000
+Naqd savdo:             +104 200
+Bo'lishi kerak:          204 200
+Sanaldi:                 201 200
+================================
+KAMOMAD:              -3 000 UZS
+================================
+Izoh: E2E test

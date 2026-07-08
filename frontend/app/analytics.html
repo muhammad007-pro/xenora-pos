@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Analitika | XENORA</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--red:#ef4444;
+  --r:.5rem;--r2:.875rem
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.pc{padding:1.5rem;max-width:1280px;margin:0 auto}
+/* Period */
+.period-bar{display:flex;gap:.375rem;margin-bottom:1.5rem}
+.pb{padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:.2s}
+.pb.active{background:var(--gold-dim);border-color:rgba(212,180,108,.3);color:var(--gold)}
+/* Stats */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.sl{font-size:.75rem;color:var(--text3);margin-bottom:.25rem}
+.sv{font-size:1.75rem;font-weight:700;color:var(--gold)}
+.ss{font-size:.8125rem;margin-top:.35rem}
+.trend-up{color:var(--green)} .trend-dn{color:var(--red)} .trend-0{color:var(--text3)}
+/* Charts grid */
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.card-title{font-size:.8125rem;font-weight:600;color:var(--text2);margin-bottom:1rem;text-transform:uppercase;letter-spacing:.04em}
+.chart-wrap{position:relative;height:200px}
+/* Popular */
+.pop-item{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)}
+.pop-item:last-child{border-bottom:none}
+.pop-rank{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0}
+.r1{background:var(--gold);color:#03110c} .r2{background:#c0c0c0;color:#03110c} .r3{background:#cd7f32;color:#03110c}
+.rn{background:var(--bg3);color:var(--text2)}
+.pop-name{flex:1;font-size:.875rem}
+.pop-qty{font-size:.875rem;font-weight:600;color:var(--gold)}
+/* Recent orders */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:.625rem .875rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border)}
+.tbl td{padding:.625rem .875rem;font-size:.8125rem;border-bottom:1px solid var(--border)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(255,255,255,.02)}
+.st{padding:.15rem .5rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.st-completed{background:rgba(16,185,129,.12);color:var(--green)}
+.st-cancelled{background:rgba(239,68,68,.1);color:var(--red)}
+.st-pending{background:rgba(59,130,246,.12);color:#60a5fa}
+.amt{font-weight:600;color:var(--gold)}
+/* Loading */
+.ld{text-align:center;padding:3rem;color:var(--text3);font-size:.875rem}
+@media(max-width:900px){.sg{grid-template-columns:repeat(2,1fr)}.grid2,.grid3{grid-template-columns:1fr}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Analitika</h1>
+</header>
+
+<div class="pc">
+  <div class="period-bar">
+    <button class="pb active" data-r="today">Bugun</button>
+    <button class="pb" data-r="week">7 kun</button>
+    <button class="pb" data-r="month">30 kun</button>
+    <button class="pb" data-r="year">Yil</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="sg">
+    <div class="sc">
+      <div class="sl">Daromad</div>
+      <div class="sv" id="stRev">—</div>
+      <div class="ss" id="stRevT"></div>
+    </div>
+    <div class="sc">
+      <div class="sl">Buyurtmalar</div>
+      <div class="sv" id="stOrd">—</div>
+      <div class="ss" id="stOrdT"></div>
+    </div>
+    <div class="sc">
+      <div class="sl">O'rtacha chek</div>
+      <div class="sv" id="stAvg">—</div>
+      <div class="ss" id="stAvgT"></div>
+    </div>
+    <div class="sc">
+      <div class="sl">Mijozlar</div>
+      <div class="sv" id="stCust">—</div>
+      <div class="ss" id="stCustT"></div>
+    </div>
+  </div>
+
+  <!-- Revenue + Popular -->
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Daromad grafigi</div>
+      <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Ommabop mahsulotlar</div>
+      <div id="popList"><div class="ld">Yuklanmoqda...</div></div>
+    </div>
+  </div>
+
+  <!-- Category + Payment + Hourly -->
+  <div class="grid3">
+    <div class="card">
+      <div class="card-title">Kategoriyalar</div>
+      <div class="chart-wrap"><canvas id="catChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">To'lov usullari</div>
+      <div class="chart-wrap"><canvas id="payChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Soatlik trafik</div>
+      <div class="chart-wrap"><canvas id="hourChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Recent orders -->
+  <div class="card">
+    <div class="card-title">So'nggi buyurtmalar</div>
+    <div id="ordersWrap"><div class="ld">Yuklanmoqda...</div></div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok  = () => localStorage.getItem('access_token');
+const api  = { get: u => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()) };
+
+function fmtN(n){ return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0)); }
+function fmtDT(d){ if(!d)return'—'; return new Date(d).toLocaleString('uz-UZ',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+
+let range = 'today';
+const charts = {};
+
+Chart.defaults.color          = '#9fcbb9';
+Chart.defaults.borderColor    = 'rgba(255,255,255,.06)';
+Chart.defaults.font.family    = 'Inter,system-ui,sans-serif';
+Chart.defaults.font.size      = 12;
+Chart.defaults.plugins.legend.display = false;
+
+// ── Load ──────────────────────────────────────────────────────────────────────
+async function load() {
+  const [dashRes, hourRes] = await Promise.all([
+    api.get(`/analytics/dashboard?range=${range}`).catch(()=>null),
+    api.get(`/analytics/hourly?range=${range}`).catch(()=>null),
+  ]);
+
+  const d = dashRes?.data ?? dashRes;
+  if (!d) return;
+
+  updateStats(d);
+  renderRevChart(d.revenue_data);
+  renderCatChart(d.categories_data);
+  renderPayChart(d.payment_methods);
+  renderHourChart(hourRes?.data ?? hourRes);
+  renderPop(d.popular_products);
+  renderOrders(d.recent_orders);
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function trend(val, elId) {
+  const el = document.getElementById(elId);
+  if (!el || val===undefined) return;
+  const cls = val > 0 ? 'trend-up' : val < 0 ? 'trend-dn' : 'trend-0';
+  el.className = 'ss ' + cls;
+  el.textContent = (val >= 0 ? '+' : '') + val + '%';
+}
+
+function updateStats(d) {
+  document.getElementById('stRev').textContent  = fmtN(d.total_revenue) + ' so\'m';
+  document.getElementById('stOrd').textContent  = d.total_orders || 0;
+  document.getElementById('stAvg').textContent  = fmtN(d.average_check) + ' so\'m';
+  document.getElementById('stCust').textContent = d.total_customers || 0;
+  trend(d.revenue_trend,   'stRevT');
+  trend(d.orders_trend,    'stOrdT');
+  trend(d.avg_check_trend, 'stAvgT');
+  trend(d.customers_trend, 'stCustT');
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+function mk(id, type, data, opts={}) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, { type, data, options: { responsive:true, maintainAspectRatio:false, animation:{duration:400}, ...opts } });
+}
+
+function renderRevChart(rv) {
+  if (!rv?.labels?.length) return;
+  mk('revenueChart', 'line', {
+    labels: rv.labels,
+    datasets:[{
+      data: rv.datasets?.[0]?.data ?? rv.data ?? [],
+      borderColor: '#d4b46c',
+      backgroundColor: 'rgba(212,180,108,.08)',
+      borderWidth: 2,
+      pointRadius: 3,
+      pointBackgroundColor: '#d4b46c',
+      fill: true,
+      tension: 0.4,
+    }]
+  }, { plugins:{ tooltip:{ callbacks:{ label: c => fmtN(c.raw)+' so\'m' } } }, scales:{ y:{ ticks:{ callback: v => fmtN(v) } } } });
+}
+
+function renderCatChart(cats) {
+  if (!cats?.length) return;
+  const colors = ['#d4b46c','#10b981','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#14b8a6'];
+  mk('catChart', 'doughnut', {
+    labels: cats.map(c=>c.name||c.category||'—'),
+    datasets:[{ data: cats.map(c=>c.total||c.revenue||0), backgroundColor: colors, borderWidth:0 }]
+  }, { plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:10, padding:10, color:'#9fcbb9' } }, tooltip:{ callbacks:{ label: c => c.label+': '+fmtN(c.raw)+' so\'m' } } }, cutout:'60%' });
+}
+
+function renderPayChart(pay) {
+  if (!pay?.length) return;
+  const colors = { cash:'#10b981', card:'#3b82f6', transfer:'#8b5cf6', other:'#f59e0b' };
+  mk('payChart', 'doughnut', {
+    labels: pay.map(p=>{const m={cash:'Naqd',card:'Karta',transfer:'O\'tkazma'}; return m[p.method]||p.method||'—';}),
+    datasets:[{ data: pay.map(p=>p.total||p.amount||0), backgroundColor: pay.map(p=>colors[p.method]||'#1fb084'), borderWidth:0 }]
+  }, { plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:10, padding:10, color:'#9fcbb9' } }, tooltip:{ callbacks:{ label: c => c.label+': '+fmtN(c.raw)+' so\'m' } } }, cutout:'60%' });
+}
+
+function renderHourChart(hourly) {
+  const items = hourly?.items ?? (Array.isArray(hourly)?hourly:[]);
+  if (!items.length) return;
+  mk('hourChart', 'bar', {
+    labels: items.map(h=>h.hour+'h'),
+    datasets:[{ data: items.map(h=>h.orders||h.count||0), backgroundColor: 'rgba(212,180,108,.5)', borderColor: '#d4b46c', borderWidth: 1, borderRadius: 3 }]
+  }, { plugins:{ tooltip:{ callbacks:{ label: c => c.raw+' buyurtma' } } }, scales:{ y:{ ticks:{ stepSize:1 } } } });
+}
+
+function renderPop(prods) {
+  const el = document.getElementById('popList');
+  if (!prods?.length) { el.innerHTML = '<div class="ld">Ma\'lumot yo\'q</div>'; return; }
+  const ranks = ['r1','r2','r3'];
+  el.innerHTML = prods.map((p,i)=>`
+    <div class="pop-item">
+      <div class="pop-rank ${ranks[i]||'rn'}">${i+1}</div>
+      <div class="pop-name">${p.name||p.product_name||'—'}</div>
+      <div class="pop-qty">${p.quantity||p.count||0} ta</div>
+    </div>`).join('');
+}
+
+function renderOrders(orders) {
+  const el = document.getElementById('ordersWrap');
+  if (!orders?.length) { el.innerHTML = '<div class="ld">Buyurtmalar yo\'q</div>'; return; }
+  const stMap = { completed:'Tugallandi',cancelled:'Bekor',pending:'Yangi',preparing:'Tayyorlanmoqda',ready:'Tayyor' };
+  el.innerHTML = `<table class="tbl">
+    <thead><tr><th>#</th><th>Stol/Tur</th><th>Kassir</th><th>Summa</th><th>Holat</th><th>Vaqt</th></tr></thead>
+    <tbody>${orders.map(o=>`<tr>
+      <td>#${o.order_number}</td>
+      <td>${o.table?.name||o.order_type||'—'}</td>
+      <td>${o.cashier_name||o.cashier?.full_name||'—'}</td>
+      <td class="amt">${fmtN(o.final_amount)} so'm</td>
+      <td><span class="st st-${o.status}">${stMap[o.status]||o.status}</span></td>
+      <td style="color:var(--text3)">${fmtDT(o.created_at)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.pb').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.pb').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  range = b.dataset.r;
+  load();
+}));
+
+load();
+</script>
+</body>
+</html>

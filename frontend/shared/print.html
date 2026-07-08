@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chop etish — XENORA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 20px;
+        }
+        .receipt {
+            max-width: 300px;
+            margin: 0 auto;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .receipt-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .receipt-subtitle {
+            font-size: 12px;
+        }
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 10px 0;
+        }
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .receipt-items {
+            margin: 10px 0;
+        }
+        .item-row {
+            display: flex;
+            margin: 3px 0;
+        }
+        .item-qty {
+            width: 30px;
+        }
+        .item-name {
+            flex: 1;
+        }
+        .item-price {
+            text-align: right;
+            min-width: 70px;
+        }
+        .receipt-total {
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .receipt-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+        }
+        .barcode {
+            text-align: center;
+            margin: 15px 0;
+            font-family: 'Libre Barcode 39', cursive;
+            font-size: 40px;
+        }
+        @media print {
+            body { padding: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt" id="receiptContent">
+        <!-- JavaScript orqali to'ldiriladi -->
+    </div>
+    
+    <div class="no-print" style="text-align: center; margin-top: 20px;">
+        <button onclick="window.print()" style="padding: 10px 20px; margin-right: 10px;">Chop etish</button>
+        <button onclick="window.close()" style="padding: 10px 20px;">Yopish</button>
+    </div>
+    
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get('type');
+        const data = JSON.parse(urlParams.get('data') || '{}');
+        
+        function renderReceipt() {
+            const content = document.getElementById('receiptContent');
+            const now = new Date();
+            
+            let html = `
+                <div class="receipt-header">
+                    <div class="receipt-title">PREMIUM RESTAURANT</div>
+                    <div class="receipt-subtitle">Sizning tanlovingiz biz uchun muhim!</div>
+                </div>
+                <div class="divider"></div>
+            `;
+            
+            if (type === 'order') {
+                html += `
+                    <div class="receipt-row">
+                        <span>Buyurtma:</span>
+                        <span>#${data.order_number || '-'}</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span>Sana:</span>
+                        <span>${now.toLocaleString('uz-UZ')}</span>
+                    </div>
+                    <div class="receipt-row">
+                        <span>Stol:</span>
+                        <span>${data.table_number || '-'}</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="receipt-items">
+                `;
+                
+                if (data.items) {
+                    data.items.forEach(item => {
+                        html += `
+                            <div class="item-row">
+                                <span class="item-qty">${item.quantity}x</span>
+                                <span class="item-name">${item.product_name}</span>
+                                <span class="item-price">${formatMoney(item.total_price)}</span>
+                            </div>
+                        `;
+                    });
+                }
+                
+                html += `
+                    </div>
+                    <div class="divider"></div>
+                    <div class="receipt-row">
+                        <span>Jami:</span>
+                        <span>${formatMoney(data.total_amount)}</span>
+                    </div>
+                `;
+                
+                if (data.discount_amount) {
+                    html += `
+                        <div class="receipt-row">
+                            <span>Chegirma:</span>
+                            <span>-${formatMoney(data.discount_amount)}</span>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                    <div class="receipt-row receipt-total">
+                        <span>Umumiy:</span>
+                        <span>${formatMoney(data.final_amount)}</span>
+                    </div>
+                `;
+                
+                if (data.payment_method) {
+                    html += `
+                        <div class="receipt-row">
+                            <span>To'lov:</span>
+                            <span>${getPaymentMethod(data.payment_method)}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += `
+                <div class="divider"></div>
+                <div class="receipt-footer">
+                    <p>Xaridingiz uchun rahmat!</p>
+                    <p>Yana tashrif buyurishingizni kutamiz!</p>
+                </div>
+            `;
+            
+            content.innerHTML = html;
+        }
+        
+        function formatMoney(amount) {
+            return amount?.toLocaleString('uz-UZ') + ' UZS' || '0 UZS';
+        }
+        
+        function getPaymentMethod(method) {
+            const methods = { cash: 'Naqd', card: 'Karta', click: 'Click', payme: 'Payme' };
+            return methods[method] || method;
+        }
+        
+        renderReceipt();
+        
+        // Avtomatik chop etish
+        if (urlParams.get('auto') === 'true') {
+            setTimeout(() => window.print(), 500);
+        }
+    </script>
+</body>
+</html>

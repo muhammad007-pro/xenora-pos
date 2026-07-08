@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Barcode Skaner | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--r:.5rem;--r2:.875rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto}
+.barcode-layout{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:768px){.barcode-layout{grid-template-columns:1fr}}
+.barcode-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.barcode-panel h3{font-size:.875rem;font-weight:600;color:var(--text2);margin-bottom:1rem;text-transform:uppercase;letter-spacing:.04em}
+.barcode-video-wrap{position:relative;border-radius:var(--r);overflow:hidden;background:#000;aspect-ratio:4/3}
+.barcode-video{width:100%;height:100%;object-fit:cover}
+.barcode-scan-line{position:absolute;left:10%;right:10%;height:2px;background:var(--gold);box-shadow:0 0 8px var(--gold);animation:scanMove 2s ease-in-out infinite}
+@keyframes scanMove{0%,100%{top:20%}50%{top:80%}}
+.barcode-scan-line.scanned{background:var(--green);box-shadow:0 0 12px var(--green)}
+.barcode-corners::before,.barcode-corners::after{content:'';position:absolute;width:40px;height:40px;border-color:var(--gold);border-style:solid}
+.barcode-corners::before{top:10px;left:10px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+.barcode-corners::after{bottom:10px;right:10px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+.barcode-manual{margin-top:1rem}
+.barcode-manual p{font-size:.8125rem;color:var(--text3);margin-bottom:.5rem}
+.input-wrapper{display:flex;gap:.5rem;align-items:center}
+.input-wrapper input{flex:1;padding:.5rem .875rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:1rem;outline:none;font-family:inherit;transition:.2s}
+.input-wrapper input:focus{border-color:var(--gold)}
+.input-wrapper kbd{padding:.25rem .5rem;border-radius:.25rem;background:var(--bg3);border:1px solid var(--border);font-size:.75rem;color:var(--text3)}
+.barcode-result{margin-top:.75rem;padding:.75rem 1rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);font-size:.8125rem;min-height:40px;color:var(--text3)}
+.product-found{display:flex;gap:1rem;align-items:center;padding:1rem;border-radius:var(--r);background:rgba(16,185,129,.08);border:1px solid var(--green);margin-top:.75rem}
+.product-found-icon{width:56px;height:56px;border-radius:var(--r);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0}
+.product-found img{width:56px;height:56px;border-radius:var(--r);object-fit:cover}
+.pf-name{font-weight:600}.pf-price{color:var(--gold);font-weight:600;margin-top:.2rem}.pf-cat{font-size:.75rem;color:var(--text3);margin-top:.1rem}
+.history-list{display:flex;flex-direction:column;gap:.5rem;max-height:420px;overflow-y:auto}
+.history-item{display:flex;justify-content:space-between;align-items:center;padding:.625rem .875rem;border-radius:var(--r);border:1px solid var(--border);font-size:.8125rem}
+.history-code{font-family:monospace;font-weight:600}
+.history-time{color:var(--text3);font-size:.75rem}
+.history-status.found{color:var(--green)}.history-status.notfound{color:var(--red)}
+.empty{text-align:center;padding:2rem;color:var(--text3)}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="pos.html" class="bk">←</a>
+  <h1 class="ph-title">Barcode Skaner</h1>
+  <button class="btn btn-out" id="clearHistoryBtn">Tarixni tozalash</button>
+</header>
+<div class="pc">
+  <div class="barcode-layout">
+    <div class="barcode-panel">
+      <h3>Kamera rejimi</h3>
+      <div class="barcode-video-wrap">
+        <video id="barcodeVideo" class="barcode-video" playsinline autoplay muted></video>
+        <div class="barcode-scan-line" id="barcodeScanIndicator"></div>
+        <div class="barcode-corners"></div>
+      </div>
+      <div class="barcode-manual">
+        <p>yoki qo'lda kiriting:</p>
+        <div class="input-wrapper">
+          <input type="text" id="barcodeInput" placeholder="Barcode yoki SKU..." autocomplete="off">
+          <kbd>Enter</kbd>
+        </div>
+      </div>
+      <div class="barcode-result" id="barcodeResult">Skanerga mahsulot ushlab turing...</div>
+      <div id="productCard"></div>
+    </div>
+    <div class="barcode-panel">
+      <h3>Skanerlash tarixi</h3>
+      <div class="history-list" id="historyList">
+        <div class="empty">Tarix bo'sh</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+import { BarcodeScanner } from '../js/modules/barcode.js';
+import { API } from '../js/core/api.js';
+AuthGuard.check();
+initErrorHandler();
+
+const api = new API();
+const history = [];
+const resultEl  = document.getElementById('barcodeResult');
+const cardEl    = document.getElementById('productCard');
+const historyEl = document.getElementById('historyList');
+
+function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+
+function addHistory(code, product) {
+    history.unshift({ code, product, time: new Date() });
+    if (history.length > 50) history.pop();
+    renderHistory();
+}
+
+function renderHistory() {
+    if (!history.length) { historyEl.innerHTML='<div class="empty">Tarix bo\'sh</div>'; return; }
+    historyEl.innerHTML = history.map(h => `
+        <div class="history-item">
+            <span class="history-code">${h.code}</span>
+            <span class="history-status ${h.product?'found':'notfound'}">${h.product?'✓ '+h.product.name:'✗ Topilmadi'}</span>
+            <span class="history-time">${h.time.toLocaleTimeString('uz-UZ')}</span>
+        </div>`).join('');
+}
+
+function showProduct(product) {
+    cardEl.innerHTML = `
+        <div class="product-found">
+            ${product.image_url?`<img src="${product.image_url}" alt="">`:'<div class="product-found-icon">📦</div>'}
+            <div>
+                <div class="pf-name">${product.name}</div>
+                <div class="pf-price">${fmtN(product.price)} so'm</div>
+                <div class="pf-cat">Kategoriya: ${product.category?.name||'—'}</div>
+            </div>
+        </div>`;
+}
+
+const scanner = new BarcodeScanner({
+    onScan: async (code) => {
+        resultEl.textContent = `Qidirmoqda: ${code}...`;
+        cardEl.innerHTML = '';
+        const product = await scanner.findProductByBarcode(code);
+        addHistory(code, product);
+        if (product) {
+            resultEl.textContent = `✓ Topildi: ${product.name}`;
+            showProduct(product);
+        } else {
+            resultEl.textContent = `✗ Mahsulot topilmadi: ${code}`;
+        }
+    }
+});
+
+scanner.startCamera('barcodeVideo');
+scanner.startManual('barcodeInput');
+
+document.getElementById('clearHistoryBtn').addEventListener('click', () => {
+    history.length = 0;
+    renderHistory();
+});
+</script>
+</body>
+</html>

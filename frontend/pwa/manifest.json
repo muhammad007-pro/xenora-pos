@@ -1,0 +1,122 @@
+{
+  "name": "XENORA — Universal POS",
+  "short_name": "XENORA",
+  "description": "Universal SaaS POS tizimi — har qanday biznes uchun offline-first kassa",
+  "theme_color": "#d4b46c",
+  "background_color": "#03110c",
+  "display": "standalone",
+  "orientation": "landscape",
+  "scope": "/",
+  "start_url": "/index.html",
+  "icons": [
+    {
+      "src": "../assets/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../assets/icons/maskable-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "POS Terminal",
+      "short_name": "POS",
+      "description": "Buyurtma qabul qilish",
+      "url": "/app/pos.html",
+      "icons": [
+        {
+          "src": "../assets/icons/pos-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Oshxona Displey",
+      "short_name": "Oshxona",
+      "description": "Oshxona buyurtmalari",
+      "url": "/app/kitchen.html",
+      "icons": [
+        {
+          "src": "../assets/icons/kitchen-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Admin Panel",
+      "short_name": "Admin",
+      "description": "Boshqaruv paneli",
+      "url": "/app/admin.html",
+      "icons": [
+        {
+          "src": "../assets/icons/admin-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "categories": ["business", "productivity", "food"],
+  "screenshots": [
+    {
+      "src": "../assets/screenshots/pos-screen.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "POS Terminal"
+    },
+    {
+      "src": "../assets/screenshots/kitchen-screen.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Oshxona Displey"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

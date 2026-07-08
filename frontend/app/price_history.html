@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Narx Tarixi — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
+.layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
+</style>
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .kpi-row     { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .kpi-card    { background:var(--surface1); border:1px solid var(--border); border-radius:.75rem; padding:1rem 1.25rem; }
+  .kpi-label   { font-size:.75rem; color:var(--text2); margin-bottom:.375rem; }
+  .kpi-value   { font-size:1.5rem; font-weight:800; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .table-wrap  { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .price-up   { color:#10b981; font-weight:700; }
+  .price-down { color:#ef4444; font-weight:700; }
+  .price-same { color:var(--text2); }
+  .change-arrow { font-size:1rem; }
+  .reason-tag { font-size:.75rem; color:var(--text2); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pagination { display:flex; align-items:center; justify-content:center; gap:.5rem; margin-top:1.25rem; flex-wrap:wrap; }
+  .pagination button { min-width:2.25rem; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">📈 Narx Tarixi</h1>
+      <div style="font-size:.8125rem;color:var(--text2)" id="lastUpdate"></div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Jami o'zgarish</div>
+        <div class="kpi-value" id="kpiTotal">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Narx oshdi</div>
+        <div class="kpi-value" id="kpiUp" style="color:#10b981">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Narx tushdi</div>
+        <div class="kpi-value" id="kpiDown" style="color:#ef4444">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">O'rtacha o'zgarish</div>
+        <div class="kpi-value" id="kpiAvg">—</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label class="form-label">Tovar</label>
+        <select class="inp" id="filterProduct" style="width:200px" onchange="loadPage(1)">
+          <option value="">Barchasi</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Kategoriya</label>
+        <select class="inp" id="filterCategory" style="width:180px" onchange="filterByCategory()">
+          <option value="">Barchasi</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Boshlanish</label>
+        <input class="inp" type="date" id="filterDateFrom" onchange="loadPage(1)">
+      </div>
+      <div>
+        <label class="form-label">Tugash</label>
+        <input class="inp" type="date" id="filterDateTo" onchange="loadPage(1)">
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="resetFilters()">Tozalash</button>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tovar</th>
+            <th>Eski narx</th>
+            <th>Yangi narx</th>
+            <th>Farq</th>
+            <th>Tan narx eski</th>
+            <th>Tan narx yangi</th>
+            <th>Sabab</th>
+            <th>Kim o'zgartirdi</th>
+            <th>Sana</th>
+          </tr>
+        </thead>
+        <tbody id="histTbody">
+          <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text2)">Yuklanmoqda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </main>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API }     from '/js/core/api.js';
+
+const api = new API();
+await Sidebar.init();
+
+let products   = [];
+let categories = [];
+let currentPage = 1;
+const PAGE_SIZE = 50;
+
+async function loadSupport() {
+  const [pRes, cRes] = await Promise.all([
+    api.get('/products/?page_size=500'),
+    api.get('/categories/?page_size=200'),
+  ]);
+  products   = pRes.items || pRes || [];
+  categories = cRes.items || cRes || [];
+
+  document.getElementById('filterProduct').innerHTML = '<option value="">Barchasi</option>' +
+    products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  document.getElementById('filterCategory').innerHTML = '<option value="">Barchasi</option>' +
+    categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+window.filterByCategory = function() {
+  const catId = parseInt(document.getElementById('filterCategory').value);
+  const sel   = document.getElementById('filterProduct');
+  sel.innerHTML = '<option value="">Barchasi</option>' +
+    products.filter(p=>!catId||p.category_id===catId).map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  loadPage(1);
+};
+
+window.loadPage = async function(page) {
+  currentPage = page;
+  const prodId   = document.getElementById('filterProduct').value;
+  const dateFrom = document.getElementById('filterDateFrom').value;
+  const dateTo   = document.getElementById('filterDateTo').value;
+
+  let url = `/price-history/?page=${page}&page_size=${PAGE_SIZE}`;
+  if (prodId)   url += `&product_id=${prodId}`;
+  if (dateFrom) url += `&date_from=${dateFrom}`;
+  if (dateTo)   url += `&date_to=${dateTo}`;
+
+  const res = await api.get(url);
+  const rows = res.items || res || [];
+  const total = res.total || rows.length;
+  const totalPages = res.total_pages || Math.ceil(total/PAGE_SIZE);
+
+  // KPI — current page stats
+  document.getElementById('kpiTotal').textContent = total;
+  const ups   = rows.filter(r=>(r.new_price||0) > (r.old_price||0)).length;
+  const downs = rows.filter(r=>(r.new_price||0) < (r.old_price||0)).length;
+  document.getElementById('kpiUp').textContent   = ups;
+  document.getElementById('kpiDown').textContent = downs;
+
+  if (rows.length) {
+    const avg = rows.reduce((s,r)=>s+Math.abs((r.new_price||0)-(r.old_price||0)),0) / rows.length;
+    document.getElementById('kpiAvg').textContent = Number(avg).toLocaleString('uz-UZ',{maximumFractionDigits:0}) + ' so\'m';
+  } else {
+    document.getElementById('kpiAvg').textContent = '—';
+  }
+
+  if (rows.length) {
+    document.getElementById('lastUpdate').textContent = 'Oxirgi yangilanish: ' + (rows[0].changed_at||rows[0].created_at||'').slice(0,10);
+  }
+
+  document.getElementById('histTbody').innerHTML = rows.length === 0
+    ? `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text2)">Narx tarixi yo'q</td></tr>`
+    : rows.map(r => {
+        const diff = (r.new_price||0) - (r.old_price||0);
+        const cls  = diff > 0 ? 'price-up' : diff < 0 ? 'price-down' : 'price-same';
+        const sign = diff > 0 ? '▲ +' : diff < 0 ? '▼ ' : '=';
+        return `<tr>
+          <td><strong>${escHtml(r.product_name||r.product_id||'—')}</strong></td>
+          <td>${fmtMoney(r.old_price)}</td>
+          <td class="${cls}">${fmtMoney(r.new_price)}</td>
+          <td class="${cls}">${sign}${fmtMoney(Math.abs(diff))}</td>
+          <td style="color:var(--text2)">${r.old_cost != null ? fmtMoney(r.old_cost) : '—'}</td>
+          <td style="color:var(--text2)">${r.new_cost != null ? fmtMoney(r.new_cost) : '—'}</td>
+          <td><span class="reason-tag" title="${escHtml(r.reason||'')}">${escHtml(r.reason||'—')}</span></td>
+          <td style="font-size:.8rem;color:var(--text2)">${escHtml(r.changed_by_name||r.changed_by||'—')}</td>
+          <td style="font-size:.8rem;white-space:nowrap">${(r.changed_at||r.created_at||'').replace('T',' ').slice(0,16)}</td>
+        </tr>`;
+      }).join('');
+
+  // Pagination
+  const pag = document.getElementById('pagination');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+  let btns = '';
+  if (page > 1)           btns += `<button class="btn btn-sm btn-secondary" onclick="loadPage(${page-1})">‹ Oldingi</button>`;
+  btns += `<span style="font-size:.875rem;color:var(--text2)">${page} / ${totalPages}</span>`;
+  if (page < totalPages)  btns += `<button class="btn btn-sm btn-secondary" onclick="loadPage(${page+1})">Keyingi ›</button>`;
+  pag.innerHTML = btns;
+};
+
+function fmtMoney(n) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString('uz-UZ',{maximumFractionDigits:0}) + ' so\'m';
+}
+function escHtml(s) { return String(s).replace(/[<>"'&]/g, c=>({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c])); }
+
+window.resetFilters = function() {
+  document.getElementById('filterProduct').value  = '';
+  document.getElementById('filterCategory').value = '';
+  document.getElementById('filterDateFrom').value = '';
+  document.getElementById('filterDateTo').value   = '';
+  loadPage(1);
+};
+
+// Default: joriy oy
+const now = new Date();
+const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+const today    = now.toISOString().split('T')[0];
+document.getElementById('filterDateFrom').value = firstDay;
+document.getElementById('filterDateTo').value   = today;
+
+await loadSupport();
+loadPage(1);
+</script>
+</body>
+</html>

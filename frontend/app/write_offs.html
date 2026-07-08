@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Utilizatsiya — XENORA</title>
+<link rel="stylesheet" href="/css/main.css">
+<style>
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+  .page-title  { font-size:1.25rem; font-weight:700; }
+  .filter-bar  { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:flex-end; }
+  .table-wrap  { overflow-x:auto; }
+  table.data-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+  .data-table th { background:var(--surface2); color:var(--text2); font-weight:600; padding:.625rem 1rem;
+                   text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
+  .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .data-table tr:hover td { background:var(--surface2); }
+  .badge { display:inline-block; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
+  .badge-draft   { background:#fef3c7; color:#92400e; }
+  .badge-confirm { background:#d1fae5; color:#065f46; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999; align-items:center; justify-content:center; }
+  .modal-overlay.active { display:flex; }
+  .modal-box  { background:var(--surface1); border-radius:1rem; padding:1.5rem; max-width:680px; width:96%; max-height:92vh; overflow-y:auto; }
+  .modal-title{ font-size:1.125rem; font-weight:700; margin-bottom:1.25rem; }
+  .form-row   { margin-bottom:.875rem; }
+  .form-label { font-size:.8125rem; color:var(--text2); margin-bottom:.375rem; display:block; }
+  .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .item-row   { display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:.5rem; align-items:end; margin-bottom:.5rem; }
+  .reason-tag { font-size:.75rem; font-weight:700; padding:.15rem .4rem; border-radius:.375rem; }
+  .reason-expired  { background:#fee2e2; color:#991b1b; }
+  .reason-damaged  { background:#fef3c7; color:#92400e; }
+  .reason-theft    { background:#ede9fe; color:#4c1d95; }
+  .reason-brak     { background:#fce7f3; color:#831843; }
+  .reason-other    { background:#f3f4f6; color:#374151; }
+  .loss-total { font-size:1.25rem; font-weight:800; color:#ef4444; }
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="layout">
+  <div id="sidebar-container"></div>
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">🗑️ Utilizatsiya / Spisaniye</h1>
+      <button class="btn" id="btnAdd">+ Akt yaratish</button>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label class="form-label">Sabab</label>
+        <select class="inp" id="filterReason" style="width:160px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="expired">Muddati tugagan</option>
+          <option value="damaged">Buzilgan</option>
+          <option value="theft">O'g'irlik</option>
+          <option value="brak">Brak</option>
+          <option value="other">Boshqa</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Holat</label>
+        <select class="inp" id="filterStatus" style="width:130px" onchange="load()">
+          <option value="">Barchasi</option>
+          <option value="draft">Qoralama</option>
+          <option value="confirmed">Tasdiqlangan</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Dan</label>
+        <input type="date" class="inp" id="filterFrom" style="width:145px" onchange="load()">
+      </div>
+      <div>
+        <label class="form-label">Gacha</label>
+        <input type="date" class="inp" id="filterTo" style="width:145px" onchange="load()">
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Akt #</th><th>Sana</th><th>Sabab</th><th>Zarar</th><th>Holat</th><th>Tovarlar</th><th></th></tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- Yangi akt modali -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-title">Utilizatsiya akti yaratish</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Sabab *</label>
+        <select class="inp" id="fReason">
+          <option value="expired">Muddati tugagan</option>
+          <option value="damaged">Buzilgan</option>
+          <option value="theft">O'g'irlik</option>
+          <option value="brak">Brak/Nuqsonli</option>
+          <option value="other">Boshqa</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Sana *</label>
+        <input type="date" class="inp" id="fDate">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Izoh</label>
+      <input type="text" class="inp" id="fNotes" placeholder="Ixtiyoriy...">
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+      <label class="form-label" style="margin:0;font-weight:700">Tovarlar</label>
+      <button type="button" class="btn btn-secondary" style="padding:.25rem .625rem;font-size:.8125rem" onclick="addItemRow()">+ Tovar qo'shish</button>
+    </div>
+    <div id="itemRows"></div>
+
+    <div style="margin-top:.75rem;padding:.75rem;background:var(--surface2);border-radius:.5rem;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:.875rem;color:var(--text2)">Jami zarar:</span>
+      <span class="loss-total" id="totalLossDisp">0 so'm</span>
+    </div>
+
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeModal()">Bekor</button>
+      <button class="btn" id="btnSave" onclick="save()">Saqlash (Qoralama)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-title" id="detailTitle">Akt tafsiloti</div>
+    <div id="detailContent"></div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeDetail()">Yopish</button>
+      <button class="btn" id="btnConfirmAkt" style="display:none;background:#10b981" onclick="confirmAkt()">✓ Tasdiqlash (Ombordan chiqarish)</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { Sidebar } from '/js/core/sidebar.js';
+import { API } from '/js/core/api.js';
+Sidebar.init();
+const api = new API();
+let products = [];
+let detailId = null;
+
+const REASON_LABELS = {
+  expired:'Muddati tugagan', damaged:'Buzilgan', theft:"O'g'irlik", brak:'Brak', other:'Boshqa'
+};
+const REASON_CLASS = {
+  expired:'reason-expired', damaged:'reason-damaged', theft:'reason-theft', brak:'reason-brak', other:'reason-other'
+};
+
+async function init() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('fDate').value     = today;
+  document.getElementById('filterFrom').value = today.slice(0,7)+'-01';
+  document.getElementById('filterTo').value   = today;
+  const res = await api.get('/products/?page_size=500');
+  products = res.items || [];
+  load();
+}
+
+window.load = async () => {
+  const p = new URLSearchParams({ page_size: 50 });
+  const r = document.getElementById('filterReason').value;
+  const s = document.getElementById('filterStatus').value;
+  const f = document.getElementById('filterFrom').value;
+  const t = document.getElementById('filterTo').value;
+  if (r) p.set('reason', r);
+  if (s) p.set('status', s);
+  if (f) p.set('date_from', f);
+  if (t) p.set('date_to', t);
+  const res = await api.get(`/write-offs/?${p}`);
+  const rows = res.items || [];
+  const tbody = document.getElementById('tableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Aktlar topilmadi</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(wo => `
+    <tr style="cursor:pointer" onclick="openDetail(${wo.id})">
+      <td style="font-family:monospace;font-weight:700">${wo.act_number}</td>
+      <td>${wo.write_off_date}</td>
+      <td><span class="reason-tag ${REASON_CLASS[wo.reason]||'reason-other'}">${REASON_LABELS[wo.reason]||wo.reason}</span></td>
+      <td style="font-weight:700;color:#ef4444">${fmt(wo.total_loss)} so'm</td>
+      <td><span class="badge ${wo.status==='confirmed'?'badge-confirm':'badge-draft'}">${wo.status==='confirmed'?'Tasdiqlangan':'Qoralama'}</span></td>
+      <td style="color:var(--text2)">${wo.items?.length||0} tovar</td>
+      <td onclick="event.stopPropagation()">
+        ${wo.status==='draft'?`<button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem" onclick="event.stopPropagation();deleteDraft(${wo.id})">O'chirish</button>`:''}
+      </td>
+    </tr>`).join('');
+};
+
+window.openDetail = async (id) => {
+  detailId = id;
+  const wo = await api.get(`/write-offs/${id}`);
+  document.getElementById('detailTitle').textContent = `Akt: ${wo.act_number}`;
+  document.getElementById('detailContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem">
+      <div><div style="font-size:.75rem;color:var(--text3)">Sana</div><div style="font-weight:600">${wo.write_off_date}</div></div>
+      <div><div style="font-size:.75rem;color:var(--text3)">Sabab</div><div><span class="reason-tag ${REASON_CLASS[wo.reason]||'reason-other'}">${REASON_LABELS[wo.reason]||wo.reason}</span></div></div>
+      <div><div style="font-size:.75rem;color:var(--text3)">Holat</div><div><span class="badge ${wo.status==='confirmed'?'badge-confirm':'badge-draft'}">${wo.status==='confirmed'?'Tasdiqlangan':'Qoralama'}</span></div></div>
+      <div><div style="font-size:.75rem;color:var(--text3)">Jami zarar</div><div class="loss-total">${fmt(wo.total_loss)} so'm</div></div>
+    </div>
+    ${wo.notes ? `<div style="margin-bottom:.75rem;font-size:.875rem;color:var(--text2)">Izoh: ${wo.notes}</div>` : ''}
+    <table class="data-table" style="margin-top:.5rem">
+      <thead><tr><th>Tovar</th><th>Miqdor</th><th>Narx</th><th>Zarar</th></tr></thead>
+      <tbody>${wo.items.map(it=>`<tr>
+        <td style="font-weight:600">${it.product_name||'#'+it.product_id}</td>
+        <td>${it.quantity}</td>
+        <td>${fmt(it.cost_price)}</td>
+        <td style="color:#ef4444;font-weight:700">${fmt(it.total_loss)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  const btnConfirm = document.getElementById('btnConfirmAkt');
+  btnConfirm.style.display = wo.status === 'draft' ? '' : 'none';
+  document.getElementById('detailModal').classList.add('active');
+};
+
+window.confirmAkt = async () => {
+  const res = await api.post(`/write-offs/${detailId}/confirm`, {});
+  if (res.status === 'confirmed') {
+    showToast('Akt tasdiqlandi, ombor yangilandi', 'success');
+    closeDetail(); load();
+  } else showToast(res.detail||'Xatolik','error');
+};
+
+window.deleteDraft = async (id) => {
+  if (!confirm("Qoralamani o'chirasizmi?")) return;
+  const res = await api.delete(`/write-offs/${id}`);
+  if (res.message) { showToast("O'chirildi",'success'); load(); }
+  else showToast(res.detail||'Xatolik','error');
+};
+
+document.getElementById('btnAdd').onclick = () => {
+  document.getElementById('fNotes').value = '';
+  document.getElementById('fReason').value = 'expired';
+  document.getElementById('itemRows').innerHTML = '';
+  addItemRow();
+  calcTotal();
+  document.getElementById('modal').classList.add('active');
+};
+window.closeModal  = () => document.getElementById('modal').classList.remove('active');
+window.closeDetail = () => document.getElementById('detailModal').classList.remove('active');
+document.getElementById('modal').onclick      = e => { if(e.target===e.currentTarget) closeModal(); };
+document.getElementById('detailModal').onclick = e => { if(e.target===e.currentTarget) closeDetail(); };
+
+window.addItemRow = () => {
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  const opts = products.map(p=>`<option value="${p.id}" data-cost="${p.cost_price||p.price||0}">${p.name}</option>`).join('');
+  div.innerHTML = `
+    <div><label class="form-label">Tovar</label>
+      <select class="inp prod-sel" onchange="calcTotal()">${opts}</select></div>
+    <div><label class="form-label">Miqdor</label>
+      <input type="number" class="inp qty-inp" value="1" min="0.001" step="0.001" oninput="calcTotal()"></div>
+    <div><label class="form-label">Narx (so'm)</label>
+      <input type="number" class="inp price-inp" value="0" min="0" oninput="calcTotal()"></div>
+    <div style="padding-bottom:.1rem"><button type="button" class="btn btn-secondary" style="padding:.35rem .625rem;color:#ef4444" onclick="this.closest('.item-row').remove();calcTotal()">✕</button></div>`;
+  document.getElementById('itemRows').appendChild(div);
+  // auto-fill narx
+  const sel = div.querySelector('.prod-sel');
+  const priceInp = div.querySelector('.price-inp');
+  sel.onchange = () => {
+    const opt = sel.options[sel.selectedIndex];
+    priceInp.value = opt.dataset.cost || 0;
+    calcTotal();
+  };
+  const firstOpt = sel.options[0];
+  if (firstOpt) priceInp.value = firstOpt.dataset.cost || 0;
+  calcTotal();
+};
+
+window.calcTotal = () => {
+  let total = 0;
+  document.querySelectorAll('.item-row').forEach(row => {
+    const qty   = parseFloat(row.querySelector('.qty-inp')?.value || 0);
+    const price = parseFloat(row.querySelector('.price-inp')?.value || 0);
+    total += qty * price;
+  });
+  document.getElementById('totalLossDisp').textContent = fmt(total) + " so'm";
+};
+
+window.save = async () => {
+  const rows = document.querySelectorAll('.item-row');
+  if (!rows.length) { showToast('Tovar qo\'shilsin','error'); return; }
+  const items = [];
+  let valid = true;
+  rows.forEach(row => {
+    const prodId = parseInt(row.querySelector('.prod-sel').value);
+    const qty    = parseFloat(row.querySelector('.qty-inp').value);
+    const price  = parseFloat(row.querySelector('.price-inp').value);
+    if (!prodId || !qty) { valid = false; return; }
+    items.push({ product_id: prodId, quantity: qty, cost_price: price });
+  });
+  if (!valid) { showToast('Barcha tovar qatorlarini to\'ldiring','error'); return; }
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  const res = await api.post('/write-offs/', {
+    reason:         document.getElementById('fReason').value,
+    write_off_date: document.getElementById('fDate').value,
+    notes:          document.getElementById('fNotes').value.trim() || null,
+    items,
+  });
+  btn.disabled = false;
+  if (res.id) { showToast('Akt saqlandi','success'); closeModal(); load(); }
+  else showToast(res.detail||'Xatolik','error');
+};
+
+function fmt(n) { return Number(n||0).toLocaleString('uz-UZ'); }
+function showToast(msg, type='info') {
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.textContent = msg; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+init();
+</script>
+</body>
+</html>

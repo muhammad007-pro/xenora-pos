@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Retseptlar | XENORA</title>
+<link rel="stylesheet" href="../styles/main.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+.ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.ha{display:flex;gap:.75rem;align-items:center}
+.pc{padding:1.5rem;max-width:1100px;margin:0 auto}
+.tb{display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.tc{padding:.3rem .875rem;border-radius:99px;font-size:.8125rem;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;transition:.2s}
+.tc.active,.tc:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem}
+.rcard{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.25rem;cursor:pointer;transition:.2s}
+.rcard:hover{border-color:rgba(255,255,255,.2);transform:translateY(-2px)}
+.rc-name{font-size:1rem;font-weight:700;margin-bottom:.375rem}
+.rc-prod{font-size:.8125rem;color:var(--text2);margin-bottom:.5rem}
+.rc-meta{display:flex;gap:1rem;font-size:.75rem;color:var(--text3)}
+.rc-ing{font-size:.8125rem;color:var(--text2);margin-top:.75rem;border-top:1px solid var(--border2);padding-top:.75rem}
+.rc-ing-item{display:flex;justify-content:space-between;padding:.2rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.rc-ing-item:last-child{border:none}
+.rc-actions{display:flex;gap:.5rem;margin-top:.875rem}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s}
+.bg{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.bg:hover{box-shadow:0 0 18px rgba(212,180,108,.35)}
+.bo{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.bo:hover{border-color:var(--gold);color:var(--gold)}
+.bd{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.bsm{padding:.375rem .875rem;font-size:.8125rem}
+.empty{text-align:center;padding:3rem;color:var(--text3)}
+.srch{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:#ecf6ef;font-size:.875rem;outline:none;width:220px}
+.srch:focus{border-color:var(--gold)}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;padding:1rem}
+.mo.open{display:flex}
+.mw{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:1.5rem;width:600px;max-width:100%;max-height:90vh;overflow-y:auto}
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.mt{font-size:1.125rem;font-weight:700}
+.mc{background:none;border:none;color:var(--text3);font-size:1.5rem;cursor:pointer;line-height:1}
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:#ecf6ef;font-size:.875rem;outline:none;font-family:inherit}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold)}
+.fg textarea{resize:vertical;min-height:60px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.ing-row{display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem}
+.ing-row input,.ing-row select{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.4rem .75rem;color:#ecf6ef;font-size:.8125rem;outline:none;font-family:inherit}
+.ing-row input:focus,.ing-row select:focus{border-color:var(--gold)}
+.ing-del{background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;padding:.25rem;flex-shrink:0}
+.mf{display:flex;justify-content:flex-end;gap:.75rem;margin-top:1.25rem}
+@media(max-width:640px){.grid{grid-template-columns:1fr}.fr{grid-template-columns:1fr}}
+
+/* ─── Premium enhancements ─── */
+@keyframes _pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes _scIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes _flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.ph{animation:_pgIn .22s ease backwards}
+.sc{animation:_scIn .28s ease backwards}
+.sg>.sc:nth-child(1){animation-delay:.04s}
+.sg>.sc:nth-child(2){animation-delay:.09s}
+.sg>.sc:nth-child(3){animation-delay:.14s}
+.sg>.sc:nth-child(4){animation-delay:.19s}
+.card{animation:_pgIn .3s ease .08s backwards}
+.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.bk:hover{transform:scale(1.05)}
+.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.empty svg{animation:_flt 3.5s ease-in-out infinite}
+.modal.open .mc{animation:_scIn .2s ease}
+.btn-gold:hover{transform:translateY(-1px)}
+.btn-outline:hover{transform:translateY(-1px)}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<header class="ph">
+  <a href="javascript:history.back()" class="bk">←</a>
+  <h1 class="pt">📋 Retseptlar</h1>
+  <div class="ha">
+    <input class="srch" id="srch" placeholder="Retsept qidirish...">
+    <button class="btn bg" id="addBtn">+ Yangi retsept</button>
+  </div>
+</header>
+
+<div class="pc">
+  <div class="tb" id="catTabs"><span class="tc active" data-c="">Barchasi</span></div>
+  <div class="grid" id="grid"><p class="empty">Yuklanmoqda...</p></div>
+</div>
+
+<div class="mo" id="mo">
+  <div class="mw">
+    <div class="mh"><span class="mt" id="moTitle">Yangi retsept</span><button class="mc" onclick="closeMo()">×</button></div>
+    <div class="fr">
+      <div class="fg"><label>Tayyor mahsulot *</label><select id="mProd"><option value="">Tanlang...</option></select></div>
+      <div class="fg"><label>Retsept nomi *</label><input id="mName" placeholder="Masalan: Beshbarmoq"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Tayyorlash vaqti (daq)</label><input id="mTime" type="number" value="30" min="1"></div>
+      <div class="fg"><label>Tavsif</label><input id="mDesc" placeholder="Ixtiyoriy..."></div>
+    </div>
+    <div style="margin-bottom:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+        <label style="font-size:.8125rem;color:var(--text2);font-weight:500">Ingredientlar *</label>
+        <button class="btn bo bsm" onclick="addIng()">+ Ingredient</button>
+      </div>
+      <div id="ingList"></div>
+    </div>
+    <div class="mf">
+      <button class="btn bo" onclick="closeMo()">Bekor</button>
+      <button class="btn bg" id="savBtn" onclick="saveRecipe()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { AuthGuard }       from '../js/core/auth-guard.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
+AuthGuard.check();
+initErrorHandler();
+</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE=_isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const tok=()=>localStorage.getItem('access_token');
+if(!tok()) location.href='../shared/login.html';
+const h={
+  get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  post:(u,d)=>fetch(`${BASE}${u}`,{method:'POST',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json()),
+  patch:(u,d)=>fetch(`${BASE}${u}`,{method:'PATCH',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json()),
+  del:u=>fetch(`${BASE}${u}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+};
+
+let recipes=[], products=[], cats=[], editId=null, ingCount=0;
+let fltCat='', q='';
+
+async function init(){
+  const [rRes,pRes,cRes]=await Promise.all([
+    h.get('/recipes/?page_size=200').catch(()=>({items:[]})),
+    h.get('/products/?page_size=500&is_active=true').catch(()=>({items:[]})),
+    h.get('/categories/all').catch(()=>[]),
+  ]);
+  recipes=rRes.items||[];
+  products=pRes.items||[];
+  cats=Array.isArray(cRes)?cRes:(cRes.data||[]);
+  buildCatTabs();
+  fillProdSelect();
+  render();
+}
+
+function buildCatTabs(){
+  const el=document.getElementById('catTabs');
+  const usedCats=[...new Set(recipes.map(r=>r.product?.category?.name).filter(Boolean))];
+  el.innerHTML='<span class="tc active" data-c="">Barchasi</span>'+usedCats.map(c=>`<span class="tc" data-c="${c}">${c}</span>`).join('');
+  el.querySelectorAll('.tc').forEach(t=>t.addEventListener('click',()=>{
+    fltCat=t.dataset.c;
+    el.querySelectorAll('.tc').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    render();
+  }));
+}
+
+function fillProdSelect(){
+  document.getElementById('mProd').innerHTML='<option value="">Tanlang...</option>'+products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+function render(){
+  const sq=document.getElementById('srch').value.toLowerCase();
+  const list=recipes.filter(r=>(!fltCat||r.product?.category?.name===fltCat)&&(!sq||r.name.toLowerCase().includes(sq)));
+  const el=document.getElementById('grid');
+  if(!list.length){el.innerHTML='<p class="empty">Retseptlar topilmadi</p>';return;}
+  el.innerHTML=list.map(r=>`<div class="rcard">
+    <div class="rc-name">${r.name}</div>
+    <div class="rc-prod">🍽️ ${r.product?.name||'—'} &nbsp;·&nbsp; ⏱ ${r.preparation_time||'—'} daq</div>
+    ${r.description?`<div class="rc-meta">${r.description}</div>`:''}
+    <div class="rc-ing">
+      ${(r.items||[]).slice(0,5).map(i=>`<div class="rc-ing-item"><span>${i.ingredient?.name||i.ingredient_id}</span><span>${i.quantity} ${i.unit}</span></div>`).join('')}
+      ${(r.items||[]).length>5?`<div style="color:var(--text3);font-size:.75rem;text-align:center;margin-top:.25rem">...va yana ${r.items.length-5} ta</div>`:''}
+    </div>
+    <div class="rc-actions">
+      <button class="btn bo bsm" onclick="openEdit(${r.id})">✏️ Tahrir</button>
+      <button class="btn bd bsm" onclick="delRecipe(${r.id})">🗑</button>
+    </div>
+  </div>`).join('');
+}
+
+function addIng(data=null){
+  ingCount++;
+  const id='ing-'+ingCount;
+  const div=document.createElement('div');
+  div.className='ing-row';
+  div.id=id;
+  div.innerHTML=`
+    <select class="ing-prod" style="flex:2"><option value="">Mahsulot...</option>${products.map(p=>`<option value="${p.id}"${data?.ingredient_id===p.id?' selected':''}>${p.name}</option>`).join('')}</select>
+    <input class="ing-qty" type="number" min="0" step="0.01" placeholder="Miqdor" value="${data?.quantity||''}" style="flex:1">
+    <input class="ing-unit" placeholder="kg/g/dona" value="${data?.unit||''}" style="flex:1;max-width:80px">
+    <button class="ing-del" onclick="document.getElementById('${id}').remove()">×</button>`;
+  document.getElementById('ingList').appendChild(div);
+}
+
+async function openEdit(rid){
+  editId=rid;
+  const r=recipes.find(x=>x.id===rid); if(!r) return;
+  document.getElementById('mProd').value=r.product_id||'';
+  document.getElementById('mName').value=r.name;
+  document.getElementById('mTime').value=r.preparation_time||30;
+  document.getElementById('mDesc').value=r.description||'';
+  document.getElementById('ingList').innerHTML='';
+  ingCount=0;
+  (r.items||[]).forEach(i=>addIng(i));
+  document.getElementById('moTitle').textContent='Retseptni tahrirlash';
+  document.getElementById('mo').classList.add('open');
+}
+
+function openAdd(){
+  editId=null;
+  document.getElementById('mProd').value='';
+  document.getElementById('mName').value='';
+  document.getElementById('mTime').value='30';
+  document.getElementById('mDesc').value='';
+  document.getElementById('ingList').innerHTML='';
+  ingCount=0;
+  addIng();
+  document.getElementById('moTitle').textContent='Yangi retsept';
+  document.getElementById('mo').classList.add('open');
+}
+
+function closeMo(){ document.getElementById('mo').classList.remove('open'); editId=null; }
+
+async function saveRecipe(){
+  const prodId=parseInt(document.getElementById('mProd').value); if(!prodId){toast('Mahsulot tanlang','error');return;}
+  const name=document.getElementById('mName').value.trim(); if(!name){toast('Nom kiriting','error');return;}
+  const items=[...document.querySelectorAll('.ing-row')].map(row=>({
+    ingredient_id:parseInt(row.querySelector('.ing-prod').value)||null,
+    quantity:parseFloat(row.querySelector('.ing-qty').value)||0,
+    unit:row.querySelector('.ing-unit').value.trim()||'dona',
+  })).filter(i=>i.ingredient_id&&i.quantity>0);
+
+  const d={product_id:prodId,name,preparation_time:parseInt(document.getElementById('mTime').value)||30,description:document.getElementById('mDesc').value.trim()||undefined,items};
+  const r=editId?await h.patch(`/recipes/${editId}`,d):await h.post('/recipes/',d);
+  if(r.id||r.message){toast(editId?'Yangilandi':'Yaratildi','success');closeMo();await init();}
+  else toast(r.detail||'Xatolik','error');
+}
+
+async function delRecipe(id){
+  if(!confirm('Retseptni o\'chirishni tasdiqlaysizmi?')) return;
+  const r=await h.del(`/recipes/${id}`);
+  if(r.message||r.detail==='Not Found') toast('O\'chirildi','success');
+  else toast(r.detail||'Xatolik','error');
+  await init();
+}
+
+function toast(msg,type='info'){const el=document.createElement('div');el.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;font-size:.875rem;font-weight:500;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};box-shadow:0 4px 12px rgba(0,0,0,.3)`;el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),3500);}
+
+document.getElementById('addBtn').onclick=openAdd;
+document.getElementById('srch').addEventListener('input',render);
+document.getElementById('mo').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMo();});
+init();
+</script>
+</body>
+</html>

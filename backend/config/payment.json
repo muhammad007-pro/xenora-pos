@@ -1,0 +1,11 @@
+{
+  "click": {
+    "merchant_id": "",
+    "service_id": "",
+    "secret_key": ""
+  },
+  "payme": {
+    "merchant_id": "",
+    "key": ""
+  }
+}

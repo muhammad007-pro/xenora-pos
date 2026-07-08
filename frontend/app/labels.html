@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Etiketka Chop Etish | XENORA</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--green:#10b981;--red:#ef4444;--r:.5rem;--r2:.875rem}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
+.bk:hover{border-color:var(--gold);color:var(--gold)}
+.ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
+.btn-gold{background:var(--gold);color:#03110c}
+.btn-gold:hover{opacity:.9}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--gold);color:var(--gold)}
+.btn-red{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+
+.pc{padding:1.5rem;max-width:1300px;margin:0 auto;display:grid;grid-template-columns:340px 1fr;gap:1.25rem}
+@media(max-width:900px){.pc{grid-template-columns:1fr}}
+
+/* ─── Sol panel ─── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.panel-title{font-size:.75rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem}
+.form-group{margin-bottom:.875rem}
+.form-group label{display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem}
+.form-control{width:100%;padding:.5rem .875rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:.875rem;outline:none;font-family:inherit;transition:.2s}
+.form-control:focus{border-color:var(--gold)}
+select.form-control option{background:var(--bg2)}
+
+.search-wrap{position:relative}
+.search-wrap input{padding-left:2rem}
+.search-ico{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--text3);font-size:.875rem}
+
+.product-list{max-height:320px;overflow-y:auto;margin-top:.5rem;display:flex;flex-direction:column;gap:.375rem}
+.product-item{display:flex;align-items:center;gap:.625rem;padding:.5rem .75rem;border-radius:var(--r);border:1px solid var(--border);cursor:pointer;transition:.2s;background:var(--bg3)}
+.product-item:hover{border-color:var(--gold);background:var(--gold-dim)}
+.product-item.selected{border-color:var(--gold);background:var(--gold-dim)}
+.product-item input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px;flex-shrink:0}
+.product-item-info{flex:1;min-width:0}
+.product-item-name{font-size:.8125rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.product-item-price{font-size:.75rem;color:var(--gold);font-weight:600}
+.product-item-barcode{font-size:.6875rem;color:var(--text3);font-family:'JetBrains Mono',monospace}
+
+.qty-row{display:flex;align-items:center;gap:.5rem}
+.qty-row input{width:70px;text-align:center}
+
+.size-btns{display:flex;gap:.375rem;flex-wrap:wrap}
+.size-btn{padding:.375rem .75rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:.8125rem;cursor:pointer;transition:.2s;font-family:inherit}
+.size-btn.active{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+
+/* ─── O'ng panel: preview ─── */
+.preview-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
+.preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.preview-grid{display:flex;flex-wrap:wrap;gap:.75rem;padding:.75rem;background:var(--bg3);border-radius:var(--r);min-height:200px;border:1px solid var(--border)}
+.empty-preview{width:100%;text-align:center;padding:3rem;color:var(--text3);font-size:.875rem}
+
+/* ─── Etiketka stillari (screen ko'rinishi) ─── */
+.label-card{background:#fff;color:#000;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;border:1px solid #ddd;flex-shrink:0;position:relative}
+.label-card.sz-sm{width:120px;min-height:76px}
+.label-card.sz-md{width:175px;min-height:120px}
+.label-card.sz-lg{width:220px;min-height:140px}
+
+.label-name{font-size:8px;font-weight:700;text-align:center;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.label-card.sz-md .label-name{font-size:10px}
+.label-card.sz-lg .label-name{font-size:12px}
+
+.label-price{font-size:14px;font-weight:900;text-align:center;line-height:1;margin:2px 0}
+.label-card.sz-md .label-price{font-size:18px}
+.label-card.sz-lg .label-price{font-size:22px}
+
+.label-barcode svg,.label-barcode canvas{max-width:100%;height:auto}
+
+.label-qty-badge{position:absolute;top:2px;right:3px;font-size:7px;background:#333;color:#fff;border-radius:2px;padding:0 3px}
+
+/* ─── PRINT ─── */
+@media print {
+  body *{visibility:hidden}
+  #printArea,#printArea *{visibility:visible}
+  #printArea{
+    position:fixed;top:0;left:0;width:100%;
+    display:flex;flex-wrap:wrap;gap:0;
+    align-content:flex-start;
+    background:#fff;padding:4mm;
+  }
+  .label-card{
+    border:0.5px solid #ccc;
+    page-break-inside:avoid;
+    margin:1mm;
+  }
+  .label-qty-badge{display:none}
+  .ph,.panel,.preview-header{display:none}
+}
+</style>
+<link rel="stylesheet" href="../styles/premium-overlay.css">
+</head>
+<body>
+<div class="xa-atmos" aria-hidden="true"></div>
+<div class="ph">
+  <a class="bk" href="/app/admin.html">←</a>
+  <div class="ph-title">🏷 Etiketka Chop Etish</div>
+  <button class="btn btn-out" onclick="clearAll()">Tozalash</button>
+  <button class="btn btn-gold" onclick="printLabels()">🖨 Chop Etish</button>
+</div>
+
+<div class="pc">
+  <!-- ── SOL PANEL ── -->
+  <div>
+    <div class="panel" style="margin-bottom:1rem">
+      <div class="panel-title">Sozlamalar</div>
+      <div class="form-group">
+        <label>O'lcham</label>
+        <div class="size-btns">
+          <button class="size-btn active" onclick="setSize('sm',this)">Kichik<br><span style="font-size:.65rem;color:var(--text3)">40×25mm</span></button>
+          <button class="size-btn" onclick="setSize('md',this)">O'rta<br><span style="font-size:.65rem;color:var(--text3)">58×40mm</span></button>
+          <button class="size-btn" onclick="setSize('lg',this)">Katta<br><span style="font-size:.65rem;color:var(--text3)">72×50mm</span></button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Barcode turi</label>
+        <select class="form-control" id="barcodeFormat" onchange="renderPreview()">
+          <option value="CODE128">Code-128 (universal)</option>
+          <option value="EAN13">EAN-13 (13 raqam)</option>
+          <option value="CODE39">Code-39</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Har etiketkadan nechta</label>
+        <div class="qty-row">
+          <input class="form-control" type="number" id="globalQty" value="1" min="1" max="100" oninput="renderPreview()">
+          <span style="font-size:.8rem;color:var(--text3)">dona</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Mahsulotlar</div>
+      <div class="form-group">
+        <div class="search-wrap">
+          <span class="search-ico">🔍</span>
+          <input class="form-control" type="text" id="searchInput" placeholder="Mahsulot qidirish..." oninput="filterProducts()">
+        </div>
+      </div>
+      <div class="product-list" id="productList">
+        <div style="text-align:center;padding:2rem;color:var(--text3);font-size:.875rem">Yuklanmoqda...</div>
+      </div>
+      <div style="margin-top:.75rem;font-size:.75rem;color:var(--text3)" id="selectedCount">0 ta tanlangan</div>
+    </div>
+  </div>
+
+  <!-- ── O'NG PANEL: PREVIEW ── -->
+  <div class="preview-panel">
+    <div class="preview-header">
+      <div class="panel-title" style="margin:0">Preview</div>
+      <div style="font-size:.8125rem;color:var(--text3)" id="totalCount">Jami: 0 ta etiketka</div>
+    </div>
+    <div class="preview-grid" id="previewGrid">
+      <div class="empty-preview">Mahsulot tanlanmagan</div>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT AREA (ko'rinmas, faqat print uchun) -->
+<div id="printArea" style="display:none"></div>
+
+<script type="module">
+import { getApiBase } from '/js/core/config.js';
+import { getToken } from '/js/core/auth.js';
+import { initErrorHandler } from '/js/core/error-handler.js';
+initErrorHandler();
+
+const API = getApiBase();
+let allProducts = [];
+let selected = {};   // product_id → { product, qty }
+let currentSize = 'sm';
+
+async function loadProducts() {
+  try {
+    const r = await fetch(`${API}/products/?page_size=500`, {
+      headers: { Authorization: 'Bearer ' + getToken() }
+    });
+    if (!r.ok) throw new Error();
+    const data = await r.json();
+    allProducts = Array.isArray(data) ? data : (data.items || []);
+    renderList(allProducts);
+  } catch {
+    document.getElementById('productList').innerHTML =
+      '<div style="color:var(--red);text-align:center;padding:1rem;font-size:.8rem">Yuklab bo\'lmadi</div>';
+  }
+}
+
+function renderList(products) {
+  const el = document.getElementById('productList');
+  if (!products.length) {
+    el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:.8rem">Mahsulot topilmadi</div>';
+    return;
+  }
+  el.innerHTML = products.map(p => `
+    <div class="product-item ${selected[p.id] ? 'selected' : ''}" onclick="toggleProduct(${p.id})" data-id="${p.id}">
+      <input type="checkbox" ${selected[p.id] ? 'checked' : ''} onclick="event.stopPropagation();toggleProduct(${p.id})">
+      <div class="product-item-info">
+        <div class="product-item-name">${escHtml(p.name)}</div>
+        <div class="product-item-price">${fmtNum(p.price)} so'm</div>
+        ${p.barcode ? `<div class="product-item-barcode">${escHtml(p.barcode)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+window.toggleProduct = function(id) {
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
+  if (selected[id]) {
+    delete selected[id];
+  } else {
+    const qty = parseInt(document.getElementById('globalQty').value) || 1;
+    selected[id] = { product: p, qty };
+  }
+  const el = document.querySelector(`[data-id="${id}"]`);
+  if (el) el.classList.toggle('selected', !!selected[id]);
+  const cb = el?.querySelector('input[type=checkbox]');
+  if (cb) cb.checked = !!selected[id];
+  updateSelectedCount();
+  renderPreview();
+};
+
+window.filterProducts = function() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  renderList(q ? allProducts.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    (p.barcode || '').toLowerCase().includes(q)
+  ) : allProducts);
+};
+
+window.setSize = function(sz, btn) {
+  currentSize = sz;
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPreview();
+};
+
+window.renderPreview = function() {
+  const grid = document.getElementById('previewGrid');
+  const entries = Object.values(selected);
+  const globalQty = parseInt(document.getElementById('globalQty').value) || 1;
+  // globalQty o'zgarganda tanlanganlarni ham yangilaymiz
+  entries.forEach(e => { e.qty = globalQty; });
+
+  if (!entries.length) {
+    grid.innerHTML = '<div class="empty-preview">Mahsulot tanlanmagan</div>';
+    document.getElementById('totalCount').textContent = 'Jami: 0 ta etiketka';
+    return;
+  }
+
+  const totalLabels = entries.reduce((s, e) => s + e.qty, 0);
+  document.getElementById('totalCount').textContent = `Jami: ${totalLabels} ta etiketka`;
+
+  grid.innerHTML = entries.map(({ product: p, qty }) =>
+    Array.from({ length: qty }, () => buildLabelHtml(p, currentSize)).join('')
+  ).join('');
+
+  // Barcode render
+  grid.querySelectorAll('svg[data-barcode]').forEach(svg => {
+    const val = svg.dataset.barcode;
+    const fmt = document.getElementById('barcodeFormat').value;
+    try {
+      JsBarcode(svg, val, {
+        format: fmt,
+        width: 1,
+        height: currentSize === 'sm' ? 18 : currentSize === 'md' ? 24 : 30,
+        displayValue: false,
+        margin: 0,
+      });
+    } catch {
+      // EAN-13 uchun 13 raqam kerak — noto'g'ri formatda jimgina o'tadi
+      JsBarcode(svg, val, { format: 'CODE128', width: 1, height: 20, displayValue: false, margin: 0 });
+    }
+  });
+};
+
+function buildLabelHtml(p, sz) {
+  const barcodeVal = p.barcode || String(p.id).padStart(8, '0');
+  return `
+    <div class="label-card sz-${sz}">
+      <div class="label-name">${escHtml(p.name)}</div>
+      <div class="label-barcode">
+        <svg data-barcode="${escHtml(barcodeVal)}"></svg>
+      </div>
+      <div style="font-size:${sz==='sm'?'7px':'9px'};color:#555;font-family:monospace">${escHtml(barcodeVal)}</div>
+      <div class="label-price">${fmtNum(p.price)} so'm</div>
+    </div>
+  `;
+}
+
+window.printLabels = function() {
+  const entries = Object.values(selected);
+  if (!entries.length) {
+    alert('Hech qanday mahsulot tanlanmagan');
+    return;
+  }
+
+  const printArea = document.getElementById('printArea');
+  const fmt = document.getElementById('barcodeFormat').value;
+
+  printArea.innerHTML = entries.map(({ product: p, qty }) =>
+    Array.from({ length: qty }, () => buildLabelHtml(p, currentSize)).join('')
+  ).join('');
+  printArea.style.display = 'flex';
+
+  // SVG render for print
+  printArea.querySelectorAll('svg[data-barcode]').forEach(svg => {
+    const val = svg.dataset.barcode;
+    try {
+      JsBarcode(svg, val, {
+        format: fmt,
+        width: currentSize === 'sm' ? 1 : 1.2,
+        height: currentSize === 'sm' ? 20 : currentSize === 'md' ? 28 : 36,
+        displayValue: false,
+        margin: 0,
+      });
+    } catch {
+      JsBarcode(svg, val, { format: 'CODE128', width: 1, height: 22, displayValue: false, margin: 0 });
+    }
+  });
+
+  setTimeout(() => {
+    window.print();
+    printArea.style.display = 'none';
+  }, 200);
+};
+
+window.clearAll = function() {
+  selected = {};
+  document.querySelectorAll('.product-item').forEach(el => {
+    el.classList.remove('selected');
+    const cb = el.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = false;
+  });
+  updateSelectedCount();
+  renderPreview();
+};
+
+function updateSelectedCount() {
+  const n = Object.keys(selected).length;
+  document.getElementById('selectedCount').textContent = `${n} ta tanlangan`;
+}
+
+function fmtNum(n) {
+  return Number(n).toLocaleString('uz-UZ');
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+loadProducts();
+</script>
+</body>
+</html>

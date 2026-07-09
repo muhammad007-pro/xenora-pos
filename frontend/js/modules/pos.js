@@ -3,7 +3,7 @@
  * IndexedDB offline-first + WebSocket real-time + to'liq cart logikasi
  */
 import { API }              from '../core/api.js';
-import { AuthService }      from '../core/auth.js';
+import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE }          from '../core/config.js';
@@ -1551,8 +1551,11 @@ document.addEventListener('keydown', e => {
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
 document.getElementById('logoutBtn')?.addEventListener('click', () => {
-  AuthService.logout?.();
-  location.href = '../shared/login.html';
+  // TENANT IZOLYATSIYA + haqiqiy chiqish: token, user, do'kon kodi, feature va
+  // IndexedDB offline keshni TO'LIQ tozalash (avval AuthService.logout static
+  // chaqiruv edi — undefined, hech narsa tozalanmasdi va chiqib bo'lmasdi).
+  clearTenantSession();
+  location.replace('../shared/login.html');
 });
 
 // ─── Offline banner ───────────────────────────────────────────────────────────

@@ -1002,7 +1002,7 @@ class AdminModule {
     async logout() {
         if (confirm('Tizimdan chiqishni xohlaysizmi?')) {
             await this.auth.logout();
-            window.location.href = '../shared/login.html';
+            window.location.replace('../shared/login.html');
         }
     }
 }

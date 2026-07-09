@@ -495,11 +495,22 @@ const _lport = window.location.port;
 const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
 const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
 
+// TENANT IZOLYATSIYA: yangi kirishда eski tenant keshini tozalash (store kodi,
+// theme, kitchenSound saqlanadi). IndexedDB offline kesh (products/tables/cart/
+// orders_queue/auth_meta) butunlay o'chiriladi — A kafe ma'lumoti B'ga sizmasin.
+function clearStaleTenantOnLogin() {
+  ['user','refresh_token','restopos_features','business_type','last_sync','saved_username']
+    .forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+  try { indexedDB.deleteDatabase('restopos_db'); } catch(e){}
+}
+
 // ── Redirect if already logged in ────────────────────────────────────────────
+// location.replace: login history'да qolmasin → telefon "orqaga" tugmasi noto'g'ri
+// panelga (oshxona) sakramaydi.
 if (localStorage.getItem('access_token')) {
   const _u = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
   const _role = _u.role?.name || _u.role || '';
-  location.href = _role === 'kitchen' ? '../app/kitchen.html' : '../app/pos.html';
+  location.replace(_role === 'kitchen' ? '../app/kitchen.html' : '../app/pos.html');
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -557,6 +568,9 @@ async function doLogin(username, password, btn) {
     const res  = await fetch(API_BASE + '/auth/login', { method:'POST', body: form });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Xatolik yuz berdi');
+    // TENANT IZOLYATSIYA: yangi kirishда eski tenant keshini tozalash (store kodдан
+    // tashqari) — A kafe → B do'kon o'tishда eski offline kesh/feature qolmasin.
+    clearStaleTenantOnLogin();
     localStorage.setItem('access_token', data.access_token);
     if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
 
@@ -567,9 +581,9 @@ async function doLogin(username, password, btn) {
     if (me.ok) {
       const user = await me.json();
       localStorage.setItem('user', JSON.stringify(user));
-      location.href = roleHomePage(user);
+      location.replace(roleHomePage(user));   // replace: login history'да qolmasin (orqaga tugma)
     } else {
-      location.href = '../app/pos.html';
+      location.replace('../app/pos.html');
     }
   } catch (err) {
     showError(err.message || 'Login yoki parol noto\'g\'ri');
@@ -688,6 +702,8 @@ pinLoginBtn.addEventListener('click', async () => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'PIN noto\'g\'ri');
+    // TENANT IZOLYATSIYA: yangi kirishда eski tenant keshini tozalash
+    clearStaleTenantOnLogin();
     localStorage.setItem('access_token', data.access_token);
     if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
     const me = await fetch(API_BASE + '/auth/me', {
@@ -696,9 +712,9 @@ pinLoginBtn.addEventListener('click', async () => {
     if (me.ok) {
       const user = await me.json();
       localStorage.setItem('user', JSON.stringify(user));
-      location.href = roleHomePage(user);
+      location.replace(roleHomePage(user));
     } else {
-      location.href = '../app/pos.html';
+      location.replace('../app/pos.html');
     }
   } catch (err) {
     showError(err.message || 'PIN noto\'g\'ri');

@@ -3920,7 +3920,7 @@ document.getElementById('sbAvatar').textContent = (user.full_name||'A')[0].toUpp
 document.getElementById('sbName').textContent   = user.full_name || user.username || 'Admin';
 document.getElementById('sbRole').textContent   = ({admin:'Administrator',cashier:'Kassir',waiter:'Ofitsiant',kitchen:'Oshpaz'}[user.role?.name||user.role]||user.role?.name||'Admin');
 document.getElementById('todayDate').textContent = new Date().toLocaleDateString('uz-UZ',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
-document.getElementById('logoutBtn').addEventListener('click', () => { localStorage.clear(); location.href='../shared/login.html'; });
+document.getElementById('logoutBtn').addEventListener('click', () => { const _t=localStorage.getItem('theme'); localStorage.clear(); if(_t)localStorage.setItem('theme',_t); try{indexedDB.deleteDatabase('restopos_db');}catch(e){} location.replace('../shared/login.html'); });
 
 // ── Business type ─────────────────────────────────────────────────────────────
 function getBizType() {

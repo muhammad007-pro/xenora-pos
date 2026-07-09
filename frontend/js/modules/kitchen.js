@@ -756,7 +756,7 @@ class KitchenModule {
             this.ws.disconnect();
             
             await this.auth.logout();
-            window.location.href = '../shared/login.html';
+            window.location.replace('../shared/login.html');
         }
     }
     

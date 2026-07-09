@@ -1,6 +1,23 @@
 import { API } from './api.js';
 import { API_BASE } from './config.js';
 
+/**
+ * TENANT IZOLYATSIYA — joriy tenant/sessiya ma'lumotlarini TO'LIQ tozalash.
+ * localStorage (theme'дан tashqari) + IndexedDB offline kesh (restopos_db).
+ * Logout'да va yangi login'да (eski tenant qolmasligi uchun) chaqiriladi.
+ */
+export function clearTenantSession() {
+    try {
+        const theme = localStorage.getItem('theme');
+        const sound = localStorage.getItem('kitchenSound');
+        localStorage.clear();
+        if (theme) localStorage.setItem('theme', theme);
+        if (sound) localStorage.setItem('kitchenSound', sound);
+    } catch (e) { /* ignore */ }
+    // Offline kesh (products/tables/cart/orders_queue/auth_meta) — butun bazani o'chirish
+    try { indexedDB.deleteDatabase('restopos_db'); } catch (e) { /* ignore */ }
+}
+
 // Auth Service - Autentifikatsiya uchun
 class AuthService {
     constructor() {
@@ -92,16 +109,17 @@ class AuthService {
         }
     }
     
-    // Tizimdan chiqish
+    // Tizimdan chiqish — TENANT IZOLYATSIYA: barcha tenant ma'lumotlari
+    // (token, user, do'kon kodi, feature/business_type, IndexedDB offline kesh)
+    // TO'LIQ tozalanadi. Aks holda A kafe → B do'kon o'tishда eski kesh sizadi.
     async logout() {
         try {
             await this.api.post('/auth/logout');
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            this.api.clearTokens();
+            clearTenantSession();
             this.user = null;
-            localStorage.removeItem('user');
         }
     }
     

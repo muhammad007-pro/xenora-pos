@@ -225,7 +225,7 @@ async function load(){
   }
 }
 
-function logout(){localStorage.clear();location.href='../shared/login.html';}
+function logout(){const t=localStorage.getItem('theme');localStorage.clear();if(t)localStorage.setItem('theme',t);try{indexedDB.deleteDatabase('restopos_db');}catch(e){}location.replace('../shared/login.html');}
 load();
 </script>
 </body>

@@ -36,19 +36,6 @@
     ],
     "extraResources": [
       {
-        "from": "../backend",
-        "to": "backend",
-        "filter": [
-          "**/*",
-          "!**/*.pyc",
-          "!**/__pycache__",
-          "!**/pos.db",
-          "!**/*.log",
-          "!**/backup",
-          "!**/static/uploads/*"
-        ]
-      },
-      {
         "from": "../frontend",
         "to": "frontend",
         "filter": [
@@ -70,9 +57,7 @@
         }
       ],
       "icon": "assets/icon.ico",
-      "publisherName": "XENORA",
-      "certificateFile": "",
-      "certificatePassword": ""
+      "publisherName": "XENORA"
     },
     "nsis": {
       "oneClick": false,
@@ -83,7 +68,6 @@
       "shortcutName": "XENORA",
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
-      "license": "license.txt",
       "language": "1043"
     },
     "portable": {

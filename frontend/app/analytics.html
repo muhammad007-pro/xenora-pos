@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="uz" data-theme="dark">
 <head>
+<script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Analitika | XENORA</title>
@@ -168,7 +169,7 @@ initErrorHandler();
 <script>
 const _lport = window.location.port;
 const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
-const BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
 const tok  = () => localStorage.getItem('access_token');
 const api  = { get: u => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()) };
 

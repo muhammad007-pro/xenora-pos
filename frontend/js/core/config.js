@@ -21,10 +21,18 @@ const _isLiveServer = _devServerPorts.includes(_port)
 
 const _isDev = _isFile || _isLiveServer;
 
-export const API_BASE = _isDev
-  ? 'http://localhost:8000/api/v1'
-  : '/api/v1';
+// Electron server rejimi (SaaS): preload window.XENORA_SERVER ni beradi
+// (masalan 'http://146.190.225.168'). Bu belgilangan bo'lsa — file:// dev
+// mantig'idan USTUN turadi va API/WS to'g'ridan serverga yo'naltiriladi.
+const _xenoraServer = (typeof window !== 'undefined' && window.XENORA_SERVER)
+  ? window.XENORA_SERVER : null;
 
-export const WS_BASE = _isDev
-  ? `${_proto === 'https:' ? 'wss:' : 'ws:'}//localhost:8000`
-  : `${_proto === 'https:' ? 'wss:' : 'ws:'}//${_host}`;
+export const API_BASE = _xenoraServer
+  ? `${_xenoraServer}/api/v1`
+  : (_isDev ? 'http://localhost:8000/api/v1' : '/api/v1');
+
+export const WS_BASE = _xenoraServer
+  ? _xenoraServer.replace(/^http/, 'ws')
+  : (_isDev
+      ? `${_proto === 'https:' ? 'wss:' : 'ws:'}//localhost:8000`
+      : `${_proto === 'https:' ? 'wss:' : 'ws:'}//${_host}`);

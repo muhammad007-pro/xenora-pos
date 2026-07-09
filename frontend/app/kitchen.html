@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="uz" data-theme="dark">
 <head>
+<script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#d4b46c">
@@ -466,8 +467,8 @@ initErrorHandler();
 <script>
 const _lport = window.location.port;
 const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
-const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : '/api/v1';
-const WS_URL   = _isDev ? 'ws://localhost:8000/ws/kitchen' : (location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws/kitchen';
+const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
+const WS_URL   = _isDev ? 'ws://localhost:8000/ws/kitchen' : (window.XENORA_SERVER?window.XENORA_SERVER.replace(/^http/,'ws'):(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host)+'/ws/kitchen';
 const token    = localStorage.getItem('access_token');
 
 // ── Station state (OSHXONA 3-bosqich: qurilma bo'yicha tanlov, localStorage) ────

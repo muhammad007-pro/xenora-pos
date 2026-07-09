@@ -15,7 +15,7 @@ const IS_ELECTRON = !!(window.electronAPI && window.electronAPI.isElectron && wi
 
 const _lp   = location.port;
 const _dev  = ['5500', '5501', '3000', '4200', '8080'].includes(_lp) && ['localhost', '127.0.0.1'].includes(location.hostname);
-const API   = _dev ? 'http://localhost:8000/api/v1' : '/api/v1';
+const API   = _dev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
 
 const SLOTS = [14 * 60, 22 * 60];   // 14:00 va 22:00 (daqiqада)
 const LS_LAST = 'xenora_last_backup';   // {at, status, rows, filename, mode}

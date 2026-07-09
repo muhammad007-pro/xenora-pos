@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
+<script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Priyomka — XENORA</title>
@@ -513,7 +514,7 @@ window.onReceiptProductNotFound = (barcode) => openNewProduct(barcode);
 
 let npImageFile = null;
 const _isDevUp = ['5500','5501','3000','4200','8080'].includes(location.port) && ['localhost','127.0.0.1'].includes(location.hostname);
-const UPLOAD_BASE = _isDevUp ? 'http://localhost:8000/api/v1' : '/api/v1';
+const UPLOAD_BASE = _isDevUp ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
 
 function openNewProduct(barcode) {
   document.getElementById('npBarcode').value = barcode || '';

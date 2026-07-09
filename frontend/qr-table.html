@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="uz" data-theme="dark">
 <head>
+<script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Stol | XENORA</title>
@@ -58,7 +59,7 @@ const cafeName  = params.get('cname') || 'XENORA';
 document.getElementById('tableName').textContent = tableName;
 document.getElementById('cafeName').textContent  = cafeName;
 
-const WS_URL = (location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws/waiter'
+const WS_URL = (window.XENORA_SERVER?window.XENORA_SERVER.replace(/^http/,'ws'):(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host)+'/ws/waiter'
              + (cafeId ? `?cafe_id=${cafeId}` : '');
 
 let ws, cooldown = false;

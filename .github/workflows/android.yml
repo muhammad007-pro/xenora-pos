@@ -1,0 +1,52 @@
+name: Android APK Build
+
+# Muhammad qo'lda ishga tushiradi: Actions tab → "Android APK Build" → Run workflow
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodni checkout qilish
+        uses: actions/checkout@v4
+
+      - name: Node.js 20 o'rnatish
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JDK 17 o'rnatish (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Android SDK sozlash (litsenziyalar)
+        uses: android-actions/setup-android@v3
+
+      - name: Capacitor bog'liqliklarini o'rnatish
+        working-directory: android
+        run: npm install
+
+      - name: Capacitor sync (frontend → Android)
+        working-directory: android
+        run: npx cap sync android
+
+      - name: Debug APK build (gradle)
+        working-directory: android/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: APK ni artifact sifatida yuklash
+        uses: actions/upload-artifact@v4
+        with:
+          name: XENORA-app-debug
+          path: android/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30

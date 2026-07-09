@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="uz" data-theme="dark">
 <head>
+<script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Stollar | XENORA</title>
@@ -231,9 +232,11 @@ initErrorHandler();
 </script>
 <script>
 const _h = window.location.hostname;
-const BASE = (_h==='localhost'||_h==='127.0.0.1'||_h==='')
-  ? 'http://localhost:8000/api/v1'
-  : `${window.location.protocol}//${window.location.host}/api/v1`;
+const BASE = window.XENORA_SERVER
+  ? `${window.XENORA_SERVER}/api/v1`
+  : ((_h==='localhost'||_h==='127.0.0.1'||_h==='')
+      ? 'http://localhost:8000/api/v1'
+      : `${window.location.protocol}//${window.location.host}/api/v1`);
 const tok  = () => localStorage.getItem('access_token') || '';
 const api  = {
   get:    u    => fetch(`${BASE}${u}`, {headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),

@@ -12,7 +12,11 @@ class UserBase(BaseModel):
     email: Optional[EmailStr] = None
 
 class UserCreate(UserBase):
-    password: str
+    # Xodim (kassir/ofitsiant) faqat ISM + PIN bilan qo'shilishi mumkin:
+    # phone/username/password IXTIYORIY. Berilmasa server sintetik qiymat yaratadi
+    # (xodim access_code + PIN bilan kiradi). phone/password bo'lsa — mavjud oqim saqlanadi.
+    phone: Optional[str] = None
+    password: Optional[str] = None
     pin: Optional[str] = None
     role_id: Optional[int] = None
     branch_id: Optional[int] = None

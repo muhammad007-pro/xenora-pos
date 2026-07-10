@@ -1,6 +1,6 @@
 {
   "name": "xenora",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "XENORA — Biznes boshqaruv tizimi",
   "main": "main.js",
   "author": "XENORA",
@@ -68,7 +68,8 @@
       "shortcutName": "XENORA",
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
-      "language": "1043"
+      "language": "1043",
+      "artifactName": "XENORA Setup ${version}.exe"
     },
     "portable": {
       "artifactName": "XENORA-Portable-${version}.exe"

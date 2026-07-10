@@ -289,6 +289,9 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0a2419 0%,#05150e 
       <div class="fg" id="prodSelectRow">
         <label>Mahsulot *</label>
         <select id="prodSel"><option value="">Tanlang...</option></select>
+        <div style="margin-top:.5rem">
+          <button type="button" class="btn btn-out" style="width:100%;font-size:.8125rem" onclick="closeModal('addModal'); openNewProduct();">➕ Ro'yxatda yo'q — yangi mahsulot qo'shish</button>
+        </div>
       </div>
       <div class="fg">
         <label>Kirim miqdori *</label>
@@ -329,11 +332,11 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0a2419 0%,#05150e 
 <div class="modal" id="npModal">
   <div class="mc">
     <div class="mh">
-      <h3>🆕 Yangi tovar (skaner)</h3>
+      <h3>🆕 Yangi mahsulot</h3>
       <div class="mc-x" onclick="closeModal('npModal')">×</div>
     </div>
     <div class="mb">
-      <div class="fg"><label>Barkod</label><input type="text" id="npBarcode" readonly style="opacity:.75"></div>
+      <div class="fg"><label>Barkod (ixtiyoriy)</label><input type="text" id="npBarcode" placeholder="Skaner yoki qo'lda"></div>
       <div class="fg"><label>Nomi *</label><input type="text" id="npName" placeholder="Tovar nomi"></div>
       <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:0">
         <div style="margin-bottom:1rem"><label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem">Sotuv narxi *</label><input type="number" id="npPrice" min="0" step="1" placeholder="0"></div>

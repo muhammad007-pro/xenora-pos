@@ -63,19 +63,38 @@ async def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_users"))
 ):
-    """Yangi foydalanuvchi yaratish (BOSQICH 38: telefon majburiy + unikal)"""
+    """Yangi foydalanuvchi yaratish.
+
+    Xodim (kassir/ofitsiant) faqat ISM + PIN bilan qo'shilishi mumkin — telefon/login/parol
+    ixtiyoriy. Telefon berilmasa server sintetik unikal qiymat yaratadi (xodim access_code + PIN
+    bilan kiradi), parol berilmasa tasodifiy parol qo'yiladi.
+    """
+    import secrets
     from utils.helpers import normalize_phone
 
-    # Telefon — asosiy login kaliti: majburiy + unikal (normalize qilingan)
-    norm_phone = normalize_phone(user_data.phone)
-    if not norm_phone:
-        raise HTTPException(status_code=400, detail="Telefon raqam majburiy")
-    if db.query(User).filter(User.phone == norm_phone).first():
+    # Telefon — berilgan bo'lsa normalize + unikal; berilmasa keyinroq sintetik qiymat.
+    norm_phone = normalize_phone(user_data.phone) if user_data.phone else None
+    if norm_phone and db.query(User).filter(User.phone == norm_phone).first():
         raise HTTPException(status_code=400, detail="Bu telefon band")
 
-    # Username — ixtiyoriy; berilgan bo'lsa unikallik tekshiriladi
-    if user_data.username and db.query(User).filter(User.username == user_data.username).first():
-        raise HTTPException(status_code=400, detail="Bu username band")
+    # Tenant biriktirishni oldinroq aniqlaymiz (username tenant-scoped tekshiruvi uchun kerak)
+    if current_user.is_superuser or current_user.tenant_id is None:
+        if not user_data.tenant_id:
+            raise HTTPException(status_code=400, detail="Super-admin user yaratishda tenant_id (kafe) majburiy")
+        cafe = db.query(Cafe).filter(Cafe.id == user_data.tenant_id, Cafe.is_active == True).first()
+        if not cafe:
+            raise HTTPException(status_code=400, detail="Bunday faol kafe yo'q")
+        tenant_id = user_data.tenant_id
+    else:
+        tenant_id = resolve_tenant_id(db, current_user)  # yaratuvchi tenant'iga biriktiriladi
+
+    # Username — ixtiyoriy; unikallik TENANT ICHIDA tekshiriladi (global emas).
+    # Shu tufayli har do'konda "admin"/"cashier" kabi nomlar takrorlanishi mumkin.
+    if user_data.username and db.query(User).filter(
+        User.username == user_data.username,
+        User.tenant_id == tenant_id,
+    ).first():
+        raise HTTPException(status_code=400, detail="Bu username shu do'konda band")
 
     # Email — ixtiyoriy; berilgan bo'lsa unikallik tekshiriladi
     if user_data.email and db.query(User).filter(User.email == user_data.email).first():
@@ -103,26 +122,30 @@ async def create_user(
     if user_data.pin and (not user_data.pin.isdigit() or len(user_data.pin) != 4):
         raise HTTPException(status_code=400, detail="PIN 4 xonali raqam bo'lishi kerak")
 
-    # Tenant biriktirish:
-    # - Super-admin (is_superuser yoki tenant_id=None) — tenant_id MAJBURIY va real faol kafe bo'lishi shart.
-    #   Bu /users/ ni to'g'ridan chaqirganda tenant'siz (None) user yaratilishini to'sadi.
-    # - Kafe-admin (tenant_id bor) — o'z tenant'iga biriktiriladi, so'rovdagi tenant_id e'tiborsiz.
-    if current_user.is_superuser or current_user.tenant_id is None:
-        if not user_data.tenant_id:
-            raise HTTPException(status_code=400, detail="Super-admin user yaratishda tenant_id (kafe) majburiy")
-        cafe = db.query(Cafe).filter(Cafe.id == user_data.tenant_id, Cafe.is_active == True).first()
-        if not cafe:
-            raise HTTPException(status_code=400, detail="Bunday faol kafe yo'q")
-        tenant_id = user_data.tenant_id
-    else:
-        tenant_id = resolve_tenant_id(db, current_user)  # yaratuvchi tenant'iga biriktiriladi
+    # ISM + PIN yetarli: telefon/parol berilmasa — kamida bittasi (parol yoki PIN) bo'lishi shart.
+    if not user_data.password and not user_data.pin:
+        raise HTTPException(status_code=400, detail="Parol yoki PIN kod kiritilishi shart")
+
+    # Telefon berilmagan bo'lsa — sintetik unikal placeholder (phone NOT NULL + unique cheklovi uchun).
+    # Bu login kaliti EMAS; xodim access_code + PIN bilan kiradi. Ko'rinishда "-" sifatida chiqadi.
+    if not norm_phone:
+        for _ in range(20):
+            candidate = f"pin-{tenant_id}-{secrets.randbelow(10**7):07d}"
+            if not db.query(User).filter(User.phone == candidate).first():
+                norm_phone = candidate
+                break
+        else:
+            raise HTTPException(status_code=500, detail="Xodim uchun ichki identifikator yaratib bo'lmadi")
+
+    # Parol berilmasa (faqat PIN bilan kiruvchi xodim) — tasodifiy kuchli parol.
+    effective_password = user_data.password or secrets.token_urlsafe(16)
 
     user = User(
         username=user_data.username,
         email=user_data.email,
         full_name=user_data.full_name,
         phone=norm_phone,
-        hashed_password=get_password_hash(user_data.password),
+        hashed_password=get_password_hash(effective_password),
         hashed_pin=hash_pin(user_data.pin) if user_data.pin else None,
         role_id=user_data.role_id,
         branch_id=user_data.branch_id,

@@ -50,8 +50,11 @@ const MODE = (() => {
       hasTips    : !isStore,
       hasBarcode : isStore,
       businessType: bt,
+      // Sotuv atamasi: magazin/dorixona → "Savatcha"/"Chek", restoran/kafe → "Buyurtma"
+      saleTerm    : (isStore || isService) ? 'Savatcha' : 'Buyurtma',
+      saleSavedMsg: (isStore || isService) ? 'Sotuv yakunlandi' : 'Buyurtma saqlandi',
     };
-  } catch { return { isStore:false, isPharmacy:false, isService:false, isBeauty:false, isFitness:false, isAutoService:false, isSchool:false, isDryCleaning:false, isHotel:false, taxRate:0.12, serviceRate:0.10, hasTable:true, hasCourses:true, hasTips:true, hasBarcode:false, businessType:'restaurant' }; }
+  } catch { return { isStore:false, isPharmacy:false, isService:false, isBeauty:false, isFitness:false, isAutoService:false, isSchool:false, isDryCleaning:false, isHotel:false, taxRate:0.12, serviceRate:0.10, hasTable:true, hasCourses:true, hasTips:true, hasBarcode:false, businessType:'restaurant', saleTerm:'Buyurtma', saleSavedMsg:'Buyurtma saqlandi' }; }
 })();
 
 // BOSQICH 21: faol bo'lim filtri (null = barchasi)
@@ -192,20 +195,24 @@ function computeTotals() {
 }
 
 // ─── Cart render ─────────────────────────────────────────────────────────────
+// Empty-state node cache: `#cartEmpty` cartItems ICHIDA, list.innerHTML uni
+// DOMdan o'chiradi. Referensiyani saqlab, kerak bo'lganda qayta qo'yamiz —
+// aks holda 2-mahsulotda getElementById(null).style xatosi chiqadi.
+const _cartEmptyNode = document.getElementById('cartEmpty');
+
 function renderCart() {
   const list  = document.getElementById('cartItems');
-  const empty = document.getElementById('cartEmpty');
+  const empty = _cartEmptyNode;
 
   if (!state.cart.length) {
     list.innerHTML = '';
-    list.appendChild(empty);
-    empty.style.display = '';
+    if (empty) { list.appendChild(empty); empty.style.display = ''; }
     document.getElementById('checkoutBtn').disabled = true;
     document.getElementById('holdBtn').disabled     = true;
     renderTotals();
     return;
   }
-  empty.style.display = 'none';
+  if (empty) empty.style.display = 'none';
   list.innerHTML = state.cart.map((item, idx) => `
     <div class="cart-item" data-idx="${idx}">
       <div class="ci-info">
@@ -1350,7 +1357,7 @@ document.getElementById('holdBtn').addEventListener('click', async () => {
 
   const res = await api.post('/orders/', buildOrderPayload());
   if (res && res.success && res.data && res.data.id) {
-    toast('Buyurtma saqlandi', 'success');
+    toast(MODE.saleSavedMsg, 'success');
   } else if (isOfflineResult(res)) {
     // Tarmoq uzildi → kafolatли navbatга
     await syncEngine.queueOrder(buildOrderPayload());
@@ -1755,7 +1762,18 @@ function applyBusinessMode() {
     if (kitchenNav) kitchenNav.style.display = 'none';
   }
 
+  // "Bronlar" (stol bandlash) — faqat table_reservation yoqilgan biznesda (restoran/kafe).
+  // Magazin/do'kon/xizmatda bu feature yo'q → navni yashiramiz.
+  if (!posHasFeature('table_reservation')) {
+    const resNav = document.querySelector('.sidebar a.nav-item[href="reservations.html"]');
+    if (resNav) resNav.style.display = 'none';
+  }
+
   const tableBtn = document.getElementById('tableBtn');
+
+  // Savatcha sarlavhasini biznes turiga moslash ("Buyurtma" → "Savatcha")
+  const cartHeadTitle = document.getElementById('cartHeadTitle');
+  if (cartHeadTitle) cartHeadTitle.textContent = MODE.saleTerm;
 
   // ── STORE rejimi (magazin / supermarket / dorixona) ──
   if (MODE.isStore) {

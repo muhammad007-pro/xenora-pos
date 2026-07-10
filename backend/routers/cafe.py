@@ -72,30 +72,39 @@ async def update_my_cafe_features(
     if not cafe:
         raise HTTPException(404, "Kafe topilmadi")
 
-    # Superuser hamma flagni o'zgartira oladi
+    # Superuser hamma flagni o'zgartira oladi.
+    # Oddiy tenant egasi uchun (xato #8):
+    #   • PRO flag — tenant tarifi PRO bo'lsa OCHIQ (o'zi yoqadi); FREE tarifda bloklangan.
+    #   • FREE flag — biznes turiga tegishli bo'lishi shart (begona FREE flagni yoqib bo'lmaydi).
+    #   • O'chirish (disabled) — har doim ruxsat (eski override'larni tozalash uchun).
     if not current_user.is_superuser:
-        all_requested = list(body.enabled) + list(body.disabled)
-        pro_flags = []
-        for flag_str in all_requested:
+        plan = (cafe.subscription_plan or "free").lower()
+        is_pro_plan = plan != "free"   # free'dan boshqasi (pro/enterprise) — PRO darajali
+        default_set = {f.value for f in get_default_features(cafe.business_type)}
+
+        blocked_pro     = []   # PRO flag, lekin tarif FREE
+        foreign_free    = []   # biznes turiga begona FREE flag
+        for flag_str in body.enabled:
             try:
-                if is_pro_feature(flag_str):
-                    pro_flags.append(flag_str)
+                pro = is_pro_feature(flag_str)
             except ValueError:
                 raise HTTPException(422, f"Noma'lum flag: {flag_str}")
-        if pro_flags:
-            raise HTTPException(
-                403,
-                f"Bu funksiyalar PRO tarifda. Super Admin bilan bog'laning: {', '.join(pro_flags)}"
-            )
+            if pro:
+                if not is_pro_plan:
+                    blocked_pro.append(flag_str)
+                # PRO tarifda PRO flag ochiq — biznes turi tekshiruvidan o'tkazamiz
+            elif flag_str not in default_set:
+                foreign_free.append(flag_str)
 
-        # Biznes turiga TEGISHLI bo'lmagan ("begona") flagni YOQISH rad etiladi.
-        # (O'chirish ruxsat — eski override'larni tozalash uchun.)
-        default_set = {f.value for f in get_default_features(cafe.business_type)}
-        foreign = [f for f in body.enabled if f not in default_set]
-        if foreign:
+        if blocked_pro:
             raise HTTPException(
                 403,
-                f"Bu funksiyalar sizning biznes turingizga ({cafe.business_type}) tegishli emas: {', '.join(foreign)}"
+                f"Bu funksiyalar PRO tarifda. Tarifni PRO ga o'tkazing yoki Super Admin bilan bog'laning: {', '.join(blocked_pro)}"
+            )
+        if foreign_free:
+            raise HTTPException(
+                403,
+                f"Bu funksiyalar sizning biznes turingizga ({cafe.business_type}) tegishli emas: {', '.join(foreign_free)}"
             )
 
     cur_enabled  = set(cafe.enabled_features  or [])

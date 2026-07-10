@@ -786,8 +786,22 @@ const PRO_FLAGS = new Set([
 
 function isProFlag(flag) { return PRO_FLAGS.has(flag); }
 
-// PRO lock: barcha data-feature checkboxlarni tekshirib, PRO bo'lsa qulflaydi
+// Tenant tarifi PRO bo'lsa — PRO funksiyalar ochiladi (xato #8). Super-admin baribir override qiladi.
+let _isProPlan = false;
+async function detectPlanAndLock() {
+  try {
+    const cafe = await api.get('/cafes/');
+    const c = cafe.items?.[0] || cafe[0] || null;
+    const plan = (c?.subscription_plan || 'free').toLowerCase();
+    _isProPlan = plan !== 'free';   // free'dan boshqasi (pro) — PRO ochiq
+  } catch { _isProPlan = false; }
+  applyProLocks();
+}
+
+// PRO lock: barcha data-feature checkboxlarni tekshirib, PRO bo'lsa qulflaydi.
+// PRO tarifda esa qulflamaydi — tenant o'zi yoqadi.
 function applyProLocks() {
+  if (_isProPlan) return;   // PRO tarif — qulf yo'q
   document.querySelectorAll('input[data-feature], input[data-flag]').forEach(chk => {
     const flag = chk.dataset.feature || chk.dataset.flag;
     if (!isProFlag(flag)) return;
@@ -823,7 +837,7 @@ async function saveFeatureFlags(flagsList, sectionName) {
     const enabledFeatures  = [];
     const disabledFeatures = [];
     flagsList.forEach(flag => {
-      if (isProFlag(flag)) return; // PRO flaglarni o'tkazib yuborish
+      if (isProFlag(flag) && !_isProPlan) return; // FREE tarif — PRO flaglarni o'tkazib yuborish (PRO tarifda saqlanadi)
       const chk = document.querySelector(`input[data-feature="${flag}"], input[data-flag="${flag}"]`);
       if (!chk) return;
       if (chk.checked) enabledFeatures.push(flag);
@@ -1141,8 +1155,8 @@ Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPayme
 loadPharmacyFlags();
 loadSalonFlags();
 loadB2bFlags();
-// PRO lock — sahifa yuklangandan keyin barcha PRO togglelarni qulflash
-setTimeout(applyProLocks, 400);
+// PRO lock — sahifa yuklangandan keyin tarifni aniqlab, FREE bo'lsa PRO togglelarni qulflash
+setTimeout(detectPlanAndLock, 400);
 
 // ── B2B flaglari ───────────────────────────────────────────────────────────────
 const B2B_FLAGS = [

@@ -9608,7 +9608,7 @@ async function loadStaff() {
       return `<tr>
         <td class="td-sub">${u.id}</td>
         <td class="td-bold">${u.full_name || '—'}</td>
-        <td class="td-sub" style="font-family:monospace">${u.username}</td>
+        <td class="td-sub" style="font-family:monospace">${u.username || '—'}</td>
         <td><span class="badge ${roleBadge}">${roleName}</span></td>
         <td class="td-sub">${u.branch_id ? 'Filial #'+u.branch_id : '—'}</td>
         <td style="text-align:center">${u.has_pin ? '<span style="color:var(--gold)">●</span>' : '<span style="color:var(--text3)">○</span>'}</td>
@@ -9633,9 +9633,10 @@ let _staffBranches = [];
 async function openStaffModal(user = null) {
   _editStaffId = user?.id || null;
   document.getElementById('smTitle').textContent = user ? 'Xodimni tahrirlash' : "Xodim qo'shish";
-  document.getElementById('smPassLabel').textContent = user ? 'Yangi parol (bo\'sh = o\'zgarmas)' : 'Parol *';
+  document.getElementById('smPassLabel').textContent = user ? 'Yangi parol (bo\'sh = o\'zgarmas)' : 'Parol (yoki PIN)';
   document.getElementById('smFullName').value  = user?.full_name  || '';
-  document.getElementById('smPhone').value     = user?.phone      || '';
+  // Sintetik telefon (pin-… — faqat PIN bilan kiruvchi xodim) ko'rsatilmaydi.
+  document.getElementById('smPhone').value     = (user?.phone && !String(user.phone).startsWith('pin-')) ? user.phone : '';
   document.getElementById('smUsername').value  = user?.username   || '';
   document.getElementById('smEmail').value     = user?.email      || '';
   document.getElementById('smPassword').value  = '';
@@ -9646,9 +9647,17 @@ async function openStaffModal(user = null) {
   if (!_staffRoles.length) {
     try { _staffRoles = await apiFetch('/roles/'); } catch { _staffRoles = []; }
   }
+  // Rollarni biznes turiga qarab filtrlash (xato #4):
+  // ovqatlanish (restoran/kafe/fast_food) — admin+cashier+kitchen+waiter;
+  // magazin/xizmat — kitchen/waiter (oshxona/ofitsiant) rollari mantiqsiz → yashiriladi.
+  const _foodBiz = ['restaurant','cafe','fast_food'].includes(bizType);
+  const _foodOnlyRoles = ['kitchen','waiter'];
+  const _visibleRoles = _staffRoles.filter(r =>
+    _foodBiz || !_foodOnlyRoles.includes((r.name||'').toLowerCase())
+  );
   const roleSel = document.getElementById('smRole');
   roleSel.innerHTML = '<option value="">— tanlang —</option>' +
-    _staffRoles.map(r => `<option value="${r.id}" ${user?.role_id===r.id?'selected':''}>${r.name}</option>`).join('');
+    _visibleRoles.map(r => `<option value="${r.id}" ${user?.role_id===r.id?'selected':''}>${r.name}</option>`).join('');
 
   // Load branches
   if (!_staffBranches.length) {
@@ -9681,12 +9690,14 @@ async function saveStaff() {
   const branchId = parseInt(document.getElementById('smBranch').value) || null;
   const isActive = document.getElementById('smActive').checked;
 
-  // BOSQICH 38: telefon majburiy (login kaliti) + ism (display); username/email ixtiyoriy
-  if (!fullName || !phone) { toast('Ism va telefon majburiy','error'); return; }
-  if (!_editStaffId && !password) { toast('Parol kiritilmagan','error'); return; }
+  // Xodim faqat ISM + PIN bilan qo'shilishi mumkin — telefon/username/email/parol ixtiyoriy.
+  // Kassir/ofitsiant 4-xonali PIN bilan tez kiradi (access_code + PIN). Kamida PIN yoki parol shart.
+  if (!fullName) { toast('Ism majburiy','error'); return; }
   if (pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))) { toast('PIN 4 xonali raqam bo\'lishi kerak','error'); return; }
+  if (!_editStaffId && !password && !pin) { toast('Parol yoki PIN kiritilishi shart','error'); return; }
 
-  const body = { full_name:fullName, phone, is_active:isActive };
+  const body = { full_name:fullName, is_active:isActive };
+  if (phone)     body.phone     = phone;   // bo'sh telefon yuborilmaydi (PIN-only xodim)
   if (username)  body.username  = username;
   if (email)     body.email     = email;
   if (password)  body.password  = password;
@@ -9700,7 +9711,7 @@ async function saveStaff() {
     if (_editStaffId) {
       await apiFetchPost(`/users/${_editStaffId}`, body, 'PATCH');
     } else {
-      if (!body.password) { toast('Parol majburiy','error'); return; }
+      if (!body.password && !body.pin) { toast('Parol yoki PIN kiritilishi shart','error'); return; }
       await apiFetchPost('/users/', body, 'POST');
     }
     toast(_editStaffId ? 'Yangilandi' : "Qo'shildi", 'success');
@@ -10452,7 +10463,7 @@ async function loadDeptReport(tab) {
           <input id="smFullName" type="text" placeholder="To'liq ism" style="width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit">
         </div>
         <div>
-          <label style="display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem">Telefon * (login)</label>
+          <label style="display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem">Telefon (ixtiyoriy, login)</label>
           <input id="smPhone" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" style="width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit">
         </div>
       </div>

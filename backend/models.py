@@ -82,7 +82,9 @@ class User(Base):
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     # BOSQICH 38: login telefon raqam bilan → phone majburiy + unikal (global).
     # username/email endi ixtiyoriy (display/legacy uchun qoladi, login kaliti emas).
-    username = Column(String(50), unique=True, nullable=True, index=True)
+    # username unikalligi TENANT ICHIDA (composite unique, quyida __table_args__) — global emas,
+    # shu tufayli har do'konda "admin"/"cashier" kabi nomlar takrorlanishi mumkin.
+    username = Column(String(50), nullable=True, index=True)
     email = Column(String(100), unique=True, nullable=True)
     full_name = Column(String(100))
     phone = Column(String(20), unique=True, nullable=False, index=True)
@@ -97,6 +99,11 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login = Column(DateTime(timezone=True))
     
+    # username unikalligi tenant ichida (global emas) — tenant izolyatsiya buzilmaydi.
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "username", name="uq_users_tenant_username"),
+    )
+
     # Relationships
     orders = relationship("Order", back_populates="waiter")
     shifts = relationship("Shift", back_populates="user")

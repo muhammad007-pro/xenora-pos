@@ -72,8 +72,24 @@ function toast(msg, type = 'info', dur = 3500) {
 }
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
-function fmt(n)    { return Math.round(n).toLocaleString('uz-UZ') + ' UZS'; }
-function fmtNum(n) { return Math.round(n).toLocaleString('uz-UZ'); }
+// Pul formati BUTUN tizimda bir xil: vergul bilan minglik ajratish (770,000).
+// Ko'rsatish (fmt/fmtNum) va input (attachMoneyInput) BIR XIL ajratgichni ishlatadi —
+// chalkashlik bo'lmasin (tepada 770,000 / input'da 770000 muammosi).
+function fmtNum(n) { return Math.round(Number(n) || 0).toLocaleString('en-US'); }
+function fmt(n)    { return fmtNum(n) + ' UZS'; }
+
+// Formatlangan input matnidan sof raqamni oladi ("770,000" → 770000)
+function parseMoney(str) { return parseFloat(String(str == null ? '' : str).replace(/[^\d.]/g, '')) || 0; }
+
+// Input'ga jonli minglik formatlash ulaydi (yozayotganda 770000 → 770,000)
+function attachMoneyInput(el) {
+  if (!el || el._moneyBound) return;
+  el._moneyBound = true;
+  el.addEventListener('input', () => {
+    const digits = el.value.replace(/[^\d]/g, '');
+    el.value = digits ? Number(digits).toLocaleString('en-US') : '';
+  });
+}
 
 // ─── BOSQICH 22: Dorixona — Analog panel ─────────────────────────────────────
 async function showAnalogsPanel(product) {
@@ -879,7 +895,7 @@ document.getElementById('discPresets').querySelectorAll('.disc-preset').forEach(
   p.addEventListener('click', () => document.getElementById('discValue').value = p.dataset.v);
 });
 document.getElementById('applyDiscBtn').addEventListener('click', () => {
-  const v = parseFloat(document.getElementById('discValue').value) || 0;
+  const v = parseMoney(document.getElementById('discValue').value);
   if (discType === 'pct' && (v < 0 || v > 100)) { toast('Foiz 0–100 oralig\'ida bo\'lishi kerak', 'error'); return; }
   state.discount = { type: discType, value: v };
   renderTotals();
@@ -936,12 +952,13 @@ document.querySelectorAll('.tip-preset').forEach(btn => {
     if (v === 'custom') { document.getElementById('tipInput').focus(); return; }
     const pct = parseFloat(v) || 0;
     tipAmount = Math.round(computeTotals().total * pct / 100);
-    document.getElementById('tipInput').value = tipAmount || '';
+    document.getElementById('tipInput').value = tipAmount ? fmtNum(tipAmount) : '';
     updateTipDisplay();
   });
 });
+attachMoneyInput(document.getElementById('tipInput'));
 document.getElementById('tipInput').addEventListener('input', e => {
-  tipAmount = parseFloat(e.target.value) || 0;
+  tipAmount = parseMoney(e.target.value);
   updateTipDisplay();
 });
 
@@ -984,8 +1001,9 @@ document.querySelectorAll('.pay-method').forEach(btn => {
   });
 });
 
+attachMoneyInput(document.getElementById('cashInput'));
 document.getElementById('cashInput').addEventListener('input', () => {
-  const given  = parseFloat(document.getElementById('cashInput').value) || 0;
+  const given  = parseMoney(document.getElementById('cashInput').value);
   const total  = computeTotals().total;
   const change = given - total;
   const row    = document.getElementById('changeRow');
@@ -1116,7 +1134,7 @@ function buildOrderPayload() {
 
 async function doPayment() {
   const t     = computeTotals();
-  const given = parseFloat(document.getElementById('cashInput').value) || t.total;
+  const given = parseMoney(document.getElementById('cashInput').value) || t.total;
   if (payMethod === 'cash' && given < t.total) { toast('Qabul qilingan summa yetarli emas', 'error'); return; }
   // BOSQICH 19: Nasiya uchun mijoz tanlanganligini tekshirish
   if (payMethod === 'credit' && !state.customer?.id) {
@@ -1176,6 +1194,7 @@ async function doPayment() {
     await showReceipt(orderId);
     toast(payMethod === 'credit' ? 'Nasiya yozildi!' : 'To\'lov qabul qilindi!', 'success');
     clearOrderState();
+    loadHeldOrders();   // to'langan buyurtma held ro'yxatidan tushadi
   } catch (err) {
     toast(err?.message || err?.detail || 'To\'lovda xatolik', 'error');
   } finally {
@@ -1357,7 +1376,8 @@ document.getElementById('holdBtn').addEventListener('click', async () => {
 
   const res = await api.post('/orders/', buildOrderPayload());
   if (res && res.success && res.data && res.data.id) {
-    toast(MODE.saleSavedMsg, 'success');
+    // Bu HOLD (kutish) — sotuv EMAS, to'lov qilinmagan. Zakaz "Kutilayotgan" ro'yxatida.
+    toast('Buyurtma kutishga saqlandi', 'success');
   } else if (isOfflineResult(res)) {
     // Tarmoq uzildi → kafolatли navbatга
     await syncEngine.queueOrder(buildOrderPayload());
@@ -1368,6 +1388,7 @@ document.getElementById('holdBtn').addEventListener('click', async () => {
     return;
   }
   clearOrderState();
+  loadHeldOrders();
 });
 
 function clearOrderState() {
@@ -1389,6 +1410,85 @@ function clearOrderState() {
   renderCart();
   localDB.clear(STORES.CART).catch(() => {});
 }
+
+// ─── Kutilayotgan (held) buyurtmalar ────────────────────────────────────────────
+// Hold "Saqlash" pending buyurtma yaratadi. Bu yerda ular ro'yxati ko'rinadi va
+// qayta ochib to'lov qilish mumkin (yo'qolmaydi). Magazin rejimida hold yashiriladi.
+let _heldOrders = [];
+
+async function loadHeldOrders() {
+  const btn = document.getElementById('heldOrdersBtn');
+  if (!btn || btn.style.display === 'none') return;
+  try {
+    const res = await api.get('/orders/?status=pending&page_size=50');
+    const data = res?.data ?? res;
+    _heldOrders = data?.items ?? (Array.isArray(data) ? data : []);
+  } catch { _heldOrders = []; }
+  const badge = document.getElementById('heldOrdersBadge');
+  if (badge) {
+    const n = _heldOrders.length;
+    badge.textContent = n;
+    badge.style.display = n > 0 ? 'flex' : 'none';
+  }
+}
+
+function openHeldModal() {
+  const list = document.getElementById('heldList');
+  if (!_heldOrders.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text3);padding:2rem">Kutilayotgan buyurtma yo\'q</div>';
+  } else {
+    list.innerHTML = _heldOrders.map(o => {
+      const n     = o.order_number || o.daily_number || o.id;
+      const total = o.final_amount ?? o.total_amount ?? 0;
+      const cnt   = (o.items || []).length;
+      const when  = o.created_at ? new Date(o.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
+      const tbl   = o.table?.number || o.table_number;
+      return `<div class="held-row" data-hid="${o.id}" style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.75rem .875rem;background:var(--bg3);border:1px solid var(--border2);border-radius:.625rem;cursor:pointer">
+        <div>
+          <div style="font-weight:600;color:var(--text)">#${n}${tbl ? ` · Stol ${tbl}` : ''}</div>
+          <div style="font-size:.75rem;color:var(--text3)">${cnt} ta mahsulot${when ? ' · ' + when : ''}</div>
+        </div>
+        <div style="font-weight:700;color:var(--gold)">${fmt(total)}</div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.held-row').forEach(row => {
+      row.addEventListener('click', () => reopenHeldOrder(+row.dataset.hid));
+    });
+  }
+  openModal('heldModal');
+}
+
+async function reopenHeldOrder(orderId) {
+  if (state.cart.length && !confirm('Joriy savatcha almashtiriladi. Davom etasizmi?')) return;
+  let order = _heldOrders.find(o => o.id === orderId);
+  try {
+    const res = await api.get(`/orders/${orderId}`);
+    order = res?.data ?? res ?? order;
+  } catch {}
+  if (!order || !order.items) { toast('Buyurtma topilmadi', 'error'); return; }
+
+  // Savatchani buyurtma elementlaridan tiklash
+  state.cart = order.items.map(it => ({
+    id: it.product_id,
+    name: it.product_name || prodNameById(it.product_id),
+    price: it.unit_price ?? it.price ?? 0,
+    qty: it.quantity ?? 1,
+    _modKey: '',
+    modifiers: [],
+    modLabel: null,
+  }));
+  state.pendingOrderId = orderId;   // to'lov shu buyurtmani yakunlaydi (dublikat emas)
+  closeModal('heldModal');
+  renderCart();
+  toast(`Buyurtma #${order.order_number || orderId} ochildi`, 'success');
+}
+
+function prodNameById(id) { return state.products.find(p => p.id === id)?.name || 'Mahsulot'; }
+
+document.getElementById('heldOrdersBtn')?.addEventListener('click', async () => {
+  await loadHeldOrders();
+  openHeldModal();
+});
 
 // ─── Modal close ──────────────────────────────────────────────────────────────
 document.querySelectorAll('[data-close]').forEach(el => {
@@ -2221,6 +2321,7 @@ async function init() {
     renderCart();
     await ensureShiftGate();
     loadPrinterStatus();
+    loadHeldOrders();   // kutilayotgan buyurtmalar sonini ko'rsatish (badge)
   } catch (e) {
     console.error('POS init error:', e);
   } finally {

@@ -38,6 +38,12 @@ a{text-decoration:none;color:inherit}
   --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
 }
 
+/* Ildiz tuzatish (dark mode matn): main.css reset.css'da `[data-theme=dark] body`
+   (spetsifiklik 0,1,1) inline `body{color:var(--text)}` (0,0,1) ni bosib, --gray-50 ni
+   ishlatardi → matn ko'rinmasdi. Yuqori spetsifiklik bilan tema --text ni majburlaymiz. */
+:root[data-theme="dark"] body,
+:root[data-theme="light"] body{ color:var(--text); }
+
 /* ── Loading ── */
 #loadingScreen{position:fixed;inset:0;background:#03110C;display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s,visibility .4s}
 #loadingScreen.hidden{opacity:0;visibility:hidden}
@@ -125,7 +131,7 @@ a{text-decoration:none;color:inherit}
 /* ── Cart panel ── */
 .cart-panel{display:flex;flex-direction:column;background:var(--bg2);overflow:hidden}
 .cart-head{padding:.875rem 1rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.cart-head h2{font-size:1rem;font-weight:700}
+.cart-head h2{font-size:1rem;font-weight:700;color:var(--text)}
 .cart-meta{padding:.625rem 1rem;border-bottom:1px solid var(--border2);display:flex;flex-direction:column;gap:.5rem;flex-shrink:0}
 .cust-btn{display:flex;align-items:center;gap:.5rem;padding:.4375rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);font-size:.8125rem;color:var(--text2);transition:all var(--tr);width:100%;text-align:left}
 .cust-btn:hover{border-color:var(--gold);color:var(--gold)}
@@ -161,7 +167,7 @@ a{text-decoration:none;color:inherit}
 
 /* Cart actions */
 .cart-actions{padding:.75rem 1rem;border-top:1px solid var(--border2);display:flex;gap:.5rem;flex-shrink:0}
-.btn{padding:.5625rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;transition:all var(--tr);display:flex;align-items:center;justify-content:center;gap:.5rem}
+.btn{padding:.5625rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;transition:all var(--tr);display:flex;align-items:center;justify-content:center;gap:.5rem;color:var(--text)}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
 .btn-outline:hover{border-color:var(--gold);color:var(--gold)}
 .btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-weight:700;border:none;flex:1}
@@ -251,7 +257,7 @@ a{text-decoration:none;color:inherit}
 .modal-box.wide{max-width:640px}
 .modal-box.narrow{max-width:360px}
 .modal-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.modal-header h3{font-size:1rem;font-weight:700}
+.modal-header h3{font-size:1rem;font-weight:700;color:var(--text)}
 .modal-body{padding:1.25rem;overflow-y:auto;flex:1}
 .modal-footer{padding:.875rem 1.25rem;border-top:1px solid var(--border2);display:flex;gap:.5rem;flex-shrink:0}
 .modal-footer .btn{flex:1}
@@ -769,6 +775,11 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 21h12v-6H6v6z" stroke="currentColor" stroke-width="1.8"/><path d="M18 9h2a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="1.8"/></svg>
             <span>Chek</span>
           </button>
+          <button class="qa-btn" id="heldOrdersBtn" title="Kutilayotgan buyurtmalar" style="position:relative">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 8v4l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/></svg>
+            <span>Kutilayotgan</span>
+            <span id="heldOrdersBadge" style="display:none;position:absolute;top:2px;right:6px;background:var(--gold);color:#07070f;font-size:.6rem;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px">0</span>
+          </button>
           <button class="qa-btn" id="voiceOrderBtn" title="Oshxonaga ovozli e'lon">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" stroke="currentColor" stroke-width="1.8"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             <span>Ovoz</span>
@@ -800,6 +811,20 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
       </div>
     </div>
     <div id="mergeSelIds" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Kutilayotgan (held) buyurtmalar modal -->
+<div class="modal-wrap" id="heldModal">
+  <div class="modal-overlay" data-close="heldModal"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Kutilayotgan buyurtmalar</h3>
+      <button class="close-btn" data-close="heldModal">✕</button>
+    </div>
+    <div class="modal-body" id="heldList" style="max-height:65vh;overflow-y:auto;display:flex;flex-direction:column;gap:.5rem">
+      <div style="text-align:center;color:var(--text3);padding:2rem">Yuklanmoqda...</div>
+    </div>
   </div>
 </div>
 
@@ -851,7 +876,7 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
       <div class="cash-section" id="cashSection">
         <div class="cash-label">Qabul qilingan summa</div>
         <div class="cash-input-wrap">
-          <input type="number" id="cashInput" placeholder="0" min="0" step="1000">
+          <input type="text" inputmode="numeric" id="cashInput" placeholder="0" autocomplete="off">
           <span>UZS</span>
         </div>
         <div class="cash-btns">
@@ -877,7 +902,7 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
           <button class="cash-preset tip-preset" data-tip="custom">Boshqa</button>
         </div>
         <div style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
-          <input type="number" id="tipInput" placeholder="0" min="0" step="1000" style="flex:1;background:var(--bg3);border:1px solid rgba(255,255,255,.08);border-radius:.5rem;padding:.4rem .75rem;color:var(--text);outline:none;font-family:inherit">
+          <input type="text" inputmode="numeric" id="tipInput" placeholder="0" autocomplete="off" style="flex:1;background:var(--bg3);border:1px solid rgba(255,255,255,.08);border-radius:.5rem;padding:.4rem .75rem;color:var(--text);outline:none;font-family:inherit">
           <span style="font-size:.875rem;color:var(--text2)">UZS</span>
         </div>
         <div style="font-size:.75rem;color:var(--text3);margin-top:.3rem">Jami tip: <span id="tipDisplay" style="color:var(--gold)">0 UZS</span></div>

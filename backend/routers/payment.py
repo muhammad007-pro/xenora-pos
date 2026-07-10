@@ -99,6 +99,24 @@ async def create_payment(
         db.commit()
         order_completed = True
 
+        # ── Ombor chiqimi (sotuv = chiqim) — idempotent ──────────────────────────
+        # Retseptli mahsulot → ingredientlar; retseptsiz (chakana tovar) → o'zi kamayadi.
+        # `ingredients_deducted` guard: restoran kitchen-ready'da allaqachon chiqargan
+        # bo'lsa qayta ayirmaydi; magazin sotuvida shu yerda birinchi marta ayiriladi.
+        if not order.ingredients_deducted:
+            try:
+                from services.recipe_inventory_service import deduct_order_ingredients
+                deduct_order_ingredients(
+                    db, order.id,
+                    tenant_id=resolve_tenant_id(db, current_user),
+                    user_id=current_user.id,
+                )
+                order.ingredients_deducted = True
+                db.commit()
+            except Exception as exc:
+                db.rollback()
+                log.warning("[INVENTORY] order=%s chiqim xatosi: %s", order.id, exc)
+
     # ── OFD Fiskal integratsiya ───────────────────────────────────────────────
     if order_completed:
         # BOSQICH 40: fiskal sozlama tenant-scoped (INN/kassa_id/operator/api_key)

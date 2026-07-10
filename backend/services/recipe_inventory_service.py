@@ -37,7 +37,9 @@ def deduct_recipe_ingredients(
     ).first()
 
     if not recipe:
-        return {"success": True, "deducted": [], "warnings": []}
+        # Retsept yo'q → mahsulotning O'ZI ombor birligi (magazin/dorixona/chakana).
+        # Sotilgan miqdor to'g'ridan mahsulot omboridan ayiriladi (sotuv = chiqim).
+        return _deduct_product_directly(db, product_id, quantity, tenant_id, order_id, user_id)
 
     deducted = []
     warnings = []
@@ -123,6 +125,81 @@ def deduct_recipe_ingredients(
     return {
         "success": True,
         "deducted": deducted,
+        "warnings": warnings,
+    }
+
+
+def _deduct_product_directly(
+    db: Session,
+    product_id: int,
+    quantity: float,
+    tenant_id: Optional[int] = None,
+    order_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+) -> dict:
+    """Retseptsiz mahsulot (chakana tovar) omboridan to'g'ridan chiqim.
+
+    Mahsulotning O'Z Inventory yozuvidan sotilgan miqdorni ayiradi va StockMovement
+    (movement_type="sale") yozadi — sotuv ombor harakati bilan bog'lanadi (qaytarish
+    bilan izchil). Ombor yozuvi bo'lmasa — jimgina o'tkazib yuboriladi (ombor nazorati
+    o'chirilgan tovar/xizmat). Manfiy qoldiqqa tushmaydi (0 da to'xtaydi), sotuvni bloklamaydi.
+    """
+    from models import Inventory, Product, StockMovement
+
+    inv_q = db.query(Inventory).filter(Inventory.product_id == product_id)
+    if tenant_id:
+        inv_q = inv_q.filter(Inventory.tenant_id == tenant_id)
+    inventory = inv_q.first()
+
+    if not inventory:
+        # Ombor nazorati yo'q tovar (masalan xizmat) — chiqim shart emas.
+        return {"success": True, "deducted": [], "warnings": []}
+
+    actual = quantity if inventory.quantity >= quantity else inventory.quantity
+    inventory.quantity -= actual
+
+    # Ombor harakati (chiqim/sotuv) — qaytarish bilan izchil audit izi.
+    product = db.query(Product).filter(Product.id == product_id).first()
+    unit_cost = (product.cost_price if product else 0.0) or 0.0
+    db.add(StockMovement(
+        tenant_id=tenant_id,
+        product_id=product_id,
+        inventory_id=inventory.id,
+        movement_type="sale",
+        quantity=actual,
+        unit=inventory.unit or "dona",
+        unit_cost=unit_cost,
+        total_cost=round(unit_cost * actual, 2),
+        reason="sale",
+        reference_id=order_id,
+        reference_type="order",
+        user_id=user_id,
+    ))
+
+    warnings = []
+    if actual < quantity:
+        warnings.append({
+            "product_id": product_id,
+            "needed": quantity,
+            "available": actual,
+            "reason": "Ombor qoldig'i yetarli emas (0 gacha ayirildi)",
+        })
+    if inventory.quantity <= (inventory.min_threshold or 0):
+        warnings.append({
+            "product_id": product_id,
+            "reason": f"Kam qoldi: {inventory.quantity} {inventory.unit}",
+        })
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Direct product deduction commit error: {e}")
+        return {"success": False, "deducted": [], "warnings": [str(e)]}
+
+    return {
+        "success": True,
+        "deducted": [{"product_id": product_id, "deducted": actual, "remaining": inventory.quantity}],
         "warnings": warnings,
     }
 

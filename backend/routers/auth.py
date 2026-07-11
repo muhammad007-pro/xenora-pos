@@ -38,6 +38,7 @@ def _build_token_data(user: User, db: Session, branch_id=None) -> dict:
                 cafe.business_type,
                 cafe.enabled_features,
                 cafe.disabled_features,
+                cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
             ))
     return data
 

@@ -28,7 +28,8 @@ def require_cash_register(
     if not cafe:
         raise HTTPException(status_code=403, detail="Tenant aniqlanmadi")
     enabled = resolve_enabled_features(
-        cafe.business_type, cafe.enabled_features, cafe.disabled_features
+        cafe.business_type, cafe.enabled_features, cafe.disabled_features,
+        cafe.subscription_plan,
     )
     if Feature.CASH_REGISTER.value not in enabled:
         raise HTTPException(status_code=403, detail="Kassa funksiyasi yoqilmagan")

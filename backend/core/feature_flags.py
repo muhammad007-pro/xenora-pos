@@ -303,19 +303,36 @@ def get_default_features(business_type: BusinessType | str) -> frozenset[Feature
     return BUSINESS_FEATURE_MATRIX.get(business_type, frozenset())
 
 
+def is_pro_plan(subscription_plan: str | None) -> bool:
+    """Tarif PRO darajasidami? free'dan boshqasi (pro/enterprise) — PRO."""
+    return bool(subscription_plan) and str(subscription_plan).strip().lower() != "free"
+
+
 def resolve_enabled_features(
     business_type: BusinessType | str,
     enabled_overrides: Iterable[str] | None = None,
     disabled_overrides: Iterable[str] | None = None,
+    subscription_plan: str | None = None,
 ) -> set[str]:
     """
     Kafe uchun yakuniy yoqilgan funksiyalar ro'yxatini hisoblaydi:
-    standart to'plam + qo'lda yoqilganlar - qo'lda o'chirilganlar.
+    standart to'plam + (PRO tarif bo'lsa) barcha PRO flaglar
+    + qo'lda yoqilganlar - qo'lda o'chirilganlar.
+
+    ILDIZ (xato #8 takroriy): tarif (subscription_plan) va feature-flag'lar
+    ilgari BOG'LANMAGAN edi — PRO tarif sotib olingan bo'lsa ham PRO funksiyalar
+    ochilmasdi (faqat super-admin qo'lda enabled_features qo'shsa). Endi PRO tarif
+    = barcha PRO flaglar avtomatik ochiq (monetizatsiya: tarif = qulf kaliti).
+    Tenant xohlasa alohida PRO flagni disabled_overrides orqali yashira oladi.
 
     Funksiyalar hech qachon butunlay o'chirilmaydi — bu funksiya faqat
     "qaysi funksiyalar UI'da ko'rinadi" degan savolga javob beradi.
     """
     features = {f.value for f in get_default_features(business_type)}
+
+    # PRO tarif → barcha PRO darajali flaglar avtomatik yoqiladi.
+    if is_pro_plan(subscription_plan):
+        features |= {f.value for f in get_pro_features()}
 
     if enabled_overrides:
         features |= {Feature(f).value for f in enabled_overrides}
@@ -331,9 +348,10 @@ def is_feature_enabled(
     feature: Feature | str,
     enabled_overrides: Iterable[str] | None = None,
     disabled_overrides: Iterable[str] | None = None,
+    subscription_plan: str | None = None,
 ) -> bool:
     """Berilgan funksiya shu kafe uchun yoqilganmi — yagona tekshiruv nuqtasi"""
     feature_value = feature.value if isinstance(feature, Feature) else feature
     return feature_value in resolve_enabled_features(
-        business_type, enabled_overrides, disabled_overrides
+        business_type, enabled_overrides, disabled_overrides, subscription_plan
     )

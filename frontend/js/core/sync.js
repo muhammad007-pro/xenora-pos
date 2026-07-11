@@ -140,9 +140,11 @@ class SyncEngine {
             const res     = await this._api.post('/orders/', payload);
             const created = res && res.data;
             if (!res || !res.success || !created || !created.id) return false;
-            // To'lov ma'lumoti ham saqlangan bo'lsa, uni ham yuboramiz
+            // To'lov ma'lumoti ham saqlangan bo'lsa, uni ham yuboramiz.
+            // offline_sync=1 — smena gate'ini o'tkazib yubor (offline savdo allaqachon
+            // bo'lgan; smena talabi tarmoq tiklanganда bu to'lovni yo'qotmasin).
             if (paymentData) {
-                try { await this._api.post('/payments/', { ...paymentData, order_id: created.id }); } catch {}
+                try { await this._api.post('/payments/?offline_sync=1', { ...paymentData, order_id: created.id }); } catch {}
             }
             return true;
         } catch {

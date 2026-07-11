@@ -325,9 +325,15 @@ async def create_tenant(
     db.add(cafe)
     db.flush()  # cafe.id olish uchun
 
-    # Admin username mavjudligini tekshirish
-    if db.query(User).filter(User.username == admin_username).first():
-        raise HTTPException(400, f"'{admin_username}' username allaqachon mavjud")
+    # Admin username YANGI tenant ICHIDA unikal bo'lsin (GLOBAL emas) — ildiz (xato #2
+    # takroriy). username composite unique (tenant_id, username) [[v1.0.1]], shuning
+    # uchun har do'konda "admin" mumkin. Yangi tenant bo'sh → bu amalda doim o'tadi;
+    # tenant-scoped tekshiruv faqat izchillik uchun (kelajakda 2-admin qo'shilsa).
+    if db.query(User).filter(
+        User.username == admin_username,
+        User.tenant_id == cafe.id,
+    ).first():
+        raise HTTPException(400, f"Bu do'konda '{admin_username}' username band")
 
     # Admin email — KIRISH himoyasi: yaroqsiz bo'lsa rad etamiz (aniq xato),
     # berilmasa username'dan toza email avto-generatsiya qilamiz (bazaga yaroqsiz
@@ -756,7 +762,8 @@ async def get_tenant_features(
 
     default_features  = {f.value for f in get_default_features(cafe.business_type)}
     enabled_now       = resolve_enabled_features(
-        cafe.business_type, cafe.enabled_features, cafe.disabled_features
+        cafe.business_type, cafe.enabled_features, cafe.disabled_features,
+        cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
     )
     enabled_overrides  = set(cafe.enabled_features  or [])
     disabled_overrides = set(cafe.disabled_features or [])

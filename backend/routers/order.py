@@ -137,6 +137,7 @@ async def create_order(
     _kitchen_on = bool(_cafe) and is_feature_enabled(
         _cafe.business_type, Feature.KITCHEN_DISPLAY,
         _cafe.enabled_features, _cafe.disabled_features,
+        _cafe.subscription_plan,
     )
 
     if _kitchen_on:

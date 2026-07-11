@@ -338,6 +338,7 @@ def _require_z_report(db: Session, current_user: User) -> None:
     if not cafe or not is_feature_enabled(
         cafe.business_type, Feature.Z_REPORT,
         cafe.enabled_features, cafe.disabled_features,
+        cafe.subscription_plan,
     ):
         raise HTTPException(status_code=403, detail="Z-hisobot funksiyasi yoqilmagan")
 

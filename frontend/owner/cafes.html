@@ -450,45 +450,57 @@ function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 // ── MODAL ────────────────────────────────────────────────────────────────────
 function openModal(name){
   document.getElementById(name+'Modal').classList.add('open');
-  if(name==='add') previewFeatures();
+  if(name==='add'){ resetAddForm(); previewFeatures(); }
 }
 function closeModal(name){document.getElementById(name+'Modal').classList.remove('open');}
+
+// Yangi mijoz formasini tozalash — modal HAR OCHILGANDA toza bo'lsin (xato #2B:
+// bekor qilib qayta kirса ma'lumot qolmasin / input qotmasin).
+function resetAddForm(){
+  ['f-name','f-oname','f-ophone','f-uname','f-email','f-addr','f-uemail','f-upass']
+    .forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+}
 
 async function saveTenant(){
   const name=document.getElementById('f-name').value.trim();
   const ownerName=document.getElementById('f-oname').value.trim();
   const ownerPhone=document.getElementById('f-ophone').value.trim();
   const uname=document.getElementById('f-uname').value.trim();
-  if(!name||!ownerName||!ownerPhone||!uname){alert('Majburiy maydonlarni to\'ldiring');return;}
+  // xato #2B: bloklovchi alert() O'RNIGA toast — modal ochiq, inputlar tahrirlash
+  // mumkin qoladi (Electron kiosk oynasida alert fokusni qotirib qo'yardi).
+  if(!name||!ownerName||!ownerPhone||!uname){toast('Majburiy maydonlarni to\'ldiring');return;}
 
   const btn=document.getElementById('saveBtn');
   btn.disabled=true; btn.textContent='Saqlanmoqda...';
+  try{
+    const res=await api.post('/super-admin/tenants',{
+      name,
+      business_type:document.getElementById('f-btype').value,
+      owner_name:ownerName,
+      owner_phone:ownerPhone,
+      email:document.getElementById('f-email').value||null,
+      address:document.getElementById('f-addr').value||null,
+      subscription_plan:document.getElementById('f-plan').value,
+      months:parseInt(document.getElementById('f-months').value)||0,
+      trial_days:parseInt(document.getElementById('f-trial').value)||0,
+      admin_username:uname,
+      admin_email:document.getElementById('f-uemail').value||null,
+      admin_password:document.getElementById('f-upass').value||null,
+    }).catch(e=>({detail:e.message}));
 
-  const res=await api.post('/super-admin/tenants',{
-    name,
-    business_type:document.getElementById('f-btype').value,
-    owner_name:ownerName,
-    owner_phone:ownerPhone,
-    email:document.getElementById('f-email').value||null,
-    address:document.getElementById('f-addr').value||null,
-    subscription_plan:document.getElementById('f-plan').value,
-    months:parseInt(document.getElementById('f-months').value)||0,
-    trial_days:parseInt(document.getElementById('f-trial').value)||0,
-    admin_username:uname,
-    admin_email:document.getElementById('f-uemail').value||null,
-    admin_password:document.getElementById('f-upass').value||null,
-  }).catch(e=>({detail:e.message}));
-
-  btn.disabled=false; btn.textContent='Saqlash';
-
-  if(res?.success){
-    closeModal('add');
-    document.getElementById('resultText').textContent=
-      `✅ Yaratildi!\n\nKirish kodi: ${res.access_code}\nTenant: ${res.tenant_code}\nUsername: ${res.admin_username}\nParol: ${res.admin_password}`;
-    openModal('result');
-    load();
-  } else {
-    alert('Xato: '+(res?.detail||JSON.stringify(res)));
+    if(res?.success){
+      closeModal('add');
+      document.getElementById('resultText').textContent=
+        `✅ Yaratildi!\n\nKirish kodi: ${res.access_code}\nTenant: ${res.tenant_code}\nUsername: ${res.admin_username}\nParol: ${res.admin_password}`;
+      openModal('result');
+      load();
+    } else {
+      // Modal ochiq qoladi — username'ni o'zgartirib qayta urinish mumkin.
+      toast('Xato: '+(res?.detail||'saqlab bo\'lmadi'));
+    }
+  } finally {
+    // Har qanday holatda tugma faol qoladi (input/forma qotmaydi).
+    btn.disabled=false; btn.textContent='Saqlash';
   }
 }
 

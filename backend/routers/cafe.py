@@ -35,7 +35,8 @@ async def get_my_cafe_features(
         raise HTTPException(404, "Kafe topilmadi")
 
     enabled_now = resolve_enabled_features(
-        cafe.business_type, cafe.enabled_features, cafe.disabled_features
+        cafe.business_type, cafe.enabled_features, cafe.disabled_features,
+        cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
     )
     # Shu biznes turiga TEGISHLI flaglar to'plami (BUSINESS_FEATURE_MATRIX).
     # in_business=False bo'lganlar — "begona" funksiya (UI'da kulrang/disabled).
@@ -140,9 +141,19 @@ async def get_cafes(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_settings"))
 ):
-    """Barcha kafelarni olish"""
+    """Kafelarni olish. Super-admin — hammasi; tenant-admin — FAQAT o'z kafesi.
+
+    ILDIZ (tenant izolyatsiya + xato #8): ilgari bu endpoint har qanday
+    manage_settings foydalanuvchiga BARCHA kafelarni qaytarardi (izolyatsiya
+    tuynugi), va frontend items[0] ni "joriy kafe" deb olardi — bu nom bo'yicha
+    BIRINCHI kafe (ko'pincha boshqa tenant) edi. Endi tenant-admin faqat o'zini
+    ko'radi → items[0] doim o'z kafesi. Cafe.id = tenant, shuning uchun
+    apply_tenant_filter emas, to'g'ridan Cafe.id bo'yicha cheklaymiz."""
     query = db.query(Cafe)
-    
+
+    if not current_user.is_superuser and current_user.tenant_id:
+        query = query.filter(Cafe.id == current_user.tenant_id)
+
     if is_active is not None:
         query = query.filter(Cafe.is_active == is_active)
     
@@ -273,7 +284,8 @@ async def get_cafe(
         "email": cafe.email,
         "business_type": cafe.business_type,
         "enabled_features": list(resolve_enabled_features(
-            cafe.business_type, cafe.enabled_features, cafe.disabled_features
+            cafe.business_type, cafe.enabled_features, cafe.disabled_features,
+            cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
         )),
         "is_active": cafe.is_active,
         "subscription_plan": cafe.subscription_plan,
@@ -366,7 +378,8 @@ async def get_cafe_features(
     return {
         "business_type": cafe.business_type,
         "enabled_features": list(resolve_enabled_features(
-            cafe.business_type, cafe.enabled_features, cafe.disabled_features
+            cafe.business_type, cafe.enabled_features, cafe.disabled_features,
+            cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
         )),
     }
 
@@ -401,7 +414,8 @@ async def set_cafe_features(
     return {
         "success": True,
         "enabled_features": list(resolve_enabled_features(
-            cafe.business_type, cafe.enabled_features, cafe.disabled_features
+            cafe.business_type, cafe.enabled_features, cafe.disabled_features,
+            cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
         )),
     }
 

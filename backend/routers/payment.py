@@ -5,9 +5,10 @@ from datetime import datetime
 import logging
 
 from database import get_db
-from models import Payment, Order, User, Table
+from models import Payment, Order, User, Table, Cafe, Shift
 from schemas import PaymentCreate, PaymentInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
+from core.feature_flags import Feature, is_feature_enabled
 from services.payment_service import PaymentService
 from services.ofd_service import send_to_ofd
 from websocket.manager import manager
@@ -17,6 +18,38 @@ from core.tenant_config import get_tenant_config
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _require_open_shift(db: Session, current_user: User) -> None:
+    """Smena majburiy — ochiq smena bo'lmasa savdoni bloklaydi (409).
+
+    Faqat "kassa bor" bizneslarda (cash_register YOKI z_report feature yoqilgan):
+    food + retail + dorixona. Bron bizneslari (salon/fitnes/...) da smena talab
+    qilinmaydi. Super-admin bypass. Smena foydalanuvchi (kassir) bo'yicha.
+    """
+    if current_user.is_superuser or not current_user.tenant_id:
+        return
+    cafe = db.query(Cafe).filter(Cafe.id == current_user.tenant_id).first()
+    if not cafe:
+        return
+    needs_shift = (
+        is_feature_enabled(cafe.business_type, Feature.CASH_REGISTER,
+                           cafe.enabled_features, cafe.disabled_features, cafe.subscription_plan)
+        or is_feature_enabled(cafe.business_type, Feature.Z_REPORT,
+                              cafe.enabled_features, cafe.disabled_features, cafe.subscription_plan)
+    )
+    if not needs_shift:
+        return
+    active = db.query(Shift).filter(
+        Shift.user_id == current_user.id,
+        Shift.end_time.is_(None),
+    ).first()
+    if not active:
+        raise HTTPException(
+            status_code=409,
+            detail="Avval smena oching — savdo uchun ochiq smena kerak",
+        )
+
 
 @router.get("/", response_model=PaginatedResponse)
 async def get_payments(
@@ -64,11 +97,18 @@ async def get_payments(
 @router.post("/", response_model=PaymentInDB)
 async def create_payment(
     payment_data: PaymentCreate,
+    offline_sync: bool = Query(False, description="Offline navbatdan replay — smena gate'ini o'tkazib yubor"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """Yangi to'lov yaratish"""
     payment_service = PaymentService(db)
+
+    # SMENA MAJBURIY: ochiq smena bo'lmasa savdo bloklanadi (kassa bor biznes).
+    # offline_sync=True — offline navbat replay (sotuv allaqachon bo'lgan) → bypass,
+    # aks holda tarmoq tiklanganda navbatdagi to'lovlar yo'qolardi (sync catch{}).
+    if not offline_sync:
+        _require_open_shift(db, current_user)
 
     # Buyurtmani tekshirish (BOSQICH 1.5: tenant bo'yicha cheklash)
     order = apply_tenant_filter(db.query(Order), Order, current_user).filter(Order.id == payment_data.order_id).first()

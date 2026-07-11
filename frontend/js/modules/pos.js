@@ -1176,6 +1176,15 @@ async function doPayment() {
   }
 
   // ── Online rejim ──
+  // SMENA MAJBURIY: ochiq smena bo'lmasa savdo bloklanadi (kassa bor biznes).
+  // ensureShiftGate false qaytarsa — smena ochish oynasi ko'rsatildi, savdo to'xtaydi.
+  const _shiftOk = await ensureShiftGate();
+  if (!_shiftOk) {
+    toast('Avval smena oching', 'warning');
+    btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish';
+    return;
+  }
+
   const orderId = state.pendingOrderId;
   if (!orderId) { toast('Buyurtma topilmadi', 'error'); btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish'; return; }
   try {
@@ -2182,33 +2191,47 @@ function currentUserId() {
   catch { return null; }
 }
 
-// POS ochilganda: cash_register yoqilgan bo'lsa va faol smena bo'lmasa —
-// kassa tanlash + smena ochish gate'ini ko'rsatadi. Flag o'chiq bo'lsa hech narsa
-// qilmaydi (orqaga moslik — POS oddiy ishlaydi).
+// Smena majburiy biznesmi? Kassa bor joyda (cash_register YOKI z_report) — food +
+// retail + dorixona. Bron bizneslari (salon/fitnes/...) da smena talab qilinmaydi.
+function shiftRequired() {
+  return posHasFeature('cash_register') || posHasFeature('z_report');
+}
+
+// Faol smenani ta'minlaydi. Ochiq smena bo'lsa state.shiftId ni to'ldirib TRUE
+// qaytaradi. Bo'lmasa smena ochish gate'ini ko'rsatadi va FALSE qaytaradi (savdo
+// bloklanadi). Smena kerak bo'lmagan biznesda darhol TRUE. Kassa (register)
+// IXTIYORIY — registrsiz oddiy smena ham ochiladi.
 async function ensureShiftGate() {
-  if (!posHasFeature('cash_register')) return;
+  if (!shiftRequired()) return true;
   try {
     const _actRes = await api.get('/shifts/active');   // {success,data} — data: null yoki faol smena
     const active  = (_actRes && _actRes.success) ? _actRes.data : null;
     if (active && active.id) {
       state.shiftId = active.id;
       state.registerId = active.register_id || null;
-      return;
+      return true;
     }
     const _regRes = await api.get('/cash-registers/');
     const _regList = (_regRes && _regRes.success && Array.isArray(_regRes.data)) ? _regRes.data : [];
     const regs = _regList.filter(r => r.is_active);
-    if (!regs.length) return;   // kassa yo'q — bloklamaymiz (admin qo'shishi kerak)
 
     const sel = document.getElementById('gateRegister');
-    sel.innerHTML = regs.map(r => `<option value="${r.id}">${(r.name||'').replace(/</g,'&lt;')}</option>`).join('');
+    const row = document.getElementById('gateRegisterRow');
+    if (regs.length) {
+      sel.innerHTML = regs.map(r => `<option value="${r.id}">${(r.name||'').replace(/</g,'&lt;')}</option>`).join('');
+      if (row) row.style.display = '';
+    } else {
+      // Kassa yozuvi yo'q — registrsiz smena ochiladi (kassa tanlash yashiriladi).
+      sel.innerHTML = '';
+      if (row) row.style.display = 'none';
+    }
     document.getElementById('gateStartCash').value = '0';
     document.getElementById('gateError').style.display = 'none';
     openModal('openShiftGate');
 
     const btn = document.getElementById('gateOpenBtn');
     btn.onclick = async () => {
-      const regId = +document.getElementById('gateRegister').value;
+      const regId = regs.length ? (+document.getElementById('gateRegister').value || null) : null;
       const startCash = +document.getElementById('gateStartCash').value || 0;
       const err = document.getElementById('gateError');
       btn.disabled = true; btn.textContent = 'Ochilmoqda...';
@@ -2230,9 +2253,12 @@ async function ensureShiftGate() {
         btn.disabled = false; btn.textContent = 'Smenani ochish';
       }
     };
+    return false;   // smena hali ochilmadi — savdo bloklanadi
   } catch (e) {
-    // Smena holatini aniqlab bo'lmadi — POSni bloklamaymiz
+    // Smena holatini aniqlab bo'lmadi (tarmoq) — frontendда bloklamaymiz;
+    // backend baribir ochiq smenani talab qiladi (409).
     console.warn('Shift gate skip:', e);
+    return true;
   }
 }
 

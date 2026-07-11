@@ -3,6 +3,43 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.0.4] — 2026-07-11
+
+PRO qulf + super-admin username takroriy xatolari ILDIZDAN, va kassa smenasi majburiy qilindi.
+
+### Tuzatildi
+- **PRO funksiyalar qulfi (ILDIZ, takroriy):** tarif (`subscription_plan`) va feature-flag'lar
+  bog'lanmagan edi — PRO tarif olingan bo'lsa ham PRO funksiyalar ochilmasdi. Endi
+  `resolve_enabled_features` tarifni hisobga oladi: PRO tarif → barcha PRO flaglar avtomatik
+  ochiq (backend gate/JWT + `/cafes/my/features`). Frontend `detectPlanAndLock` endi tenant-scoped
+  `/cafes/my/features` dan tarifni oladi (ilgari `/cafes/` ro'yxatidan noto'g'ri kafe olinardi).
+- **`/cafes/` tenant izolyatsiya:** tenant-admin endi FAQAT o'z kafesini ko'radi (ilgari barcha
+  kafelar qaytardi — izolyatsiya tuynugi + noto'g'ri "joriy kafe").
+- **Super-admin mijoz qo'shish — username (ILDIZ, takroriy):** yangi tenant admin username
+  tekshiruvi GLOBAL edi → "admin" band chiqardi. Endi tenant-scoped (har do'konda "admin" mumkin).
+- **Mijoz qo'shish formasi qotib qolishi:** bloklovchi `alert()` o'rniga toast + `try/finally`
+  (tugma doim faol) + forma har ochilganda tozalanadi. Input endi qotmaydi.
+
+### Qo'shildi
+- **Kassa smenasi MAJBURIY:** ochiq smena bo'lmasa savdo (to'lov) bloklanadi (kassa bor biznes:
+  food/retail/dorixona). POS to'lovdan oldin smena ochish oynasini majburlaydi (kassa ixtiyoriy,
+  registrsiz ham ochiladi); backend ham talab qiladi (409). Offline navbat replay bundan mustasno.
+- **Smena yopilish cheki (Z-hisobot):** yopilganda to'liq professional chek ko'rsatiladi —
+  jami savdo, naqd, karta/Click/Payme, nasiya, chegirma, qaytarish, sotuvlar soni, ochilish/yopilish
+  vaqti, kutilgan/haqiqiy naqd, kamomad/ortiqcha. Ekrandan chop etish + fizik Z-chek.
+
+## [1.0.3] — 2026-07-11
+
+To'liq audit tozalash — 14 muammo (A1-A2 kritik, B1-B6 o'rta, C1-C6 kichik). Batafsil: commit `8800a6d`.
+
+### Tuzatildi
+- **Rol izolyatsiya (A1):** rol yozish amallari faqat super-admin (rollar global).
+- **Refund ombor tiklash (A2):** to'liq qaytarishda ombor tiklanadi (`ingredients_restored` idempotent).
+- **Tezlik (B3/B4):** order N+1 → selectin/joined load; composite indekslar (tenant_id+created_at/status/category).
+- **Dark mode ildiz (B1) + summa formati (B2):** reset.css tuzatish + umumiy `money.js`.
+- **Upload tenant izolyatsiya (B5) + o'lik kod (B6):** tenant bucket + path-traversal; cross-tenant chiqim olib tashlandi.
+- **Kichik (C1-C6):** held reopen snapshot, dublikat pending, stock tarix, /health versiya, /products/all limit, username 400.
+
 ## [1.0.2] — 2026-07-10
 
 Sotuv/ombor yaxlitligi va POS chalkashliklari tuzatildi (deploy oldi sinov, 4 xato).

@@ -789,10 +789,14 @@ function isProFlag(flag) { return PRO_FLAGS.has(flag); }
 // Tenant tarifi PRO bo'lsa — PRO funksiyalar ochiladi (xato #8). Super-admin baribir override qiladi.
 let _isProPlan = false;
 async function detectPlanAndLock() {
+  // ILDIZ (xato #8 takroriy): ilgari '/cafes/' RO'YXATIdan items[0] olinardi — bu
+  // joriy tenant emas, nom bo'yicha BIRINCHI kafe (ko'pincha boshqa/FREE tenant) edi,
+  // shu sababli PRO tenantda ham plan 'free' o'qilib PRO qulflanib qolardi.
+  // Endi tenant-scoped '/cafes/my/features' dan o'z kafe tarifini olamiz.
   try {
-    const cafe = await api.get('/cafes/');
-    const c = cafe.items?.[0] || cafe[0] || null;
-    const plan = (c?.subscription_plan || 'free').toLowerCase();
+    const res  = await api.get('/cafes/my/features');
+    const data = res?.data ?? res;
+    const plan = (data?.subscription_plan || 'free').toLowerCase();
     _isProPlan = plan !== 'free';   // free'dan boshqasi (pro) — PRO ochiq
   } catch { _isProPlan = false; }
   applyProLocks();

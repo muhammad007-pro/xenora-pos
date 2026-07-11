@@ -224,3 +224,102 @@ async function loadSchoolTopCourses() {
   } catch(err) { toast(err.message,'error'); }
 }
 
+
+/* ── O'quvchilar + Guruhlar (jurnal klasteri, refaktoring 3-bo'lak) ── */
+// ── Students journal (school) ────────────────────────────────────────────────
+let stCurrentPage = 1, stGroupVal = '';
+
+async function loadStudents() {
+  const search = document.getElementById('stSearch')?.value || '';
+  const params = new URLSearchParams({ page: stCurrentPage, page_size: 20, has_student: 'true' });
+  if (search)     params.set('search',        search);
+  if (stGroupVal) params.set('student_group', stGroupVal);
+  try {
+    const data  = await apiFetch('/orders/?' + params);
+    const items = data.items || [];
+    const total = data.total || 0;
+    document.getElementById('stTotal').textContent   = total;
+    document.getElementById('stRevenue').textContent = fmtMoney(items.reduce((s, o) => s + (o.final_amount || 0), 0)) + ' UZS';
+    const groups = [...new Set(items.map(o => o.biz_meta?.student_group).filter(Boolean))];
+    document.getElementById('stGroups').textContent  = groups.length;
+    const grSel = document.getElementById('stGroupFilter');
+    if (grSel && grSel.options.length <= 1 && groups.length) {
+      groups.forEach(g => {
+        const opt = document.createElement('option');
+        opt.value = g; opt.textContent = g;
+        grSel.appendChild(opt);
+      });
+    }
+    document.getElementById('stPagInfo').textContent = `${items.length} / ${total} ta`;
+    const body = document.getElementById('stBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Yozuv topilmadi</td></tr>';
+    } else {
+      body.innerHTML = items.map(o => {
+        const meta  = o.biz_meta || {};
+        const date  = new Date(o.created_at).toLocaleDateString('uz-UZ', { day:'2-digit', month:'2-digit', year:'numeric' });
+        const drugs = (o.items || []).map(i => i.product_name || i.name || '—').join(', ');
+        return `<tr>
+          <td style="font-size:.75rem;color:var(--text2);white-space:nowrap">${date}</td>
+          <td style="font-weight:700;color:var(--gold)">#${o.order_number}</td>
+          <td><div style="font-weight:600">${meta.student_name || '—'}</div></td>
+          <td style="font-size:.8125rem;color:var(--text2)">${meta.student_phone || '—'}</td>
+          <td>${meta.student_group ? `<span class="badge badge-blue">${meta.student_group}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+          <td style="font-size:.8125rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${drugs}">${drugs || '—'}</td>
+          <td style="font-weight:600;white-space:nowrap">${fmtMoney(o.final_amount)} UZS</td>
+        </tr>`;
+      }).join('');
+    }
+    document.getElementById('stPrevBtn').disabled = stCurrentPage <= 1;
+    document.getElementById('stNextBtn').disabled = items.length < 20;
+    const badge = document.getElementById('studentBadge');
+    if (badge) { badge.textContent = total; badge.style.display = total > 0 ? '' : 'none'; }
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+function stApplyFilter() {
+  stGroupVal    = document.getElementById('stGroupFilter')?.value || '';
+  stCurrentPage = 1;
+  loadStudents();
+}
+function stPage(dir) { stCurrentPage = Math.max(1, stCurrentPage + dir); loadStudents(); }
+
+// ── Groups stats (school) ─────────────────────────────────────────────────────
+async function loadGroups() {
+  const days = parseInt(document.getElementById('grPeriod')?.value || '30');
+  const params = new URLSearchParams({ page_size: 200, has_student: 'true' });
+  if (days > 0) {
+    const from = new Date(Date.now() - days * 86400000).toISOString();
+    params.set('date_from', from);
+  }
+  try {
+    const data  = await apiFetch('/orders/?' + params);
+    const items = data.items || [];
+    const body  = document.getElementById('grBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Ma\'lumot yo\'q</td></tr>';
+      return;
+    }
+    const groupMap = {};
+    items.forEach(o => {
+      const meta = o.biz_meta || {};
+      const g    = meta.student_group || '(Guruhsiz)';
+      if (!groupMap[g]) groupMap[g] = { students: new Set(), orders: 0, revenue: 0, lastDate: '' };
+      if (meta.student_name) groupMap[g].students.add(meta.student_name + (meta.student_phone || ''));
+      groupMap[g].orders++;
+      groupMap[g].revenue += o.final_amount || 0;
+      const d = (o.created_at || '').slice(0, 10);
+      if (d > groupMap[g].lastDate) groupMap[g].lastDate = d;
+    });
+    const rows = Object.entries(groupMap).sort((a, b) => b[1].revenue - a[1].revenue);
+    body.innerHTML = rows.map(([g, s], i) => `<tr>
+      <td style="text-align:center;color:var(--text2)">${i + 1}</td>
+      <td><span class="badge badge-blue">${g}</span></td>
+      <td style="font-weight:600">${s.students.size}</td>
+      <td>${s.orders}</td>
+      <td style="font-weight:700;color:var(--gold)">${fmtMoney(s.revenue)} UZS</td>
+      <td style="font-size:.8125rem;color:var(--text2)">${s.lastDate || '—'}</td>
+    </tr>`).join('');
+  } catch(err) { toast(err.message, 'error'); }
+}
+

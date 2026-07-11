@@ -231,3 +231,126 @@ async function loadSalonMasterReport() {
   } catch(err) { toast(err.message, 'error'); }
 }
 
+
+/* ── Abonementlar + Ustalar (jurnal klasteri, refaktoring 3-bo'lak) ── */
+async function loadMemberships() {
+  const flt = document.getElementById('mbFilter')?.value || '';
+  const params = new URLSearchParams({ page: mbCurrentPage, page_size: 20 });
+  if (flt === 'expiring') params.set('expiring', 'true');
+  else if (flt)           params.set('status', flt);
+  try {
+    const data  = await apiFetch('/memberships/?' + params);
+    const items = data.items || [];
+    const total = data.total || 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    document.getElementById('mbTotal').textContent    = total;
+    document.getElementById('mbActive').textContent   = items.filter(m => m.status==='active' && new Date(m.end_date)>=today).length;
+    document.getElementById('mbExpiring').textContent = items.filter(m => {
+      if (m.status !== 'active') return false;
+      const d = Math.ceil((new Date(m.end_date) - new Date()) / 86400000);
+      return d >= 0 && d <= 7;
+    }).length;
+    document.getElementById('mbPagInfo').textContent = `${items.length} / ${total} ta`;
+    const body = document.getElementById('mbBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Abonement topilmadi</td></tr>';
+      return;
+    }
+    body.innerHTML = items.map(m => {
+      const cust = m.customer || {};
+      const end  = new Date(m.end_date);
+      const dl   = Math.ceil((end - new Date()) / 86400000);
+      let badgeCls, badgeLbl;
+      if (m.status === 'cancelled')               { badgeCls='badge-red';   badgeLbl='Bekor'; }
+      else if (m.status === 'expired' || end < today) { badgeCls='badge-gray';  badgeLbl="Muddati o'tgan"; }
+      else if (dl <= 7)                           { badgeCls='badge-amber'; badgeLbl=`${dl} kun qoldi`; }
+      else                                         { badgeCls='badge-green'; badgeLbl='Faol'; }
+      const vt = m.visits_total || 0, vu = m.visits_used || 0;
+      const vPct  = vt > 0 ? Math.min(100, Math.round(vu / vt * 100)) : 100;
+      const vColor = vt > 0 && vu >= vt ? 'var(--danger)' : vPct > 75 ? 'var(--warning)' : 'var(--gold)';
+      return `<tr>
+        <td><div style="font-weight:600">${cust.full_name||'—'}</div><div style="font-size:.75rem;color:var(--text2)">${cust.phone||''}</div></td>
+        <td><div style="font-weight:600">${m.plan_name||'—'}</div><div style="font-size:.75rem;color:var(--gold)">${fmtMoney(m.price)} UZS</div></td>
+        <td><div style="font-size:.75rem;color:var(--text2)">${(m.start_date||'').slice(0,10)}</div><div style="font-weight:600">${(m.end_date||'').slice(0,10)}</div></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <div style="flex:1;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;min-width:50px"><div style="width:${vPct}%;height:100%;background:${vColor};border-radius:3px"></div></div>
+            <span style="font-size:.75rem;color:var(--text2)">${vt > 0 ? vu+'/'+vt : vu+'(∞)'}</span>
+          </div>
+        </td>
+        <td><span class="badge ${badgeCls}">${badgeLbl}</span></td>
+        <td class="td-actions">
+          ${m.status==='active' ? `<button class="act-btn" title="Tashrif" onclick="mbAddVisit(${m.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+    document.getElementById('mbPrevBtn').disabled = mbCurrentPage <= 1;
+    document.getElementById('mbNextBtn').disabled = items.length < 20;
+    const expCnt = items.filter(m => {
+      if (m.status !== 'active') return false;
+      const d = Math.ceil((new Date(m.end_date) - new Date()) / 86400000);
+      return d >= 0 && d <= 7;
+    }).length;
+    const badge = document.getElementById('expiringBadge');
+    if (badge) { badge.textContent = expCnt; badge.style.display = expCnt > 0 ? '' : 'none'; }
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+function mbApplyFilter() { mbCurrentPage = 1; loadMemberships(); }
+function mbPage(dir)     { mbCurrentPage = Math.max(1, mbCurrentPage + dir); loadMemberships(); }
+
+async function mbAddVisit(id) {
+  try {
+    const res = await fetch(`${API_BASE}/memberships/${id}/visit`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Xatolik'); }
+    toast("Tashrif qo'shildi", 'success');
+    loadMemberships();
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+async function updateExpiringBadge() {
+  try {
+    const data = await apiFetch('/memberships/?expiring=true&page_size=1');
+    const cnt  = data.total || 0;
+    const badge = document.getElementById('expiringBadge');
+    if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
+  } catch {}
+}
+
+// ── Masters reytingi (salon/fitness) ─────────────────────────────────────────
+async function loadMasters() {
+  const days = parseInt(document.getElementById('mastersPeriod')?.value || '30');
+  const from = new Date(Date.now() - days * 86400000).toISOString();
+  try {
+    const data = await apiFetch(`/analytics/employees?date_from=${from}`);
+    const emps = Array.isArray(data) ? data : (data.employees || []);
+    const body = document.getElementById('mastersBody');
+    if (!emps.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Ma\'lumot yo\'q</td></tr>';
+      return;
+    }
+    const maxSales = Math.max(...emps.map(e => e.total_sales || 0), 1);
+    body.innerHTML = emps.map((e, i) => {
+      const pct   = Math.round((e.total_sales || 0) / maxSales * 100);
+      const medal = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : '';
+      const barColor = i===0 ? 'var(--gold)' : i===1 ? '#aaa' : i===2 ? '#cd7f32' : 'var(--info)';
+      return `<tr>
+        <td style="font-size:1.25rem;text-align:center">${medal || i+1}</td>
+        <td style="font-weight:600">${e.name||'—'}</td>
+        <td>${e.orders_count||0} ta</td>
+        <td style="color:var(--gold);font-weight:700">${fmtMoney(e.total_sales||0)} UZS</td>
+        <td>${fmtMoney(e.avg_check||0)} UZS</td>
+        <td style="min-width:120px">
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px"></div></div>
+            <span style="font-size:.75rem;color:var(--text2);flex-shrink:0">${pct}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(err) { toast(err.message, 'error'); }
+}
+

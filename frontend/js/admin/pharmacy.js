@@ -208,3 +208,52 @@ async function loadPharmCashier() {
   } catch(err) { toast(err.message,'error'); }
 }
 
+
+/* ── Retseptlar jurnali (jurnal klasteri, refaktoring 3-bo'lak) ── */
+// ── Prescriptions (Retseptlar jurnali) — pharmacy ──────────────────────────────
+let rxCurrentPage = 1;
+
+async function loadPrescriptions() {
+  const search = document.getElementById('rxSearch')?.value || '';
+  const params = new URLSearchParams({ page: rxCurrentPage, page_size: 20, has_rx: 'true' });
+  if (search) params.set('search', search);
+  try {
+    const data  = await apiFetch('/orders/?' + params);
+    const items = data.items || [];
+    const total = data.total || 0;
+    document.getElementById('rxPagInfo').textContent = `${items.length} / ${total} ta`;
+    const body = document.getElementById('rxBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Retseptli buyurtma topilmadi</td></tr>';
+      return;
+    }
+    body.innerHTML = items.map(o => {
+      const meta  = o.biz_meta || {};
+      const drugs = (o.items||[]).map(i=>i.product_name||'—').join(', ') || '—';
+      const date  = new Date(o.created_at).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});
+      const rxBadge = meta.rx_number ? `<span class="badge badge-amber">${meta.rx_number}</span>` : '<span style="color:var(--text3)">—</span>';
+      return `<tr>
+        <td class="td-sub">${date}</td>
+        <td class="td-bold">#${o.order_number||o.id}</td>
+        <td>${meta.rx_patient_name||'—'}</td>
+        <td class="td-sub">${meta.rx_patient_phone||'—'}</td>
+        <td>${rxBadge}</td>
+        <td class="td-sub" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${drugs}">${drugs}</td>
+        <td class="td-gold">${fmtMoney(o.final_amount)} UZS</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('rxPrevBtn').disabled = rxCurrentPage <= 1;
+    document.getElementById('rxNextBtn').disabled = items.length < 20;
+    const badge = document.getElementById('rxBadge');
+    if (badge) { badge.textContent = total; badge.style.display = total > 0 ? '' : 'none'; }
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function rxPage(dir) {
+  rxCurrentPage = Math.max(1, rxCurrentPage + dir);
+  loadPrescriptions();
+}
+
+// ── Memberships (Abonementlar) — salon/fitness ────────────────────────────────
+let mbCurrentPage = 1;
+

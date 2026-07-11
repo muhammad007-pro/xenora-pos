@@ -229,3 +229,175 @@ async function loadHotelRoomRevenue() {
       : '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Ma\'lumot yo\'q</td></tr>';
   } catch(err) { toast(err.message,'error'); }
 }
+
+/* ── Xonalar + Bronlar (jurnal klasteri, refaktoring 3-bo'lak) ── */
+// ── Hotel Rooms (mehmonxona) ──────────────────────────────────────────────────
+const ROOM_STATUS = {
+  available:   { lbl:"Bo'sh",        cls:'badge-green', color:'var(--success)' },
+  occupied:    { lbl:'Band',         cls:'badge-red',   color:'var(--danger)'  },
+  cleaning:    { lbl:'Tozalanmoqda', cls:'badge-amber', color:'var(--warning)' },
+  maintenance: { lbl:"Ta'mirlashda", cls:'badge-gray',  color:'var(--text2)'   },
+};
+const ROOM_TYPE_LBL = { standard:'Standart', double:'Juft', suite:'Lyuks', vip:'VIP', family:'Oilaviy', dormitory:'Yotoqxona' };
+
+async function loadHotelRooms() {
+  const floor  = document.getElementById('hrFloorFilter')?.value  || '';
+  const status = document.getElementById('hrStatusFilter')?.value || '';
+  const params = new URLSearchParams({ page_size: 200 });
+  if (floor)  params.set('floor',  floor);
+  if (status) params.set('status', status);
+  try {
+    const data  = await apiFetch('/rooms/overview/');
+    const rooms = Array.isArray(data) ? data : [];
+    const filtered = rooms.filter(r =>
+      (!floor  || String(r.floor) === floor) &&
+      (!status || r.status === status)
+    );
+    document.getElementById('hrTotal').textContent     = rooms.length;
+    document.getElementById('hrAvailable').textContent = rooms.filter(r => r.status === 'available').length;
+    document.getElementById('hrOccupied').textContent  = rooms.filter(r => r.status === 'occupied').length;
+    document.getElementById('hrCleaning').textContent  = rooms.filter(r => r.status === 'cleaning').length;
+    const floors = [...new Set(rooms.map(r => r.floor))].sort();
+    const sel = document.getElementById('hrFloorFilter');
+    if (sel && sel.options.length <= 1 && floors.length) {
+      floors.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f; opt.textContent = f + '-qavat';
+        sel.appendChild(opt);
+      });
+    }
+    const badge = document.getElementById('hotelBadge');
+    const occ = rooms.filter(r => r.status === 'occupied').length;
+    if (badge) { badge.textContent = occ; badge.style.display = occ > 0 ? '' : 'none'; }
+    const grid = document.getElementById('hotelRoomGrid');
+    if (!filtered.length) {
+      grid.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text3);grid-column:1/-1">Xona topilmadi</div>';
+      return;
+    }
+    grid.innerHTML = filtered.map(r => {
+      const st  = ROOM_STATUS[r.status] || { lbl: r.status, cls: '', color: 'var(--text2)' };
+      const bk  = r.booking;
+      return `<div style="background:var(--bg2);border:1.5px solid ${bk ? 'var(--danger)' : r.status==='available' ? 'var(--success)' : 'var(--border2)'};border-radius:var(--r2);padding:1rem;cursor:pointer;transition:border-color .2s" onclick="switchPage('hotelBookings')">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:.5rem">
+          <span style="font-size:1.25rem;font-weight:800;color:var(--gold)">${r.number}</span>
+          <span class="badge ${st.cls}">${st.lbl}</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--text2);margin-bottom:.375rem">${ROOM_TYPE_LBL[r.room_type]||r.room_type} · ${r.capacity} kishi</div>
+        <div style="font-size:.8125rem;font-weight:600;color:var(--gold);margin-bottom:.5rem">${fmtMoney(r.price_per_night)} / tun</div>
+        ${bk ? `<div style="font-size:.75rem;color:var(--text)">👤 ${bk.guest_name}</div>
+                <div style="font-size:.75rem;color:var(--text2)">${bk.check_in} → ${bk.check_out}</div>` :
+                `<div style="font-size:.75rem;color:var(--text3)">${r.floor}-qavat ${r.name ? '· '+r.name : ''}</div>`}
+        ${r.status !== 'available' ? `<button class="act-btn" style="margin-top:.5rem;font-size:.75rem;padding:.2rem .5rem" onclick="event.stopPropagation();hrSetStatus(${r.id},'available')">Bo'shat</button>` : ''}
+      </div>`;
+    }).join('');
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+async function hrSetStatus(id, status) {
+  try {
+    const res = await fetch(`${API_BASE}/rooms/${id}`, {
+      method: 'PATCH',
+      headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    toast('Holat yangilandi', 'success');
+    loadHotelRooms();
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+// ── Hotel Bookings ────────────────────────────────────────────────────────────
+let hbCurrentPage = 1, hbStatusVal = '';
+
+const HB_STATUS = {
+  pending:    { lbl:'Kutilmoqda',   cls:'badge-amber' },
+  confirmed:  { lbl:'Tasdiqlangan', cls:'badge-blue'  },
+  checked_in: { lbl:'Keldi',        cls:'badge-green'  },
+  checked_out:{ lbl:'Ketdi',        cls:'badge-gray'   },
+  cancelled:  { lbl:'Bekor',        cls:'badge-red'    },
+};
+const HB_NEXT = { pending:'confirmed', confirmed:'checked_in', checked_in:'checked_out' };
+const HB_NEXT_LBL = { pending:'Tasdiqlash', confirmed:"Ro'yxatdan o'tkazish", checked_in:'Chiqish' };
+
+async function loadHotelBookings() {
+  const search = document.getElementById('hbSearch')?.value || '';
+  const today  = new Date().toISOString().slice(0, 10);
+  const params = new URLSearchParams({ page: hbCurrentPage, page_size: 20 });
+  if (hbStatusVal) params.set('status', hbStatusVal);
+  if (search)      params.set('search', search);
+  try {
+    const data  = await apiFetch('/rooms/bookings/?' + params);
+    const items = data.items || [];
+    const total = data.total || 0;
+    document.getElementById('hbCheckins').textContent  = items.filter(b => b.check_in  === today && ['confirmed','pending'].includes(b.status)).length;
+    document.getElementById('hbCheckouts').textContent = items.filter(b => b.check_out === today && b.status === 'checked_in').length;
+    document.getElementById('hbActive').textContent    = items.filter(b => b.status === 'checked_in').length;
+    document.getElementById('hbPagInfo').textContent   = `${items.length} / ${total} ta`;
+    const body = document.getElementById('hbBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Bron topilmadi</td></tr>';
+    } else {
+      body.innerHTML = items.map(b => {
+        const st     = HB_STATUS[b.status] || { lbl: b.status, cls: '' };
+        const room   = b.room;
+        const nextSt = HB_NEXT[b.status];
+        const paid   = b.paid_amount || 0;
+        const debt   = (b.total_amount || 0) - paid;
+        return `<tr>
+          <td style="font-weight:700;color:var(--gold)">${room ? room.number : '—'}<div style="font-size:.75rem;color:var(--text2)">${room ? ROOM_TYPE_LBL[room.room_type]||'' : ''}</div></td>
+          <td><div style="font-weight:600">${b.guest_name}</div><div style="font-size:.75rem;color:var(--text2)">${b.guest_phone||''}</div></td>
+          <td style="font-size:.8125rem">${b.check_in}</td>
+          <td style="font-size:.8125rem">${b.check_out}</td>
+          <td style="text-align:center">${b.nights}</td>
+          <td><div style="font-weight:600">${fmtMoney(b.total_amount)} UZS</div>${debt > 0 ? `<div style="font-size:.75rem;color:var(--danger)">Qarzdor: ${fmtMoney(debt)}</div>` : `<div style="font-size:.75rem;color:var(--success)">To'langan</div>`}</td>
+          <td><span class="badge ${st.cls}">${st.lbl}</span></td>
+          <td class="td-actions">
+            ${nextSt ? `<button class="act-btn" title="${HB_NEXT_LBL[b.status]}" onclick="hbNextStatus(${b.id},'${nextSt}')">›</button>` : ''}
+            ${b.status !== 'cancelled' && b.status !== 'checked_out' ? `<button class="act-btn" title="Bekor qilish" onclick="hbCancel(${b.id})" style="color:var(--danger)">✕</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    document.getElementById('hbPrevBtn').disabled = hbCurrentPage <= 1;
+    document.getElementById('hbNextBtn').disabled = items.length < 20;
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+function hbApplyFilter() { hbStatusVal = document.getElementById('hbFilter')?.value||''; hbCurrentPage=1; loadHotelBookings(); }
+function hbPage(dir)     { hbCurrentPage = Math.max(1, hbCurrentPage + dir); loadHotelBookings(); }
+
+async function hbNextStatus(id, newStatus) {
+  try {
+    const res = await fetch(`${API_BASE}/rooms/bookings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    toast(HB_STATUS[newStatus]?.lbl + ' holatiga o\'tkazildi', 'success');
+    loadHotelBookings();
+    updateHotelBadge();
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+async function hbCancel(id) {
+  try {
+    const res = await fetch(`${API_BASE}/rooms/bookings/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization':'Bearer '+token }
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    toast('Bron bekor qilindi', 'success');
+    loadHotelBookings();
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+async function updateHotelBadge() {
+  try {
+    const data = await apiFetch('/rooms/?status=occupied&page_size=1');
+    const cnt  = data.total || 0;
+    const badge = document.getElementById('hotelBadge');
+    if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
+  } catch {}
+}
+

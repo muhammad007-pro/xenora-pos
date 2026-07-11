@@ -225,3 +225,96 @@ async function updateAutoDebtBadge() {
   } catch {}
 }
 
+
+/* ── Xizmat buyurtmalari (jurnal klasteri, refaktoring 3-bo'lak) ── */
+// ── Service Orders (auto_service) ────────────────────────────────────────────
+let svcOrderPage = 1, svcOrderStatus = '';
+
+const SO_STATUS = {
+  pending:     { lbl:'Kutilmoqda', cls:'badge-amber' },
+  in_progress: { lbl:'Jarayonda',  cls:'badge-blue'  },
+  done:        { lbl:'Tayyor',     cls:'badge-green'  },
+  delivered:   { lbl:'Topshirildi',cls:'badge-gray'   },
+};
+
+async function loadServiceOrders() {
+  const search = document.getElementById('soSearch')?.value || '';
+  const params = new URLSearchParams({ page: svcOrderPage, page_size: 20 });
+  if (svcOrderStatus) params.set('status', svcOrderStatus);
+  try {
+    const data  = await apiFetch('/vehicles/orders/?' + params);
+    const items = data.items || [];
+    const total = data.total || 0;
+    document.getElementById('soTotal').textContent  = total;
+    document.getElementById('soPending').textContent = items.filter(o => o.status === 'pending').length;
+    document.getElementById('soInProg').textContent  = items.filter(o => o.status === 'in_progress').length;
+    document.getElementById('soDone').textContent    = items.filter(o => o.status === 'done').length;
+    document.getElementById('soPagInfo').textContent = `${items.length} / ${total} ta`;
+    const body = document.getElementById('soBody');
+    const searchLow = search.toLowerCase();
+    const filtered  = search ? items.filter(o =>
+      (o.order_number||'').toLowerCase().includes(searchLow) ||
+      (o.description||'').toLowerCase().includes(searchLow)
+    ) : items;
+    if (!filtered.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Buyurtma topilmadi</td></tr>';
+    } else {
+      body.innerHTML = filtered.map(o => {
+        const st = SO_STATUS[o.status] || { lbl: o.status, cls: '' };
+        const nextFlow = { pending:'in_progress', in_progress:'done', done:'delivered' };
+        const nextKey  = nextFlow[o.status];
+        const nextLbl  = nextKey ? (SO_STATUS[nextKey]?.lbl || nextKey) : null;
+        return `<tr>
+          <td style="font-weight:700;color:var(--gold)">${o.order_number || '#' + o.id}</td>
+          <td style="font-size:.8125rem">${o.vehicle?.plate_number ? `<span style="font-family:monospace;font-weight:600">${o.vehicle.plate_number}</span><span style="color:var(--text2);font-size:.75rem;margin-left:.25rem">${[o.vehicle.brand,o.vehicle.model].filter(Boolean).join(' ')}</span>` : '—'}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.description || '—'}</td>
+          <td style="font-weight:600;white-space:nowrap">${fmtMoney(o.total_amount)} UZS</td>
+          <td><span class="badge ${st.cls}">${st.lbl}</span></td>
+          <td style="font-size:.75rem;color:var(--text2)">${(o.created_at||'').slice(0,10)}</td>
+          <td class="td-actions">
+            ${nextLbl ? `<button class="act-btn" title="${nextLbl}" onclick="soNextStatus(${o.id},'${nextKey}')">›</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    document.getElementById('svoPrevBtn').disabled = svcOrderPage <= 1;
+    document.getElementById('svoNextBtn').disabled = items.length < 20;
+    const badge = document.getElementById('serviceBadge');
+    const activeCnt = items.filter(o => o.status === 'pending' || o.status === 'in_progress').length;
+    if (badge) { badge.textContent = activeCnt; badge.style.display = activeCnt > 0 ? '' : 'none'; }
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+function soApplyFilter() {
+  svcOrderStatus = document.getElementById('soFilter')?.value || '';
+  svcOrderPage = 1;
+  loadServiceOrders();
+}
+function svcOrderGo(dir) { svcOrderPage = Math.max(1, svcOrderPage + dir); loadServiceOrders(); }
+
+async function soNextStatus(id, newStatus) {
+  try {
+    const res = await fetch(`${API_BASE}/vehicles/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Xatolik'); }
+    toast(SO_STATUS[newStatus]?.lbl + ' holatiga o\'tkazildi', 'success');
+    loadServiceOrders();
+    updateServiceBadge();
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+async function updateServiceBadge() {
+  try {
+    const [p, ip] = await Promise.all([
+      apiFetch('/vehicles/orders/?status=pending&page_size=1'),
+      apiFetch('/vehicles/orders/?status=in_progress&page_size=1'),
+    ]);
+    const cnt = (p.total || 0) + (ip.total || 0);
+    const badge = document.getElementById('serviceBadge');
+    if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
+  } catch {}
+}
+

@@ -199,3 +199,92 @@ async function loadDryPayments() {
 }
 
 
+
+/* ── Tozalash jurnali (jurnal klasteri, refaktoring 3-bo'lak) ── */
+// ── Cleaning journal (dry_cleaning) ──────────────────────────────────────────
+let clCurrentPage = 1, clStatusVal = '';
+
+const CL_STATUS = {
+  pending:   { lbl:'Qabul qilindi', cls:'badge-amber' },
+  preparing: { lbl:'Tozalanmoqda', cls:'badge-blue'  },
+  ready:     { lbl:'Tayyor',        cls:'badge-green'  },
+  completed: { lbl:'Topshirildi',   cls:'badge-gray'   },
+  cancelled: { lbl:'Bekor',         cls:'badge-red'    },
+};
+const CL_NEXT = { pending:'preparing', preparing:'ready', ready:'completed' };
+const CL_NEXT_LBL = { pending:'Tozalashga olib ketildi', preparing:'Tayyor', ready:'Topshirildi' };
+
+async function loadCleaning() {
+  const search = document.getElementById('clSearch')?.value || '';
+  const params = new URLSearchParams({ page: clCurrentPage, page_size: 20, has_cleaning: 'true' });
+  if (clStatusVal) params.set('status', clStatusVal);
+  if (search)      params.set('search', search);
+  try {
+    const data  = await apiFetch('/orders/?' + params);
+    const items = data.items || [];
+    const total = data.total || 0;
+    document.getElementById('clTotal').textContent    = total;
+    document.getElementById('clPending').textContent  = items.filter(o => o.status === 'pending').length;
+    document.getElementById('clPreparing').textContent = items.filter(o => o.status === 'preparing').length;
+    document.getElementById('clReady').textContent    = items.filter(o => o.status === 'ready').length;
+    document.getElementById('clPagInfo').textContent  = `${items.length} / ${total} ta`;
+    const body = document.getElementById('clBody');
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Buyurtma topilmadi</td></tr>';
+    } else {
+      body.innerHTML = items.map(o => {
+        const meta   = o.biz_meta || {};
+        const date   = new Date(o.created_at).toLocaleDateString('uz-UZ', { day:'2-digit', month:'2-digit', year:'numeric' });
+        const st     = CL_STATUS[o.status] || { lbl: o.status, cls: '' };
+        const nextSt = CL_NEXT[o.status];
+        const items_list = (o.items || []).map(i => i.product_name || i.name || '').filter(Boolean).join(', ');
+        return `<tr>
+          <td style="font-size:.75rem;color:var(--text2);white-space:nowrap">${date}</td>
+          <td style="font-weight:700;color:var(--gold)">#${o.order_number}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${meta.cleaning_items || items_list}">${meta.cleaning_items || items_list || '—'}</td>
+          <td style="font-size:.8125rem;color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${meta.cleaning_notes || '—'}</td>
+          <td style="font-weight:600;white-space:nowrap">${fmtMoney(o.final_amount)} UZS</td>
+          <td><span class="badge ${st.cls}">${st.lbl}</span></td>
+          <td class="td-actions">
+            ${nextSt ? `<button class="act-btn" title="${CL_NEXT_LBL[o.status]}" onclick="clNextStatus(${o.id},'${nextSt}')">›</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    document.getElementById('clPrevBtn').disabled = clCurrentPage <= 1;
+    document.getElementById('clNextBtn').disabled = items.length < 20;
+    const activeCnt = items.filter(o => o.status === 'pending' || o.status === 'preparing').length;
+    const badge = document.getElementById('cleaningBadge');
+    if (badge) { badge.textContent = activeCnt; badge.style.display = activeCnt > 0 ? '' : 'none'; }
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+function clApplyFilter() { clStatusVal = document.getElementById('clFilter')?.value || ''; clCurrentPage = 1; loadCleaning(); }
+function clPage(dir)     { clCurrentPage = Math.max(1, clCurrentPage + dir); loadCleaning(); }
+
+async function clNextStatus(id, newStatus) {
+  try {
+    const res = await fetch(`${API_BASE}/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Xatolik'); }
+    toast(CL_STATUS[newStatus]?.lbl + ' holatiga o\'tkazildi', 'success');
+    loadCleaning();
+    updateCleaningBadge();
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+async function updateCleaningBadge() {
+  try {
+    const [p, pr] = await Promise.all([
+      apiFetch('/orders/?has_cleaning=true&status=pending&page_size=1'),
+      apiFetch('/orders/?has_cleaning=true&status=preparing&page_size=1'),
+    ]);
+    const cnt = (p.total || 0) + (pr.total || 0);
+    const badge = document.getElementById('cleaningBadge');
+    if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
+  } catch {}
+}
+

@@ -15,7 +15,9 @@ DEFAULT_SUPERUSER_PASSWORD = "admin4770"
 class Settings(BaseSettings):
     # ── Loyiha ──────────────────────────────────────────────────────────────
     PROJECT_NAME: str = "RestoPOS"
-    VERSION: str = "1.0.0"
+    # Backend versiya — yagona manba. /health va / (root) shu qiymatni qaytaradi
+    # (hardcoded literal emas). Frontend SW cache versiyasi bilan mos yuritiladi.
+    VERSION: str = "1.0.3"
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = False
     ENVIRONMENT: str = "development"  # development | staging | production

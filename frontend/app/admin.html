@@ -3885,6 +3885,9 @@ tbody tr:hover{background:rgba(212,180,108,.04)!important}
 
 <div id="toasts"></div>
 
+<!-- Umumiy pul formati (vergulli) — window.fmtMoney/parseMoney/attachMoneyInput.
+     Modul EMAS, inline skriptdan oldin yuklanadi (global funksiyalar tayyor bo'lsin). -->
+<script src="../js/core/money.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
@@ -3910,7 +3913,8 @@ function toast(msg, type='info', dur=3500) {
 }
 
 // ── Format ────────────────────────────────────────────────────────────────────
-function fmtMoney(n) { return Math.round(n||0).toLocaleString('uz-UZ'); }
+// fmtMoney — umumiy money.js dan (window.fmtMoney, vergulli). Bu yerda qayta
+// aniqlanmaydi: barcha sahifa bir xil formatda bo'lsin (ilgari 'uz-UZ' bo'sh joy edi).
 function fmtDate(d)  { return new Date(d).toLocaleString('uz-UZ',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

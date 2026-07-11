@@ -72,18 +72,24 @@ async def get_products(
 @router.get("/all", response_model=List[ProductInDB])
 async def get_all_products(
     category_id: Optional[int] = None,
+    limit: int = Query(5000, ge=1, le=10000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Barcha mahsulotlarni paginatsiyasiz olish"""
+    """Barcha mahsulotlarni paginatsiyasiz olish (POS offline katalog).
+
+    C5: cheksiz emas — xavfsizlik uchun yuqori chegara (max 10000). POS offline
+    uchun bir so'rovda butun katalog kerak, lekin patologik katta katalog (buzilgan
+    import) server/klientni cho'ktirmasin. Amaliy do'kon katalogi bu chegaradan past.
+    """
     query = db.query(Product).filter(Product.is_active == True, Product.is_available == True)
     # BOSQICH 1.5: tenant bo'yicha cheklash
     query = apply_tenant_filter(query, Product, current_user)
 
     if category_id:
         query = query.filter(Product.category_id == category_id)
-    
-    products = query.order_by(Product.name).all()
+
+    products = query.order_by(Product.name).limit(limit).all()
     return [ProductInDB.model_validate(p) for p in products]
 
 @router.post("/", response_model=ProductInDB)

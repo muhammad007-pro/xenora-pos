@@ -25,7 +25,11 @@ body {
 }
 
 [data-theme="dark"] body {
-  color: var(--gray-50);
+  /* Dark rejimda kulrang shkala teskari bo'ladi: --gray-900 = #ecf6ef (och),
+     --gray-50 = #061b13 (to'q). Ilgari matn --gray-50 (to'q) ga o'rnatilib,
+     to'q fonda KO'RINMAY qolardi. --gray-900 (och) matn to'g'ri kontrast beradi.
+     Bu ildiz tuzatish — barcha sahifaga (admin, ombor, hisobot, sozlama) ta'sir qiladi. */
+  color: var(--gray-900);
   background: var(--secondary);
 }
 

@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime, Date,
-    ForeignKey, Text, Enum, JSON, BigInteger, Table, UniqueConstraint
+    ForeignKey, Text, Enum, JSON, BigInteger, Table, UniqueConstraint, Index
 )
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
@@ -168,6 +168,8 @@ class Product(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "barcode", name="uq_products_tenant_barcode"),
         UniqueConstraint("tenant_id", "sku", name="uq_products_tenant_sku"),
+        # Katalogni kategoriya bo'yicha filtrlash (tenant ichida) tez ishlashi uchun.
+        Index("ix_products_tenant_category", "tenant_id", "category_id"),
     )
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("cafes.id"), nullable=True, index=True)  # BOSQICH 1.5
@@ -228,6 +230,12 @@ class Table(Base):
 
 class Order(Base):
     __tablename__ = "orders"
+    __table_args__ = (
+        # Hisobot (sana oralig'i) va status bo'yicha filtr tenant ichida tez ishlashi uchun.
+        # order_by created_at DESC ham shu indeksdan foydalanadi.
+        Index("ix_orders_tenant_created", "tenant_id", "created_at"),
+        Index("ix_orders_tenant_status", "tenant_id", "status"),
+    )
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("cafes.id"), nullable=True, index=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
@@ -264,6 +272,9 @@ class Order(Base):
     preparing_started_at = Column(DateTime(timezone=True), nullable=True)  # KDS timer
     # Oshxona 2-bosqich: retsept inventar chiqimi bir marta bo'lsin (reopen→qayta-ready ikki marta chiqim qilmasin)
     ingredients_deducted = Column(Boolean, default=False)
+    # Refund/qaytarishda ombor bir marta tiklansin (idempotent — ikki marta refund
+    # bir xil zaxirani ikki marta qaytarib qo'ymasin). deduct ning teskarisi.
+    ingredients_restored = Column(Boolean, default=False)
     # OFD fiskal integratsiya
     fiscal_number   = Column(Integer,  nullable=True, index=True)   # OFD dan kelgan chek raqami
     fiscal_qr_url   = Column(String(500), nullable=True)             # consumer.invoice.uz QR URL

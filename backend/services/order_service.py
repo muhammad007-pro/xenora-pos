@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, time
@@ -101,6 +101,9 @@ class OrderService:
         if getattr(order_data, 'cleaning_items', None):
             biz_meta['cleaning_items'] = order_data.cleaning_items
             biz_meta['cleaning_notes'] = order_data.cleaning_notes
+        # C1: POS savatcha snapshot — held qayta ochilganda modifikator/og'irlik tiklanadi.
+        if getattr(order_data, 'cart_snapshot', None):
+            biz_meta['cart'] = order_data.cart_snapshot
 
         # Z-hisobot: buyurtmani kassirning joriy ochiq smenasiga bog'lash.
         active_shift = self.db.query(Shift).filter(
@@ -260,7 +263,16 @@ class OrderService:
     
     def get_orders(self, page: int, page_size: int, current_user: Optional[User] = None, **filters):
         """Buyurtmalarni filtrlash"""
-        query = self.db.query(Order)
+        # N+1 oldini olish: har buyurtma uchun items/payments/waiter/shift ni alohida
+        # so'rov qilmasdan oldindan yuklaymiz (_enrich_order va OrderInDB shularni o'qiydi).
+        # items/payments — kolleksiya → selectinload (bitta qo'shimcha IN so'rov, dekart
+        # ko'paytmasi bo'lmaydi); waiter/shift.register — bir-bir → joinedload.
+        query = self.db.query(Order).options(
+            selectinload(Order.items),
+            selectinload(Order.payments),
+            joinedload(Order.waiter),
+            joinedload(Order.shift).joinedload(Shift.register),
+        )
 
         # BOSQICH 1.5: tenant bo'yicha cheklash
         if current_user is not None:

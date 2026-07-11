@@ -119,12 +119,6 @@ async def clean_old_notifications():
         db.close()
 
 
-async def update_inventory_from_orders():
-    """Buyurtmalar asosida omborni yangilash"""
-    # TODO: Implement
-    pass
-
-
 async def check_expired_tenants():
     """Obuna muddati tugagan tenantlarni avtomatik bloklash."""
     from database import SessionLocal
@@ -162,7 +156,8 @@ def start_scheduler():
 
     scheduler.add_task("backup",              pg_backup,                   interval=86400)  # 24 soatda
     scheduler.add_task("clean_notifications", clean_old_notifications,     interval=3600)   # soatda
-    scheduler.add_task("update_inventory",    update_inventory_from_orders, interval=300)   # 5 daqiqada
+    # (B6) update_inventory vazifasi olib tashlandi — ombor chiqimi endi to'lov paytida
+    # real vaqtda (deduct_order_ingredients) bajariladi, davriy sync yo'li kerak emas edi.
     scheduler.add_task("check_expired_tenants", check_expired_tenants,     interval=3600,   # soatda
                        run_immediately=True)
     scheduler.start()

@@ -73,38 +73,13 @@ class InventoryService:
         self.db.commit()
         return True
     
-    def sync_inventory_from_orders(self) -> Dict[str, Any]:
-        """Buyurtmalar asosida omborni yangilash"""
-        # Tayyor buyurtmalardan mahsulotlarni olish
-        completed_orders = self.db.query(Order).filter(
-            Order.status == "completed",
-            Order.inventory_synced == False
-        ).all()
-        
-        synced_count = 0
-        products_updated = set()
-        
-        for order in completed_orders:
-            for item in order.items:
-                inventory = self.db.query(Inventory).filter(
-                    Inventory.product_id == item.product_id
-                ).first()
-                
-                if inventory:
-                    inventory.quantity -= item.quantity
-                    inventory.updated_at = datetime.now()
-                    products_updated.add(item.product_id)
-            
-            order.inventory_synced = True
-            synced_count += 1
-        
-        self.db.commit()
-        
-        return {
-            "synced_orders": synced_count,
-            "products_updated": len(products_updated)
-        }
-    
+    # OLIB TASHLANDI (B6): sync_inventory_from_orders — ikkinchi, xavfli chiqim yo'li edi.
+    # Retseptni hisobga olmasdan xom item.quantity ni ayirar, tenant filtri YO'Q edi
+    # (product_id bo'yicha birinchi Inventory ni olardi — cross-tenant). Endi yagona,
+    # to'g'ri chiqim yo'li: to'lov paytida services.recipe_inventory_service.
+    # deduct_order_ingredients (Order.ingredients_deducted bilan idempotent, tenant-scoped).
+    # Ikki yo'l birga ishlasa ombor ikki marta kamayardi — shu bois butunlay olib tashlandi.
+
     def get_low_stock_alerts(self) -> List[Dict[str, Any]]:
         """Kam qolgan mahsulotlar haqida ogohlantirish"""
         results = self.db.query(
@@ -168,11 +143,47 @@ class InventoryService:
         
         return inventory
     
-    def get_stock_movements(self, date_from: Optional[datetime] = None, 
-                           date_to: Optional[datetime] = None) -> List[Dict]:
-        """Ombor harakatlari tarixi"""
-        # TODO: StockMovement jadvalidan olish
-        return []
+    def get_stock_movements(self, date_from: Optional[datetime] = None,
+                           date_to: Optional[datetime] = None,
+                           product_id: Optional[int] = None,
+                           tenant_id: Optional[int] = None,
+                           limit: int = 500) -> List[Dict]:
+        """Ombor harakatlari tarixi — StockMovement jadvalidan (C3).
+
+        tenant_id berilsa faqat shu tenant harakatlari (izolyatsiya). Eng yangi
+        harakatlar birinchi. limit — katta tarixda og'irlashmaslik uchun.
+        """
+        from models import StockMovement
+
+        query = self.db.query(StockMovement)
+        if tenant_id is not None:
+            query = query.filter(StockMovement.tenant_id == tenant_id)
+        if product_id is not None:
+            query = query.filter(StockMovement.product_id == product_id)
+        if date_from:
+            query = query.filter(StockMovement.created_at >= date_from)
+        if date_to:
+            query = query.filter(StockMovement.created_at <= date_to)
+
+        movements = query.order_by(StockMovement.created_at.desc()).limit(limit).all()
+
+        return [
+            {
+                "id": m.id,
+                "product_id": m.product_id,
+                "movement_type": m.movement_type,
+                "quantity": m.quantity,
+                "unit": m.unit,
+                "unit_cost": m.unit_cost,
+                "total_cost": m.total_cost,
+                "reason": m.reason,
+                "reference_id": m.reference_id,
+                "reference_type": m.reference_type,
+                "user_id": m.user_id,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in movements
+        ]
     
     def predict_restock_date(self, product_id: int) -> Dict[str, Any]:
         """Qayta buyurtma berish sanasini bashorat qilish"""

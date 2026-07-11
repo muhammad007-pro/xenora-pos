@@ -1108,6 +1108,14 @@ function buildOrderPayload() {
       sessions_count: i._sessions    || null,
       modifiers     : (i.modifiers || []).map(m => ({ modifier_id: m.modifier_id, name: m.name, price_delta: m.price_delta })),
     })),
+    // C1: savatcha snapshot — held qayta ochilganda modifikator/og'irlik to'liq
+    // tiklanadi (biz_meta['cart']). Serverdagi summaga ta'sir qilmaydi.
+    cart_snapshot   : state.cart.map(i => ({
+      id: i.id, name: i.name, price: i.price, qty: i.qty,
+      _modKey: i._modKey || '', modifiers: i.modifiers || [], modLabel: i.modLabel || null,
+      _weight: i._weight ?? null, _unit: i._unit || null, _unitPrice: i._unitPrice ?? null,
+      course_number: i.course_number || 1,
+    })),
     discount_type   : state.discount.value > 0 ? state.discount.type : null,
     discount_value  : state.discount.value || null,
     total_amount    : t.sub,
@@ -1366,6 +1374,11 @@ document.getElementById('printReceiptBtn').addEventListener('click', () => {
 document.getElementById('holdBtn').addEventListener('click', async () => {
   if (!state.cart.length) return;
 
+  // C2: reopen qilingan held (pendingOrderId) qayta saqlansa — eski pending
+  // dublikat qolmasligi kerak. Yangi zakaz muvaffaqiyatli yaratilgach eskisini
+  // bekor qilamiz (yangilangan savatcha bilan bitta held qoladi).
+  const reopenedId = state.pendingOrderId;
+
   // Tarmoq aniq yo'q → to'g'ridan-to'g'ri navbatga
   if (!navigator.onLine) {
     await syncEngine.queueOrder(buildOrderPayload());
@@ -1376,6 +1389,10 @@ document.getElementById('holdBtn').addEventListener('click', async () => {
 
   const res = await api.post('/orders/', buildOrderPayload());
   if (res && res.success && res.data && res.data.id) {
+    // C2: eski pending zakazni bekor qilish (dublikat bo'lmasin)
+    if (reopenedId && reopenedId !== res.data.id) {
+      try { await api.post(`/orders/${reopenedId}/cancel?reason=${encodeURIComponent('Qayta saqlandi')}`); } catch {}
+    }
     // Bu HOLD (kutish) — sotuv EMAS, to'lov qilinmagan. Zakaz "Kutilayotgan" ro'yxatida.
     toast('Buyurtma kutishga saqlandi', 'success');
   } else if (isOfflineResult(res)) {
@@ -1467,16 +1484,35 @@ async function reopenHeldOrder(orderId) {
   } catch {}
   if (!order || !order.items) { toast('Buyurtma topilmadi', 'error'); return; }
 
-  // Savatchani buyurtma elementlaridan tiklash
-  state.cart = order.items.map(it => ({
-    id: it.product_id,
-    name: it.product_name || prodNameById(it.product_id),
-    price: it.unit_price ?? it.price ?? 0,
-    qty: it.quantity ?? 1,
-    _modKey: '',
-    modifiers: [],
-    modLabel: null,
-  }));
+  // C1: savatchani to'liq tiklash. Saqlashda biz_meta.cart snapshot bo'lsa —
+  // undan (modifikator, og'irlik, narx aynan) tiklaymiz. Bo'lmasa (eski zakaz)
+  // buyurtma elementlaridan zaxira tiklash (modifikator/og'irliksiz).
+  const snap = order.biz_meta && Array.isArray(order.biz_meta.cart) ? order.biz_meta.cart : null;
+  if (snap && snap.length) {
+    state.cart = snap.map(i => ({
+      id: i.id,
+      name: i.name || prodNameById(i.id),
+      price: i.price ?? 0,
+      qty: i.qty ?? 1,
+      _modKey: i._modKey || '',
+      modifiers: i.modifiers || [],
+      modLabel: i.modLabel || null,
+      _weight: i._weight ?? null,
+      _unit: i._unit || null,
+      _unitPrice: i._unitPrice ?? null,
+      course_number: i.course_number || 1,
+    }));
+  } else {
+    state.cart = order.items.map(it => ({
+      id: it.product_id,
+      name: it.product_name || prodNameById(it.product_id),
+      price: it.unit_price ?? it.price ?? 0,
+      qty: it.quantity ?? 1,
+      _modKey: '',
+      modifiers: [],
+      modLabel: null,
+    }));
+  }
   state.pendingOrderId = orderId;   // to'lov shu buyurtmani yakunlaydi (dublikat emas)
   closeModal('heldModal');
   renderCart();

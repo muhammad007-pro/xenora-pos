@@ -186,6 +186,18 @@ async def update_user(
     
     update_data = user_data.model_dump(exclude_unset=True)
 
+    # Username o'zgarsa — unikallik TENANT ICHIDA tekshiriladi (create bilan izchil).
+    # Ilgari tekshiruvsiz setattr qilinar, DB constraint (uq tenant_id+username) 500
+    # berardi. Endi aniq 400 qaytaramiz. tenant_id o'zgartirilmaydi → user.tenant_id.
+    if "username" in update_data and update_data["username"]:
+        clash = db.query(User).filter(
+            User.username == update_data["username"],
+            User.tenant_id == user.tenant_id,
+            User.id != user.id,
+        ).first()
+        if clash:
+            raise HTTPException(status_code=400, detail="Bu username shu do'konda band")
+
     # Parol alohida yangilanadi
     if "password" in update_data:
         user.hashed_password = get_password_hash(update_data.pop("password"))

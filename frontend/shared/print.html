@@ -91,6 +91,7 @@
         <button onclick="window.close()" style="padding: 10px 20px;">Yopish</button>
     </div>
     
+    <script src="../js/core/money.js"></script>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get('type');
@@ -185,7 +186,8 @@
         }
         
         function formatMoney(amount) {
-            return amount?.toLocaleString('uz-UZ') + ' UZS' || '0 UZS';
+            // Umumiy money.js (vergulli) — chekda ham bir xil format (770,000 UZS).
+            return window.fmtMoney(amount) + ' UZS';
         }
         
         function getPaymentMethod(method) {

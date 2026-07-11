@@ -202,22 +202,41 @@ async def refund_payment(
         raise HTTPException(status_code=400, detail="Qaytarish summasi to'lov summasidan ko'p bo'lishi mumkin emas")
     
     success = payment_service.refund_payment(payment, refund_amount, reason)
-    
+
     if success:
         # Buyurtma holatini yangilash
         order = payment.order
         if refund_amount == payment.amount:
             payment.status = "refunded"
-        
+
         # Agar barcha to'lovlar qaytarilgan bo'lsa
         all_refunded = all(p.status == "refunded" for p in order.payments)
         if all_refunded and order.status == "completed":
             order.status = "cancelled"
-        
+
         db.commit()
-        
+
+        # ── Ombor tiklash (refund = sotuv chiqimining teskarisi) ──────────────
+        # Buyurtma to'liq qaytarilganda (barcha to'lov refund) va sotuvda ombor
+        # chiqim qilingan bo'lsa (ingredients_deducted) — omborni bir marta tiklaymiz.
+        # ingredients_restored guard: ikki marta refund bir xil zaxirani ikki marta
+        # qaytarib qo'ymaydi (idempotent). StockMovement(type=return, reason=refund) izi.
+        if all_refunded and order.ingredients_deducted and not order.ingredients_restored:
+            try:
+                from services.recipe_inventory_service import restore_order_ingredients
+                restore_order_ingredients(
+                    db, order.id,
+                    tenant_id=order.tenant_id,
+                    user_id=current_user.id,
+                )
+                order.ingredients_restored = True
+                db.commit()
+            except Exception as exc:
+                db.rollback()
+                log.warning("[INVENTORY] order=%s refund tiklash xatosi: %s", order.id, exc)
+
         return MessageResponse(message="To'lov qaytarildi")
-    
+
     raise HTTPException(status_code=500, detail="To'lovni qaytarishda xatolik")
 
 @router.get("/methods/summary")

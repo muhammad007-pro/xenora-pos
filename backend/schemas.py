@@ -363,6 +363,10 @@ class OrderCreate(BaseModel):
     # Kimyoviy tozalash
     cleaning_items: Optional[str] = None
     cleaning_notes: Optional[str] = None
+    # Savatcha snapshot (C1): held buyurtma qayta ochilganda modifikator/og'irlik
+    # to'liq tiklanishi uchun POS savatcha satrlari xom holda saqlanadi (biz_meta['cart']).
+    # Serverdagi summa hisobiga TA'SIR QILMAYDI — faqat qayta ochishda ko'rsatish uchun.
+    cart_snapshot: Optional[list] = None
 
 class OrderUpdate(BaseModel):
     status: Optional[str] = None

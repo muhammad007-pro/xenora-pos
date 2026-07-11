@@ -250,6 +250,8 @@ body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#0b291e 0%,#05160f 
 </div>
 
 <script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<!-- Umumiy pul formati (vergulli) — window.fmtMoney. Inline skriptdan oldin. -->
+<script src="../js/core/money.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
@@ -266,7 +268,9 @@ const api={
   raw:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}})
 };
 
-function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
+// Pul ko'rsatish umumiy money.js (window.fmtMoney, vergulli) orqali — barcha
+// sahifa bir xil formatda. fmtN nomi saqlanadi (chaqiruvchilarga tegilmaydi).
+function fmtN(n){return window.fmtMoney(n);}
 function fmtD(d){if(!d)return'—';return new Date(d).toLocaleDateString('uz-UZ');}
 
 // ── Dates ──────────────────────────────────────────────────────────────────────

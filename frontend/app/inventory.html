@@ -363,6 +363,8 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0a2419 0%,#05150e 
 </div>
 
 <script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<!-- Umumiy pul formati (vergulli) — window.fmtMoney/parseMoney/attachMoneyInput. -->
+<script src="../js/core/money.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
@@ -647,7 +649,7 @@ async function uploadProductImage(productId, file) {
 
 async function saveNewProduct() {
   const name  = document.getElementById('npName').value.trim();
-  const price = parseFloat(document.getElementById('npPrice').value);
+  const price = parseMoney(document.getElementById('npPrice').value);
   if (!name)               { showT('Nom kiriting', 'warning'); return; }
   if (!price || price <= 0) { showT('Sotuv narxini kiriting', 'warning'); return; }
 
@@ -668,7 +670,7 @@ async function saveNewProduct() {
 
     const payload = {
       name, price,
-      cost_price:  parseFloat(document.getElementById('npCost').value) || 0,
+      cost_price:  parseMoney(document.getElementById('npCost').value) || 0,
       barcode:     document.getElementById('npBarcode').value || null,
       category_id: parseInt(catId),
     };
@@ -707,6 +709,11 @@ function showT(msg,type='info'){
 }
 
 load();
+
+// Pul inputlariga jonli vergulli format (770000 → 770,000). type=number → text
+// avtomatik (money.js). Submit'da parseMoney bilan sof raqam olinadi.
+attachMoneyInput(document.getElementById('npPrice'));
+attachMoneyInput(document.getElementById('npCost'));
 </script>
 
 <!-- Skaner status o'zgarganda yengil pulse (vizual only, scan'ga tegmaydi) -->

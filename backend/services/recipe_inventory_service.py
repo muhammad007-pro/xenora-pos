@@ -232,3 +232,175 @@ def deduct_order_ingredients(
         results.append(result)
 
     return results
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TIKLASH (refund/qaytarish) — deduct ning teskarisi
+# Sotuv omborni kamaytirdi; to'liq qaytarish (refund) omborni qaytadan oshiradi.
+# StockMovement(movement_type="return", reason="refund") audit izi bilan.
+# Idempotentlik chaqiruvchida (Order.ingredients_restored) nazorat qilinadi.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def restore_recipe_ingredients(
+    db: Session,
+    product_id: int,
+    quantity: float,
+    tenant_id: Optional[int] = None,
+    order_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+) -> dict:
+    """Bitta order item uchun retsept ingredientlarini omborga QAYTARISH.
+
+    deduct_recipe_ingredients bilan bir xil miqdor hisobi (yield_pct → raw_qty),
+    lekin quantity ni ayirmasdan qo'shadi. Retseptsiz mahsulot bo'lsa — o'zini tiklaydi.
+    """
+    from models import Recipe, Inventory, StockMovement
+
+    recipe = db.query(Recipe).filter(
+        Recipe.product_id == product_id,
+    ).first()
+
+    if not recipe:
+        return _restore_product_directly(db, product_id, quantity, tenant_id, order_id, user_id)
+
+    restored = []
+    for item in recipe.items:
+        recipe_qty = item.quantity * quantity
+        ingredient = item.ingredient
+        yield_pct = (ingredient.yield_pct if ingredient and ingredient.yield_pct else None)
+        if yield_pct and 0 < yield_pct < 100:
+            raw_qty = recipe_qty / (yield_pct / 100)
+        else:
+            raw_qty = recipe_qty
+
+        inv_q = db.query(Inventory).filter(
+            Inventory.product_id == item.ingredient_id,
+        )
+        if tenant_id:
+            inv_q = inv_q.filter(Inventory.tenant_id == tenant_id)
+        inventory = inv_q.first()
+
+        if not inventory:
+            # Ombor yozuvi yo'q ingredient — tiklashga joy yo'q, o'tkazib yuboriladi.
+            continue
+
+        inventory.quantity += raw_qty
+        unit_cost = (ingredient.cost_price if ingredient else 0.0) or 0.0
+        db.add(StockMovement(
+            tenant_id=tenant_id,
+            product_id=item.ingredient_id,
+            inventory_id=inventory.id,
+            movement_type="return",
+            quantity=round(raw_qty, 6),
+            unit=inventory.unit or "kg",
+            unit_cost=unit_cost,
+            total_cost=round(unit_cost * raw_qty, 2),
+            reason="refund",
+            reference_id=order_id,
+            reference_type="order",
+            user_id=user_id,
+        ))
+        restored.append({
+            "ingredient_id": item.ingredient_id,
+            "restored": raw_qty,
+            "remaining": inventory.quantity,
+        })
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Recipe restore commit error: {e}")
+        return {"success": False, "restored": [], "warnings": [str(e)]}
+
+    return {"success": True, "restored": restored, "warnings": []}
+
+
+def _restore_product_directly(
+    db: Session,
+    product_id: int,
+    quantity: float,
+    tenant_id: Optional[int] = None,
+    order_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+) -> dict:
+    """Retseptsiz mahsulot (chakana tovar) omboriga to'g'ridan QAYTARISH.
+
+    _deduct_product_directly ning teskarisi — sotilgan miqdorni qaytadan qo'shadi
+    va StockMovement(movement_type="return") yozadi. Ombor yozuvi bo'lmasa o'tkaziladi.
+    """
+    from models import Inventory, Product, StockMovement
+
+    inv_q = db.query(Inventory).filter(Inventory.product_id == product_id)
+    if tenant_id:
+        inv_q = inv_q.filter(Inventory.tenant_id == tenant_id)
+    inventory = inv_q.first()
+
+    if not inventory:
+        return {"success": True, "restored": [], "warnings": []}
+
+    inventory.quantity += quantity
+    product = db.query(Product).filter(Product.id == product_id).first()
+    unit_cost = (product.cost_price if product else 0.0) or 0.0
+    db.add(StockMovement(
+        tenant_id=tenant_id,
+        product_id=product_id,
+        inventory_id=inventory.id,
+        movement_type="return",
+        quantity=quantity,
+        unit=inventory.unit or "dona",
+        unit_cost=unit_cost,
+        total_cost=round(unit_cost * quantity, 2),
+        reason="refund",
+        reference_id=order_id,
+        reference_type="order",
+        user_id=user_id,
+    ))
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Direct product restore commit error: {e}")
+        return {"success": False, "restored": [], "warnings": [str(e)]}
+
+    return {
+        "success": True,
+        "restored": [{"product_id": product_id, "restored": quantity, "remaining": inventory.quantity}],
+        "warnings": [],
+    }
+
+
+def restore_order_ingredients(
+    db: Session,
+    order_id: int,
+    tenant_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+) -> list:
+    """Butun buyurtma uchun sotuvda kamaygan omborni QAYTARISH (refund).
+
+    deduct_order_ingredients ning teskarisi. Idempotentlik chaqiruvchida
+    (Order.ingredients_restored flag) nazorat qilinishi SHART — bu funksiya
+    o'zi ikki marta chaqirilsa ombor ikki marta oshadi.
+    """
+    from models import Order
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        return []
+
+    results = []
+    for item in order.items:
+        result = restore_recipe_ingredients(
+            db=db,
+            product_id=item.product_id,
+            quantity=item.quantity,
+            tenant_id=tenant_id,
+            order_id=order_id,
+            user_id=user_id,
+        )
+        result["product_id"] = item.product_id
+        result["quantity"]   = item.quantity
+        results.append(result)
+
+    return results

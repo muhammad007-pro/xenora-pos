@@ -5,9 +5,18 @@ from typing import Optional, List
 from database import get_db
 from models import Role, Permission, User
 from schemas import RoleCreate, RoleUpdate, RoleInDB, PermissionInDB, PaginatedResponse, MessageResponse
-from deps import get_current_user, has_permission
+from deps import get_current_user, has_permission, get_current_superuser
 
 router = APIRouter()
+
+# DIQQAT: Rollar global (tenant_id ustuni yo'q) — barcha tenantlar bitta
+# rol jadvalidan foydalanadi. Shu sababli rolni O'ZGARTIRISH amallari
+# (yaratish/tahrirlash/o'chirish, ruxsat qo'shish/olib tashlash) faqat
+# platforma egasiga (super-admin) ruxsat etiladi. Aks holda `manage_roles`
+# ruxsatli tenant-admin global rolni o'zgartirsa, o'zgarish BARCHA tenantga
+# ta'sir qilardi (izolyatsiya buzilishi). Tenant-admin rollarni faqat
+# KO'RA oladi va xodimga TAYINLAY oladi (routers/user.py), lekin
+# rolning o'zini o'zgartira olmaydi.
 
 @router.get("/", response_model=List[RoleInDB])
 async def get_roles(
@@ -22,9 +31,9 @@ async def get_roles(
 async def create_role(
     role_data: RoleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(has_permission("manage_roles"))
+    current_user: User = Depends(get_current_superuser)
 ):
-    """Yangi rol yaratish"""
+    """Yangi rol yaratish (faqat super-admin — rollar global)"""
     existing = db.query(Role).filter(Role.name == role_data.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Bu nomdagi rol mavjud")
@@ -54,9 +63,9 @@ async def update_role(
     role_id: int,
     role_data: RoleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(has_permission("manage_roles"))
+    current_user: User = Depends(get_current_superuser)
 ):
-    """Rolni yangilash"""
+    """Rolni yangilash (faqat super-admin — rollar global)"""
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Rol topilmadi")
@@ -74,9 +83,9 @@ async def update_role(
 async def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(has_permission("manage_roles"))
+    current_user: User = Depends(get_current_superuser)
 ):
-    """Rolni o'chirish"""
+    """Rolni o'chirish (faqat super-admin — rollar global)"""
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Rol topilmadi")
@@ -104,9 +113,9 @@ async def add_permission_to_role(
     role_id: int,
     permission_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(has_permission("manage_roles"))
+    current_user: User = Depends(get_current_superuser)
 ):
-    """Rolga ruxsat qo'shish"""
+    """Rolga ruxsat qo'shish (faqat super-admin — rollar global)"""
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Rol topilmadi")
@@ -126,9 +135,9 @@ async def remove_permission_from_role(
     role_id: int,
     permission_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(has_permission("manage_roles"))
+    current_user: User = Depends(get_current_superuser)
 ):
-    """Roldan ruxsatni o'chirish"""
+    """Roldan ruxsatni o'chirish (faqat super-admin — rollar global)"""
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(status_code=404, detail="Rol topilmadi")

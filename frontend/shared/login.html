@@ -4,17 +4,18 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<meta name="theme-color" content="#d4b46c">
+<meta name="theme-color" content="#22c55e">
 <title>Kirish — XENORA</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 30px rgba(212,180,108,.3);
-  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
-  --border:rgba(212,180,108,.2);--border2:rgba(255,255,255,.08);
-  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
-  --success:#10b981;--danger:#ef4444;
+  --accent:#22c55e;--accent-lt:#34d399;--accent-dk:#0d9488;--accent-dim:rgba(34,197,94,.15);--accent-glow:0 0 30px rgba(34,197,94,.28);
+  --gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);--gold-glow:0 0 30px rgba(34,197,94,.3);
+  --bg:#070f1e;--bg2:#0f2038;--bg3:#0d1c33;
+  --border:rgba(120,160,220,.18);--border2:rgba(120,160,220,.10);
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#5d6f86;
+  --success:#22c55e;--danger:#ef4444;
   --r:0.625rem;--r2:1rem;--r3:1.5rem;
   --tr:200ms cubic-bezier(.4,0,.2,1);
 }
@@ -25,21 +26,21 @@ input{font-family:inherit;font-size:inherit}
 /* ── Background ── */
 .bg-grid{
   position:fixed;inset:0;
-  background-image:linear-gradient(rgba(212,180,108,.04) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(212,180,108,.04) 1px,transparent 1px);
+  background-image:linear-gradient(rgba(34,197,94,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(34,197,94,.04) 1px,transparent 1px);
   background-size:40px 40px;
   pointer-events:none;
 }
 .bg-glow{
   position:fixed;top:-20%;left:50%;transform:translateX(-50%);
   width:600px;height:600px;
-  background:radial-gradient(ellipse at center,rgba(212,180,108,.08) 0%,transparent 65%);
+  background:radial-gradient(ellipse at center,rgba(34,197,94,.08) 0%,transparent 65%);
   pointer-events:none;
 }
 .bg-glow2{
   position:fixed;bottom:-10%;right:-10%;
   width:400px;height:400px;
-  background:radial-gradient(ellipse at center,rgba(31,176,132,.06) 0%,transparent 65%);
+  background:radial-gradient(ellipse at center,rgba(34,197,94,.06) 0%,transparent 65%);
   pointer-events:none;
 }
 
@@ -58,25 +59,26 @@ input{font-family:inherit;font-size:inherit}
   padding:2.5rem;
   backdrop-filter:blur(26px) saturate(1.25);
   -webkit-backdrop-filter:blur(26px) saturate(1.25);
-  box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px rgba(212,180,108,.08),0 0 60px rgba(212,180,108,.12);
+  box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 1px rgba(34,197,94,.08),0 0 60px rgba(34,197,94,.12);
   position:relative;overflow:hidden;
 }
 .auth-card::before{
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(212,180,108,.5),transparent);
+  background:linear-gradient(90deg,transparent,rgba(34,197,94,.5),transparent);
 }
 
 /* ── Logo ── */
 .auth-logo{text-align:center;margin-bottom:2rem}
 .logo-icon{
-  width:72px;height:72px;border-radius:50%;
-  background:var(--gold-dim);border:2px solid rgba(212,180,108,.4);
+  width:80px;height:80px;
   position:relative;
   display:flex;align-items:center;justify-content:center;
-  margin:0 auto 1rem;font-size:2rem;
-  box-shadow:0 0 24px rgba(212,180,108,.2);
+  margin:0 auto 1rem;
+  filter:drop-shadow(0 10px 26px rgba(34,197,94,.30)) drop-shadow(0 2px 6px rgba(0,0,0,.28));
 }
-.auth-title{font-size:1.625rem;font-weight:800;color:var(--gold);letter-spacing:-.02em;margin-bottom:.25rem}
+.logo-icon img{width:100%;height:100%;display:block}
+.auth-title{font-family:'Sora','Inter',sans-serif;font-size:1.7rem;font-weight:800;color:var(--text);letter-spacing:1px;margin-bottom:.25rem}
+.auth-title .x{color:var(--accent-lt)}
 .auth-sub{font-size:.875rem;color:var(--text2)}
 
 /* ── Tabs ── */
@@ -85,7 +87,7 @@ input{font-family:inherit;font-size:inherit}
   flex:1;padding:.5rem;text-align:center;border-radius:calc(var(--r) - 2px);
   font-size:.875rem;font-weight:500;color:var(--text2);transition:all var(--tr);
 }
-.tab-btn.active{background:var(--gold-dim);color:var(--gold);font-weight:600}
+.tab-btn.active{background:var(--accent-dim);color:var(--accent);font-weight:600}
 
 /* ── Form ── */
 .form-group{margin-bottom:1.125rem}
@@ -96,7 +98,7 @@ input{font-family:inherit;font-size:inherit}
   border-radius:var(--r2);overflow:hidden;
   transition:border-color var(--tr),box-shadow var(--tr);
 }
-.input-wrap:focus-within{border-color:rgba(212,180,108,.5);box-shadow:0 0 0 3px rgba(212,180,108,.08)}
+.input-wrap:focus-within{border-color:rgba(34,197,94,.5);box-shadow:0 0 0 3px rgba(34,197,94,.08)}
 .input-icon{width:44px;height:48px;display:flex;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0}
 .form-input{
   flex:1;height:48px;padding:0 .875rem 0 0;
@@ -108,7 +110,7 @@ input{font-family:inherit;font-size:inherit}
   width:44px;height:48px;display:flex;align-items:center;justify-content:center;
   color:var(--text3);transition:color var(--tr);flex-shrink:0;
 }
-.toggle-pass:hover{color:var(--gold)}
+.toggle-pass:hover{color:var(--accent)}
 .input-error{display:none;font-size:.75rem;color:var(--danger);margin-top:.375rem;padding-left:.25rem}
 .input-wrap.has-error{border-color:rgba(239,68,68,.5)}
 .input-wrap.has-error+.input-error{display:block}
@@ -118,7 +120,7 @@ input{font-family:inherit;font-size:inherit}
   display:flex;justify-content:center;gap:.75rem;margin-bottom:1.25rem;
 }
 .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);transition:all .2s}
-.pin-dot.filled{background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(212,180,108,.5)}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px rgba(34,197,94,.5)}
 .pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.625rem;margin-bottom:1.25rem}
 .pin-key{
   aspect-ratio:1;background:var(--bg3);border:1px solid var(--border2);
@@ -126,7 +128,7 @@ input{font-family:inherit;font-size:inherit}
   display:flex;align-items:center;justify-content:center;
   transition:all var(--tr);
 }
-.pin-key:hover{background:var(--gold-dim);border-color:var(--gold);color:var(--gold)}
+.pin-key:hover{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
 .pin-key:active{transform:scale(.93)}
 .pin-key.pin-0{grid-column:2}
 .pin-key.pin-del{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:var(--danger);font-size:1rem}
@@ -141,24 +143,24 @@ input{font-family:inherit;font-size:inherit}
   background:var(--bg3);display:flex;align-items:center;justify-content:center;
   transition:all var(--tr);flex-shrink:0;
 }
-.check-wrap input:checked+.custom-check{background:var(--gold-dim);border-color:var(--gold)}
-.check-wrap input:checked+.custom-check::after{content:'✓';font-size:.625rem;color:var(--gold);font-weight:700}
+.check-wrap input:checked+.custom-check{background:var(--accent-dim);border-color:var(--accent)}
+.check-wrap input:checked+.custom-check::after{content:'✓';font-size:.625rem;color:var(--accent);font-weight:700}
 .forgot-link{font-size:.8125rem;color:var(--text2);transition:color var(--tr)}
-.forgot-link:hover{color:var(--gold)}
+.forgot-link:hover{color:var(--accent)}
 
 /* ── Submit ── */
 .btn-login{
   width:100%;padding:.875rem;border-radius:var(--r2);
-  background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);
-  color:#03110c;font-size:1rem;font-weight:700;letter-spacing:.02em;
+  background:linear-gradient(135deg,#16a34a,#22c55e,#16a34a);
+  color:#04160d;font-size:1rem;font-weight:700;letter-spacing:.02em;
   transition:all var(--tr);position:relative;overflow:hidden;
 }
-.btn-login:hover{box-shadow:var(--gold-glow);transform:translateY(-1px)}
+.btn-login:hover{box-shadow:var(--accent-glow);transform:translateY(-1px)}
 .btn-login:active{transform:scale(.98)}
 .btn-login:disabled{opacity:.5;pointer-events:none}
 .btn-login .spinner{
   display:none;width:20px;height:20px;border:2px solid rgba(7,7,15,.3);
-  border-top-color:#03110c;border-radius:50%;animation:spin .7s linear infinite;
+  border-top-color:#04160d;border-radius:50%;animation:spin .7s linear infinite;
   margin:0 auto;
 }
 .btn-login.loading .btn-text{display:none}
@@ -185,28 +187,24 @@ input{font-family:inherit;font-size:inherit}
    Auth/forma/JS tegilmaydi. auth-wrap z-index:1 → forma har doim ustda.
    ═══════════════════════════════════════════════════════════════ */
 /* deeper cinematic body ramp */
-body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 46%,#03110c 100%)}
+body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 46%,#04160d 100%)}
 
 /* ── Atmosphere layer (fixed, behind the card) ── */
 .login-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
-.login-atmos::before{ /* faint girih star texture */
-  content:'';position:absolute;inset:0;opacity:.04;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='68' height='68'%3E%3Cpath d='M34 5l7 22 22 7-22 7-7 22-7-22-22-7 22-7z' fill='none' stroke='%23d4b46c' stroke-width='1'/%3E%3C/svg%3E");
-  background-size:68px 68px;
+.login-atmos::before{ /* koshin (o'zbek milliy naqsh) — nozik tile, dark .09 / light .16 */
+  content:'';position:absolute;inset:0;opacity:.09;
+  background:url('../styles/koshin-dark.svg') repeat;
+  background-size:132px 132px;
 }
-/* rotating girih mandala (16-fold) */
-.la-mandala{
-  position:absolute;top:50%;left:50%;width:165vmin;height:165vmin;
-  transform:translate(-50%,-50%);opacity:.07;
-  animation:laSpin 120s linear infinite;
-}
-.la-mandala svg{width:100%;height:100%;display:block}
+[data-theme="light"] .login-atmos::before{background-image:url('../styles/koshin-light.svg');opacity:.16}
+/* mandala OLIB TASHLANDI — koshin uni almashtiradi */
+.la-mandala{display:none}
 @keyframes laSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 /* breathing emerald + gold light blobs */
 .la-glow{position:absolute;border-radius:50%;filter:blur(70px);mix-blend-mode:screen;opacity:.5}
-.la-glow.g1{width:46vmin;height:46vmin;top:-10%;left:4%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:laBreathe 18s ease-in-out infinite}
+.la-glow.g1{width:46vmin;height:46vmin;top:-10%;left:4%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:laBreathe 18s ease-in-out infinite}
 .la-glow.g2{width:42vmin;height:42vmin;bottom:-12%;right:2%;background:radial-gradient(circle,#d4b46c,transparent 70%);animation:laBreathe 22s ease-in-out infinite 2s}
-.la-glow.g3{width:34vmin;height:34vmin;top:28%;right:22%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:laBreathe 16s ease-in-out infinite 1s}
+.la-glow.g3{width:34vmin;height:34vmin;top:28%;right:22%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:laBreathe 16s ease-in-out infinite 1s}
 .la-glow.g4{width:30vmin;height:30vmin;bottom:6%;left:16%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:laBreathe 20s ease-in-out infinite 3s}
 @keyframes laBreathe{0%,100%{transform:scale(.9);opacity:.3}50%{transform:scale(1.18);opacity:.6}}
 /* floating gold particles (built by isolated visual IIFE) */
@@ -224,12 +222,12 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 
 .logo-icon{animation:laLogoIn 1.1s cubic-bezier(.2,.8,.25,1) both}
 @keyframes laLogoIn{0%{opacity:0;transform:scale(.4) rotate(-28deg)}60%{opacity:1}100%{opacity:1;transform:none}}
 .logo-icon::after{ /* expanding light-ring burst on entrance */
-  content:'';position:absolute;inset:-2px;border-radius:50%;pointer-events:none;
+  content:'';position:absolute;inset:-2px;border-radius:24px;pointer-events:none;
   animation:laRing 1.7s ease-out .3s both;
 }
-@keyframes laRing{0%{box-shadow:0 0 0 0 rgba(212,180,108,.45)}100%{box-shadow:0 0 0 24px rgba(212,180,108,0)}}
+@keyframes laRing{0%{box-shadow:0 0 0 0 rgba(34,197,94,.45)}100%{box-shadow:0 0 0 24px rgba(34,197,94,0)}}
 .auth-title{animation:laTitleIn 1s ease .25s both}
-@keyframes laTitleIn{0%{opacity:0;letter-spacing:.55em;filter:blur(5px)}100%{opacity:1;letter-spacing:-.02em;filter:none}}
+@keyframes laTitleIn{0%{opacity:0;letter-spacing:.55em;filter:blur(5px)}100%{opacity:1;letter-spacing:1px;filter:none}}
 .auth-sub{animation:laFadeUp .8s ease .5s both}
 .auth-tabs{animation:laFadeUp .7s ease .58s both}
 #tabPassword{animation:laFadeUp .7s ease .68s both}
@@ -237,10 +235,10 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 
 
 /* ── Input focus: zumrad-tilla porlash ── */
 .input-wrap:focus-within{
-  border-color:rgba(212,180,108,.6);
-  box-shadow:0 0 0 3px rgba(212,180,108,.12),0 0 18px rgba(212,180,108,.16);
+  border-color:rgba(34,197,94,.6);
+  box-shadow:0 0 0 3px rgba(34,197,94,.12),0 0 18px rgba(34,197,94,.16);
 }
-.input-wrap:focus-within .input-icon{color:var(--gold)}
+.input-wrap:focus-within .input-icon{color:var(--accent)}
 
 /* ── Submit: hover sheen sweep ── */
 .btn-login::after{
@@ -264,7 +262,7 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 
 }
 
 /* ── Light mode (himoya — login hozir dark) ── */
-[data-theme="light"] body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#f4f0e4 0%,#e9f1ea 50%,#e2ebe4 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#ffffff 0%,#eef2f9 55%,#f4f6fb 100%)}
 [data-theme="light"] .la-mandala{opacity:.05}
 [data-theme="light"] .la-glow{mix-blend-mode:normal;opacity:.14;filter:blur(80px)}
 [data-theme="light"] .login-atmos::before{opacity:.05}
@@ -273,13 +271,13 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 
 /* ── Do'kon kodi bosqichi + do'kon nishoni (kod tizimi) ── */
 .store-badge{
   display:flex;align-items:center;justify-content:space-between;gap:.75rem;
-  background:var(--gold-dim);border:1px solid rgba(212,180,108,.3);border-radius:var(--r2);
+  background:var(--accent-dim);border:1px solid rgba(34,197,94,.3);border-radius:var(--r2);
   padding:.6875rem .9rem;margin-bottom:1.25rem;
 }
-.store-badge-info{display:flex;align-items:center;gap:.5rem;color:var(--gold);font-weight:700;font-size:.9375rem;min-width:0}
+.store-badge-info{display:flex;align-items:center;gap:.5rem;color:var(--accent);font-weight:700;font-size:.9375rem;min-width:0}
 .store-badge-info span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .change-store{background:none;border:none;color:var(--text2);font-size:.75rem;cursor:pointer;text-decoration:underline;padding:.25rem;white-space:nowrap;flex-shrink:0;font-family:inherit}
-.change-store:hover{color:var(--gold)}
+.change-store:hover{color:var(--accent)}
 #storeCodeInput{letter-spacing:.08em;font-variant-numeric:tabular-nums}
 #stepCode,#stepAuth{animation:laFadeUp .4s ease both}
 .code-hint{font-size:.75rem;color:var(--text3);margin-top:.5rem;text-align:center;line-height:1.4}
@@ -294,11 +292,11 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 
   padding:.4rem .5rem;transition:color var(--tr);opacity:.8;
 }
 .sa-link svg{width:14px;height:14px;flex-shrink:0}
-.sa-link:hover{color:var(--gold);opacity:1}
+.sa-link:hover{color:var(--accent);opacity:1}
 /* Platforma administratori nishoni (zumrad — do'kon nishonidan farqli) */
 .sa-badge{
   display:none;align-items:center;justify-content:space-between;gap:.75rem;
-  background:rgba(31,176,132,.1);border:1px solid rgba(31,176,132,.32);border-radius:var(--r2);
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.32);border-radius:var(--r2);
   padding:.6875rem .9rem;margin-bottom:1.25rem;
 }
 .sa-badge-info{display:flex;align-items:center;gap:.5rem;color:var(--success);font-weight:700;font-size:.9rem;min-width:0}
@@ -350,8 +348,8 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 
     <div class="version-tag" id="appVersion">v1.0.4</div>
 
     <div class="auth-logo">
-      <div class="logo-icon"><svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M24 2 L30 12 L42 12 L36 22 L42 32 L30 32 L24 42 L18 32 L6 32 L12 22 L6 12 L18 12 Z" fill="none" stroke="var(--accent-gold,#D4B46C)" stroke-width="1.4"/><path d="M24 9 L28 16 L36 16 L31 23 L33 31 L24 27 L15 31 L17 23 L12 16 L20 16 Z" fill="var(--accent-gold,#D4B46C)" opacity=".85"/><circle cx="24" cy="22" r="4" fill="var(--primary,#0E6B4F)" stroke="#EBD297" stroke-width="1"/></svg></div>
-      <div class="auth-title">XENORA</div>
+      <div class="logo-icon"><img src="../assets/icons/favicon.svg" alt="XENORA"></div>
+      <div class="auth-title"><span class="x">X</span>ENORA</div>
       <div class="auth-sub">Universal kassa tizimi</div>
     </div>
 

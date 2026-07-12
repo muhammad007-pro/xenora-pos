@@ -8,12 +8,12 @@
 <link rel="stylesheet" href="/css/main.css">
 <style>
 /* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
-:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
-[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+:root{--surface1:#0a1628;--surface2:#0f2038;--surface3:#16294a;--text1:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;--primary:#0d9488;--accent:#22c55e;--border:rgba(34,197,94,.18);--bg:#070f1e;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#eef2f9;--surface3:#e6ecf6;--text1:#0f2038;--text2:#5a6b82;--text3:#677689;--primary:#0a7d72;--accent:#0a7d72;--border:rgba(0,0,0,.1);--bg:#f4f6fb;}
 body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
 .layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
-.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
-.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#16a34a,#22c55e,#16a34a);color:#04160d;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(34,197,94,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
 .btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
 .inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
 </style>
@@ -31,8 +31,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
                    text-align:left; border-bottom:2px solid var(--border); white-space:nowrap; }
   .data-table td { padding:.5rem 1rem; border-bottom:1px solid var(--border); vertical-align:middle; }
   .data-table tr:hover td { background:var(--surface2); }
-  .card-number { font-family:monospace; font-size:.9rem; font-weight:700; color:#159a70; letter-spacing:.05em; }
-  .balance-val { font-weight:800; color:#10b981; }
+  .card-number { font-family:monospace; font-size:.9rem; font-weight:700; color:#0d9488; letter-spacing:.05em; }
+  .balance-val { font-weight:800; color:#22c55e; }
   .badge-active   { background:#d1fae5; color:#065f46; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
   .badge-inactive { background:#f3f4f6; color:#6b7280; padding:.2rem .5rem; border-radius:.375rem; font-size:.75rem; font-weight:700; }
   .action-btns { display:flex; gap:.375rem; flex-wrap:wrap; }
@@ -45,9 +45,9 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
   .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
   .tx-list    { max-height:320px; overflow-y:auto; }
   .tx-row     { display:flex; justify-content:space-between; align-items:center; padding:.5rem 0; border-bottom:1px solid var(--border); }
-  .tx-type-earn    { color:#10b981; font-weight:700; }
+  .tx-type-earn    { color:#22c55e; font-weight:700; }
   .tx-type-spend   { color:#ef4444; font-weight:700; }
-  .tx-type-manual  { color:#159a70; font-weight:700; }
+  .tx-type-manual  { color:#0d9488; font-weight:700; }
   .tx-type-expire  { color:#9ca3af; font-weight:700; }
   .lookup-bar { display:flex; gap:.5rem; margin-bottom:1.25rem; }
 </style>
@@ -70,11 +70,11 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Faol</div>
-        <div class="kpi-value" id="kpiActive" style="color:#10b981">—</div>
+        <div class="kpi-value" id="kpiActive" style="color:#22c55e">—</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Jami balans</div>
-        <div class="kpi-value" id="kpiBalance" style="color:#159a70">—</div>
+        <div class="kpi-value" id="kpiBalance" style="color:#0d9488">—</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Jami to'plangan</div>
@@ -176,7 +176,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
   <div class="modal-box" style="max-width:440px">
     <div class="modal-title">Ball sarflash — <span id="spendCardNum"></span></div>
     <input type="hidden" id="spendCardId">
-    <div id="spendBalance" style="font-size:1.5rem;font-weight:800;color:#10b981;margin-bottom:1rem"></div>
+    <div id="spendBalance" style="font-size:1.5rem;font-weight:800;color:#22c55e;margin-bottom:1rem"></div>
     <div class="form-row">
       <label class="form-label">Sarflanadigan ball *</label>
       <input class="inp" type="number" id="spendAmount" placeholder="500">
@@ -316,7 +316,7 @@ window.openEarn = function(id, num) {
   document.getElementById('earnAmount').oninput = function() {
     const amt = parseFloat(this.value) || 0;
     const ball = Math.round(amt * (card?.earn_rate||1) / 100 * 100) / 100;
-    document.getElementById('earnPreview').innerHTML = `<strong>${Number(amt).toLocaleString()} so'm</strong> xarid → <strong style="color:#10b981">+${ball.toFixed(2)} ball</strong>`;
+    document.getElementById('earnPreview').innerHTML = `<strong>${Number(amt).toLocaleString()} so'm</strong> xarid → <strong style="color:#22c55e">+${ball.toFixed(2)} ball</strong>`;
   };
 };
 

@@ -4,7 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#d4b46c">
+<meta name="theme-color" content="#22c55e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>POS Terminal — XENORA</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -19,11 +19,11 @@ a{text-decoration:none;color:inherit}
 
 /* ── Variables ── */
 :root{
-  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 20px rgba(212,180,108,.4);
-  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;
-  --border:rgba(212,180,108,.18);--border2:rgba(255,255,255,.08);
-  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
-  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
+  --gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);--gold-glow:0 0 20px rgba(34,197,94,.4);
+  --bg:#070f1e;--bg2:#0a1628;--bg3:#0f2038;--bg4:#16294a;
+  --border:rgba(34,197,94,.18);--border2:rgba(255,255,255,.08);
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;
+  --success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
   --r:0.625rem;--r2:1rem;--r3:1.5rem;
   --glass:rgba(26,26,46,.8);--glass2:rgba(18,18,30,.9);
   --tr:200ms cubic-bezier(.4,0,.2,1);
@@ -31,11 +31,11 @@ a{text-decoration:none;color:inherit}
 
 /* ── Light mode override ── */
 [data-theme="light"]{
-  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;--bg4:#e9ecef;
-  --border:rgba(201,168,76,.3);--border2:rgba(0,0,0,.1);
-  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
+  --bg:#f4f6fb;--bg2:#ffffff;--bg3:#eef2f9;--bg4:#e9ecef;
+  --border:rgba(34,197,94,.3);--border2:rgba(0,0,0,.1);
+  --text:#0f2038;--text2:#5a6b82;--text3:#677689;
   --glass:rgba(255,255,255,.85);--glass2:rgba(248,249,250,.95);
-  --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
+  --gold:#c9a84c;--gold-dim:rgba(34,197,94,.12);
 }
 
 /* Ildiz tuzatish (dark mode matn): main.css reset.css'da `[data-theme=dark] body`
@@ -48,7 +48,7 @@ a{text-decoration:none;color:inherit}
 #loadingScreen{position:fixed;inset:0;background:#03110C;display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s,visibility .4s}
 #loadingScreen.hidden{opacity:0;visibility:hidden}
 .ld-inner{text-align:center}
-.ld-logo{width:72px;height:72px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;filter:drop-shadow(0 0 14px rgba(31,176,132,.35))}
+.ld-logo{width:72px;height:72px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;filter:drop-shadow(0 0 14px rgba(34,197,94,.35))}
 .ld-title{font-size:1.6rem;font-weight:700;color:#EBD297;margin-bottom:.5rem;letter-spacing:.34em;text-indent:.34em}
 .ld-sub{color:var(--text2);font-size:.875rem;margin-bottom:1.5rem}
 .ld-bar{width:200px;height:3px;background:var(--bg4);border-radius:99px;overflow:hidden;margin:0 auto}
@@ -170,7 +170,7 @@ a{text-decoration:none;color:inherit}
 .btn{padding:.5625rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;transition:all var(--tr);display:flex;align-items:center;justify-content:center;gap:.5rem;color:var(--text)}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
 .btn-outline:hover{border-color:var(--gold);color:var(--gold)}
-.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-weight:700;border:none;flex:1}
+.btn-gold{background:linear-gradient(135deg,#16a34a,#22c55e,#16a34a);color:#04160d;font-weight:700;border:none;flex:1}
 .btn-gold:hover{box-shadow:var(--gold-glow);transform:translateY(-1px)}
 .btn-gold:active{transform:scale(.98)}
 .btn-gold:disabled{opacity:.5;pointer-events:none}
@@ -189,9 +189,9 @@ a{text-decoration:none;color:inherit}
 .barcode-input-wrap{flex:1;position:relative;max-width:360px}
 .barcode-input-wrap svg{position:absolute;left:.625rem;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
 #barcodeInput{width:100%;background:var(--bg3);border:1.5px solid var(--gold);border-radius:var(--r);padding:.4375rem .75rem .4375rem 2.25rem;color:var(--text);font-size:.9375rem;font-family:'JetBrains Mono',monospace;letter-spacing:.05em;outline:none;transition:border-color var(--tr)}
-#barcodeInput:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,180,108,.2)}
+#barcodeInput:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(34,197,94,.2)}
 #barcodeInput::placeholder{font-size:.8125rem;letter-spacing:0;font-family:'Inter',sans-serif;color:var(--text3)}
-.barcode-scan-badge{display:flex;align-items:center;gap:.375rem;padding:.375rem .75rem;border-radius:var(--r);background:rgba(212,180,108,.1);border:1px solid rgba(212,180,108,.3);font-size:.75rem;color:var(--gold);white-space:nowrap;flex-shrink:0}
+.barcode-scan-badge{display:flex;align-items:center;gap:.375rem;padding:.375rem .75rem;border-radius:var(--r);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);font-size:.75rem;color:var(--gold);white-space:nowrap;flex-shrink:0}
 .barcode-scan-badge svg{color:var(--gold)}
 #barcodeStatus{font-size:.75rem;color:var(--text3);min-width:120px;transition:color .2s}
 #barcodeStatus.found{color:var(--success)}
@@ -207,7 +207,7 @@ a{text-decoration:none;color:inherit}
 .weight-presets{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:1rem}
 .w-preset{padding:.375rem .875rem;background:var(--bg3);border:1px solid var(--border2);border-radius:99px;font-size:.8125rem;font-weight:600;transition:all var(--tr)}
 .w-preset:hover{border-color:var(--gold);color:var(--gold)}
-.weight-total-preview{margin-top:1.25rem;padding:.875rem;background:var(--gold-dim);border-radius:var(--r);text-align:center;border:1px solid rgba(212,180,108,.3)}
+.weight-total-preview{margin-top:1.25rem;padding:.875rem;background:var(--gold-dim);border-radius:var(--r);text-align:center;border:1px solid rgba(34,197,94,.3)}
 .wt-label{font-size:.75rem;color:var(--text2);margin-bottom:.25rem}
 .wt-amount{font-size:1.75rem;font-weight:800;color:var(--gold)}
 
@@ -215,7 +215,7 @@ a{text-decoration:none;color:inherit}
 .expiry-badge{position:absolute;top:.5rem;left:.5rem;padding:.125rem .375rem;border-radius:4px;font-size:.5625rem;font-weight:700;line-height:1.4;z-index:1}
 .expiry-badge.expired{background:rgba(239,68,68,.9);color:#fff}
 .expiry-badge.critical{background:rgba(245,158,11,.9);color:#fff}
-.expiry-badge.warning{background:rgba(251,191,36,.85);color:#03110c}
+.expiry-badge.warning{background:rgba(251,191,36,.85);color:#04160d}
 
 /* ── Dorixona (Pharmacy) ── */
 .rx-badge{position:absolute;top:.5rem;right:.5rem;background:rgba(16,185,129,.85);color:#fff;font-size:.5rem;font-weight:800;padding:.1875rem .4rem;border-radius:3px;letter-spacing:.05em;z-index:1}
@@ -274,7 +274,7 @@ a{text-decoration:none;color:inherit}
 .tbl-card.occupied{border-color:rgba(245,158,11,.5)}
 .tbl-card.reserved{border-color:rgba(59,130,246,.5)}
 .tbl-card.cleaning{border-color:rgba(239,68,68,.4)}
-.tbl-card.merge-sel{border-color:var(--gold);background:var(--gold-dim);box-shadow:0 0 12px rgba(212,180,108,.25)}
+.tbl-card.merge-sel{border-color:var(--gold);background:var(--gold-dim);box-shadow:0 0 12px rgba(34,197,94,.25)}
 .tbl-num{font-size:1.25rem;font-weight:700;margin-bottom:.25rem}
 .tbl-cap{font-size:.6875rem;color:var(--text3)}
 .tbl-status{font-size:.625rem;font-weight:600;margin-top:.25rem}
@@ -406,11 +406,11 @@ a{text-decoration:none;color:inherit}
 .products-grid>.product-card:nth-child(8){animation-delay:.35s}
 
 /* Enhanced product card hover */
-.product-card:hover{box-shadow:0 0 0 1px rgba(212,180,108,.3),0 8px 24px rgba(212,180,108,.15)}
+.product-card:hover{box-shadow:0 0 0 1px rgba(34,197,94,.3),0 8px 24px rgba(34,197,94,.15)}
 
 /* Enhanced empty states */
 .prod-empty{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3.5rem 1.5rem;gap:.75rem;text-align:center}
-.prod-empty-icon{width:64px;height:64px;border-radius:50%;background:rgba(212,180,108,.06);border:1px dashed rgba(212,180,108,.2);display:flex;align-items:center;justify-content:center;color:var(--text3);margin-bottom:.25rem}
+.prod-empty-icon{width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,.06);border:1px dashed rgba(34,197,94,.2);display:flex;align-items:center;justify-content:center;color:var(--text3);margin-bottom:.25rem}
 .prod-empty p{font-size:.9375rem;font-weight:500;color:var(--text2);margin:0}
 .prod-empty span{font-size:.8125rem;color:var(--text3);margin:0}
 
@@ -419,19 +419,19 @@ a{text-decoration:none;color:inherit}
 .cart-empty-state span{font-weight:500;color:var(--text2)}
 
 /* Category button enhanced active */
-.cat-btn.active{background:linear-gradient(135deg,rgba(212,180,108,.18),rgba(212,180,108,.07));border-color:rgba(212,180,108,.45);font-weight:600;box-shadow:0 2px 12px rgba(212,180,108,.12)}
+.cat-btn.active{background:linear-gradient(135deg,rgba(34,197,94,.18),rgba(34,197,94,.07));border-color:rgba(34,197,94,.45);font-weight:600;box-shadow:0 2px 12px rgba(34,197,94,.12)}
 
 /* Quick action hover */
-.qa-btn:hover{background:rgba(212,180,108,.08);border-color:rgba(212,180,108,.3);color:var(--gold);transform:translateY(-1px)}
+.qa-btn:hover{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:var(--gold);transform:translateY(-1px)}
 
 /* Table card hover */
-.tbl-card:hover{background:rgba(212,180,108,.06);box-shadow:0 4px 20px rgba(212,180,108,.12)}
+.tbl-card:hover{background:rgba(34,197,94,.06);box-shadow:0 4px 20px rgba(34,197,94,.12)}
 
 /* Header icon buttons */
-.icon-btn:hover{color:var(--gold);border-color:rgba(212,180,108,.35);background:rgba(212,180,108,.06)}
+.icon-btn:hover{color:var(--gold);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.06)}
 
 /* Search focus ring */
-.header-search input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.12)}
+.header-search input:focus{box-shadow:0 0 0 2px rgba(34,197,94,.12)}
 
 /* Payment total entrance */
 .pay-total-amt{animation:prodEnter .3s ease .1s backwards}
@@ -440,7 +440,7 @@ a{text-decoration:none;color:inherit}
 .modal-overlay{background:rgba(0,0,0,.78)}
 
 /* Cart total separator */
-.tot-row.main{border-top:1px solid rgba(212,180,108,.18)}
+.tot-row.main{border-top:1px solid rgba(34,197,94,.18)}
 
 /* Mobile: 2-column product grid on phones */
 @media(max-width:480px){
@@ -456,8 +456,8 @@ a{text-decoration:none;color:inherit}
    Kassir uchun tinch: mandala juda yengil, 2 sekin nur, zarra YO'Q.
    ═══════════════════════════════════════════════════════════════ */
 /* tinch zumrad-qora fon ramp */
-body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 52%,#03110c 100%)}
-[data-theme="light"] body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 52%,#070f1e 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#f3f6f1 0%,#eef3ee 55%,#f4f6fb 100%)}
 
 /* content panellar atmosfera ustида */
 .pos-wrap{position:relative;z-index:1}
@@ -472,7 +472,7 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
 .pa-mandala svg{width:100%;height:100%;display:block}
 @keyframes paSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 .pa-glow{position:absolute;border-radius:50%;filter:blur(80px);mix-blend-mode:screen;opacity:.22}
-.pa-glow.g1{width:48vmin;height:48vmin;top:-12%;left:-6%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:paBreathe 30s ease-in-out infinite}
+.pa-glow.g1{width:48vmin;height:48vmin;top:-12%;left:-6%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:paBreathe 30s ease-in-out infinite}
 .pa-glow.g2{width:42vmin;height:42vmin;bottom:-14%;right:-4%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:paBreathe 36s ease-in-out infinite 4s}
 @keyframes paBreathe{0%,100%{transform:scale(.95);opacity:.15}50%{transform:scale(1.08);opacity:.27}}
 [data-theme="light"] .pa-glow{mix-blend-mode:normal;opacity:.1;filter:blur(90px)}
@@ -482,20 +482,20 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
    MUHIM: mahsulot kartalari ko'p (10-50+) — ularga backdrop-filter QO'YILMAYDI
    (GPU og'irligi, POS sekinlashmasin). Faqat yengil shaffof tint. blur faqat
    bitta cart-panel'da (arzon). */
-.product-card{background:rgba(11,46,35,.5)}
+.product-card{background:rgba(15,32,56,.5)}
 [data-theme="light"] .product-card{background:rgba(255,255,255,.6)}
 .product-card:hover{transform:translateY(-3px)}
 .cart-panel{
-  background:linear-gradient(180deg,rgba(11,46,35,.86),rgba(8,34,26,.9));
+  background:linear-gradient(180deg,rgba(15,32,56,.86),rgba(8,34,26,.9));
   backdrop-filter:blur(14px) saturate(1.15);-webkit-backdrop-filter:blur(14px) saturate(1.15);
-  box-shadow:inset 1px 0 0 rgba(212,180,108,.1);
+  box-shadow:inset 1px 0 0 rgba(34,197,94,.1);
 }
 [data-theme="light"] .cart-panel{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(248,249,250,.94))}
 .cart-totals{background:rgba(20,58,44,.5)}
 [data-theme="light"] .cart-totals{background:rgba(241,243,245,.7)}
 
 /* barcode fokus — skaner uchun yorqin tilla */
-#barcodeInput:focus{box-shadow:0 0 0 3px rgba(212,180,108,.22),0 0 16px rgba(212,180,108,.18)}
+#barcodeInput:focus{box-shadow:0 0 0 3px rgba(34,197,94,.22),0 0 16px rgba(34,197,94,.18)}
 
 /* checkout (F9) — sheen sweep */
 .btn-gold{position:relative;overflow:hidden}
@@ -509,7 +509,7 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
 /* ── Micro-animatsiyalar (yengil, tez — sotuvni bloklamaydi) ── */
 @keyframes cartItemIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
 .cart-item{animation:cartItemIn .22s ease backwards}
-@keyframes totFlash{0%{transform:scale(1)}35%{transform:scale(1.08);text-shadow:0 0 12px rgba(212,180,108,.7)}100%{transform:scale(1)}}
+@keyframes totFlash{0%{transform:scale(1)}35%{transform:scale(1.08);text-shadow:0 0 12px rgba(34,197,94,.7)}100%{transform:scale(1)}}
 .tot-row.main span:last-child.tot-flash{display:inline-block;animation:totFlash .45s ease}
 /* product press tactile feedback */
 .product-card:active{transform:scale(.95)}
@@ -803,7 +803,7 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0a2419 0%,#05150e 
     </div>
     <div class="modal-body" id="floorPlan" style="max-height:65vh;overflow-y:auto"></div>
     <!-- Table merge (BOSQICH 9: TABLE_MERGE) -->
-    <div id="mergeBar" style="display:none;padding:.75rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);background:rgba(212,180,108,.06)">
+    <div id="mergeBar" style="display:none;padding:.75rem 1.25rem;border-top:1px solid rgba(255,255,255,.08);background:rgba(34,197,94,.06)">
       <div style="font-size:.8125rem;color:var(--text2);margin-bottom:.5rem">Birlashtiriladigan stollar: <span id="mergeList" style="color:var(--gold);font-weight:600"></span></div>
       <div style="display:flex;gap:.5rem">
         <button class="btn btn-sm btn-outline" onclick="document.getElementById('mergeSelIds').innerHTML='';updateMergeBar()">Bekor</button>

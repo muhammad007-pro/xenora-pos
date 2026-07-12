@@ -4,17 +4,17 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="theme-color" content="#d4b46c">
+<meta name="theme-color" content="#22c55e">
 <title>Oshxona Displey — XENORA</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);
-  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e1e34;
-  --border:rgba(212,180,108,.18);--border2:rgba(255,255,255,.07);
-  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
-  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
+  --gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);
+  --bg:#070f1e;--bg2:#0a1628;--bg3:#0f2038;--bg4:#1e1e34;
+  --border:rgba(34,197,94,.18);--border2:rgba(255,255,255,.07);
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;
+  --success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
   --r:0.625rem;--r2:1rem;--r3:1.5rem;
   --glass:rgba(15,15,28,.9);
   --pending-glow:rgba(59,130,246,.25);
@@ -87,7 +87,7 @@ button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:
 .table-tag{padding:.1875rem .5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;font-size:.6875rem;font-weight:600}
 .order-type-tag{font-size:.625rem;padding:.125rem .375rem;border-radius:4px;font-weight:600;margin-left:auto}
 .type-dine{background:rgba(59,130,246,.15);color:var(--info)}
-.type-take{background:rgba(212,180,108,.15);color:var(--gold)}
+.type-take{background:rgba(34,197,94,.15);color:var(--gold)}
 .type-del {background:rgba(16,185,129,.15);color:var(--success)}
 .urgent-badge{background:rgba(239,68,68,.2);color:var(--danger);font-size:.625rem;font-weight:700;padding:.125rem .375rem;border-radius:4px;animation:urgentFlash 1s infinite}
 @keyframes urgentFlash{0%,100%{opacity:1}50%{opacity:.4}}
@@ -169,10 +169,10 @@ button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:
   white-space:nowrap;transition:all var(--tr);cursor:pointer;flex-shrink:0;
 }
 .stn-btn:hover{border-color:var(--gold);color:var(--gold)}
-.stn-btn.active{color:#03110c;border-color:transparent;font-weight:700}
+.stn-btn.active{color:#04160d;border-color:transparent;font-weight:700}
 .stn-label{
   padding:.25rem .625rem;border-radius:var(--r);font-size:.6875rem;font-weight:700;
-  color:#03110c;margin-left:.5rem;
+  color:#04160d;margin-left:.5rem;
 }
 
 /* ─── Kitchen premium enhancements ─── */
@@ -274,10 +274,10 @@ button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:
 .kcard-head{
   display:flex;align-items:center;justify-content:space-between;gap:.5rem;
   padding:.7rem .85rem;cursor:pointer;user-select:none;
-  background:linear-gradient(135deg,rgba(212,180,108,.12),rgba(212,180,108,.03));
+  background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.03));
   border-bottom:1px solid var(--border2);transition:background var(--tr);
 }
-.kcard-head:hover{background:linear-gradient(135deg,rgba(212,180,108,.22),rgba(212,180,108,.07))}
+.kcard-head:hover{background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(34,197,94,.07))}
 .kcard-head:active{transform:scale(.995)}
 .kc-left{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
 .kc-num{font-size:1.15rem;font-weight:800;color:var(--gold)}
@@ -321,7 +321,7 @@ button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:
   border:1px solid transparent;border-bottom:2px solid transparent;transition:all var(--tr);
 }
 .kds-tab:hover{color:var(--text)}
-.kds-tab.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(212,180,108,.08)}
+.kds-tab.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(34,197,94,.08)}
 .kt-badge{min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:rgba(255,255,255,.1);color:var(--text2);font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .kds-tab.active .kt-badge{background:var(--gold);color:#07120d}
 /* Tayyor karta — yashil ohang, sarlavha bosilmaydi */
@@ -350,7 +350,7 @@ button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:
 .stn-check-list{padding:.75rem 1.25rem 1rem;display:flex;flex-direction:column;gap:.4rem}
 .stn-check-row{display:flex;align-items:center;gap:.7rem;padding:.7rem .8rem;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);cursor:pointer;transition:all var(--tr);user-select:none}
 .stn-check-row:hover{border-color:var(--gold)}
-.stn-check-row.on{border-color:var(--gold);background:rgba(212,180,108,.1)}
+.stn-check-row.on{border-color:var(--gold);background:rgba(34,197,94,.1)}
 .stn-check-row input{width:1.15rem;height:1.15rem;accent-color:var(--gold);cursor:pointer;flex-shrink:0}
 .stn-check-row .stn-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 .stn-check-row .stn-nm{flex:1;font-size:.9rem;font-weight:600;color:var(--text)}
@@ -360,8 +360,8 @@ button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:
 .kds-mbtn.ghost{color:var(--text2);border-color:var(--border2);background:var(--bg3)}
 .kds-mbtn.ghost:hover{color:var(--text);border-color:var(--gold)}
 .kds-mbtn.primary{color:#07120d;background:var(--gold);border-color:var(--gold)}
-.kds-mbtn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(212,180,108,.3)}
-.stn-gear-nav{margin-left:auto;display:inline-flex;align-items:center;gap:.35rem;color:var(--gold)!important;border-color:var(--gold)!important;background:rgba(212,180,108,.08)!important}
+.kds-mbtn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(34,197,94,.3)}
+.stn-gear-nav{margin-left:auto;display:inline-flex;align-items:center;gap:.35rem;color:var(--gold)!important;border-color:var(--gold)!important;background:rgba(34,197,94,.08)!important}
 </style>
 <link rel="stylesheet" href="../styles/premium-overlay.css">
 </head>
@@ -407,7 +407,7 @@ button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:
 
   <!-- Station nav -->
   <div class="station-nav" id="stationNav" style="display:none">
-    <button class="stn-btn active" data-sid="" style="background:rgba(212,180,108,.2);border-color:var(--gold);color:var(--gold)">
+    <button class="stn-btn active" data-sid="" style="background:rgba(34,197,94,.2);border-color:var(--gold);color:var(--gold)">
       Barchasi
     </button>
   </div>
@@ -888,7 +888,7 @@ function renderNav() {
   nav.style.display = '';
   const allOn = selStations.length === 0;
   let html = `<button class="stn-btn${allOn?' active':''}" data-sid=""
-      style="${allOn ? 'background:rgba(212,180,108,.2);border-color:var(--gold);color:var(--gold)' : ''}">Barchasi</button>`;
+      style="${allOn ? 'background:rgba(34,197,94,.2);border-color:var(--gold);color:var(--gold)' : ''}">Barchasi</button>`;
   html += _stations.map(s => {
     const on = selStations.includes(s.id);
     return `<button class="stn-btn${on?' active':''}" data-sid="${s.id}"

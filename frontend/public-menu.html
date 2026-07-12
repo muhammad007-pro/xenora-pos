@@ -4,19 +4,19 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="theme-color" content="#03110c">
+<meta name="theme-color" content="#070f1e">
 <meta name="theme-color" content="#eef4f0" media="(prefers-color-scheme: light)">
 <title>Menyu</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* ═══ XENORA zumrad-tilla brend — QR menyu (mijoz sahifasi) ═══ */
 :root{
-  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --bg:#070f1e;--bg2:#0a1628;--bg3:#0f2038;
   --glass:rgba(6,26,20,.82);
-  --border:rgba(212,180,108,.14);--border2:rgba(255,255,255,.06);
-  --gold:#d4b46c;--gold2:#ebd297;--gold-dim:rgba(212,180,108,.12);
-  --emerald:#1fb084;
-  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --border:rgba(34,197,94,.14);--border2:rgba(255,255,255,.06);
+  --gold:#d4b46c;--gold2:#ebd297;--gold-dim:rgba(34,197,94,.12);
+  --emerald:#22c55e;
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;
   --success:#34d399;--danger:#f87171;
   --ink:#07120d;
   --r:14px;--r2:9px;--tr:.18s ease;
@@ -25,7 +25,7 @@ body{
   color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   min-height:100vh;position:relative;
   background:
-    radial-gradient(1200px 820px at 50% -12%, #0b2e23 0%, transparent 60%),
+    radial-gradient(1200px 820px at 50% -12%, #0a1628 0%, transparent 60%),
     radial-gradient(900px 720px at 108% 108%, #06231a 0%, transparent 55%),
     var(--bg);
   background-attachment:fixed;
@@ -34,16 +34,16 @@ body{
 body::before{
   content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.55;
   background:
-    radial-gradient(circle at 50% 40%, rgba(212,180,108,.06), transparent 58%),
-    radial-gradient(circle at 50% 40%, transparent 38%, rgba(212,180,108,.05) 39%, transparent 41%),
-    radial-gradient(circle at 50% 40%, transparent 54%, rgba(31,176,132,.045) 55%, transparent 57%),
-    conic-gradient(from 0deg at 50% 40%, rgba(212,180,108,.05) 0deg, transparent 30deg, rgba(212,180,108,.05) 60deg, transparent 90deg, rgba(212,180,108,.05) 120deg, transparent 150deg, rgba(212,180,108,.05) 180deg, transparent 210deg, rgba(212,180,108,.05) 240deg, transparent 270deg, rgba(212,180,108,.05) 300deg, transparent 330deg);
+    radial-gradient(circle at 50% 40%, rgba(34,197,94,.06), transparent 58%),
+    radial-gradient(circle at 50% 40%, transparent 38%, rgba(34,197,94,.05) 39%, transparent 41%),
+    radial-gradient(circle at 50% 40%, transparent 54%, rgba(34,197,94,.045) 55%, transparent 57%),
+    conic-gradient(from 0deg at 50% 40%, rgba(34,197,94,.05) 0deg, transparent 30deg, rgba(34,197,94,.05) 60deg, transparent 90deg, rgba(34,197,94,.05) 120deg, transparent 150deg, rgba(34,197,94,.05) 180deg, transparent 210deg, rgba(34,197,94,.05) 240deg, transparent 270deg, rgba(34,197,94,.05) 300deg, transparent 330deg);
   -webkit-mask-image:radial-gradient(circle at 50% 40%, #000 0%, transparent 62%);
           mask-image:radial-gradient(circle at 50% 40%, #000 0%, transparent 62%);
 }
 body::after{
   content:"";position:fixed;left:-10%;top:-20%;width:70%;height:70%;z-index:-1;pointer-events:none;
-  background:radial-gradient(closest-side, rgba(31,176,132,.10), transparent 70%);
+  background:radial-gradient(closest-side, rgba(34,197,94,.10), transparent 70%);
   filter:blur(10px);
 }
 
@@ -63,7 +63,7 @@ body::after{
   position:sticky;top:0;z-index:30;background:var(--glass);
   backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);
   border-bottom:1px solid var(--border);
-  box-shadow:0 1px 0 rgba(212,180,108,.08),0 6px 22px rgba(0,0,0,.28);
+  box-shadow:0 1px 0 rgba(34,197,94,.08),0 6px 22px rgba(0,0,0,.28);
   padding:.9rem 1rem;display:flex;align-items:center;gap:.75rem;
 }
 .qm-cafe-name{font-size:1.1rem;font-weight:800;flex:1;min-width:0;letter-spacing:-.01em;
@@ -71,8 +71,8 @@ body::after{
   background:linear-gradient(120deg,var(--gold2),var(--gold) 60%,#c79a4f);
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .qm-table-badge{
-  background:linear-gradient(135deg,rgba(212,180,108,.18),rgba(31,176,132,.12));
-  color:var(--gold2);border:1px solid rgba(212,180,108,.32);
+  background:linear-gradient(135deg,rgba(34,197,94,.18),rgba(34,197,94,.12));
+  color:var(--gold2);border:1px solid rgba(34,197,94,.32);
   border-radius:20px;padding:.28rem .8rem;font-size:.75rem;font-weight:700;
   white-space:nowrap;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
 }
@@ -92,9 +92,9 @@ body::after{
 }
 .cat-pill:active{transform:scale(.96)}
 .cat-pill.active{
-  background:linear-gradient(135deg,rgba(212,180,108,.2),rgba(31,176,132,.14));
-  color:var(--gold2);border-color:rgba(212,180,108,.42);
-  box-shadow:0 2px 12px rgba(212,180,108,.15);
+  background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(34,197,94,.14));
+  color:var(--gold2);border-color:rgba(34,197,94,.42);
+  box-shadow:0 2px 12px rgba(34,197,94,.15);
 }
 
 /* ─── Products grid ─── */
@@ -107,15 +107,15 @@ body::after{
 
 /* ─── Product card ─── */
 .pm-card{
-  background:linear-gradient(180deg,rgba(11,46,35,.62),rgba(6,26,20,.5));
+  background:linear-gradient(180deg,rgba(15,32,56,.62),rgba(6,26,20,.5));
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   border:1px solid var(--border2);border-radius:var(--r);
   overflow:hidden;display:flex;flex-direction:column;transition:all var(--tr);
   box-shadow:0 6px 20px rgba(0,0,0,.28);
   animation:fadeUp .22s ease backwards;
 }
-.pm-card:hover{border-color:rgba(212,180,108,.32);transform:translateY(-2px);
-  box-shadow:0 10px 28px rgba(0,0,0,.36),0 0 0 1px rgba(212,180,108,.06)}
+.pm-card:hover{border-color:rgba(34,197,94,.32);transform:translateY(-2px);
+  box-shadow:0 10px 28px rgba(0,0,0,.36),0 0 0 1px rgba(34,197,94,.06)}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .pm-img{
   width:100%;aspect-ratio:4/3;object-fit:cover;
@@ -140,10 +140,10 @@ body::after{
 }
 .pm-btn:active{transform:scale(.9)}
 .pm-btn.add{
-  background:linear-gradient(135deg,rgba(212,180,108,.22),rgba(31,176,132,.16));
-  border-color:rgba(212,180,108,.36);color:var(--gold2);
+  background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(34,197,94,.16));
+  border-color:rgba(34,197,94,.36);color:var(--gold2);
 }
-.pm-btn.add:hover{background:linear-gradient(135deg,rgba(212,180,108,.34),rgba(31,176,132,.24))}
+.pm-btn.add:hover{background:linear-gradient(135deg,rgba(34,197,94,.34),rgba(34,197,94,.24))}
 .pm-count{min-width:22px;text-align:center;font-size:.9375rem;font-weight:800;color:var(--text)}
 
 /* ─── Cart bar ─── */
@@ -152,7 +152,7 @@ body::after{
   background:linear-gradient(135deg,var(--gold2),var(--gold) 55%,#c79a4f);
   border-radius:16px;padding:.95rem 1.25rem;
   display:flex;align-items:center;gap:.75rem;cursor:pointer;
-  box-shadow:0 10px 34px rgba(212,180,108,.4),inset 0 1px 0 rgba(255,255,255,.35);
+  box-shadow:0 10px 34px rgba(34,197,94,.4),inset 0 1px 0 rgba(255,255,255,.35);
   animation:slideUp .25s ease;transition:transform .15s ease;
 }
 #cartBar:active{transform:scale(.98)}
@@ -217,7 +217,7 @@ body::after{
   color:var(--text);padding:.7rem .875rem;font-size:.9rem;outline:none;
   transition:border-color var(--tr);
 }
-.cm-input:focus{border-color:rgba(212,180,108,.45)}
+.cm-input:focus{border-color:rgba(34,197,94,.45)}
 .cm-total-row{
   display:flex;justify-content:space-between;align-items:center;
   padding:.95rem 1rem;margin-top:.5rem;border-top:1px solid var(--border);
@@ -231,7 +231,7 @@ body::after{
   width:100%;background:linear-gradient(135deg,var(--gold2),var(--gold) 55%,#c79a4f);
   color:var(--ink);border:none;border-radius:14px;
   padding:.95rem;font-size:.95rem;font-weight:800;cursor:pointer;
-  box-shadow:0 8px 24px rgba(212,180,108,.32),inset 0 1px 0 rgba(255,255,255,.35);
+  box-shadow:0 8px 24px rgba(34,197,94,.32),inset 0 1px 0 rgba(255,255,255,.35);
   transition:all var(--tr);
 }
 .btn-order:hover{filter:brightness(1.06);transform:translateY(-1px)}
@@ -264,7 +264,7 @@ body::after{
 .od-item:last-child{border-bottom:none}
 .od-item-qty{color:var(--text3)}
 .btn-refresh{
-  background:var(--bg2);border:1px solid rgba(212,180,108,.32);color:var(--gold2);
+  background:var(--bg2);border:1px solid rgba(34,197,94,.32);color:var(--gold2);
   border-radius:var(--r2);padding:.7rem 1.5rem;font-size:.875rem;font-weight:700;
   cursor:pointer;transition:all var(--tr);
 }

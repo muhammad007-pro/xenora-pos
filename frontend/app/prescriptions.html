@@ -8,18 +8,18 @@
 <link rel="stylesheet" href="../styles/main.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:100vh;display:flex;flex-direction:column}
-:root{--gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--bg2:#0b2e23;--bg3:#143a2c;--bg4:#1e4a39;--border2:rgba(255,255,255,.08);--text2:#9fcbb9;--text3:#5c8775;--r:.625rem;--r2:1rem}
+body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:100vh;display:flex;flex-direction:column}
+:root{--gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);--bg2:#0a1628;--bg3:#0f2038;--bg4:#16294a;--border2:rgba(255,255,255,.08);--text2:#8b9bb0;--text3:#6b7d94;--r:.625rem;--r2:1rem}
 .ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
 .bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
 .bk:hover{border-color:var(--gold);color:var(--gold)}
 .pt{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
 .pc{padding:1.5rem;max-width:1100px;margin:0 auto;flex:1}
 .tb{display:flex;gap:.75rem;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap}
-.si{flex:1;min-width:200px;padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#ecf6ef;font-size:.9rem}
+.si{flex:1;min-width:200px;padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#e8eef5;font-size:.9rem}
 .si:focus{outline:none;border-color:var(--gold)}
 .btn{padding:.625rem 1.125rem;border-radius:var(--r);border:none;font-size:.875rem;font-weight:600;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:.4rem}
-.btn-g{background:var(--gold);color:#03110c}.btn-g:hover{background:#c9a20e}
+.btn-g{background:var(--gold);color:#04160d}.btn-g:hover{background:#c9a20e}
 .btn-o{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}.btn-o:hover{border-color:var(--gold);color:var(--gold)}
 .btn-sm{padding:.4rem .75rem;font-size:.8rem}
 .fi{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
@@ -28,12 +28,12 @@ body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
 .card{background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--r2);padding:1.25rem;transition:.2s;cursor:pointer}
 .card:hover{border-color:var(--gold)}
-.card.dispensed{border-color:#10b981;background:rgba(16,185,129,.04)}
+.card.dispensed{border-color:#22c55e;background:rgba(16,185,129,.04)}
 .card-h{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.875rem;gap:.5rem}
 .card-nm{font-weight:700;font-size:1rem}
 .card-dt{font-size:.75rem;color:var(--text3)}
 .badge{display:inline-flex;align-items:center;padding:.2rem .625rem;border-radius:99px;font-size:.75rem;font-weight:600}
-.badge-ok{background:rgba(16,185,129,.12);color:#10b981}
+.badge-ok{background:rgba(16,185,129,.12);color:#22c55e}
 .badge-pend{background:rgba(245,158,11,.12);color:#f59e0b}
 .meta{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.875rem}
 .meta-row{display:flex;gap:.5rem;font-size:.8125rem}
@@ -59,7 +59,7 @@ body{font-family:'Inter',sans-serif;background:#03110c;color:#ecf6ef;min-height:
 .form-g{display:flex;flex-direction:column;gap:1rem}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
 .lbl{display:flex;flex-direction:column;gap:.375rem;font-size:.875rem;color:var(--text2)}
-.inp{padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#ecf6ef;font-size:.9rem;width:100%}
+.inp{padding:.625rem .875rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:#e8eef5;font-size:.9rem;width:100%}
 .inp:focus{outline:none;border-color:var(--gold)}
 .section-t{font-weight:600;margin-bottom:.5rem;color:var(--gold)}
 .med-row{display:grid;grid-template-columns:1fr auto auto;gap:.5rem;align-items:center}
@@ -185,7 +185,7 @@ const PAGE_SIZE = 20;
 
 await features.load();
 if (!features.isEnabled(Feature.PRESCRIPTION_ARCHIVE)) {
-  document.body.innerHTML = '<div style="padding:3rem;text-align:center;color:#9fcbb9">Bu funksiya sizning tarifingizda mavjud emas.</div>';
+  document.body.innerHTML = '<div style="padding:3rem;text-align:center;color:#8b9bb0">Bu funksiya sizning tarifingizda mavjud emas.</div>';
 }
 
 async function loadRx(reset = false) {

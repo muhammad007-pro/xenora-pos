@@ -9,11 +9,11 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
-  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);--gold-glow:0 0 18px rgba(34,197,94,.35);
+  --bg:#070f1e;--bg2:#0a1628;--bg3:#0f2038;
   --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
-  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
-  --green:#10b981;--red:#ef4444;
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;
+  --green:#22c55e;--red:#ef4444;
   --r:.5rem;--r2:.875rem
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
@@ -25,7 +25,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 /* Period */
 .period-bar{display:flex;gap:.375rem;margin-bottom:1.5rem}
 .pb{padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:.2s}
-.pb.active{background:var(--gold-dim);border-color:rgba(212,180,108,.3);color:var(--gold)}
+.pb.active{background:var(--gold-dim);border-color:rgba(34,197,94,.3);color:var(--gold)}
 /* Stats */
 .sg{display:grid;grid-template-columns:repeat(4,1fr);gap:.875rem;margin-bottom:1.5rem}
 .sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
@@ -43,7 +43,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .pop-item{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)}
 .pop-item:last-child{border-bottom:none}
 .pop-rank{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0}
-.r1{background:var(--gold);color:#03110c} .r2{background:#c0c0c0;color:#03110c} .r3{background:#cd7f32;color:#03110c}
+.r1{background:var(--gold);color:#04160d} .r2{background:#c0c0c0;color:#04160d} .r3{background:#cd7f32;color:#04160d}
 .rn{background:var(--bg3);color:var(--text2)}
 .pop-name{flex:1;font-size:.875rem}
 .pop-qty{font-size:.875rem;font-weight:600;color:var(--gold)}
@@ -73,11 +73,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .sg>.sc:nth-child(3){animation-delay:.14s}
 .sg>.sc:nth-child(4){animation-delay:.19s}
 .card{animation:_pgIn .3s ease .08s backwards}
-.tbl tbody tr:hover{background:rgba(212,180,108,.04)!important}
+.tbl tbody tr:hover{background:rgba(34,197,94,.04)!important}
 .bk:hover{transform:scale(1.05)}
-.pb.active{box-shadow:0 2px 10px rgba(212,180,108,.15)}
-.pager-btn.active{box-shadow:0 2px 8px rgba(212,180,108,.12)}
-.search-wrap input:focus{box-shadow:0 0 0 2px rgba(212,180,108,.1)}
+.pb.active{box-shadow:0 2px 10px rgba(34,197,94,.15)}
+.pager-btn.active{box-shadow:0 2px 8px rgba(34,197,94,.12)}
+.search-wrap input:focus{box-shadow:0 0 0 2px rgba(34,197,94,.1)}
 .empty svg{animation:_flt 3.5s ease-in-out infinite}
 .modal.open .mc{animation:_scIn .2s ease}
 .btn-gold:hover{transform:translateY(-1px)}
@@ -179,7 +179,7 @@ function fmtDT(d){ if(!d)return'—'; return new Date(d).toLocaleString('uz-UZ',
 let range = 'today';
 const charts = {};
 
-Chart.defaults.color          = '#9fcbb9';
+Chart.defaults.color          = '#8b9bb0';
 Chart.defaults.borderColor    = 'rgba(255,255,255,.06)';
 Chart.defaults.font.family    = 'Inter,system-ui,sans-serif';
 Chart.defaults.font.size      = 12;
@@ -239,7 +239,7 @@ function renderRevChart(rv) {
     datasets:[{
       data: rv.datasets?.[0]?.data ?? rv.data ?? [],
       borderColor: '#d4b46c',
-      backgroundColor: 'rgba(212,180,108,.08)',
+      backgroundColor: 'rgba(34,197,94,.08)',
       borderWidth: 2,
       pointRadius: 3,
       pointBackgroundColor: '#d4b46c',
@@ -251,20 +251,20 @@ function renderRevChart(rv) {
 
 function renderCatChart(cats) {
   if (!cats?.length) return;
-  const colors = ['#d4b46c','#10b981','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#14b8a6'];
+  const colors = ['#d4b46c','#22c55e','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#14b8a6'];
   mk('catChart', 'doughnut', {
     labels: cats.map(c=>c.name||c.category||'—'),
     datasets:[{ data: cats.map(c=>c.total||c.revenue||0), backgroundColor: colors, borderWidth:0 }]
-  }, { plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:10, padding:10, color:'#9fcbb9' } }, tooltip:{ callbacks:{ label: c => c.label+': '+fmtN(c.raw)+' so\'m' } } }, cutout:'60%' });
+  }, { plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:10, padding:10, color:'#8b9bb0' } }, tooltip:{ callbacks:{ label: c => c.label+': '+fmtN(c.raw)+' so\'m' } } }, cutout:'60%' });
 }
 
 function renderPayChart(pay) {
   if (!pay?.length) return;
-  const colors = { cash:'#10b981', card:'#3b82f6', transfer:'#8b5cf6', other:'#f59e0b' };
+  const colors = { cash:'#22c55e', card:'#3b82f6', transfer:'#8b5cf6', other:'#f59e0b' };
   mk('payChart', 'doughnut', {
     labels: pay.map(p=>{const m={cash:'Naqd',card:'Karta',transfer:'O\'tkazma'}; return m[p.method]||p.method||'—';}),
-    datasets:[{ data: pay.map(p=>p.total||p.amount||0), backgroundColor: pay.map(p=>colors[p.method]||'#1fb084'), borderWidth:0 }]
-  }, { plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:10, padding:10, color:'#9fcbb9' } }, tooltip:{ callbacks:{ label: c => c.label+': '+fmtN(c.raw)+' so\'m' } } }, cutout:'60%' });
+    datasets:[{ data: pay.map(p=>p.total||p.amount||0), backgroundColor: pay.map(p=>colors[p.method]||'#22c55e'), borderWidth:0 }]
+  }, { plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:10, padding:10, color:'#8b9bb0' } }, tooltip:{ callbacks:{ label: c => c.label+': '+fmtN(c.raw)+' so\'m' } } }, cutout:'60%' });
 }
 
 function renderHourChart(hourly) {
@@ -272,7 +272,7 @@ function renderHourChart(hourly) {
   if (!items.length) return;
   mk('hourChart', 'bar', {
     labels: items.map(h=>h.hour+'h'),
-    datasets:[{ data: items.map(h=>h.orders||h.count||0), backgroundColor: 'rgba(212,180,108,.5)', borderColor: '#d4b46c', borderWidth: 1, borderRadius: 3 }]
+    datasets:[{ data: items.map(h=>h.orders||h.count||0), backgroundColor: 'rgba(34,197,94,.5)', borderColor: '#d4b46c', borderWidth: 1, borderRadius: 3 }]
   }, { plugins:{ tooltip:{ callbacks:{ label: c => c.raw+' buyurtma' } } }, scales:{ y:{ ticks:{ stepSize:1 } } } });
 }
 

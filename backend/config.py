@@ -84,6 +84,18 @@ class Settings(BaseSettings):
     # ── WebSocket ───────────────────────────────────────────────────────────
     WS_HEARTBEAT_INTERVAL: int = 30
 
+    # ── AI-Ombor (Claude API — rasmdan mahsulot o'qish) ─────────────────────
+    # API kalit FAQAT serverda saqlanadi (.env), mijozga hech qachon ketmaydi.
+    # DEPLOY: .env'da ANTHROPIC_API_KEY ni haqiqiy kalitga o'zgartir. Bo'sh yoki
+    # "CHANGE_ME" bo'lsa — /ai-warehouse/scan 503 (tushunarli xato) qaytaradi,
+    # server CRASH bo'lmaydi. Model arzon Haiku (rasm o'qishga yetarli).
+    ANTHROPIC_API_KEY: str = ""
+    AI_WAREHOUSE_MODEL: str = "claude-haiku-4-5"
+    AI_WAREHOUSE_ENABLED: bool = True
+    AI_WAREHOUSE_MAX_IMAGE_PX: int = 1500     # rasm siqish: uzun tomon max px (token tejash)
+    AI_WAREHOUSE_JPEG_QUALITY: int = 80       # rasm siqish: JPEG sifati
+    AI_WAREHOUSE_MAX_TOKENS: int = 2048       # javob (mahsulot ro'yxati) uchun yetarli
+
     # ── To'lov tizimi — Click ───────────────────────────────────────────────
     CLICK_MERCHANT_ID: str = ""
     CLICK_SERVICE_ID: str = ""

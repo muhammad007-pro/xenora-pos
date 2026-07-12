@@ -48,3 +48,6 @@ pillow==10.1.0
 # Printer (ESC/POS)
 python-escpos==2.2.0
 pyusb==1.2.1
+
+# AI-Ombor (Claude API — rasmdan mahsulot o'qish). Pillow (rasm siqish) yuqorida bor.
+anthropic>=0.40,<1.0

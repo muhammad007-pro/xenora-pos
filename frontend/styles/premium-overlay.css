@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 /* ═══════════════════════════════════════════════════════════════
    PREMIUM OVERLAY — umumiy yengil premium qatlam (atmosfera + glass + light).
    Har sahifaning <style>'idan KEYIN ulanadi → background override (source-order).
@@ -6,9 +7,9 @@
    Foydalanish: <link ...premium-overlay.css> (head oxiri) + <div class="xa-atmos"></div> (body boshi).
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Tinch zumrad-qora fon ── */
-body{background:radial-gradient(ellipse 120% 75% at 75% -10%,#0a2419 0%,#05150e 50%,#03110c 100%)}
-[data-theme="light"] body{background:radial-gradient(ellipse 120% 75% at 75% -10%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+/* ── Tinch navy fon (XENORA yangi brend) ── */
+body{background:radial-gradient(ellipse 120% 80% at 55% -12%,#0d1c33 0%,#0a1628 52%,#070f1e 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 80% at 55% -12%,#ffffff 0%,#eef2f9 55%,#f4f6fb 100%)}
 
 /* content atmosfera ustида (atmos z-index:0, qolgani 1). Modallar (yuqori z-index) tegmaydi. */
 body > *:not(.xa-atmos){position:relative;z-index:1}

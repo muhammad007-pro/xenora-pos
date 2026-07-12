@@ -1,20 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
+/* ═══════════════════════════════════════════════════════════════
+   XENORA DIZAYN TOKENLARI (1-bosqich) — navy asos + emerald urg'u + tilla milliy detal.
+   Legacy nomlar (--bg/--gold/--text...) saqlangan → 73 sahifa buzilmaydi.
+   Yangi semantik: --accent* (emerald, asosiy brend), --gold* (tilla, milliy detal).
+   Dizayn nomli tokenlar (--ink/--panel/--line/--girih...) yangi komponentlar uchun.
+   ═══════════════════════════════════════════════════════════════ */
 :root{
-  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.13);--gold-glow:0 0 20px rgba(212,180,108,.35);
-  --bg:#062018;--bg2:#0e3527;--bg3:#164434;--bg4:#1c1c30;
-  --border:rgba(212,180,108,.16);--border2:rgba(255,255,255,.07);
-  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
-  --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
+  /* Shriftlar */
+  --font-d:'Sora',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+  /* Emerald — ASOSIY brend urg'u */
+  --accent:#22c55e;--accent-lt:#34d399;--accent-dk:#0d9488;
+  --accent-dim:rgba(34,197,94,.14);--accent-glow:0 0 20px rgba(34,197,94,.32);
+  --emerald:#22c55e;--emerald-lt:#34d399;--emerald-dk:#0d9488;--emerald-glow:rgba(34,197,94,.14);
+  /* Tilla — milliy detal (asosiy emas) */
+  --gold:#d4b46c;--gold-lt:#f5d97a;--gold-dim:rgba(212,180,108,.13);--gold-glow:0 0 20px rgba(212,180,108,.35);
+  /* Navy fon qatlamlari (legacy --bg* nomlari) */
+  --bg:#070f1e;--bg2:#0f2038;--bg3:#0d1c33;--bg4:#0a1628;
+  --bg-mid:#0a1628;--bg-glow:#0d1c33;
+  --panel1:#0f2038;--panel2:#0d1c33;--sidebar1:#0d1c33;--sidebar2:#0a1628;
+  /* Chiziq/border */
+  --border:rgba(120,160,220,.18);--border2:rgba(120,160,220,.10);
+  --line:rgba(120,160,220,.10);--line-str:rgba(120,160,220,.18);
+  /* Matn (ink) */
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#5d6f86;
+  --ink:#e8eef5;--ink-mut:#8b9bb0;--ink-dim:#5d6f86;
+  /* Naqsh (girih) + karta soya */
+  --girih:#5eb3ff;--girih-op:.09;
+  --card-shadow:0 8px 28px rgba(0,0,0,.42), 0 2px 6px rgba(0,0,0,.3);
+  --card-shadow-hover:0 16px 40px rgba(0,0,0,.5), 0 4px 12px rgba(34,197,94,.12);
+  /* Status */
+  --success:#22c55e;--warning:#f59e0b;--danger:#ef4444;--info:#3b82f6;
   --purple:#8b5cf6;
   --r:0.625rem;--r2:1rem;--r3:1.5rem;
   --tr:180ms ease;
   --sidebar:240px;
 }
 [data-theme="light"]{
-  --bg:#e9edf1;--bg2:#ffffff;--bg3:#e1e6ed;--bg4:#d5dbe4;
-  --border:rgba(201,168,76,.34);--border2:rgba(16,54,42,.15);
-  --text:#0e3325;--text2:#375646;--text3:#566f63;
-  --gold:#b89235;--gold-dim:rgba(201,168,76,.12);
+  --accent:#0d9488;--accent-lt:#22c55e;--accent-dk:#0d9488;
+  --accent-dim:rgba(34,197,94,.12);--accent-glow:0 0 18px rgba(13,148,136,.28);
+  --emerald:#22c55e;--emerald-lt:#34d399;--emerald-dk:#0d9488;--emerald-glow:rgba(34,197,94,.12);
+  --gold:#b89235;--gold-lt:#c9a227;--gold-dim:rgba(201,168,76,.12);
+  --bg:#f4f6fb;--bg2:#ffffff;--bg3:#eef2f9;--bg4:#e6ecf6;
+  --bg-mid:#eef2f9;--bg-glow:#ffffff;
+  --panel1:#ffffff;--panel2:#f8fafd;--sidebar1:#ffffff;--sidebar2:#f4f7fc;
+  --border:rgba(30,60,120,.16);--border2:rgba(30,60,120,.10);
+  --line:rgba(30,60,120,.10);--line-str:rgba(30,60,120,.16);
+  --text:#0d1b2e;--text2:#5a6b82;--text3:#8b9bb0;
+  --ink:#0d1b2e;--ink-mut:#5a6b82;--ink-dim:#8b9bb0;
+  --girih:#3b6fb5;--girih-op:.14;
+  --card-shadow:0 6px 20px rgba(30,60,120,.10), 0 1px 4px rgba(30,60,120,.08);
+  --card-shadow-hover:0 14px 32px rgba(30,60,120,.16), 0 4px 10px rgba(34,197,94,.10);
 }
 html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);transition:background .2s,color .2s}
 button{cursor:pointer;border:none;background:none;font-family:inherit;font-size:inherit;color:inherit}

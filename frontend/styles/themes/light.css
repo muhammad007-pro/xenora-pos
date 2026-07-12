@@ -1,24 +1,24 @@
 /* Light Theme — XENORA zumrad-tilla (kuchli kontrast; token nomlari o'zgarmagan) */
 
 [data-theme="light"] {
-    /* Primary Colors */
-    --primary: #159a70;
-    --primary-light: #1fb084;
-    --primary-dark: #0e6e50;
-    --primary-gradient: linear-gradient(135deg, #159a70 0%, #1fb084 50%, #9a7b30 100%);
+    /* Primary Colors — emerald */
+    --primary: #0d9488;
+    --primary-light: #22c55e;
+    --primary-dark: #0b7d73;
+    --primary-gradient: linear-gradient(135deg, #0d9488 0%, #22c55e 55%, #c9a227 100%);
 
-    /* Secondary Colors (to'q zumrad — light'da quyuq elementlar uchun) */
-    --secondary: #10362a;
-    --secondary-light: #1c4d3c;
-    --secondary-dark: #0a2419;
+    /* Secondary Colors (navy — light'da quyuq elementlar uchun) */
+    --secondary: #0f2038;
+    --secondary-light: #1a2f4d;
+    --secondary-dark: #070f1e;
 
-    /* Accent Colors */
-    --accent-gold: #9a7b30;
-    --accent-platinum: #e9e3d2;
-    --accent-bronze: #8a6a28;
+    /* Accent Colors — tilla milliy detal */
+    --accent-gold: #c9a227;
+    --accent-platinum: #e9edf5;
+    --accent-bronze: #b89235;
 
     /* Status Colors */
-    --success: #15935f;
+    --success: #159a70;
     --success-light: #d6f0e4;
     --warning: #b7791f;
     --warning-light: #fbf0d6;
@@ -27,37 +27,37 @@
     --info: #1e7a8c;
     --info-light: #d8eef2;
 
-    /* Neutral Colors (50 = eng yorug' sirt ... 900 = eng to'q matn) */
-    --gray-50: #fbf8f0;
-    --gray-100: #f3f0e4;
-    --gray-200: #e7e0ce;
-    --gray-300: #cfc6ae;
-    --gray-400: #6b8576;   /* muted matn — o'qilarli */
-    --gray-500: #4a6b5c;   /* dim matn — to'q */
-    --gray-600: #3a5949;
-    --gray-700: #28473a;
-    --gray-800: #1a3c2e;
-    --gray-900: #10362a;   /* asosiy matn — juda to'q zumrad */
+    /* Neutral Colors — cool/navy tinted (50 = eng yorug' sirt ... 900 = eng to'q matn) */
+    --gray-50: #f8fafd;
+    --gray-100: #f4f6fb;
+    --gray-200: #eef2f9;
+    --gray-300: #dbe3ef;
+    --gray-400: #8b9bb0;   /* muted matn — o'qilarli */
+    --gray-500: #5a6b82;   /* dim matn — to'q */
+    --gray-600: #3a4a63;
+    --gray-700: #26344b;
+    --gray-800: #152238;
+    --gray-900: #0d1b2e;   /* asosiy matn — juda to'q navy */
 
     /* Glassmorphism */
-    --glass-bg: rgba(251, 248, 240, 0.85);
-    --glass-bg-light: rgba(251, 248, 240, 0.55);
-    --glass-bg-dark: rgba(251, 248, 240, 0.92);
-    --glass-border: rgba(20, 90, 66, 0.18);
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-bg-light: rgba(255, 255, 255, 0.55);
+    --glass-bg-dark: rgba(255, 255, 255, 0.92);
+    --glass-border: rgba(30, 60, 120, 0.16);
     --glass-blur: blur(10px);
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(16, 54, 42, 0.06);
-    --shadow-md: 0 4px 6px -1px rgba(16, 54, 42, 0.10);
-    --shadow-lg: 0 10px 15px -3px rgba(16, 54, 42, 0.12);
-    --shadow-xl: 0 20px 25px -5px rgba(16, 54, 42, 0.12);
-    --shadow-2xl: 0 25px 50px -12px rgba(16, 54, 42, 0.18);
-    --shadow-glow: 0 0 20px rgba(21, 154, 112, 0.22);
-    --shadow-premium: 0 20px 40px rgba(16, 54, 42, 0.10), 0 5px 15px rgba(154, 123, 48, 0.12);
+    /* Shadows — navy tinted */
+    --shadow-sm: 0 1px 2px 0 rgba(30, 60, 120, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(30, 60, 120, 0.10);
+    --shadow-lg: 0 10px 15px -3px rgba(30, 60, 120, 0.12);
+    --shadow-xl: 0 20px 25px -5px rgba(30, 60, 120, 0.12);
+    --shadow-2xl: 0 25px 50px -12px rgba(30, 60, 120, 0.18);
+    --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.22);
+    --shadow-premium: 0 20px 40px rgba(30, 60, 120, 0.10), 0 5px 15px rgba(201, 162, 39, 0.12);
 
     /* Body Background */
     body {
-        background: linear-gradient(135deg, #f3f0e4 0%, #e9e3d2 100%);
+        background: linear-gradient(135deg, #ffffff 0%, #eef2f9 100%);
         color: var(--gray-900);
     }
 
@@ -123,24 +123,24 @@
 }/* Light Theme */
 
 [data-theme="light"] {
-    /* Primary Colors */
-    --primary: #159a70;
-    --primary-light: #1fb084;
-    --primary-dark: #0e6e50;
-    --primary-gradient: linear-gradient(135deg, #159a70 0%, #1fb084 50%, #9a7b30 100%);
+    /* Primary Colors — emerald */
+    --primary: #0d9488;
+    --primary-light: #22c55e;
+    --primary-dark: #0b7d73;
+    --primary-gradient: linear-gradient(135deg, #0d9488 0%, #22c55e 55%, #c9a227 100%);
 
-    /* Secondary Colors (to'q zumrad — light'da quyuq elementlar uchun) */
-    --secondary: #10362a;
-    --secondary-light: #1c4d3c;
-    --secondary-dark: #0a2419;
+    /* Secondary Colors (navy — light'da quyuq elementlar uchun) */
+    --secondary: #0f2038;
+    --secondary-light: #1a2f4d;
+    --secondary-dark: #070f1e;
 
-    /* Accent Colors */
-    --accent-gold: #9a7b30;
-    --accent-platinum: #e9e3d2;
-    --accent-bronze: #8a6a28;
+    /* Accent Colors — tilla milliy detal */
+    --accent-gold: #c9a227;
+    --accent-platinum: #e9edf5;
+    --accent-bronze: #b89235;
 
     /* Status Colors */
-    --success: #15935f;
+    --success: #159a70;
     --success-light: #d6f0e4;
     --warning: #b7791f;
     --warning-light: #fbf0d6;
@@ -149,37 +149,37 @@
     --info: #1e7a8c;
     --info-light: #d8eef2;
 
-    /* Neutral Colors (50 = eng yorug' sirt ... 900 = eng to'q matn) */
-    --gray-50: #fbf8f0;
-    --gray-100: #f3f0e4;
-    --gray-200: #e7e0ce;
-    --gray-300: #cfc6ae;
-    --gray-400: #6b8576;   /* muted matn — o'qilarli */
-    --gray-500: #4a6b5c;   /* dim matn — to'q */
-    --gray-600: #3a5949;
-    --gray-700: #28473a;
-    --gray-800: #1a3c2e;
-    --gray-900: #10362a;   /* asosiy matn — juda to'q zumrad */
+    /* Neutral Colors — cool/navy tinted (50 = eng yorug' sirt ... 900 = eng to'q matn) */
+    --gray-50: #f8fafd;
+    --gray-100: #f4f6fb;
+    --gray-200: #eef2f9;
+    --gray-300: #dbe3ef;
+    --gray-400: #8b9bb0;   /* muted matn — o'qilarli */
+    --gray-500: #5a6b82;   /* dim matn — to'q */
+    --gray-600: #3a4a63;
+    --gray-700: #26344b;
+    --gray-800: #152238;
+    --gray-900: #0d1b2e;   /* asosiy matn — juda to'q navy */
 
     /* Glassmorphism */
-    --glass-bg: rgba(251, 248, 240, 0.85);
-    --glass-bg-light: rgba(251, 248, 240, 0.55);
-    --glass-bg-dark: rgba(251, 248, 240, 0.92);
-    --glass-border: rgba(20, 90, 66, 0.18);
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-bg-light: rgba(255, 255, 255, 0.55);
+    --glass-bg-dark: rgba(255, 255, 255, 0.92);
+    --glass-border: rgba(30, 60, 120, 0.16);
     --glass-blur: blur(10px);
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(16, 54, 42, 0.06);
-    --shadow-md: 0 4px 6px -1px rgba(16, 54, 42, 0.10);
-    --shadow-lg: 0 10px 15px -3px rgba(16, 54, 42, 0.12);
-    --shadow-xl: 0 20px 25px -5px rgba(16, 54, 42, 0.12);
-    --shadow-2xl: 0 25px 50px -12px rgba(16, 54, 42, 0.18);
-    --shadow-glow: 0 0 20px rgba(21, 154, 112, 0.22);
-    --shadow-premium: 0 20px 40px rgba(16, 54, 42, 0.10), 0 5px 15px rgba(154, 123, 48, 0.12);
+    /* Shadows — navy tinted */
+    --shadow-sm: 0 1px 2px 0 rgba(30, 60, 120, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(30, 60, 120, 0.10);
+    --shadow-lg: 0 10px 15px -3px rgba(30, 60, 120, 0.12);
+    --shadow-xl: 0 20px 25px -5px rgba(30, 60, 120, 0.12);
+    --shadow-2xl: 0 25px 50px -12px rgba(30, 60, 120, 0.18);
+    --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.22);
+    --shadow-premium: 0 20px 40px rgba(30, 60, 120, 0.10), 0 5px 15px rgba(201, 162, 39, 0.12);
 
     /* Body Background */
     body {
-        background: linear-gradient(135deg, #f3f0e4 0%, #e9e3d2 100%);
+        background: linear-gradient(135deg, #ffffff 0%, #eef2f9 100%);
         color: var(--gray-900);
     }
 

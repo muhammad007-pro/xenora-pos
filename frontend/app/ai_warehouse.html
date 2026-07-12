@@ -139,6 +139,33 @@ input[type=file]{display:none}
 .add-row-btn{width:100%;margin-top:.75rem;background:transparent;border:1px dashed var(--border2);color:var(--text2);padding:.7rem;border-radius:var(--r);cursor:pointer;font-weight:600;font-size:.85rem;transition:.2s;font-family:inherit}
 .add-row-btn:hover{border-color:var(--em);color:var(--em)}
 
+/* ── Narx/kategoriya sozlamalari ── */
+.ctrls{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:.9rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:.85rem}
+.ctrl-lbl{display:block;font-size:.75rem;color:var(--text2);font-weight:600;margin-bottom:.4rem}
+.ctrl-hint{font-size:.72rem;color:var(--text3);margin-top:.35rem;line-height:1.35}
+.ctrl-inline{display:flex;align-items:center;gap:.5rem}
+.ctrls input[type=number],.ctrls select{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.55rem .7rem;color:var(--text);font-size:.9rem;outline:none;font-family:inherit;transition:.2s}
+.ctrls input[type=number]{width:120px}
+.ctrls select{width:100%}
+.ctrls input:focus,.ctrls select:focus{border-color:var(--em);box-shadow:0 0 0 2px rgba(16,185,129,.14)}
+.ctrl-check{display:flex;align-items:center;gap:.55rem;font-size:.82rem;color:var(--text2);cursor:pointer;line-height:1.35}
+.ctrl-check input{width:18px;height:18px;accent-color:var(--em);flex-shrink:0}
+
+/* ── Yangi mahsulot: shtrix-kod maydoni ── */
+.prow-barcode{margin-top:.6rem}
+.prow-barcode .prow-lbl{display:flex;align-items:center;gap:.35rem}
+.bc-auto{font-size:.66rem;font-weight:700;color:var(--em2);background:var(--em-dim);padding:.1rem .4rem;border-radius:99px}
+
+/* ── Success ── */
+.success-box{text-align:center;padding:2rem 1rem}
+.ok-ico{width:66px;height:66px;margin:0 auto 1rem;border-radius:50%;background:var(--em-dim);border:1px solid rgba(16,185,129,.35);display:flex;align-items:center;justify-content:center;color:var(--em2);font-size:2rem;font-weight:700;animation:okPop .35s ease}
+@keyframes okPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.ok-title{font-weight:700;font-size:1.15rem;margin-bottom:.5rem}
+.ok-msg{color:var(--text2);font-size:.9rem;line-height:1.5;margin-bottom:1.5rem;max-width:440px;margin-left:auto;margin-right:auto}
+.ok-actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-width:440px;margin:0 auto}
+@media(max-width:480px){.ok-actions{grid-template-columns:1fr}}
+.ok-actions .btn{text-decoration:none}
+
 .foot-actions{display:grid;grid-template-columns:1fr 1.6fr;gap:.75rem;margin-top:1.1rem}
 .note{font-size:.78rem;color:var(--text3);text-align:center;margin-top:.75rem;line-height:1.4}
 
@@ -243,13 +270,48 @@ input[type=file]{display:none}
         <div class="sm-chip new"><div class="v" id="smNew">0</div><div class="l">Yangi</div></div>
         <div class="sm-chip dup"><div class="v" id="smDup">0</div><div class="l">Omborda bor</div></div>
       </div>
+
+      <!-- Narx / kategoriya sozlamalari -->
+      <div class="ctrls">
+        <div class="ctrl-row">
+          <label class="ctrl-lbl">Ustama foiz (yangi mahsulotlar sotish narxi)</label>
+          <div class="ctrl-inline">
+            <input type="number" id="markupPct" min="0" step="1" placeholder="masalan 20" value="20">
+            <span style="color:var(--text3);font-weight:700">%</span>
+            <button class="btn btn-out" style="padding:.5rem .9rem" onclick="applyMarkup()">Qo'llash</button>
+          </div>
+          <div class="ctrl-hint">Kelish narxi × (1 + %) → sotish narxi. Har mahsulotni alohida ham o'zgartirish mumkin.</div>
+        </div>
+        <div class="ctrl-row">
+          <label class="ctrl-lbl">Yangi mahsulotlar kategoriyasi</label>
+          <select id="catSel"><option value="">— tanlanmagan —</option></select>
+        </div>
+        <label class="ctrl-check" id="updExistWrap" style="display:none">
+          <input type="checkbox" id="updExisting">
+          <span>Omborda mavjud mahsulotlar narxini ham yangilash (kelish + sotish)</span>
+        </label>
+      </div>
+
       <div class="rows" id="rowsWrap"></div>
       <button class="add-row-btn" onclick="addRow()">+ Qator qo'shish (AI o'tkazib yuborgan bo'lsa)</button>
       <div class="foot-actions">
         <button class="btn btn-out" onclick="resetCapture()">Boshqa rasm</button>
-        <button class="btn btn-em" id="btnConfirm" onclick="confirmAll()">✓ Tasdiqlash</button>
+        <button class="btn btn-em" id="btnConfirm" onclick="confirmAll()">✓ Omborga qo'shish</button>
       </div>
-      <div class="note">Tasdiqlangach — keyingi bosqichda omborga kirim qilinadi.</div>
+      <div class="note">Tasdiqlansa — yangi mahsulotlar ochiladi (shtrix-kod bilan), mavjudlar to'ldiriladi va kirim (priyomka) yoziladi.</div>
+    </div>
+  </div>
+
+  <!-- STEP: SUCCESS -->
+  <div class="card hidden" id="stepSuccess">
+    <div class="success-box">
+      <div class="ok-ico">✓</div>
+      <div class="ok-title" id="okTitle">Omborga qo'shildi</div>
+      <div class="ok-msg" id="okMsg"></div>
+      <div class="ok-actions">
+        <button class="btn btn-out btn-lg" onclick="resetCapture()">↻ Yana rasm</button>
+        <a class="btn btn-em btn-lg" href="inventory.html">Omborga o'tish →</a>
+      </div>
     </div>
   </div>
 
@@ -268,9 +330,13 @@ let rows = [];            // o'qilgan mahsulotlar (tahrirlanadigan)
 
 // ── Bosqichlarni ko'rsatish ──────────────────────────────────────────────
 function showStep(name){
-  ['Capture','Preview','Loading','Error','Results'].forEach(s=>{
+  ['Capture','Preview','Loading','Error','Results','Success'].forEach(s=>{
     document.getElementById('step'+s).classList.toggle('hidden', s!==name);
   });
+}
+function setLoading(txt, sub){
+  document.querySelector('#stepLoading .loading-txt').textContent = txt;
+  document.querySelector('#stepLoading .loading-sub').textContent = sub;
 }
 
 // ── Status tekshiruvi ────────────────────────────────────────────────────
@@ -353,6 +419,8 @@ async function doScan(){
       name: p.name || '',
       quantity: p.quantity || 0,
       unit_price: p.unit_price || 0,
+      sell_price: null,                  // sotish narxi (ustama yoki qo'lda)
+      barcode: '',                       // yangi mahsulot: bo'sh → avto yaratiladi
       confidence: typeof p.confidence === 'number' ? p.confidence : 0,
       matched_product_id: p.matched_product_id || null,
       matched_name: p.matched_name || null,
@@ -419,6 +487,7 @@ function renderRows(){
   const wrap = document.getElementById('rowsWrap');
   wrap.innerHTML = rows.map((row,i)=>{
     const cc = confClass(row.confidence);
+    const isNew = !(row.matched_product_id && row.keepMatch);   // yangi mahsulotmi
     const dup = row.matched_product_id ? `
       <div class="dup-banner">
         <div class="dup-q">⚠ Ombordagi <b>${esc(row.matched_name||'')}</b> bilan mos? <span style="color:var(--text3)">(${row.match_score||0}%)</span></div>
@@ -426,6 +495,18 @@ function renderRows(){
           <button data-v="dup" class="${row.keepMatch?'on':''}" onclick="setDup(${i},true)">Ha, mos (kirim)</button>
           <button data-v="new" class="${row.keepMatch?'':'on'}" onclick="setDup(${i},false)">Yo'q, yangi</button>
         </div>
+      </div>` : '';
+    // Sotish narxi — barcha qatorda; yangi mahsulot uchun shtrix-kod maydoni ham
+    const sellVal = row.sell_price!=null ? fmtNum(row.sell_price) : '';
+    const sellRow = `
+      <div>
+        <span class="prow-lbl">Sotish narxi (dona)</span>
+        <input type="number" step="1" min="0" value="${sellVal}" oninput="upd(${i},'sell_price',this.value)" placeholder="${isNew?'ustama yoki narx':'mavjud narx'}">
+      </div>`;
+    const barcodeRow = isNew ? `
+      <div class="prow-barcode">
+        <span class="prow-lbl">Shtrix-kod <span class="bc-auto">bo'sh → avto</span></span>
+        <input type="text" inputmode="numeric" value="${esc(row.barcode||'')}" oninput="upd(${i},'barcode',this.value)" placeholder="Skaner qiling yoki bo'sh qoldiring">
       </div>` : '';
     return `<div class="prow conf-${cc}">
       <div class="prow-top">
@@ -448,6 +529,11 @@ function renderRows(){
           <input type="number" step="1" min="0" value="${fmtNum(row.unit_price)}" oninput="upd(${i},'unit_price',this.value)" placeholder="0">
         </div>
       </div>
+      <div class="prow-grid" style="margin-top:.6rem">
+        ${sellRow}
+        <div></div>
+      </div>
+      ${barcodeRow}
       ${dup}
     </div>`;
   }).join('');
@@ -459,9 +545,27 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;',
 // ── Tahrirlash ───────────────────────────────────────────────────────────
 function upd(i,field,val){
   if (!rows[i]) return;
-  if (field==='quantity' || field==='unit_price') rows[i][field] = parseFloat(val)||0;
-  else rows[i][field] = val;
-  // summary faqat dublikat holatiga bog'liq — bu yerda o'zgarmaydi, tez qoladi
+  if (field==='quantity' || field==='unit_price'){
+    rows[i][field] = parseFloat(val)||0;
+  } else if (field==='sell_price'){
+    rows[i][field] = (val==='' || val==null) ? null : (parseFloat(val)||0);
+  } else {
+    rows[i][field] = val;
+  }
+  // summary/inputlar shu joyda qayta chizilmaydi — kursor sakramasin (tez tahrir)
+}
+
+// Ustama foizni yangi mahsulotlarga qo'llash (kelish × (1+%))
+function applyMarkup(){
+  const pct = parseFloat(document.getElementById('markupPct').value);
+  if (isNaN(pct) || pct < 0){ toast('To\'g\'ri foiz kiriting','warning'); return; }
+  let n=0;
+  rows.forEach(r=>{
+    const isNew = !(r.matched_product_id && r.keepMatch);
+    if (isNew){ r.sell_price = Math.round((Number(r.unit_price)||0)*(1+pct/100)); n++; }
+  });
+  renderRows();
+  toast(`Ustama qo'llandi: ${n} ta yangi mahsulot`, 'success');
 }
 function setDup(i,keep){
   if (!rows[i]) return;
@@ -488,27 +592,82 @@ function updateSummary(){
   document.getElementById('smTotal').textContent = total;
   document.getElementById('smNew').textContent = nw;
   document.getElementById('smDup').textContent = dup;
+  // "Mavjud narxni yangilash" faqat mavjud (dublikat) bo'lsa ko'rinadi
+  document.getElementById('updExistWrap').style.display = dup>0 ? 'flex' : 'none';
 }
 
-// ── Tasdiqlash (BOSQICH 2: tayyorlaydi, omborga YOZMAYDI) ────────────────
-function confirmAll(){
-  // Validatsiya: har qatorda nom bo'lishi shart
+// ── Tasdiqlash (BOSQICH 3: HAQIQATAN omborga qo'shadi + kirim yozadi) ─────
+async function confirmAll(){
+  // Validatsiya: har qatorda nom + musbat miqdor
   const bad = rows.filter(r=>!r.name || !r.name.trim());
   if (bad.length){ toast('Har qatorda mahsulot nomi bo\'lishi kerak','warning'); return; }
-  const payload = rows.map(r=>({
-    name: r.name.trim(),
-    quantity: Number(r.quantity)||0,
-    unit_price: Number(r.unit_price)||0,
-    matched_product_id: (r.matched_product_id && r.keepMatch) ? r.matched_product_id : null,
-    is_new: !(r.matched_product_id && r.keepMatch),
-  }));
-  // Keyingi bosqich (omborga kirim) uchun tayyorlab qo'yamiz
-  try { sessionStorage.setItem('ai_warehouse_pending', JSON.stringify(payload)); } catch {}
-  const nw = payload.filter(p=>p.is_new).length;
-  const dup = payload.length - nw;
-  toast(`Tayyor: ${payload.length} mahsulot (${nw} yangi, ${dup} mavjud). Omborga qo\'shish — keyingi bosqichda.`,'success');
-  document.getElementById('btnConfirm').textContent = '✓ Tasdiqlandi';
-  document.getElementById('btnConfirm').disabled = true;
+  const badQ = rows.filter(r=>!(Number(r.quantity)>0));
+  if (badQ.length){ toast('Har qatorda miqdor musbat bo\'lishi kerak','warning'); return; }
+
+  const catId = document.getElementById('catSel').value;
+  const markupPct = parseFloat(document.getElementById('markupPct').value);
+  const updExisting = document.getElementById('updExisting').checked;
+
+  const items = rows.map(r=>{
+    const isNew = !(r.matched_product_id && r.keepMatch);
+    return {
+      name: r.name.trim(),
+      quantity: Number(r.quantity)||0,
+      unit_price: Number(r.unit_price)||0,
+      sell_price: (r.sell_price!=null && r.sell_price>0) ? Number(r.sell_price) : null,
+      matched_product_id: isNew ? null : r.matched_product_id,
+      barcode: isNew ? ((r.barcode||'').trim() || null) : null,
+      unit: 'dona',
+    };
+  });
+  const body = {
+    items,
+    category_id: catId ? parseInt(catId) : null,
+    markup_pct: (!isNaN(markupPct) && markupPct>=0) ? markupPct : null,
+    update_existing_price: !!updExisting,
+  };
+
+  const btn = document.getElementById('btnConfirm');
+  btn.disabled = true;
+  setLoading('Omborga qo\'shilyapti...', 'Mahsulotlar ochilib, kirim yozilmoqda');
+  showStep('Loading');
+  try {
+    const r = await fetch(`${BASE}/ai-warehouse/confirm`, {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    let data=null; try{ data=await r.json(); }catch{ data=null; }
+    if (!r.ok){
+      btn.disabled = false;
+      showConfirmError(r.status, data);
+      return;
+    }
+    try { sessionStorage.removeItem('ai_warehouse_pending'); } catch {}
+    document.getElementById('okTitle').textContent = 'Omborga qo\'shildi ✓';
+    document.getElementById('okMsg').innerHTML =
+      `<b>${data.added}</b> ta mahsulot qo'shildi — <b>${data.new_count}</b> yangi ochildi, `+
+      `<b>${data.existing_count}</b> mavjud to'ldirildi.<br>`+
+      `Jami miqdor: ${fmtNum(data.total_qty)} · Kirim summasi: ${Number(data.total_cost||0).toLocaleString('ru-RU')}<br>`+
+      `<span style="color:var(--text3);font-size:.82rem">Kirim tarixida "AI-ombor orqali" belgisi bilan ko'rinadi.</span>`;
+    showStep('Success');
+  } catch(e){
+    btn.disabled = false;
+    showConfirmError('network', null);
+  }
+}
+
+// Tasdiqlash xatosi — Results ustida toast (jadval yo'qolmasin, tahrir saqlansin)
+function showConfirmError(status, data){
+  showStep('Results');
+  const detail = data && data.detail;
+  const dm = detail && (typeof detail==='object' ? detail.message : detail);
+  let m;
+  if (status==='network') m='Serverga ulanib bo\'lmadi. Qayta urining.';
+  else if (status===403) m='Ruxsat yo\'q — faqat admin/menejer omborga qo\'sha oladi.';
+  else if (status===503) m='AI-ombor xizmati sozlanmagan.';
+  else m = dm || 'Omborga qo\'shishda xato. Hech narsa saqlanmadi, qayta urining.';
+  toast(m, 'error');
 }
 
 // ── Toast ────────────────────────────────────────────────────────────────
@@ -519,9 +678,24 @@ function toast(msg,type='info'){
   el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),3600);
 }
 
+// ── Kategoriyalar (yangi mahsulotlar uchun) ──────────────────────────────
+async function loadCategories(){
+  try {
+    const r = await fetch(`${BASE}/categories/all`, {headers:{Authorization:'Bearer '+tok()}});
+    if (!r.ok) return;
+    const j = await r.json();
+    const cats = Array.isArray(j) ? j : (j.data || j.items || []);
+    const sel = document.getElementById('catSel');
+    if (!sel || !cats.length) return;
+    sel.innerHTML = '<option value="">— tanlanmagan —</option>' +
+      cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  } catch {}
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────
 showStep('Capture');
 checkStatus();
+loadCategories();
 </script>
 </body>
 </html>

@@ -191,24 +191,20 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0c2c21 0%,#061b13 
 
 /* ── Atmosphere layer (fixed, behind the card) ── */
 .login-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
-.login-atmos::before{ /* faint girih star texture */
-  content:'';position:absolute;inset:0;opacity:.04;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='68' height='68'%3E%3Cpath d='M34 5l7 22 22 7-22 7-7 22-7-22-22-7 22-7z' fill='none' stroke='%23d4b46c' stroke-width='1'/%3E%3C/svg%3E");
-  background-size:68px 68px;
+.login-atmos::before{ /* koshin (o'zbek milliy naqsh) — nozik tile, dark .09 / light .16 */
+  content:'';position:absolute;inset:0;opacity:.09;
+  background:url('../styles/koshin-dark.svg') repeat;
+  background-size:132px 132px;
 }
-/* rotating girih mandala (16-fold) */
-.la-mandala{
-  position:absolute;top:50%;left:50%;width:165vmin;height:165vmin;
-  transform:translate(-50%,-50%);opacity:.07;
-  animation:laSpin 120s linear infinite;
-}
-.la-mandala svg{width:100%;height:100%;display:block}
+[data-theme="light"] .login-atmos::before{background-image:url('../styles/koshin-light.svg');opacity:.16}
+/* mandala OLIB TASHLANDI — koshin uni almashtiradi */
+.la-mandala{display:none}
 @keyframes laSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 /* breathing emerald + gold light blobs */
 .la-glow{position:absolute;border-radius:50%;filter:blur(70px);mix-blend-mode:screen;opacity:.5}
-.la-glow.g1{width:46vmin;height:46vmin;top:-10%;left:4%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:laBreathe 18s ease-in-out infinite}
+.la-glow.g1{width:46vmin;height:46vmin;top:-10%;left:4%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:laBreathe 18s ease-in-out infinite}
 .la-glow.g2{width:42vmin;height:42vmin;bottom:-12%;right:2%;background:radial-gradient(circle,#d4b46c,transparent 70%);animation:laBreathe 22s ease-in-out infinite 2s}
-.la-glow.g3{width:34vmin;height:34vmin;top:28%;right:22%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:laBreathe 16s ease-in-out infinite 1s}
+.la-glow.g3{width:34vmin;height:34vmin;top:28%;right:22%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:laBreathe 16s ease-in-out infinite 1s}
 .la-glow.g4{width:30vmin;height:30vmin;bottom:6%;left:16%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:laBreathe 20s ease-in-out infinite 3s}
 @keyframes laBreathe{0%,100%{transform:scale(.9);opacity:.3}50%{transform:scale(1.18);opacity:.6}}
 /* floating gold particles (built by isolated visual IIFE) */

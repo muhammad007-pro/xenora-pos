@@ -406,25 +406,17 @@ tbody tr:hover{background:rgba(34,197,94,.04)!important}
 
 /* ── Atmosphere layer (lives inside #pageDashboard → only visible on dashboard) ── */
 .dash-atmos{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;border-radius:var(--r2)}
-.dash-atmos::before{ /* faint girih star texture */
-  content:'';position:absolute;inset:0;opacity:.03;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cpath d='M32 4l7 21 21 7-21 7-7 21-7-21-21-7 21-7z' fill='none' stroke='%23d4b46c' stroke-width='1'/%3E%3C/svg%3E");
-  background-size:64px 64px;
-}
-.da-mandala{
-  position:absolute;top:50%;left:50%;width:150vmin;height:150vmin;
-  transform:translate(-50%,-50%);opacity:.06;
-  animation:daSpin 120s linear infinite;
-}
-.da-mandala svg{width:100%;height:100%;display:block}
-@keyframes daSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+/* Dashboard mandala/yulduz-tekstura OLIB TASHLANDI — global koshin (admin-atmos)
+   dashboard ostidan ham ko'rinadi (glass kartalar yarim-shaffof). Bu qatlam endi
+   faqat nozik nur-blob (chuqurlik) + tilla zarralar (milliy detal) uchun. */
+.da-mandala{display:none}
 
-/* breathing light blobs — emerald + gold */
-.da-glow{position:absolute;border-radius:50%;filter:blur(60px);mix-blend-mode:screen;opacity:.5}
-.da-glow.g1{width:42vmin;height:42vmin;top:-8%;left:6%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:daBreathe 18s ease-in-out infinite}
-.da-glow.g2{width:38vmin;height:38vmin;bottom:-10%;right:6%;background:radial-gradient(circle,#d4b46c,transparent 70%);animation:daBreathe 22s ease-in-out infinite 2s}
-.da-glow.g3{width:30vmin;height:30vmin;top:38%;right:32%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:daBreathe 16s ease-in-out infinite 1s}
-@keyframes daBreathe{0%,100%{transform:scale(.9);opacity:.32}50%{transform:scale(1.15);opacity:.58}}
+/* breathing light blobs — emerald + gold (koshin asosiy → nur kamaytirilgan) */
+.da-glow{position:absolute;border-radius:50%;filter:blur(64px);mix-blend-mode:screen;opacity:.4}
+.da-glow.g1{width:40vmin;height:40vmin;top:-8%;left:6%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:daBreathe 18s ease-in-out infinite}
+.da-glow.g2{width:36vmin;height:36vmin;bottom:-10%;right:6%;background:radial-gradient(circle,#d4b46c,transparent 70%);animation:daBreathe 22s ease-in-out infinite 2s}
+.da-glow.g3{width:28vmin;height:28vmin;top:38%;right:32%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:daBreathe 16s ease-in-out infinite 1s}
+@keyframes daBreathe{0%,100%{transform:scale(.9);opacity:.22}50%{transform:scale(1.12);opacity:.42}}
 
 /* floating gold particles */
 .da-particle{position:absolute;bottom:-12px;border-radius:50%;background:radial-gradient(circle,#ecdca8,#d4b46c);opacity:.6;animation:daFloat linear infinite}
@@ -660,23 +652,25 @@ tbody tr:hover{background:rgba(34,197,94,.04)!important}
 .admin-topbar{position:relative;z-index:2}
 .admin-content{position:relative;z-index:1}
 .admin-atmos{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+/* Koshin (o'zbek milliy naqsh) — butun fonga NOZIK yoyilgan tile. Namunadagi
+   shell::before kabi: background-repeat, dark .09 / light .16. Aylanmaydi. */
 .admin-atmos::before{
-  content:'';position:absolute;top:44%;left:64%;width:120vmin;height:120vmin;
-  transform:translate(-50%,-50%);opacity:.05;
-  background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600' fill='none' stroke='%23d4b46c' stroke-width='1'%3E%3Ccircle cx='300' cy='300' r='250'/%3E%3Ccircle cx='300' cy='300' r='185'/%3E%3Ccircle cx='300' cy='300' r='120'/%3E%3Ccircle cx='300' cy='300' r='60'/%3E%3Cpolygon points='300,70 530,300 300,530 70,300'/%3E%3Crect x='160' y='160' width='280' height='280'/%3E%3Crect x='160' y='160' width='280' height='280' transform='rotate(45 300 300)'/%3E%3C/svg%3E");
-  animation:adminSpin 240s linear infinite;
+  content:'';position:absolute;inset:0;
+  background:url('koshin-dark.svg') repeat;
+  background-size:132px 132px;
+  opacity:.09;
 }
-@keyframes adminSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+[data-theme="light"] .admin-atmos::before{background-image:url('koshin-light.svg');opacity:.16}
+/* Yengil nafas oluvchi nur (koshin asosiy — bu juda nozik chuqurlik uchun) */
 .admin-atmos::after{
   content:'';position:absolute;inset:0;mix-blend-mode:screen;
   background:
-    radial-gradient(44vmin 44vmin at 6% -6%, rgba(31,176,132,.13), transparent 70%),
-    radial-gradient(40vmin 40vmin at 98% 106%, rgba(202,168,90,.12), transparent 70%);
+    radial-gradient(46vmin 46vmin at 6% -6%, rgba(34,197,94,.08), transparent 70%),
+    radial-gradient(40vmin 40vmin at 98% 106%, rgba(202,168,90,.07), transparent 70%);
   animation:adminBreathe 34s ease-in-out infinite;
 }
-@keyframes adminBreathe{0%,100%{opacity:.6}50%{opacity:.95}}
-[data-theme="light"] .admin-atmos::before{opacity:.045}
-[data-theme="light"] .admin-atmos::after{mix-blend-mode:normal;opacity:.45}
+@keyframes adminBreathe{0%,100%{opacity:.5}50%{opacity:.8}}
+[data-theme="light"] .admin-atmos::after{mix-blend-mode:normal;opacity:.4}
 
 /* ── "← Hisobotlar" orqaga tugma (hisobot sahifalari; mobil'da qamalmaslik uchun) ── */
 .report-back-btn{
@@ -689,7 +683,7 @@ tbody tr:hover{background:rgba(34,197,94,.04)!important}
 .report-back-btn:active{transform:scale(.97)}
 
 @media (prefers-reduced-motion:reduce){ .admin-atmos::before,.admin-atmos::after{animation:none!important} }
-@media (max-width:768px){ .admin-atmos::before{opacity:.035} }
+@media (max-width:768px){ .admin-atmos::after{opacity:.35} }
 
 /* ═══ BOSQICH 8: Mobil navigatsiya (drawer + hamburger) + light kontrast ═══ */
 /* Hamburger va backdrop — DESKTOPда yashirin (faqat ≤900px, sidebar drawer bo'lganda) */
@@ -726,6 +720,6 @@ tbody tr:hover{background:rgba(34,197,94,.04)!important}
 [data-theme="light"] .modal-box{
   box-shadow:0 1px 3px rgba(16,54,42,.10),0 1px 2px rgba(16,54,42,.06);
 }
-/* Light mode — atmosfera juda yengil (och fonда bezovta qilmasin) */
-[data-theme="light"] .admin-atmos::before{opacity:.03}
+/* Light mode — koshin nozik (namunadagi .16), nur juda yengil */
+[data-theme="light"] .admin-atmos::before{opacity:.16}
 [data-theme="light"] .admin-atmos::after{opacity:.26}

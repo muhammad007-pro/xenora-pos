@@ -154,5 +154,6 @@ npm run build          # electron-builder → dist/ (Setup + Portable)
 
 ## 8. Oxirgi deploy holati (yozib boriladi)
 
+- **v1.1.0** (2026-07-13, `bdc86f9`): KATTA reliz — yangi XENORA dizayn + admin refaktoring (14 modul) + AI-ombor (rasmdan mahsulot o'qish, 3 bosqich). Uch branch main'ga merge (design + ai-ombor, yagona konflikt inventory.html avto-hal). Migration YO'Q (AI-ombor mavjud ustunlardan foydalanadi — `f6a7b8c9d0e1` head o'zgarmadi, upgrade no-op). `anthropic 0.116.0` venv'ga o'rnatildi. `.env`: `ANTHROPIC_API_KEY=CHANGE_ME` (placeholder — AI 503 "sozlanmagan", crash EMAS; Muhammad haqiqiy kalit qo'yadi) + `AI_WAREHOUSE_MODEL/ENABLED`. SW `v1.26.0`. Health `version:1.1.0`. Backup: `~/xenora-backups/pre_1.1.0_2026-07-12_2346.sql`. **Eslatma:** production super-admin paroli dev'nikidan (`admin4770`) farq qiladi — jonli funksiya testi Muhammad kredi bilan.
 - **v1.0.3** (2026-07-11, `8800a6d`): to'liq audit tozalash (14 muammo). Migration `e5f6a7b9c0d1` → `f6a7b8c9d0e1` (ingredients_restored ustun + 3 composite indeks). SW `v1.24.0`. Health `version:1.0.3`. Backup: `~/xenora-backups/pre_1.0.3_2026-07-11_0541.sql`.
 - **v1.0.1** (2026-07-10, `557404a`): magazin 10 tuzatish. Migration `e5f6a7b9c0d1`. SW `v1.22.0`.

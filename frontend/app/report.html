@@ -9,11 +9,11 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);--gold-glow:0 0 18px rgba(212,180,108,.35);
-  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);--gold-glow:0 0 18px rgba(34,197,94,.35);
+  --bg:#070f1e;--bg2:#0a1628;--bg3:#0f2038;
   --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
-  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
-  --green:#10b981;--red:#ef4444;--r:.5rem;--r2:.875rem
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;
+  --green:#22c55e;--red:#ef4444;--r:.5rem;--r2:.875rem
 }
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .ph{display:flex;align-items:center;gap:1rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
@@ -21,12 +21,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .bk:hover{border-color:var(--gold);color:var(--gold)}
 .ph-title{font-size:1.125rem;font-weight:700;color:var(--gold);flex:1}
 .btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
-.btn-gold{background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c}
+.btn-gold{background:linear-gradient(135deg,#16a34a,#22c55e,#16a34a);color:#04160d}
 .btn-gold:hover{box-shadow:var(--gold-glow);transform:translateY(-1px)}
 .btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
 .btn-out:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-1px)}
 .btn-sm{padding:.375rem .75rem;font-size:.8125rem}
-.btn-green{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#10b981}
+.btn-green{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#22c55e}
 .btn-green:hover{background:rgba(16,185,129,.25)}
 .btn-red{background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.25);color:#ef4444}
 .btn-red:hover{background:rgba(239,68,68,.22)}
@@ -34,7 +34,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 /* Tabs */
 .tabs{display:flex;gap:.375rem;margin-bottom:1.25rem;flex-wrap:wrap}
 .tab{padding:.5rem 1.125rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2);transition:.2s}
-.tab.active{background:var(--gold-dim);color:var(--gold);border-color:rgba(212,180,108,.3)}
+.tab.active{background:var(--gold-dim);color:var(--gold);border-color:rgba(34,197,94,.3)}
 .tab:hover:not(.active){color:var(--text);border-color:var(--border2)}
 /* Toolbar */
 .toolbar{display:flex;gap:.625rem;margin-bottom:1.25rem;align-items:center;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:.875rem 1rem}
@@ -49,7 +49,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 /* Stats */
 .sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.875rem;margin-bottom:1.5rem}
 .sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.125rem;transition:.2s}
-.sc:hover{border-color:rgba(212,180,108,.2)}
+.sc:hover{border-color:rgba(34,197,94,.2)}
 .sl{font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.2rem}
 .sv{font-size:1.55rem;font-weight:700;color:var(--gold)}
 .ss{font-size:.75rem;color:var(--text2);margin-top:.15rem}
@@ -67,7 +67,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .tbl td{padding:.65rem 1rem;font-size:.8125rem}
 .amt{font-weight:600;color:var(--gold)}
 .badge{display:inline-block;padding:.2em .55em;border-radius:99px;font-size:.7rem;font-weight:700}
-.badge-ok{background:rgba(16,185,129,.15);color:#10b981}
+.badge-ok{background:rgba(16,185,129,.15);color:#22c55e}
 .badge-low{background:rgba(245,158,11,.15);color:#f59e0b}
 .badge-out{background:rgba(239,68,68,.15);color:#ef4444}
 .empty{text-align:center;padding:3rem;color:var(--text3)}
@@ -93,15 +93,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
    ═══════════════════════════════════════════════════════════════ */
 /* light mode o'zgaruvchilari (sahifada yo'q edi — qo'shildi) */
 [data-theme="light"]{
-  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;
+  --bg:#f4f6fb;--bg2:#ffffff;--bg3:#eef2f9;
   --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.12);
-  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
-  --gold:#c9a84c;--gold-dim:rgba(201,168,76,.12);
+  --text:#0f2038;--text2:#5a6b82;--text3:#677689;
+  --gold:#c9a84c;--gold-dim:rgba(34,197,94,.12);
 }
 
 /* zumrad-qora gradient fon */
-body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#0b291e 0%,#05160f 50%,#03110c 100%)}
-[data-theme="light"] body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#0b291e 0%,#05160f 50%,#070f1e 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#f3f6f1 0%,#eef3ee 55%,#f4f6fb 100%)}
 
 /* content atmosfera ustида */
 .ph{z-index:30}
@@ -113,26 +113,26 @@ body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#0b291e 0%,#05160f 
 .ra-mandala svg{width:100%;height:100%;display:block}
 @keyframes raSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 .ra-glow{position:absolute;border-radius:50%;filter:blur(75px);mix-blend-mode:screen;opacity:.24}
-.ra-glow.g1{width:46vmin;height:46vmin;top:-10%;left:2%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:raBreathe 26s ease-in-out infinite}
+.ra-glow.g1{width:46vmin;height:46vmin;top:-10%;left:2%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:raBreathe 26s ease-in-out infinite}
 .ra-glow.g2{width:40vmin;height:40vmin;bottom:-12%;right:0%;background:radial-gradient(circle,#caa85a,transparent 70%);animation:raBreathe 32s ease-in-out infinite 3s}
-.ra-glow.g3{width:32vmin;height:32vmin;top:30%;right:30%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:raBreathe 22s ease-in-out infinite 1.5s}
+.ra-glow.g3{width:32vmin;height:32vmin;top:30%;right:30%;background:radial-gradient(circle,#22c55e,transparent 70%);animation:raBreathe 22s ease-in-out infinite 1.5s}
 @keyframes raBreathe{0%,100%{transform:scale(.95);opacity:.16}50%{transform:scale(1.12);opacity:.3}}
 [data-theme="light"] .ra-glow{mix-blend-mode:normal;opacity:.11;filter:blur(88px)}
 [data-theme="light"] .ra-mandala{opacity:.05}
 
 /* ── Glass panellar ── */
-.sc{background:rgba(11,46,35,.6);backdrop-filter:blur(10px) saturate(1.15);-webkit-backdrop-filter:blur(10px) saturate(1.15);box-shadow:0 4px 22px rgba(0,0,0,.18),inset 0 1px 0 rgba(212,180,108,.06)}
+.sc{background:rgba(15,32,56,.6);backdrop-filter:blur(10px) saturate(1.15);-webkit-backdrop-filter:blur(10px) saturate(1.15);box-shadow:0 4px 22px rgba(0,0,0,.18),inset 0 1px 0 rgba(34,197,94,.06)}
 [data-theme="light"] .sc{background:rgba(255,255,255,.7)}
-.sc:hover{border-color:rgba(212,180,108,.35);box-shadow:0 8px 30px rgba(212,180,108,.12)}
+.sc:hover{border-color:rgba(34,197,94,.35);box-shadow:0 8px 30px rgba(34,197,94,.12)}
 .toolbar,.chart-wrap,.tbl-wrap{
-  background:linear-gradient(180deg,rgba(11,46,35,.72),rgba(8,34,26,.78));
+  background:linear-gradient(180deg,rgba(15,32,56,.72),rgba(8,34,26,.78));
   backdrop-filter:blur(12px) saturate(1.12);-webkit-backdrop-filter:blur(12px) saturate(1.12);
-  border-color:rgba(212,180,108,.14);
+  border-color:rgba(34,197,94,.14);
 }
 [data-theme="light"] .toolbar,[data-theme="light"] .chart-wrap,[data-theme="light"] .tbl-wrap{background:linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,249,250,.9))}
-.tbl thead th{background:rgba(212,180,108,.05)}
+.tbl thead th{background:rgba(34,197,94,.05)}
 /* fokus tilla glow */
-.toolbar input:focus,.toolbar select:focus{box-shadow:0 0 0 3px rgba(212,180,108,.14)}
+.toolbar input:focus,.toolbar select:focus{box-shadow:0 0 0 3px rgba(34,197,94,.14)}
 /* tugma sheen */
 .btn-gold{position:relative;overflow:hidden}
 .btn-gold::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent 34%,rgba(255,255,255,.4) 50%,transparent 66%);transform:translateX(-130%);transition:transform .6s ease}
@@ -153,7 +153,7 @@ body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#0b291e 0%,#05160f 
 .loader{display:flex;flex-direction:column;gap:1.25rem;padding:.5rem 0;font-size:0;color:transparent}
 .loader::before,.loader::after{
   content:'';border-radius:var(--r2);
-  background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(212,180,108,.12) 37%,rgba(255,255,255,.04) 63%);
+  background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(34,197,94,.12) 37%,rgba(255,255,255,.04) 63%);
   background-size:900px 100%;animation:repShimmer 1.4s linear infinite;
 }
 .loader::before{height:96px}
@@ -330,10 +330,10 @@ function makeBarChart(id,labels,datasets,opts={}){
     data:{labels,datasets},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#9fcbb9',font:{size:11}}},tooltip:{callbacks:{label:ctx=>fmtN(ctx.raw)+' so\'m'}}},
+      plugins:{legend:{labels:{color:'#8b9bb0',font:{size:11}}},tooltip:{callbacks:{label:ctx=>fmtN(ctx.raw)+' so\'m'}}},
       scales:{
-        x:{ticks:{color:'#5c8775',maxRotation:45,font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
-        y:{ticks:{color:'#5c8775',callback:v=>fmtN(v),font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}}
+        x:{ticks:{color:'#6b7d94',maxRotation:45,font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#6b7d94',callback:v=>fmtN(v),font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}}
       },
       ...opts
     }
@@ -348,10 +348,10 @@ function makeLineChart(id,labels,datasets){
     data:{labels,datasets},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#9fcbb9',font:{size:11}}}},
+      plugins:{legend:{labels:{color:'#8b9bb0',font:{size:11}}}},
       scales:{
-        x:{ticks:{color:'#5c8775',maxRotation:45,font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
-        y:{ticks:{color:'#5c8775',callback:v=>fmtN(v),font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}}
+        x:{ticks:{color:'#6b7d94',maxRotation:45,font:{size:10}},grid:{color:'rgba(255,255,255,.04)'}},
+        y:{ticks:{color:'#6b7d94',callback:v=>fmtN(v),font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}}
       }
     }
   });
@@ -365,7 +365,7 @@ function makeDoughnutChart(id,labels,values,colors){
     data:{labels,datasets:[{data:values,backgroundColor:colors,borderWidth:0}]},
     options:{
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'right',labels:{color:'#9fcbb9',font:{size:11}}},
+      plugins:{legend:{position:'right',labels:{color:'#8b9bb0',font:{size:11}}},
                tooltip:{callbacks:{label:c=>fmtN(c.raw)+' so\'m'}}}
     }
   });
@@ -399,7 +399,7 @@ async function renderSales(params){
   const d=await api.get('/reports/sales'+params);
   const area=document.getElementById('reportArea');
 
-  const methodColors=['#d4b46c','#10b981','#1fb084','#f59e0b','#ef4444'];
+  const methodColors=['#d4b46c','#22c55e','#22c55e','#f59e0b','#ef4444'];
   const mLabels=d.payment_methods.map(m=>m.method||'?');
   const mValues=d.payment_methods.map(m=>m.total);
 
@@ -429,7 +429,7 @@ async function renderSales(params){
 
   makeBarChart('chSalesDaily',
     d.daily_sales.map(r=>r.date),
-    [{label:'Savdo',data:d.daily_sales.map(r=>r.total),backgroundColor:'rgba(212,180,108,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}]
+    [{label:'Savdo',data:d.daily_sales.map(r=>r.total),backgroundColor:'rgba(34,197,94,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}]
   );
   makeDoughnutChart('chSalesMethod',mLabels,mValues,methodColors);
 }
@@ -438,13 +438,13 @@ async function renderSales(params){
 async function renderProfit(params){
   const d=await api.get('/reports/profit'+params);
   const area=document.getElementById('reportArea');
-  const marginColor=d.margin_pct>=30?'#10b981':d.margin_pct>=15?'#f59e0b':'#ef4444';
+  const marginColor=d.margin_pct>=30?'#22c55e':d.margin_pct>=15?'#f59e0b':'#ef4444';
 
   area.innerHTML=`
   <div class="sg">
     <div class="sc"><div class="sl">Daromad</div><div class="sv">${fmtN(d.total_revenue)}</div><div class="ss">so'm</div></div>
     <div class="sc"><div class="sl">Xarajat (tannarx)</div><div class="sv">${fmtN(d.total_cost)}</div><div class="ss">so'm</div></div>
-    <div class="sc"><div class="sl">Sof foyda</div><div class="sv" style="color:${d.total_profit>=0?'#10b981':'#ef4444'}">${fmtN(d.total_profit)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Sof foyda</div><div class="sv" style="color:${d.total_profit>=0?'#22c55e':'#ef4444'}">${fmtN(d.total_profit)}</div><div class="ss">so'm</div></div>
     <div class="sc"><div class="sl">Marja</div><div class="sv" style="color:${marginColor}">${d.margin_pct}%</div><div class="ss">foydalilik</div></div>
   </div>
   <div class="chart-wrap">
@@ -458,7 +458,7 @@ async function renderProfit(params){
       <td>${p.name}</td>
       <td class="amt">${fmtN(p.revenue)}</td>
       <td>${fmtN(p.cost)}</td>
-      <td class="amt" style="color:${p.profit>=0?'#10b981':'#ef4444'}">${fmtN(p.profit)}</td>
+      <td class="amt" style="color:${p.profit>=0?'#22c55e':'#ef4444'}">${fmtN(p.profit)}</td>
       <td><span class="badge ${p.margin_pct>=30?'badge-ok':p.margin_pct>=15?'badge-low':'badge-out'}">${p.margin_pct}%</span></td>
       <td>${p.qty}</td>
     </tr>`).join('')||'<tr><td colspan="6" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
@@ -468,9 +468,9 @@ async function renderProfit(params){
   makeLineChart('chProfit',
     d.daily.map(r=>r.date),
     [
-      {label:'Daromad',data:d.daily.map(r=>r.revenue),borderColor:'#d4b46c',backgroundColor:'rgba(212,180,108,.1)',tension:.35,fill:true},
-      {label:'Xarajat',data:d.daily.map(r=>r.cost),borderColor:'#1fb084',backgroundColor:'rgba(31,176,132,.08)',tension:.35,fill:true},
-      {label:'Foyda',data:d.daily.map(r=>r.profit),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.08)',tension:.35,fill:true}
+      {label:'Daromad',data:d.daily.map(r=>r.revenue),borderColor:'#d4b46c',backgroundColor:'rgba(34,197,94,.1)',tension:.35,fill:true},
+      {label:'Xarajat',data:d.daily.map(r=>r.cost),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.08)',tension:.35,fill:true},
+      {label:'Foyda',data:d.daily.map(r=>r.profit),borderColor:'#22c55e',backgroundColor:'rgba(16,185,129,.08)',tension:.35,fill:true}
     ]
   );
 }
@@ -545,7 +545,7 @@ async function renderStaff(params){
 
   makeBarChart('chStaff',
     d.staff.map(s=>s.name||'?'),
-    [{label:'Savdo (so\'m)',data:d.staff.map(s=>s.total_sales),backgroundColor:'rgba(212,180,108,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}],
+    [{label:'Savdo (so\'m)',data:d.staff.map(s=>s.total_sales),backgroundColor:'rgba(34,197,94,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}],
     {indexAxis:'y'}
   );
 }
@@ -585,7 +585,7 @@ async function renderTax(params){
   <div class="sg">
     <div class="sc"><div class="sl">Brutto daromad</div><div class="sv">${fmtN(d.gross_revenue)}</div><div class="ss">so'm</div></div>
     <div class="sc"><div class="sl">QQS (${d.vat_rate_pct}%)</div><div class="sv" style="color:#ef4444">${fmtN(d.vat_amount)}</div><div class="ss">so'm</div></div>
-    <div class="sc"><div class="sl">Netto (davlat)</div><div class="sv" style="color:#10b981">${fmtN(d.net_amount)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Netto (davlat)</div><div class="sv" style="color:#22c55e">${fmtN(d.net_amount)}</div><div class="ss">so'm</div></div>
     <div class="sc"><div class="sl">Tranzaksiyalar</div><div class="sv">${d.transactions_count}</div><div class="ss">ta</div></div>
   </div>
   <div class="g2">
@@ -613,12 +613,12 @@ async function renderTax(params){
 
   makeBarChart('chTaxDaily',
     d.daily.map(r=>r.date),
-    [{label:'Brutto',data:d.daily.map(r=>r.gross),backgroundColor:'rgba(212,180,108,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}]
+    [{label:'Brutto',data:d.daily.map(r=>r.gross),backgroundColor:'rgba(34,197,94,.7)',borderColor:'#d4b46c',borderWidth:1,borderRadius:3}]
   );
   makeDoughnutChart('chTaxMethod',
     d.by_method.map(m=>m.method),
     d.by_method.map(m=>m.total),
-    ['#d4b46c','#10b981','#1fb084','#f59e0b']
+    ['#d4b46c','#22c55e','#22c55e','#f59e0b']
   );
 }
 

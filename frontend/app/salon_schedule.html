@@ -8,12 +8,12 @@
 <link rel="stylesheet" href="/css/main.css">
 <style>
 /* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
-:root{--surface1:#0b2e23;--surface2:#143a2c;--surface3:#1e4a39;--text1:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;--primary:#d4b46c;--accent:#d4b46c;--border:rgba(212,180,108,.18);--bg:#03110c;}
-[data-theme="light"]{--surface1:#ffffff;--surface2:#f1f3f5;--surface3:#e6eae8;--text1:#10362a;--text2:#4a6b5c;--text3:#6b8576;--primary:#c9a84c;--accent:#c9a84c;--border:rgba(0,0,0,.1);--bg:#f8f9fa;}
+:root{--surface1:#0a1628;--surface2:#0f2038;--surface3:#16294a;--text1:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;--primary:#0d9488;--accent:#22c55e;--border:rgba(34,197,94,.18);--bg:#070f1e;}
+[data-theme="light"]{--surface1:#ffffff;--surface2:#eef2f9;--surface3:#e6ecf6;--text1:#0f2038;--text2:#5a6b82;--text3:#677689;--primary:#0a7d72;--accent:#0a7d72;--border:rgba(0,0,0,.1);--bg:#f4f6fb;}
 body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
 .layout{display:flex;min-height:100vh}.main-content{flex:1;min-width:0;padding:1.5rem;max-width:1180px;margin:0 auto;width:100%}
-.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#c9a84c,#e2c97a,#c9a84c);color:#03110c;font-family:inherit;transition:.2s}
-.btn:hover{box-shadow:0 0 16px rgba(212,180,108,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1.1rem;border-radius:.5rem;font-size:.875rem;font-weight:600;cursor:pointer;border:1px solid transparent;background:linear-gradient(135deg,#16a34a,#22c55e,#16a34a);color:#04160d;font-family:inherit;transition:.2s}
+.btn:hover{box-shadow:0 0 16px rgba(34,197,94,.35);transform:translateY(-1px)}.btn:active{transform:scale(.97)}
 .btn.btn-secondary,.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
 .inp,input,select,textarea{background:var(--surface2);border:1px solid var(--border);border-radius:.5rem;padding:.5rem .75rem;color:var(--text1);font-size:.875rem;outline:none;font-family:inherit}
 </style>
@@ -229,7 +229,7 @@ document.getElementById('btnCheckSlots').onclick = async () => {
 
 function showToast(msg, type='info') {
   const el = document.createElement('div');
-  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#22c55e':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
   el.textContent = msg; document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }

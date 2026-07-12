@@ -140,7 +140,7 @@
     <div id="detailContent"></div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="closeDetail()">Yopish</button>
-      <button class="btn" id="btnConfirmAkt" style="display:none;background:#10b981" onclick="confirmAkt()">✓ Tasdiqlash (Ombordan chiqarish)</button>
+      <button class="btn" id="btnConfirmAkt" style="display:none;background:#22c55e" onclick="confirmAkt()">✓ Tasdiqlash (Ombordan chiqarish)</button>
     </div>
   </div>
 </div>
@@ -320,7 +320,7 @@ window.save = async () => {
 function fmt(n) { return Number(n||0).toLocaleString('uz-UZ'); }
 function showToast(msg, type='info') {
   const el = document.createElement('div');
-  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#10b981':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
+  el.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.75rem 1.25rem;border-radius:.625rem;color:#fff;background:${type==='success'?'#22c55e':type==='error'?'#ef4444':'#3b82f6'};font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.3)`;
   el.textContent = msg; document.body.appendChild(el);
   setTimeout(()=>el.remove(),3000);
 }

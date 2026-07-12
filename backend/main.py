@@ -56,6 +56,7 @@ from routers import markup_policy                 # BOSQICH 26: naценka siyos
 from routers import bonus_cards                   # BOSQICH 26: bonus karta
 from routers import markirovka                    # BOSQICH 26: asl belgisi markirovka
 from routers import reorder_settings              # BOSQICH 27: minimal qoldiq va avto-zakaz
+from routers import ai_warehouse                  # AI-Ombor: rasmdan mahsulot o'qish (BOSQICH 1)
 from websocket.routes import router as ws_router
 from tasks.scheduler import start_scheduler, stop_scheduler
 
@@ -217,6 +218,7 @@ app.include_router(markup_policy.router,        prefix=f"{api_prefix}/markup-pol
 app.include_router(bonus_cards.router,          prefix=f"{api_prefix}/bonus-cards",         tags=["Bonus Cards / Bonus Karta"])         # BOSQICH 26
 app.include_router(markirovka.router,           prefix=f"{api_prefix}/markirovka",          tags=["Markirovka / Asl Belgisi"])          # BOSQICH 26
 app.include_router(reorder_settings.router,     prefix=f"{api_prefix}/reorder-settings",    tags=["Reorder Settings / Avto-Zakaz"])     # BOSQICH 27
+app.include_router(ai_warehouse.router,         prefix=f"{api_prefix}/ai-warehouse",        tags=["AI-Ombor / Rasmdan mahsulot"])       # AI-Ombor BOSQICH 1
 
 # WebSocket
 app.include_router(ws_router, prefix="/ws", tags=["WebSocket"])

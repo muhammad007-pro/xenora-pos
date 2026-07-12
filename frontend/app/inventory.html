@@ -25,6 +25,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .btn-gold:hover{box-shadow:var(--gold-glow)}
 .btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
 .btn-out:hover{border-color:var(--gold);color:var(--gold)}
+/* AI tugma — emerald urg'u (yangi funksiya, ajralib tursin) */
+.btn-ai{background:linear-gradient(135deg,#059669,#10b981,#34d399);color:#03110c;text-decoration:none;box-shadow:0 2px 14px rgba(16,185,129,.28)}
+.btn-ai:hover{box-shadow:0 4px 20px rgba(16,185,129,.45);transform:translateY(-1px)}
+.btn-ai svg{filter:drop-shadow(0 0 3px rgba(3,17,12,.3))}
+@media(max-width:768px){.btn-ai{padding:.5rem .75rem;font-size:.8125rem}}
 .btn-warn{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:var(--yellow)}
 .btn-warn.active{background:rgba(245,158,11,.25)}
 .btn-sm{padding:.35rem .75rem;font-size:.8125rem}
@@ -225,6 +230,10 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0d1c33 0%,#0a1628 
   <a href="pos.html" class="bk">←</a>
   <h1 class="ph-title">Ombor</h1>
   <button class="btn btn-warn btn-sm" id="lowBtn">Kam qolgan</button>
+  <a href="ai_warehouse.html" class="btn btn-ai" id="aiBtn" title="Rasmdan mahsulot o'qish">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 14l.7 1.9L21.6 17l-1.9.7L19 19.6l-.7-1.9L16.4 17l1.9-.7z"/></svg>
+    AI bilan qo'shish
+  </a>
   <button class="btn btn-gold" id="addBtn">+ Kirim</button>
 </header>
 

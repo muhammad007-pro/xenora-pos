@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="uz" data-theme="dark">
+<head>
+<script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='http://146.190.225.168';</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>AI-Ombor | XENORA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#d4b46c;--gold-dim:rgba(212,180,108,.15);
+  --em:#10b981;--em2:#34d399;--em-dim:rgba(16,185,129,.14);
+  --bg:#03110c;--bg2:#0b2e23;--bg3:#143a2c;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);
+  --text:#ecf6ef;--text2:#9fcbb9;--text3:#5c8775;
+  --green:#10b981;--yellow:#f59e0b;--red:#ef4444;
+  --r:.5rem;--r2:.875rem;--r3:1.125rem
+}
+[data-theme="light"]{
+  --bg:#f8f9fa;--bg2:#ffffff;--bg3:#f1f3f5;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.12);
+  --text:#10362a;--text2:#4a6b5c;--text3:#6b8576;
+  --gold:#c9a84c;--em:#0a7d72;--em2:#0d9488;--em-dim:rgba(10,125,114,.12);
+}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text);min-height:100vh;
+  background:radial-gradient(ellipse 120% 70% at 75% -10%,#0a2419 0%,#05150e 50%,#03110c 100%)}
+[data-theme="light"] body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#f3f6f1 0%,#eef3ee 55%,#f8f9fa 100%)}
+
+/* ── Atmosfera (koshin/mandala, panellar ortida) ── */
+.atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.at-mandala{position:absolute;top:36%;left:70%;width:110vmin;height:110vmin;transform:translate(-50%,-50%);opacity:.03;animation:atSpin 240s linear infinite}
+.at-mandala svg{width:100%;height:100%;display:block}
+@keyframes atSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.at-glow{position:absolute;border-radius:50%;filter:blur(80px);mix-blend-mode:screen;opacity:.2}
+.at-glow.g1{width:46vmin;height:46vmin;top:-10%;left:-6%;background:radial-gradient(circle,#1fb084,transparent 70%);animation:atBreathe 32s ease-in-out infinite}
+.at-glow.g2{width:40vmin;height:40vmin;bottom:-12%;right:-4%;background:radial-gradient(circle,#10b981,transparent 70%);animation:atBreathe 38s ease-in-out infinite 5s}
+@keyframes atBreathe{0%,100%{transform:scale(.95);opacity:.14}50%{transform:scale(1.08);opacity:.25}}
+[data-theme="light"] .at-glow{mix-blend-mode:normal;opacity:.1;filter:blur(90px)}
+[data-theme="light"] .at-mandala{opacity:.04}
+
+/* ── Header ── */
+.ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.25rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:30}
+.bk{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.2rem;flex-shrink:0;transition:.2s}
+.bk:hover{border-color:var(--em);color:var(--em);transform:scale(1.05)}
+.ph-title{font-size:1.125rem;font-weight:700;flex:1;display:flex;align-items:center;gap:.5rem}
+.ph-title .spark{color:var(--em2)}
+.ph-badge{font-size:.7rem;font-weight:700;padding:.2rem .6rem;border-radius:99px;background:var(--em-dim);color:var(--em2);border:1px solid rgba(16,185,129,.3)}
+
+/* ── Layout ── */
+.pc{padding:1.25rem;max-width:820px;margin:0 auto;position:relative;z-index:1}
+.card{background:linear-gradient(180deg,rgba(11,46,35,.72),rgba(8,34,26,.78));
+  backdrop-filter:blur(12px) saturate(1.15);-webkit-backdrop-filter:blur(12px) saturate(1.15);
+  border:1px solid rgba(16,185,129,.16);border-radius:var(--r2);
+  box-shadow:0 4px 24px rgba(0,0,0,.2),inset 0 1px 0 rgba(16,185,129,.06);padding:1.25rem;margin-bottom:1rem}
+[data-theme="light"] .card{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(248,249,250,.94))}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;padding:.7rem 1.15rem;border-radius:var(--r);font-size:.9rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit;white-space:nowrap}
+.btn-em{background:linear-gradient(135deg,#059669,#10b981,#34d399);color:#03110c;box-shadow:0 2px 14px rgba(16,185,129,.28)}
+.btn-em:hover{box-shadow:0 4px 20px rgba(16,185,129,.45);transform:translateY(-1px)}
+.btn-em:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
+.btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-out:hover{border-color:var(--em);color:var(--em)}
+.btn-lg{padding:.9rem 1.25rem;font-size:1rem;width:100%}
+.btn:active{transform:scale(.97)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text3);padding:.4rem .7rem;font-size:.8125rem}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text2)}
+
+/* ── Status ── */
+.status-line{display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:var(--text2);margin-bottom:1rem}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dot.ok{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.off{background:var(--yellow)}
+.dot.bad{background:var(--red)}
+
+/* ── Capture zone ── */
+.cap-zone{text-align:center;padding:1.5rem .5rem}
+.cap-ico{width:72px;height:72px;margin:0 auto 1rem;border-radius:var(--r3);background:var(--em-dim);display:flex;align-items:center;justify-content:center;border:1px solid rgba(16,185,129,.25)}
+.cap-ico svg{width:38px;height:38px;color:var(--em2)}
+.cap-hint{color:var(--text3);font-size:.85rem;margin-bottom:1.25rem;line-height:1.4}
+.cap-btns{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-width:420px;margin:0 auto}
+@media(max-width:480px){.cap-btns{grid-template-columns:1fr}}
+input[type=file]{display:none}
+
+/* ── Preview ── */
+.preview-img{width:100%;max-height:52vh;object-fit:contain;border-radius:var(--r2);border:1px solid var(--border);background:#000;margin-bottom:1rem}
+.preview-btns{display:grid;grid-template-columns:1fr 1.4fr;gap:.75rem}
+
+/* ── Loading ── */
+.loading{text-align:center;padding:2.5rem 1rem}
+.spinner{width:52px;height:52px;margin:0 auto 1.1rem;border-radius:50%;
+  border:4px solid rgba(16,185,129,.15);border-top-color:var(--em2);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-txt{font-weight:600;color:var(--text)}
+.loading-sub{font-size:.8125rem;color:var(--text3);margin-top:.4rem}
+
+/* ── Error ── */
+.err-box{text-align:center;padding:2rem 1rem}
+.err-ico{width:60px;height:60px;margin:0 auto 1rem;border-radius:50%;background:rgba(239,68,68,.1);display:flex;align-items:center;justify-content:center;color:var(--red);font-size:1.8rem}
+.err-ico.warn{background:rgba(245,158,11,.12);color:var(--yellow)}
+.err-title{font-weight:700;font-size:1.05rem;margin-bottom:.4rem}
+.err-msg{color:var(--text2);font-size:.875rem;line-height:1.5;margin-bottom:1.25rem;max-width:420px;margin-left:auto;margin-right:auto}
+
+/* ── Results summary ── */
+.summary{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
+.sm-chip{flex:1;min-width:90px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:.6rem .75rem;text-align:center}
+.sm-chip .v{font-size:1.4rem;font-weight:700;line-height:1}
+.sm-chip .l{font-size:.7rem;color:var(--text3);margin-top:.25rem}
+.sm-chip.new .v{color:var(--em2)} .sm-chip.dup .v{color:var(--yellow)} .sm-chip.tot .v{color:var(--gold)}
+
+/* ── Product row (mobil-birinchi karta) ── */
+.rows{display:flex;flex-direction:column;gap:.75rem}
+.prow{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:.85rem;position:relative;animation:rowIn .25s ease backwards}
+@keyframes rowIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.prow.conf-hi{border-left:3px solid var(--green)}
+.prow.conf-mid{border-left:3px solid var(--yellow)}
+.prow.conf-lo{border-left:3px solid var(--red)}
+.prow-top{display:flex;gap:.5rem;align-items:flex-start;margin-bottom:.6rem}
+.prow-name{flex:1}
+.prow input{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.55rem .7rem;color:var(--text);font-size:.9rem;outline:none;transition:.2s;font-family:inherit}
+.prow input:focus{border-color:var(--em);box-shadow:0 0 0 2px rgba(16,185,129,.14)}
+.prow-lbl{font-size:.7rem;color:var(--text3);margin-bottom:.25rem;display:block}
+.prow-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.conf-badge{flex-shrink:0;font-size:.72rem;font-weight:700;padding:.28rem .55rem;border-radius:99px;white-space:nowrap}
+.conf-badge.hi{background:rgba(16,185,129,.14);color:var(--green)}
+.conf-badge.mid{background:rgba(245,158,11,.14);color:var(--yellow)}
+.conf-badge.lo{background:rgba(239,68,68,.12);color:var(--red)}
+.row-del{width:30px;height:30px;flex-shrink:0;border-radius:var(--r);background:transparent;border:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:1rem;transition:.2s;display:flex;align-items:center;justify-content:center}
+.row-del:hover{border-color:var(--red);color:var(--red)}
+
+/* ── Duplicate banner ── */
+.dup-banner{margin-top:.7rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--r);padding:.6rem .7rem;font-size:.8125rem}
+.dup-banner .dup-q{color:var(--text2);margin-bottom:.5rem;line-height:1.4}
+.dup-banner b{color:var(--yellow)}
+.dup-choice{display:flex;gap:.5rem}
+.dup-choice button{flex:1;padding:.4rem;font-size:.78rem;font-weight:600;border-radius:var(--r);cursor:pointer;border:1px solid var(--border);background:var(--bg2);color:var(--text2);transition:.2s}
+.dup-choice button.on[data-v="dup"]{background:rgba(245,158,11,.2);border-color:var(--yellow);color:var(--yellow)}
+.dup-choice button.on[data-v="new"]{background:var(--em-dim);border-color:var(--em);color:var(--em2)}
+
+.add-row-btn{width:100%;margin-top:.75rem;background:transparent;border:1px dashed var(--border2);color:var(--text2);padding:.7rem;border-radius:var(--r);cursor:pointer;font-weight:600;font-size:.85rem;transition:.2s;font-family:inherit}
+.add-row-btn:hover{border-color:var(--em);color:var(--em)}
+
+/* ── Narx/kategoriya sozlamalari ── */
+.ctrls{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:.9rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:.85rem}
+.ctrl-lbl{display:block;font-size:.75rem;color:var(--text2);font-weight:600;margin-bottom:.4rem}
+.ctrl-hint{font-size:.72rem;color:var(--text3);margin-top:.35rem;line-height:1.35}
+.ctrl-inline{display:flex;align-items:center;gap:.5rem}
+.ctrls input[type=number],.ctrls select{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.55rem .7rem;color:var(--text);font-size:.9rem;outline:none;font-family:inherit;transition:.2s}
+.ctrls input[type=number]{width:120px}
+.ctrls select{width:100%}
+.ctrls input:focus,.ctrls select:focus{border-color:var(--em);box-shadow:0 0 0 2px rgba(16,185,129,.14)}
+.ctrl-check{display:flex;align-items:center;gap:.55rem;font-size:.82rem;color:var(--text2);cursor:pointer;line-height:1.35}
+.ctrl-check input{width:18px;height:18px;accent-color:var(--em);flex-shrink:0}
+
+/* ── Yangi mahsulot: shtrix-kod maydoni ── */
+.prow-barcode{margin-top:.6rem}
+.prow-barcode .prow-lbl{display:flex;align-items:center;gap:.35rem}
+.bc-auto{font-size:.66rem;font-weight:700;color:var(--em2);background:var(--em-dim);padding:.1rem .4rem;border-radius:99px}
+
+/* ── Success ── */
+.success-box{text-align:center;padding:2rem 1rem}
+.ok-ico{width:66px;height:66px;margin:0 auto 1rem;border-radius:50%;background:var(--em-dim);border:1px solid rgba(16,185,129,.35);display:flex;align-items:center;justify-content:center;color:var(--em2);font-size:2rem;font-weight:700;animation:okPop .35s ease}
+@keyframes okPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.ok-title{font-weight:700;font-size:1.15rem;margin-bottom:.5rem}
+.ok-msg{color:var(--text2);font-size:.9rem;line-height:1.5;margin-bottom:1.5rem;max-width:440px;margin-left:auto;margin-right:auto}
+.ok-actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;max-width:440px;margin:0 auto}
+@media(max-width:480px){.ok-actions{grid-template-columns:1fr}}
+.ok-actions .btn{text-decoration:none}
+
+.foot-actions{display:grid;grid-template-columns:1fr 1.6fr;gap:.75rem;margin-top:1.1rem}
+.note{font-size:.78rem;color:var(--text3);text-align:center;margin-top:.75rem;line-height:1.4}
+
+.hidden{display:none!important}
+
+@media (prefers-reduced-motion:reduce){
+  .at-mandala,.at-glow,.spinner,.prow{animation:none!important}
+}
+@media(max-width:768px){.at-mandala{display:none}.pc{padding:1rem}}
+</style>
+</head>
+<body>
+<div class="atmos" aria-hidden="true">
+  <div class="at-mandala">
+    <svg viewBox="0 0 600 600" xmlns="http://www.w3.org/2000/svg">
+      <defs><path id="atPetal" d="M300 300 L311 165 L300 92 L289 165 Z" fill="none" stroke="#10b981" stroke-width="1"/></defs>
+      <g fill="none" stroke="#10b981" stroke-width="1">
+        <circle cx="300" cy="300" r="240"/><circle cx="300" cy="300" r="170"/><circle cx="300" cy="300" r="100"/>
+        <polygon points="300,96 477,300 300,504 123,300"/>
+        <rect x="180" y="180" width="240" height="240" transform="rotate(45 300 300)"/>
+      </g>
+      <g>
+        <use href="#atPetal" transform="rotate(0 300 300)"/><use href="#atPetal" transform="rotate(45 300 300)"/>
+        <use href="#atPetal" transform="rotate(90 300 300)"/><use href="#atPetal" transform="rotate(135 300 300)"/>
+        <use href="#atPetal" transform="rotate(180 300 300)"/><use href="#atPetal" transform="rotate(225 300 300)"/>
+        <use href="#atPetal" transform="rotate(270 300 300)"/><use href="#atPetal" transform="rotate(315 300 300)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="at-glow g1"></div>
+  <div class="at-glow g2"></div>
+</div>
+
+<header class="ph">
+  <a href="inventory.html" class="bk">←</a>
+  <h1 class="ph-title"><span class="spark">✦</span> AI-Ombor <span class="ph-badge">rasmdan o'qish</span></h1>
+</header>
+
+<div class="pc">
+
+  <!-- STATUS -->
+  <div class="status-line" id="statusLine">
+    <span class="dot off"></span><span id="statusTxt">Tekshirilmoqda...</span>
+  </div>
+
+  <!-- STEP: CAPTURE -->
+  <div class="card" id="stepCapture">
+    <div class="cap-zone">
+      <div class="cap-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      </div>
+      <div class="cap-hint">Qog'oz mahsulot ro'yxatini suratga oling — AI nom, miqdor va narxni o'qib beradi.</div>
+      <div class="cap-btns">
+        <button class="btn btn-em" id="btnCamera" onclick="document.getElementById('fileCamera').click()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>
+          Kamera
+        </button>
+        <button class="btn btn-out" id="btnGallery" onclick="document.getElementById('fileGallery').click()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          Galereya
+        </button>
+      </div>
+      <input type="file" id="fileCamera" accept="image/*" capture="environment">
+      <input type="file" id="fileGallery" accept="image/*">
+    </div>
+  </div>
+
+  <!-- STEP: PREVIEW -->
+  <div class="card hidden" id="stepPreview">
+    <img id="previewImg" class="preview-img" alt="Tanlangan rasm">
+    <div class="preview-btns">
+      <button class="btn btn-out" onclick="resetCapture()">↻ Qayta ol</button>
+      <button class="btn btn-em" id="btnScan" onclick="doScan()">✦ O'qish</button>
+    </div>
+  </div>
+
+  <!-- STEP: LOADING -->
+  <div class="card hidden" id="stepLoading">
+    <div class="loading">
+      <div class="spinner"></div>
+      <div class="loading-txt">AI o'qiyapti...</div>
+      <div class="loading-sub">Rasmdagi mahsulotlar aniqlanmoqda, biroz kuting</div>
+    </div>
+  </div>
+
+  <!-- STEP: ERROR -->
+  <div class="card hidden" id="stepError">
+    <div class="err-box">
+      <div class="err-ico" id="errIco">!</div>
+      <div class="err-title" id="errTitle">Xato</div>
+      <div class="err-msg" id="errMsg"></div>
+      <button class="btn btn-out btn-lg" style="max-width:280px;margin:0 auto" onclick="resetCapture()">↻ Qayta urinish</button>
+    </div>
+  </div>
+
+  <!-- STEP: RESULTS -->
+  <div class="hidden" id="stepResults">
+    <div class="card">
+      <div class="summary">
+        <div class="sm-chip tot"><div class="v" id="smTotal">0</div><div class="l">Jami o'qildi</div></div>
+        <div class="sm-chip new"><div class="v" id="smNew">0</div><div class="l">Yangi</div></div>
+        <div class="sm-chip dup"><div class="v" id="smDup">0</div><div class="l">Omborda bor</div></div>
+      </div>
+
+      <!-- Narx / kategoriya sozlamalari -->
+      <div class="ctrls">
+        <div class="ctrl-row">
+          <label class="ctrl-lbl">Ustama foiz (yangi mahsulotlar sotish narxi)</label>
+          <div class="ctrl-inline">
+            <input type="number" id="markupPct" min="0" step="1" placeholder="masalan 20" value="20">
+            <span style="color:var(--text3);font-weight:700">%</span>
+            <button class="btn btn-out" style="padding:.5rem .9rem" onclick="applyMarkup()">Qo'llash</button>
+          </div>
+          <div class="ctrl-hint">Kelish narxi × (1 + %) → sotish narxi. Har mahsulotni alohida ham o'zgartirish mumkin.</div>
+        </div>
+        <div class="ctrl-row">
+          <label class="ctrl-lbl">Yangi mahsulotlar kategoriyasi</label>
+          <select id="catSel"><option value="">— tanlanmagan —</option></select>
+        </div>
+        <label class="ctrl-check" id="updExistWrap" style="display:none">
+          <input type="checkbox" id="updExisting">
+          <span>Omborda mavjud mahsulotlar narxini ham yangilash (kelish + sotish)</span>
+        </label>
+      </div>
+
+      <div class="rows" id="rowsWrap"></div>
+      <button class="add-row-btn" onclick="addRow()">+ Qator qo'shish (AI o'tkazib yuborgan bo'lsa)</button>
+      <div class="foot-actions">
+        <button class="btn btn-out" onclick="resetCapture()">Boshqa rasm</button>
+        <button class="btn btn-em" id="btnConfirm" onclick="confirmAll()">✓ Omborga qo'shish</button>
+      </div>
+      <div class="note">Tasdiqlansa — yangi mahsulotlar ochiladi (shtrix-kod bilan), mavjudlar to'ldiriladi va kirim (priyomka) yoziladi.</div>
+    </div>
+  </div>
+
+  <!-- STEP: SUCCESS -->
+  <div class="card hidden" id="stepSuccess">
+    <div class="success-box">
+      <div class="ok-ico">✓</div>
+      <div class="ok-title" id="okTitle">Omborga qo'shildi</div>
+      <div class="ok-msg" id="okMsg"></div>
+      <div class="ok-actions">
+        <button class="btn btn-out btn-lg" onclick="resetCapture()">↻ Yana rasm</button>
+        <a class="btn btn-em btn-lg" href="inventory.html">Omborga o'tish →</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<script>
+const _lport = window.location.port;
+const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const BASE = _isDev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
+const tok  = () => localStorage.getItem('access_token');
+
+let aiReady = false;      // status: enabled && configured
+let selectedFile = null;  // tanlangan rasm blob
+let rows = [];            // o'qilgan mahsulotlar (tahrirlanadigan)
+
+// ── Bosqichlarni ko'rsatish ──────────────────────────────────────────────
+function showStep(name){
+  ['Capture','Preview','Loading','Error','Results','Success'].forEach(s=>{
+    document.getElementById('step'+s).classList.toggle('hidden', s!==name);
+  });
+}
+function setLoading(txt, sub){
+  document.querySelector('#stepLoading .loading-txt').textContent = txt;
+  document.querySelector('#stepLoading .loading-sub').textContent = sub;
+}
+
+// ── Status tekshiruvi ────────────────────────────────────────────────────
+async function checkStatus(){
+  const line = document.getElementById('statusLine');
+  const dot  = line.querySelector('.dot');
+  const txt  = document.getElementById('statusTxt');
+  try {
+    const r = await fetch(`${BASE}/ai-warehouse/status`, {headers:{Authorization:'Bearer '+tok()}});
+    if (!r.ok) throw new Error('status '+r.status);
+    const s = await r.json();
+    if (s.enabled && s.configured){
+      aiReady = true;
+      dot.className = 'dot ok';
+      txt.textContent = 'AI tayyor — rasmni yuklang';
+    } else if (s.enabled && !s.configured){
+      aiReady = false;
+      dot.className = 'dot off';
+      txt.textContent = 'AI hali sozlanmoqda (administrator kalitni qo\'shishi kerak)';
+      disableCapture();
+    } else {
+      aiReady = false;
+      dot.className = 'dot off';
+      txt.textContent = 'AI-Ombor hozircha o\'chirilgan';
+      disableCapture();
+    }
+  } catch(e){
+    aiReady = false;
+    dot.className = 'dot bad';
+    txt.textContent = 'AI holatini aniqlab bo\'lmadi (ulanishni tekshiring)';
+    disableCapture();
+  }
+}
+function disableCapture(){
+  document.getElementById('btnCamera').disabled = true;
+  document.getElementById('btnGallery').disabled = true;
+}
+
+// ── Rasm tanlash ─────────────────────────────────────────────────────────
+function onFile(e){
+  const f = e.target.files && e.target.files[0];
+  e.target.value = ''; // bir xil faylni qayta tanlash mumkin bo'lsin
+  if (!f) return;
+  if (!f.type.startsWith('image/')){ toast('Faqat rasm tanlang','warning'); return; }
+  selectedFile = f;
+  const url = URL.createObjectURL(f);
+  const img = document.getElementById('previewImg');
+  img.onload = ()=>URL.revokeObjectURL(url);
+  img.src = url;
+  showStep('Preview');
+}
+document.getElementById('fileCamera').addEventListener('change', onFile);
+document.getElementById('fileGallery').addEventListener('change', onFile);
+
+function resetCapture(){
+  selectedFile = null;
+  rows = [];
+  showStep('Capture');
+}
+
+// ── Skaner (rasm → backend) ──────────────────────────────────────────────
+async function doScan(){
+  if (!selectedFile) return;
+  showStep('Loading');
+  const fd = new FormData();
+  fd.append('file', selectedFile, selectedFile.name || 'scan.jpg');
+  try {
+    const r = await fetch(`${BASE}/ai-warehouse/scan`, {
+      method:'POST', headers:{Authorization:'Bearer '+tok()}, body:fd,
+    });
+    let data = null;
+    try { data = await r.json(); } catch { data = null; }
+    if (!r.ok){ showError(r.status, data); return; }
+    // 200 bo'lsa-yu products bo'sh — AI rasmni o'qiy olmadi (noaniq)
+    if (!data || !Array.isArray(data.products) || data.products.length === 0){
+      showError('empty', data);
+      return;
+    }
+    rows = data.products.map(p => ({
+      name: p.name || '',
+      quantity: p.quantity || 0,
+      unit_price: p.unit_price || 0,
+      sell_price: null,                  // sotish narxi (ustama yoki qo'lda)
+      barcode: '',                       // yangi mahsulot: bo'sh → avto yaratiladi
+      confidence: typeof p.confidence === 'number' ? p.confidence : 0,
+      matched_product_id: p.matched_product_id || null,
+      matched_name: p.matched_name || null,
+      match_score: p.match_score || null,
+      keepMatch: !!p.matched_product_id, // dublikat topilsa — dastlab "ombordagi bilan mos"
+    }));
+    renderRows();
+    showStep('Results');
+  } catch(e){
+    showError('network', null);
+  }
+}
+
+// ── Xato ko'rsatish ──────────────────────────────────────────────────────
+function showError(status, data){
+  const ico = document.getElementById('errIco');
+  const title = document.getElementById('errTitle');
+  const msg = document.getElementById('errMsg');
+  // detail obyekt {code,message} yoki matn bo'lishi mumkin
+  const detail = data && data.detail;
+  const code = detail && typeof detail === 'object' ? detail.code : null;
+  ico.className = 'err-ico warn';
+
+  let t = 'Xato', m = 'Nomaʼlum xato yuz berdi.';
+  if (status === 'network'){
+    ico.className='err-ico'; t='Ulanish xatosi';
+    m='Serverga ulanib bo\'lmadi. Internet aloqasini tekshirib, qayta urining.';
+  } else if (status === 'empty'){
+    t='Rasm noaniq';
+    m = (data && (data.reason || (data.error && data.error!=='noaniq' ? data.error : null)))
+        || 'AI rasmdan mahsulot topa olmadi. Yorug\'roq va tekis suratga olib, qayta urining.';
+  } else if (status === 503 || code === 'not_configured' || code === 'disabled' || code === 'anthropic_missing' || code === 'bad_key'){
+    ico.className='err-ico'; t='AI hali sozlanmagan';
+    m='AI-Ombor xizmati hozircha sozlanmagan. Administrator kalitni qo\'shgach ishlaydi.';
+  } else if (status === 429 || code === 'rate_limited'){
+    t='Biroz kuting';
+    m='So\'rovlar ko\'payib ketdi. Bir necha soniyadan so\'ng qayta urining.';
+  } else if (status === 413){
+    t='Rasm juda katta';
+    m='Rasm hajmi juda katta. Kichikroq rasm yoki past sifatda suratga oling.';
+  } else if (status === 400 || code === 'bad_image' || code === 'bad_shape'){
+    t='Rasm noaniq';
+    m='Rasmni o\'qib bo\'lmadi. Ro\'yxat aniq ko\'rinadigan, tekis suratga olib qayta urining.';
+  } else if (status === 502 || (code && code.indexOf('ai_')===0) || code === 'connection'){
+    ico.className='err-ico'; t='AI vaqtincha ishlamayapti';
+    m='AI xizmatiga ulanishda muammo. Bir ozdan keyin qayta urining.';
+  } else {
+    const dm = detail && (typeof detail==='object' ? detail.message : detail);
+    if (dm) m = dm;
+  }
+  title.textContent = t;
+  msg.textContent = m;
+  showStep('Error');
+}
+
+// ── Ishonch (confidence) darajasi ────────────────────────────────────────
+function confClass(c){ return c>=80 ? 'hi' : c>=50 ? 'mid' : 'lo'; }
+function confLabel(c){ return c>=80 ? 'Aniq' : c>=50 ? 'Shubhali' : 'Tekshir'; }
+
+// ── Qatorlarni chizish ───────────────────────────────────────────────────
+function fmtNum(n){ n=Number(n||0); return n%1 ? n.toFixed(2) : String(n); }
+
+function renderRows(){
+  const wrap = document.getElementById('rowsWrap');
+  wrap.innerHTML = rows.map((row,i)=>{
+    const cc = confClass(row.confidence);
+    const isNew = !(row.matched_product_id && row.keepMatch);   // yangi mahsulotmi
+    const dup = row.matched_product_id ? `
+      <div class="dup-banner">
+        <div class="dup-q">⚠ Ombordagi <b>${esc(row.matched_name||'')}</b> bilan mos? <span style="color:var(--text3)">(${row.match_score||0}%)</span></div>
+        <div class="dup-choice">
+          <button data-v="dup" class="${row.keepMatch?'on':''}" onclick="setDup(${i},true)">Ha, mos (kirim)</button>
+          <button data-v="new" class="${row.keepMatch?'':'on'}" onclick="setDup(${i},false)">Yo'q, yangi</button>
+        </div>
+      </div>` : '';
+    // Sotish narxi — barcha qatorda; yangi mahsulot uchun shtrix-kod maydoni ham
+    const sellVal = row.sell_price!=null ? fmtNum(row.sell_price) : '';
+    const sellRow = `
+      <div>
+        <span class="prow-lbl">Sotish narxi (dona)</span>
+        <input type="number" step="1" min="0" value="${sellVal}" oninput="upd(${i},'sell_price',this.value)" placeholder="${isNew?'ustama yoki narx':'mavjud narx'}">
+      </div>`;
+    const barcodeRow = isNew ? `
+      <div class="prow-barcode">
+        <span class="prow-lbl">Shtrix-kod <span class="bc-auto">bo'sh → avto</span></span>
+        <input type="text" inputmode="numeric" value="${esc(row.barcode||'')}" oninput="upd(${i},'barcode',this.value)" placeholder="Skaner qiling yoki bo'sh qoldiring">
+      </div>` : '';
+    return `<div class="prow conf-${cc}">
+      <div class="prow-top">
+        <div class="prow-name">
+          <span class="prow-lbl">Nom</span>
+          <input type="text" value="${esc(row.name)}" oninput="upd(${i},'name',this.value)" placeholder="Mahsulot nomi">
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem">
+          <span class="conf-badge ${cc}">${row.confidence}% ${confLabel(row.confidence)}</span>
+          <button class="row-del" title="O'chirish" onclick="delRow(${i})">×</button>
+        </div>
+      </div>
+      <div class="prow-grid">
+        <div>
+          <span class="prow-lbl">Miqdor</span>
+          <input type="number" step="0.01" min="0" value="${fmtNum(row.quantity)}" oninput="upd(${i},'quantity',this.value)" placeholder="0">
+        </div>
+        <div>
+          <span class="prow-lbl">Kelish narxi (dona)</span>
+          <input type="number" step="1" min="0" value="${fmtNum(row.unit_price)}" oninput="upd(${i},'unit_price',this.value)" placeholder="0">
+        </div>
+      </div>
+      <div class="prow-grid" style="margin-top:.6rem">
+        ${sellRow}
+        <div></div>
+      </div>
+      ${barcodeRow}
+      ${dup}
+    </div>`;
+  }).join('');
+  updateSummary();
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ── Tahrirlash ───────────────────────────────────────────────────────────
+function upd(i,field,val){
+  if (!rows[i]) return;
+  if (field==='quantity' || field==='unit_price'){
+    rows[i][field] = parseFloat(val)||0;
+  } else if (field==='sell_price'){
+    rows[i][field] = (val==='' || val==null) ? null : (parseFloat(val)||0);
+  } else {
+    rows[i][field] = val;
+  }
+  // summary/inputlar shu joyda qayta chizilmaydi — kursor sakramasin (tez tahrir)
+}
+
+// Ustama foizni yangi mahsulotlarga qo'llash (kelish × (1+%))
+function applyMarkup(){
+  const pct = parseFloat(document.getElementById('markupPct').value);
+  if (isNaN(pct) || pct < 0){ toast('To\'g\'ri foiz kiriting','warning'); return; }
+  let n=0;
+  rows.forEach(r=>{
+    const isNew = !(r.matched_product_id && r.keepMatch);
+    if (isNew){ r.sell_price = Math.round((Number(r.unit_price)||0)*(1+pct/100)); n++; }
+  });
+  renderRows();
+  toast(`Ustama qo'llandi: ${n} ta yangi mahsulot`, 'success');
+}
+function setDup(i,keep){
+  if (!rows[i]) return;
+  rows[i].keepMatch = keep;
+  renderRows(); // tanlov ranglari + summary yangilansin
+}
+function delRow(i){
+  rows.splice(i,1);
+  if (rows.length===0){ resetCapture(); return; }
+  renderRows();
+}
+function addRow(){
+  rows.push({name:'',quantity:1,unit_price:0,confidence:100,matched_product_id:null,matched_name:null,match_score:null,keepMatch:false});
+  renderRows();
+  // yangi qator nomiga fokus
+  const inputs = document.querySelectorAll('#rowsWrap .prow-name input');
+  if (inputs.length) inputs[inputs.length-1].focus();
+}
+
+function updateSummary(){
+  const total = rows.length;
+  const dup = rows.filter(r=>r.matched_product_id && r.keepMatch).length;
+  const nw = total - dup;
+  document.getElementById('smTotal').textContent = total;
+  document.getElementById('smNew').textContent = nw;
+  document.getElementById('smDup').textContent = dup;
+  // "Mavjud narxni yangilash" faqat mavjud (dublikat) bo'lsa ko'rinadi
+  document.getElementById('updExistWrap').style.display = dup>0 ? 'flex' : 'none';
+}
+
+// ── Tasdiqlash (BOSQICH 3: HAQIQATAN omborga qo'shadi + kirim yozadi) ─────
+async function confirmAll(){
+  // Validatsiya: har qatorda nom + musbat miqdor
+  const bad = rows.filter(r=>!r.name || !r.name.trim());
+  if (bad.length){ toast('Har qatorda mahsulot nomi bo\'lishi kerak','warning'); return; }
+  const badQ = rows.filter(r=>!(Number(r.quantity)>0));
+  if (badQ.length){ toast('Har qatorda miqdor musbat bo\'lishi kerak','warning'); return; }
+
+  const catId = document.getElementById('catSel').value;
+  const markupPct = parseFloat(document.getElementById('markupPct').value);
+  const updExisting = document.getElementById('updExisting').checked;
+
+  const items = rows.map(r=>{
+    const isNew = !(r.matched_product_id && r.keepMatch);
+    return {
+      name: r.name.trim(),
+      quantity: Number(r.quantity)||0,
+      unit_price: Number(r.unit_price)||0,
+      sell_price: (r.sell_price!=null && r.sell_price>0) ? Number(r.sell_price) : null,
+      matched_product_id: isNew ? null : r.matched_product_id,
+      barcode: isNew ? ((r.barcode||'').trim() || null) : null,
+      unit: 'dona',
+    };
+  });
+  const body = {
+    items,
+    category_id: catId ? parseInt(catId) : null,
+    markup_pct: (!isNaN(markupPct) && markupPct>=0) ? markupPct : null,
+    update_existing_price: !!updExisting,
+  };
+
+  const btn = document.getElementById('btnConfirm');
+  btn.disabled = true;
+  setLoading('Omborga qo\'shilyapti...', 'Mahsulotlar ochilib, kirim yozilmoqda');
+  showStep('Loading');
+  try {
+    const r = await fetch(`${BASE}/ai-warehouse/confirm`, {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+tok(),'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    let data=null; try{ data=await r.json(); }catch{ data=null; }
+    if (!r.ok){
+      btn.disabled = false;
+      showConfirmError(r.status, data);
+      return;
+    }
+    try { sessionStorage.removeItem('ai_warehouse_pending'); } catch {}
+    document.getElementById('okTitle').textContent = 'Omborga qo\'shildi ✓';
+    document.getElementById('okMsg').innerHTML =
+      `<b>${data.added}</b> ta mahsulot qo'shildi — <b>${data.new_count}</b> yangi ochildi, `+
+      `<b>${data.existing_count}</b> mavjud to'ldirildi.<br>`+
+      `Jami miqdor: ${fmtNum(data.total_qty)} · Kirim summasi: ${Number(data.total_cost||0).toLocaleString('ru-RU')}<br>`+
+      `<span style="color:var(--text3);font-size:.82rem">Kirim tarixida "AI-ombor orqali" belgisi bilan ko'rinadi.</span>`;
+    showStep('Success');
+  } catch(e){
+    btn.disabled = false;
+    showConfirmError('network', null);
+  }
+}
+
+// Tasdiqlash xatosi — Results ustida toast (jadval yo'qolmasin, tahrir saqlansin)
+function showConfirmError(status, data){
+  showStep('Results');
+  const detail = data && data.detail;
+  const dm = detail && (typeof detail==='object' ? detail.message : detail);
+  let m;
+  if (status==='network') m='Serverga ulanib bo\'lmadi. Qayta urining.';
+  else if (status===403) m='Ruxsat yo\'q — faqat admin/menejer omborga qo\'sha oladi.';
+  else if (status===503) m='AI-ombor xizmati sozlanmagan.';
+  else m = dm || 'Omborga qo\'shishda xato. Hech narsa saqlanmadi, qayta urining.';
+  toast(m, 'error');
+}
+
+// ── Toast ────────────────────────────────────────────────────────────────
+function toast(msg,type='info'){
+  const c={success:'#10b981',error:'#ef4444',warning:'#f59e0b',info:'#1fb084'};
+  const el=document.createElement('div');
+  el.style.cssText=`position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);z-index:9999;background:var(--bg2);border:1px solid ${c[type]};color:${c[type]};padding:.7rem 1.15rem;border-radius:.6rem;font-size:.875rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:92vw;text-align:center`;
+  el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),3600);
+}
+
+// ── Kategoriyalar (yangi mahsulotlar uchun) ──────────────────────────────
+async function loadCategories(){
+  try {
+    const r = await fetch(`${BASE}/categories/all`, {headers:{Authorization:'Bearer '+tok()}});
+    if (!r.ok) return;
+    const j = await r.json();
+    const cats = Array.isArray(j) ? j : (j.data || j.items || []);
+    const sel = document.getElementById('catSel');
+    if (!sel || !cats.length) return;
+    sel.innerHTML = '<option value="">— tanlanmagan —</option>' +
+      cats.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  } catch {}
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────
+showStep('Capture');
+checkStatus();
+loadCategories();
+</script>
+</body>
+</html>

@@ -36,8 +36,8 @@ body > *:not(.xa-atmos){position:relative;z-index:1}
 
 /* ── Glass: konteyner/karta/panel/modal (background-li wrapperlar). Jadval (.tbl/.data-table) EMAS. ── */
 .card,.tbl-wrap,.table-wrap,.data-table-wrap,.stat-card,.sc,.panel,.modal-box,.modal-card,.mc,.setting-card,.debt-card{
-  background:linear-gradient(180deg, rgba(17,52,40,.82), rgba(12,40,30,.86));
-  border:1px solid rgba(212,180,108,.16);
+  background:linear-gradient(180deg, rgba(15,32,56,.82), rgba(10,22,42,.86));
+  border:1px solid rgba(34,197,94,.16);
   backdrop-filter:blur(10px) saturate(1.1);-webkit-backdrop-filter:blur(10px) saturate(1.1);
 }
 [data-theme="light"] .card,
@@ -45,16 +45,16 @@ body > *:not(.xa-atmos){position:relative;z-index:1}
 [data-theme="light"] .stat-card,[data-theme="light"] .sc,[data-theme="light"] .panel,
 [data-theme="light"] .modal-box,[data-theme="light"] .modal-card,[data-theme="light"] .mc,
 [data-theme="light"] .setting-card,[data-theme="light"] .debt-card{
-  background:linear-gradient(180deg, rgba(255,255,255,.9), rgba(247,250,247,.93));
+  background:linear-gradient(180deg, rgba(255,255,255,.9), rgba(248,250,253,.93));
 }
 
 /* ── Jadval: thead tilla tint + qator hover yengil zumrad ── */
-thead th{background:rgba(212,180,108,.06)}
-tbody tr:hover{background:rgba(212,180,108,.05)}
+thead th{background:rgba(34,197,94,.06)}
+tbody tr:hover{background:rgba(34,197,94,.05)}
 
 /* ── Tugma/input: press feedback + fokus tilla glow (recolor YO'Q — variantlar saqlanadi) ── */
 .btn:active,.tb-btn:active,button.btn:active{transform:scale(.97)}
-.inp:focus,input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(212,180,108,.14),0 0 12px rgba(212,180,108,.1)}
+.inp:focus,input:focus,select:focus,textarea:focus{box-shadow:0 0 0 3px rgba(34,197,94,.14),0 0 12px rgba(34,197,94,.1)}
 
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion:reduce){

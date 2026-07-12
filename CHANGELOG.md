@@ -3,6 +3,26 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.1.0] — 2026-07-13
+
+KATTA yangilanish: yangi XENORA brend dizayni, admin refaktoring va AI-ombor (rasmdan mahsulot o'qish) bir relizda.
+
+### Qo'shildi
+- **AI-ombor (rasmdan mahsulot o'qish):** qog'oz mahsulot ro'yxati rasmini AI (Claude vision, Haiku)
+  o'qib, omborga kirim qiladi. 3 bosqich: (1) backend — rasm siqish + Claude API + xavfsiz JSON parse;
+  (2) frontend — kamera/galereya, tahrirlanadigan jadval, ishonch (confidence) rangli, dublikat aniqlash;
+  (3) integratsiya — omborga qo'shish (yangi mahsulot + shtrix-kod avto/qo'lda) yoki mavjudni to'ldirish,
+  kirim (StockMovement 'in', manba='ai_warehouse'), sotish narxi (ustama % yoki qo'lda), tranzaksiya.
+  Ruxsat: `manage_inventory` (kassirda yo'q). Tenant izolyatsiya + audit. Endpoint: `/api/v1/ai-warehouse/`.
+  **API kalitsiz ishlaydi:** `ANTHROPIC_API_KEY` qo'yilmaguncha 503 "sozlanmagan" (crash emas).
+- **Ombor sahifasida "AI bilan qo'shish" tugmasi** (emerald urg'u) → AI-ombor sahifasi.
+
+### O'zgartirildi
+- **Yangi XENORA brend dizayni (butun tizim):** tilla-asosdan → navy asos + emerald urg'u + tilla milliy
+  detal. Koshin (o'zbek naqsh) fon, Sora/Inter/JetBrains shrift, dark/light (WCAG AA), animatsiya
+  (count-up/stagger/hover). Admin SPA + 58 standalone sahifa bir xil brend.
+- **Admin refaktoring:** monolit admin.js → 14 modul (`js/admin/*.js`: core/food/settings/reports/shift/…).
+
 ## [1.0.4] — 2026-07-11
 
 PRO qulf + super-admin username takroriy xatolari ILDIZDAN, va kassa smenasi majburiy qilindi.

@@ -196,6 +196,7 @@ function switchPage(page) {
   document.getElementById('addBtnLabel').textContent = addLabels[page] || 'Qo\'shish';
   document.getElementById('addBtn').style.display    = addLabels[page] ? '' : 'none';
   loadPageData(page);
+  if (typeof initStatCountUp === 'function') initStatCountUp();  // yangi sahifa stat raqamlariga count-up ulash
 }
 
 document.getElementById('refreshBtn').addEventListener('click', () => loadPageData(currentPage));
@@ -608,7 +609,24 @@ function initDashTilt(){
     el.addEventListener('mouseleave', _daTiltReset);
   });
 }
-document.addEventListener('DOMContentLoaded', () => { initDashAtmos(); initDashCountUp(); initDashTilt(); });
+// BOSQICH 5: count-up'ni butun admin SPA stat/kpi raqamlariga kengaytirish.
+// Dashboard KPI'lar initDashCountUp bilan kuzatiladi (bu ularni _daObserved bo'lgani
+// uchun o'tkazib yuboradi). Faqat TOZA raqam (bo'sh joy/nuqta/vergul) sanaydi —
+// "12 / 30", "45%", matn yoki "—" tegilmaydi (noto'g'ri oraliq raqam chiqmasin).
+function initStatCountUp(){
+  if (_daReduced()) return;
+  document.querySelectorAll('.stat-value, .kpi-value, .ms-val').forEach(el => {
+    if (el._daObserved) return;
+    el._daObserved = true;
+    new MutationObserver(() => {
+      if (el._daCounting) return;
+      const t = (el.textContent||'').trim();
+      if (!/^\d[\d\s., ]*$/.test(t)) return;   // faqat toza raqam
+      if (t !== el._daLast){ el._daLast = t; daCountUp(el); }
+    }).observe(el, { childList:true, characterData:true, subtree:true });
+  });
+}
+document.addEventListener('DOMContentLoaded', () => { initDashAtmos(); initDashCountUp(); initDashTilt(); initStatCountUp(); });
 
 // ── Orders page ───────────────────────────────────────────────────────────────
 let ordersPage = 1;

@@ -1,6 +1,6 @@
 :root {
   /* Primary Colors — XENORA emerald (navy asos, light baza) */
-  --primary: #0d9488;
+  --primary: #0a7d72;
   --primary-light: #22c55e;
   --primary-dark: #0b7d73;
   --primary-gradient: linear-gradient(135deg, #0d9488 0%, #22c55e 55%, #c9a227 100%);
@@ -16,7 +16,7 @@
   --accent-bronze: #b89235;
 
   /* Status Colors */
-  --success: #159a70;
+  --success: #0d8a5a;
   --success-light: #d6f0e4;
   --warning: #b7791f;
   --warning-light: #fbf0d6;
@@ -30,7 +30,7 @@
   --gray-100: #f4f6fb;
   --gray-200: #eef2f9;
   --gray-300: #dbe3ef;
-  --gray-400: #8b9bb0;
+  --gray-400: #677689;
   --gray-500: #5a6b82;
   --gray-600: #3a4a63;
   --gray-700: #26344b;
@@ -121,7 +121,7 @@
   --gray-100: #0a1628;
   --gray-200: #0f2038;
   --gray-300: #16294a;
-  --gray-400: #5d6f86;
+  --gray-400: #6b7d94;
   --gray-500: #6e829c;
   --gray-600: #8b9bb0;
   --gray-700: #b4c2d4;

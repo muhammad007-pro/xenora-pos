@@ -22,9 +22,9 @@
   /* Chiziq/border */
   --border:rgba(120,160,220,.18);--border2:rgba(120,160,220,.10);
   --line:rgba(120,160,220,.10);--line-str:rgba(120,160,220,.18);
-  /* Matn (ink) */
-  --text:#e8eef5;--text2:#8b9bb0;--text3:#5d6f86;
-  --ink:#e8eef5;--ink-mut:#8b9bb0;--ink-dim:#5d6f86;
+  /* Matn (ink) — 6-bosqich: xira matn kontrasti oshirildi (label/placeholder o'qilsin) */
+  --text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;
+  --ink:#e8eef5;--ink-mut:#8b9bb0;--ink-dim:#6b7d94;
   /* Naqsh (girih) + karta soya */
   --girih:#5eb3ff;--girih-op:.09;
   --card-shadow:0 8px 28px rgba(0,0,0,.42), 0 2px 6px rgba(0,0,0,.3);
@@ -37,7 +37,8 @@
   --sidebar:240px;
 }
 [data-theme="light"]{
-  --accent:#0d9488;--accent-lt:#22c55e;--accent-dk:#0d9488;
+  /* 6-bosqich: accent oq fonда o'qilsin uchun chuqurroq emerald (#0a7d72, ≥4.5:1) */
+  --accent:#0a7d72;--accent-lt:#22c55e;--accent-dk:#0a7d72;
   --accent-dim:rgba(34,197,94,.12);--accent-glow:0 0 18px rgba(13,148,136,.28);
   --emerald:#22c55e;--emerald-lt:#34d399;--emerald-dk:#0d9488;--emerald-glow:rgba(34,197,94,.12);
   --gold:#b89235;--gold-lt:#c9a227;--gold-dim:rgba(201,168,76,.12);
@@ -46,8 +47,11 @@
   --panel1:#ffffff;--panel2:#f8fafd;--sidebar1:#ffffff;--sidebar2:#f4f7fc;
   --border:rgba(30,60,120,.16);--border2:rgba(30,60,120,.10);
   --line:rgba(30,60,120,.10);--line-str:rgba(30,60,120,.16);
-  --text:#0d1b2e;--text2:#5a6b82;--text3:#8b9bb0;
-  --ink:#0d1b2e;--ink-mut:#5a6b82;--ink-dim:#8b9bb0;
+  /* 6-bosqich: xira matn #8b9bb0 → #677689 (oq fonда 2.6→4.3:1) */
+  --text:#0d1b2e;--text2:#5a6b82;--text3:#677689;
+  --ink:#0d1b2e;--ink-mut:#5a6b82;--ink-dim:#677689;
+  /* 6-bosqich: success oq fonда o'qilsin (badge/pill/trend) */
+  --success:#0d8a5a;
   --girih:#3b6fb5;--girih-op:.14;
   --card-shadow:0 6px 20px rgba(30,60,120,.10), 0 1px 4px rgba(30,60,120,.08);
   --card-shadow-hover:0 14px 32px rgba(30,60,120,.16), 0 4px 10px rgba(34,197,94,.10);

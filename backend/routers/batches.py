@@ -19,7 +19,8 @@ from deps import (
     get_current_active_user, apply_tenant_filter, resolve_tenant_id,
 )
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("batch_tracking"))])
 
 
 def _get_batch(db: Session, batch_id: int, current_user: User) -> ProductBatch:

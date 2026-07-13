@@ -8,7 +8,8 @@ from models import ProductReorderSetting, Product, Supplier
 from deps import get_current_active_user
 from models import User
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("auto_reorder"))])
 
 
 @router.get("/")

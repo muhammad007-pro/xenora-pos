@@ -185,13 +185,13 @@ async function load(){
     document.getElementById('plansBox').innerHTML=
       ['free','pro'].map(plan=>{
         const p=ps[plan]||{count:0,price:0,monthly_revenue:0};
-        const names={free:'FREE',pro:'PRO'};
+        const names={free:'LITE',pro:'PRO'};
         const colors={free:'#9ca3af',pro:'#d4b46c'};
         return `<div class="plan-row">
           <div class="plan-name" style="color:${colors[plan]}">${names[plan]}</div>
           <div class="plan-cnt">${p.count}</div>
           <div class="pbar-wrap"><div class="pbar" style="width:${Math.round((p.count/maxCnt)*100)}%;background:${colors[plan]}"></div></div>
-          <div class="plan-rev">${fmtN(p.monthly_revenue)} UZS/oy</div>
+          <div class="plan-rev">$${fmtN(p.monthly_revenue)}/oy</div>
         </div>`;
       }).join('');
   }

@@ -229,7 +229,7 @@ async function loadSaasStats(){
   document.getElementById('sSaasActive').textContent=stats.active||0;
   const pro=stats.plan_stats?.pro||{};
   document.getElementById('sSaasPro').textContent=pro.count||0;
-  document.getElementById('sSaasProRev').textContent=fmtN(pro.monthly_revenue||0)+' so\'m/oy';
+  document.getElementById('sSaasProRev').textContent='$'+fmtN(pro.monthly_revenue||0)+'/oy';
 }
 
 document.getElementById('periodSel').onchange=load;

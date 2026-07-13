@@ -15,7 +15,7 @@ from schemas import (
     PurchaseReceiptInDB, PurchaseReceiptItemInDB,
     PaginatedResponse, MessageResponse,
 )
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 router = APIRouter()
 
@@ -87,7 +87,7 @@ async def list_receipts(
 async def create_receipt(
     data: PurchaseReceiptCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_finance")),
 ):
     """Yangi priyomka yaratish (draft holat — omborga kirmagunча)"""
     supplier = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
@@ -159,7 +159,7 @@ async def update_receipt(
     receipt_id: int,
     data: PurchaseReceiptUpdate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_finance")),
 ):
     rec = apply_tenant_filter(db.query(PurchaseReceipt), PurchaseReceipt, current_user) \
               .filter(PurchaseReceipt.id == receipt_id).first()
@@ -178,7 +178,7 @@ async def update_receipt(
 async def confirm_receipt(
     receipt_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_finance")),
 ):
     """Priyomkani tasdiqlash → ombordagi qoldiqlar avtomatik oshadi"""
     from datetime import datetime
@@ -279,7 +279,7 @@ async def confirm_receipt(
 async def delete_receipt(
     receipt_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_finance")),
 ):
     rec = apply_tenant_filter(db.query(PurchaseReceipt), PurchaseReceipt, current_user) \
               .filter(PurchaseReceipt.id == receipt_id).first()

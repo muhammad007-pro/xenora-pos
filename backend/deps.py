@@ -157,7 +157,48 @@ def has_permission(permission_code: str):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Ruxsatlar topilmadi"
             )
-        
+
         return current_user
-    
+
     return permission_checker
+
+
+def require_feature(feature_code: str):
+    """Funksiya (feature-flag) darajasида himoya — RBAC'dan ALOHIDA qatlam.
+
+    Foydalanuvchi tenantиning biznes turи + tarifи shu funksiяни ochmаса 403.
+    Ya'ni frontend'да yashiringan begona/PRO funksiянинг endpoint'и ham bloklanadi
+    (O'ZGARISH 3: yashirish yetарли emas, backend ham himoyalayди).
+    Super-admin bypass. Tenant majburiy."""
+    async def feature_checker(
+        current_user: User = Depends(get_current_active_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if current_user.is_superuser:
+            return current_user
+        if not current_user.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bu amal uchun tenant kerak",
+            )
+        from models import Cafe
+        from core.feature_flags import is_feature_enabled
+        cafe = db.query(Cafe).filter(Cafe.id == current_user.tenant_id).first()
+        if not cafe:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kafe topilmadi")
+        try:
+            ok = is_feature_enabled(
+                cafe.business_type, feature_code,
+                cafe.enabled_features, cafe.disabled_features, cafe.subscription_plan,
+            )
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"Noma'lum funksiya: {feature_code}")
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bu funksiya sizning biznes turingiz yoki tarifingizda mavjud emas",
+            )
+        return current_user
+
+    return feature_checker

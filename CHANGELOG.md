@@ -3,6 +3,36 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.0] — 2026-07-13
+
+Xavfsizlik va tarif relizi: to'liq RBAC audit tuzatishlari, tarif qayta ishlashi (Free→Lite),
+biznes-turi bo'yicha funksiya filtri, dizayn qoldiqlari va menejer roli.
+
+### Qo'shildi
+- **Menejer roli** — admin va kassir orasidagi rol (8 ruxsat: view_finance, process_payments,
+  view_analytics, view_reports, manage_menu, manage_inventory, manage_customers, manage_shifts).
+  Nozik joylar yo'q (manage_settings/users/roles bermaydi). Global rol, `init_db()` seed.
+- **`manage_products` ruxsati** — ilgari yo'q edi, vehicle/service DELETE uni ishlatardi (doim 403).
+  Endi seedда bor, admin oladi (service/vehicle boshqaruvi tiklandi).
+- **Biznes-turi PRO funksiya filtri** — `BUSINESS_PRO_MATRIX`: har biznes turi faqat o'ziga tegishli
+  PRO funksiyalarni oladi (restoran markirovka ko'rmaydi). Begona funksiya UI'da umuman ko'rinmaydi.
+- **Ilova ichida versiya** — admin sozlamalarida "XENORA — versiya vX.Y.Z" (Windows+Android bir manba).
+
+### O'zgartirildi
+- **Tarif Free → Lite** (faqat nom; kalit "free" saqlandi). Tenant UZS, superadmin SaaS daromadi $ ($10/$50).
+- **Pro funksiyalar toggle** — Pro tenant funksiyalarni o'zi yoqib/o'chiradi (majburiy qulf emas).
+- **RBAC audit (6 bosqich):** moliya yozish (debt/supplier/priyomka)→view_finance/process_payments;
+  imtiyoz (cafe features/branches)→manage_settings; settings global→tenant izolyatsiya;
+  analitika sub-endpoint (14)→view_analytics(+feature); hotel xona→manage_settings;
+  menyu-config (18 yozish)→manage_menu. Operatsion oqim (order/kitchen/table) saqlandi.
+- **Backend feature enforcement** — 14 pro/biznes router + 14 analitika endpointга `require_feature`.
+
+### Tuzatildi
+- **Dizayn qoldiqlari** — splash (yulduz→∞ infinity, navy fon), login yashil→navy, ai_warehouse/qr/qr-table
+  eski palitra→navy; Electron/Android ikonka ∞; koshin/animatsiya barcha ekranда.
+- **Sotuv dinamikasi grafigi** — "Hafta" bo'sh edi (period filtri xatosi), tuzatildi; tugmalar ishlaydi.
+- **Android header sana** — mobil siqilish (responsiv qisqa sana + nowrap).
+
 ## [1.1.0] — 2026-07-13
 
 KATTA yangilanish: yangi XENORA brend dizayni, admin refaktoring va AI-ombor (rasmdan mahsulot o'qish) bir relizda.

@@ -6,7 +6,7 @@ from typing import Optional
 
 from database import get_db
 from models import DailySpecial, Product, User
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 router = APIRouter()
 
@@ -43,7 +43,7 @@ async def list_specials(
 async def create_daily_special(
     data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_menu")),
 ):
     product_id = data.get("product_id")
     if not product_id:
@@ -78,7 +78,7 @@ async def update_daily_special(
     special_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_menu")),
 ):
     q = apply_tenant_filter(db.query(DailySpecial), DailySpecial, current_user)
     special = q.filter(DailySpecial.id == special_id).first()
@@ -99,7 +99,7 @@ async def update_daily_special(
 async def delete_daily_special(
     special_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_menu")),
 ):
     q = apply_tenant_filter(db.query(DailySpecial), DailySpecial, current_user)
     special = q.filter(DailySpecial.id == special_id).first()

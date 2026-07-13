@@ -45,7 +45,7 @@ def _recalc_customer_debt(db: Session, customer_id: int):
 def create_debt(
     data: DebtCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(has_permission("process_payments")),
 ):
     customer = (
         apply_tenant_filter(db.query(Customer), Customer, current_user)
@@ -182,7 +182,7 @@ def pay_debt(
     debt_id: int,
     data: DebtPaymentCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(has_permission("view_finance")),
 ):
     debt = (
         apply_tenant_filter(db.query(CustomerDebt), CustomerDebt, current_user)

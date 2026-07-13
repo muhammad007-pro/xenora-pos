@@ -14,7 +14,8 @@ from models import WriteOff, WriteOffItem, User
 from schemas import LossReportSummary, LossReportItem
 from deps import get_current_active_user, apply_tenant_filter, has_permission
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("loss_report"))])
 
 
 @router.get("/", response_model=LossReportSummary)

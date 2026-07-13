@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from database import get_db
 from models import HappyHour, User
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 router = APIRouter()
 
@@ -96,7 +96,7 @@ async def get_active_happy_hours(
 async def create_happy_hour(
     data: HappyHourCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     hh = HappyHour(
         tenant_id=resolve_tenant_id(db, current_user),
@@ -121,7 +121,7 @@ async def update_happy_hour(
     hh_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     hh = db.query(HappyHour).filter(HappyHour.id == hh_id).first()
     if not hh:
@@ -140,7 +140,7 @@ async def update_happy_hour(
 async def delete_happy_hour(
     hh_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     hh = db.query(HappyHour).filter(HappyHour.id == hh_id).first()
     if not hh:

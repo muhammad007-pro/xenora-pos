@@ -130,8 +130,17 @@ a{text-decoration:none;color:inherit}
 .tb-btn:hover{border-color:var(--accent);color:var(--accent)}
 .tb-btn.primary{background:var(--accent-dim);border-color:rgba(34,197,94,.4);color:var(--accent)}
 .tb-btn.primary:hover{box-shadow:var(--accent-glow)}
-.date-range{font-size:.8125rem;color:var(--text2)}
+.date-range{font-size:.8125rem;color:var(--text2);white-space:nowrap}
 .admin-content{flex:1;overflow-y:auto;padding:1.5rem}
+/* Mobil topbar: tor ekranda siqilmasin — padding/gap kichrayadi, sana qisqa+nowrap,
+   sarlavha zarur bo'lsa qisqaradi. Windows/keng ekran tegilmaydi. */
+@media(max-width:640px){
+  .admin-topbar{padding:0 .875rem;gap:.5rem}
+  .topbar-actions{gap:.4375rem}
+  .topbar-title{font-size:1rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .date-range{font-size:.75rem}
+  .tb-btn{padding:.4375rem .625rem}
+}
 
 /* ── Pages ── */
 .admin-page{display:none}

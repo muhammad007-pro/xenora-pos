@@ -17,7 +17,8 @@ from schemas import (
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("internal_transfer"))])
 
 
 def _enrich_item(item: InternalTransferItem) -> InternalTransferItemInDB:

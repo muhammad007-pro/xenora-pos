@@ -121,7 +121,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
       <div class="fg"><label>Email</label><input id="cafeEmail" placeholder="info@cafe.uz" type="email"></div>
       <div class="fg"><label>Tarif rejasi</label>
         <select id="subscriptionPlan">
-          <option value="free">FREE</option>
+          <option value="free">LITE</option>
           <option value="pro">PRO</option>
         </select>
       </div>
@@ -205,7 +205,7 @@ function render(){
       </div>
       <div class="cafe-stats">
         <div class="stat-item"><div class="stat-value">${c.employees_count||0}</div><div class="stat-label">Xodimlar</div></div>
-        <div class="stat-item"><div class="stat-value" style="font-size:.9rem">${esc(c.subscription_plan||'free')}</div><div class="stat-label">Tarif</div></div>
+        <div class="stat-item"><div class="stat-value" style="font-size:.9rem">${(c.subscription_plan||'free')==='free'?'LITE':esc((c.subscription_plan||'').toUpperCase())}</div><div class="stat-label">Tarif</div></div>
       </div>
       <div class="cafe-foot">
         <button class="btn btn-out btn-sm" onclick="editCafe(${c.id})">Tahrirlash</button>

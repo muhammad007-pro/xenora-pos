@@ -6,7 +6,6 @@ from database import get_db
 from models import User
 from deps import get_current_user, has_permission, resolve_tenant_id
 from schemas import MessageResponse
-from core.config_loader import config_loader
 from core.tenant_config import get_tenant_config, set_tenant_config
 
 router = APIRouter()
@@ -19,11 +18,12 @@ async def get_all_settings(
     """Barcha sozlamalarni olish"""
     tid = resolve_tenant_id(db, current_user)
     return {
-        # app/printer/kitchen — hali global (keyingi qadamlarda ko'chiriladi)
-        "app": config_loader.get("app"),
-        "printer": config_loader.get("printer"),
-        "kitchen": config_loader.get("kitchen"),
-        # BOSQICH 40: payment tenant-scoped (Click/Payme kalitlari)
+        # BOSQICH 41: app/kitchen/printer endi tenant-scoped — har tenant o'z qiymati.
+        # Tenant yozuvi bo'lmasa global qiymat DEFAULT bo'lib qoladi (ma'lumot yo'qolmaydi).
+        "app": get_tenant_config(db, tid, "app"),
+        "printer": get_tenant_config(db, tid, "printer"),
+        "kitchen": get_tenant_config(db, tid, "kitchen"),
+        # payment tenant-scoped (Click/Payme kalitlari)
         "payment": get_tenant_config(db, tid, "payment")
     }
 
@@ -197,10 +197,12 @@ async def update_monthly_goal(
 @router.get("/{config_name}")
 async def get_settings(
     config_name: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_settings"))
 ):
-    """Sozlamalarni olish"""
-    config = config_loader.get(config_name)
+    """Sozlamalarni olish (BOSQICH 41: tenant-scoped; yozuv bo'lmasa global default)"""
+    tid = resolve_tenant_id(db, current_user)
+    config = get_tenant_config(db, tid, config_name)
     if not config:
         raise HTTPException(status_code=404, detail="Sozlamalar topilmadi")
     return config
@@ -209,15 +211,27 @@ async def get_settings(
 async def update_settings(
     config_name: str,
     settings: Dict[str, Any],
+    db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_settings"))
 ):
-    """Sozlamalarni yangilash"""
-    success = True
-    for key, value in settings.items():
-        if not config_loader.set_value(config_name, key, value):
-            success = False
+    """Sozlamalarni yangilash (BOSQICH 41: FAQAT shu tenant o'zgaradi, global emas).
 
-    if success:
-        return MessageResponse(message="Sozlamalar yangilandi")
-    else:
-        raise HTTPException(status_code=500, detail="Sozlamalarni saqlashda xatolik")
+    - Boshlang'ich qiymat get_tenant_config (yozuv bo'lmasa global default) —
+      shu sabab version/debug kabi app maydonlari default/meros bo'lib saqlanadi.
+    - Dot-path 'a.b.c' kalitlar ichma-ich yoziladi (eski set_value bilan bir xil)."""
+    tid = resolve_tenant_id(db, current_user)
+    if not tid:
+        raise HTTPException(status_code=400, detail="Sozlama saqlash uchun tenant (kafe) aniqlanmadi")
+
+    config = get_tenant_config(db, tid, config_name) or {}
+    for key, value in settings.items():
+        parts = str(key).split(".")
+        node = config
+        for p in parts[:-1]:
+            if not isinstance(node.get(p), dict):
+                node[p] = {}
+            node = node[p]
+        node[parts[-1]] = value
+
+    set_tenant_config(db, tid, config_name, config)
+    return MessageResponse(message="Sozlamalar yangilandi")

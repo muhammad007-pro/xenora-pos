@@ -64,10 +64,13 @@ FEATURE_META: dict[str, dict] = {
 
 router = APIRouter()
 
+# Superadmin SaaS daromadi USD ($) da hisoblanadi (owner moliya dashboard).
+# Tenant-facing tarif tanlash UZS'da qoladi (owner/cafes.html dropdown) — bular alohida.
+# Kalit "free" o'zgarmaydi (DB/VALID_PLANS buzilmaydi) — ko'rinadigan nom "Lite".
 PLAN_PRICES = {
-    "free":       0,
-    "pro":        990_000,
-    "enterprise": 2_990_000,
+    "free":       10,    # Lite — $10/oy
+    "pro":        50,    # Pro  — $50/oy
+    "enterprise": 0,     # ishlatilmaydi (ikki tarif tizimi)
 }
 
 WARN_DAYS = 7   # Muddat tugashiga necha kun qolganida ogohlantirish

@@ -117,7 +117,7 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
     <input class="sin" id="searchInp" placeholder="Ism, telefon, kod bo'yicha qidirish..." oninput="debouncedLoad()">
     <select class="ssel" id="planFilter" onchange="load()">
       <option value="">Barcha tariflar</option>
-      <option value="free">FREE</option>
+      <option value="free">LITE</option>
       <option value="pro">PRO</option>
     </select>
     <button class="btn bo" onclick="load()">↻ Yangilash</button>
@@ -190,7 +190,7 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
         <div class="fg">
           <label>Tarif *</label>
           <select id="f-plan">
-            <option value="free">FREE — bepul</option>
+            <option value="free">LITE — bepul</option>
             <option value="pro">PRO — 990,000 UZS/oy</option>
           </select>
         </div>
@@ -238,7 +238,7 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
       <div class="fg">
         <label>Tarif (o'zgartirilsa darhol qo'llanadi)</label>
         <select id="edit-plan">
-          <option value="free">FREE — bepul</option>
+          <option value="free">LITE — bepul</option>
           <option value="pro">PRO — 990,000 UZS/oy</option>
         </select>
       </div>
@@ -421,7 +421,7 @@ function statusBadge(s){
   return `<span class="badge ${s}">${map[s]||s}</span>`;
 }
 function planBadge(p){
-  const names={free:'FREE',pro:'PRO'};
+  const names={free:'LITE',pro:'PRO'};
   return `<span class="plan-badge ${p}">${names[p]||p}</span>`;
 }
 function daysLeftHtml(days,status){

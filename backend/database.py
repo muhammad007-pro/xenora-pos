@@ -56,6 +56,7 @@ def init_db():
             ("manage_tables", "Stollar boshqaruvi"),
             ("process_orders", "Buyurtmalarni qayta ishlash"),
             ("manage_inventory", "Omborni boshqarish"),
+            ("manage_products", "Mahsulot / xizmat katalogini boshqarish"),
             ("view_reports", "Hisobotlarni ko'rish"),
             ("manage_settings", "Sozlamalar boshqaruvi"),
             ("manage_customers", "Mijozlar boshqaruvi"),
@@ -115,6 +116,25 @@ def init_db():
                 permissions["view_reports"],
             ]
             db.add(cashier_role)
+            db.flush()
+
+        # Menejer roli (admin va kassir orasida; nozik sozlamalarsiz — A variant, aynan 8 ruxsat).
+        # BERILMAYDI: manage_settings, manage_users, manage_roles, manage_products,
+        # process_orders, manage_discounts, manage_reservations, manage_tables.
+        menejer_role = db.query(Role).filter(Role.name == "menejer").first()
+        if not menejer_role:
+            menejer_role = Role(name="menejer", description="Menejer")
+            menejer_role.permissions = [
+                permissions["view_finance"],
+                permissions["process_payments"],
+                permissions["view_analytics"],
+                permissions["view_reports"],
+                permissions["manage_menu"],
+                permissions["manage_inventory"],
+                permissions["manage_customers"],
+                permissions["manage_shifts"],
+            ]
+            db.add(menejer_role)
             db.flush()
         
         # Super-admin foydalanuvchi (BOSQICH 38: telefon-login).

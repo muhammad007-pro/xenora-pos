@@ -22,7 +22,8 @@ from deps import (
 )
 from config import settings
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("prescription_archive"))])
 
 
 def _get_rx(db: Session, rx_id: int, current_user: User) -> Prescription:

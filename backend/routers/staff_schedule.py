@@ -14,7 +14,8 @@ from schemas import (
 )
 from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("staff_schedule"))])
 
 WEEKDAY_NAMES = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
 

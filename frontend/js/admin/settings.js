@@ -108,8 +108,12 @@ async function loadSettings() {
     const data = await apiFetch('/cafes/my/features');
     _settingsData = data;
     const plan = data.subscription_plan || 'free';
-    document.getElementById('settingsPlanBadge').textContent = plan.toUpperCase() + ' tarif';
+    // "free" kaliti o'zgarmaydi — faqat ko'rinadigan nom "LITE".
+    const planLabel = plan === 'free' ? 'LITE' : plan.toUpperCase();
+    const isProPlan = plan !== 'free';   // Lite'dan boshqasi (pro) — PRO ochiq
+    document.getElementById('settingsPlanBadge').textContent = planLabel + ' tarif';
 
+    // Backend endi FAQAT shu biznesga tegishli funksiyalarni qaytaradi (begona kelmaydi).
     const freeFlags = [], proFlags = [];
     (data.features || []).forEach(f => {
       if (f.is_pro) proFlags.push(f); else freeFlags.push(f);
@@ -135,10 +139,28 @@ async function loadSettings() {
       </div>`;
     }).join('');
 
-    // PRO section (locked)
+    // PRO section — PRO tarifda TOGGLE (o'zi yoqadi/o'chiradi); Lite tarifda qulflangan.
+    const proNote = document.getElementById('settingsProNote');
+    if (proNote) proNote.textContent = isProPlan
+      ? 'PRO tarif — bu funksiyalarni o\'zingiz yoqib/o\'chirasiz.'
+      : 'Bu funksiyalar PRO tarifda. Ochish uchun tarifni PRO ga o\'tkazing (Super Admin).';
     document.getElementById('settingsProSection').innerHTML = proFlags.map(f => {
       const label = FLAG_LABELS[f.flag] || f.flag;
-      return `<div class="toggle-row" style="padding:.5rem 0;border-bottom:1px solid var(--border2);opacity:.65" onclick="toast('Bu funksiya PRO tarifda. Super Admin bilan bog\\'laning','warning')">
+      if (isProPlan) {
+        // PRO tarif → oddiy toggle (FREE kabi), saqlanadi.
+        return `<div class="toggle-row" style="padding:.5rem 0;border-bottom:1px solid var(--border2)">
+          <div>
+            <div class="toggle-label" style="font-size:.875rem">${label}</div>
+            <div style="font-size:.75rem;color:var(--text3)">${f.flag}</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" data-flag="${f.flag}" data-pro="1" ${f.is_enabled ? 'checked' : ''} onchange="_settingsFlagChanged(this)">
+            <span class="slider"></span>
+          </label>
+        </div>`;
+      }
+      // Lite tarif → qulflangan (avvalgi ko'rinish).
+      return `<div class="toggle-row" style="padding:.5rem 0;border-bottom:1px solid var(--border2);opacity:.65" onclick="toast('Bu funksiya PRO tarifda. Tarifni PRO ga o\\'tkazing','warning')">
         <div>
           <div class="toggle-label" style="font-size:.875rem">🔒 ${label}</div>
           <div style="font-size:.75rem;color:var(--text3)">${f.flag}</div>
@@ -163,8 +185,10 @@ async function saveSettingsFlags() {
   const btn = document.getElementById('settingsSaveBtn');
   btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
   const enabled = [], disabled = [];
-  document.querySelectorAll('#settingsFreeSection input[data-flag]').forEach(chk => {
-    if (chk.disabled) return;   // begona (biznesga tegishli emas) flaglar saqlanmaydi
+  // FREE section + PRO section (PRO tarifda toggle ochiq). Lite tarifda PRO input
+  // `disabled` bo'ladi → o'tkazib yuboriladi (tarif chegarasi saqlanadi).
+  document.querySelectorAll('#settingsFreeSection input[data-flag], #settingsProSection input[data-flag]').forEach(chk => {
+    if (chk.disabled) return;   // begona/qulflangan flaglar saqlanmaydi
     if (chk.checked) enabled.push(chk.dataset.flag);
     else disabled.push(chk.dataset.flag);
   });

@@ -19,7 +19,8 @@ from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
 from pydantic import BaseModel
 from typing import Optional
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("customer_return_ext"))])
 
 
 # ── Schemas (local, kengaytirilgan) ──────────────────────────────────────────

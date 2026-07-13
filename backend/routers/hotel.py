@@ -14,7 +14,7 @@ from schemas import (
     RoomBookingCreate, RoomBookingUpdate, RoomBookingInDB,
     PaginatedResponse, MessageResponse,
 )
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 router = APIRouter()
 
@@ -48,7 +48,7 @@ async def get_rooms(
 async def create_room(
     data: RoomCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_settings")),
 ):
     room = Room(tenant_id=resolve_tenant_id(db, current_user), **data.model_dump())
     db.add(room)
@@ -62,7 +62,7 @@ async def update_room(
     room_id: int,
     data:    RoomUpdate,
     db:      Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_settings")),
 ):
     room = apply_tenant_filter(db.query(Room), Room, current_user).filter(Room.id == room_id).first()
     if not room:
@@ -78,7 +78,7 @@ async def update_room(
 async def delete_room(
     room_id: int,
     db:      Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_settings")),
 ):
     room = apply_tenant_filter(db.query(Room), Room, current_user).filter(Room.id == room_id).first()
     if not room:

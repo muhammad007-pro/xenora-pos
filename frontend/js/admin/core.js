@@ -25,8 +25,19 @@ function getUser() { try { return JSON.parse(localStorage.getItem('user')||'{}')
 const user = getUser();
 document.getElementById('sbAvatar').textContent = (user.full_name||'A')[0].toUpperCase();
 document.getElementById('sbName').textContent   = user.full_name || user.username || 'Admin';
-document.getElementById('sbRole').textContent   = ({admin:'Administrator',cashier:'Kassir',waiter:'Ofitsiant',kitchen:'Oshpaz'}[user.role?.name||user.role]||user.role?.name||'Admin');
-document.getElementById('todayDate').textContent = new Date().toLocaleDateString('uz-UZ',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
+document.getElementById('sbRole').textContent   = ({admin:'Administrator',menejer:'Menejer',cashier:'Kassir',waiter:'Ofitsiant',kitchen:'Oshpaz'}[user.role?.name||user.role]||user.role?.name||'Admin');
+// Sana: tor ekranda (mobil) qisqa "13 iyul", keng ekranda to'liq "Dush, 13-iyul, 2026".
+// IIFE — global scope'ga yangi nom qo'shmaydi; resize'da qayta hisoblanadi.
+(function(){
+  const el = document.getElementById('todayDate');
+  if (!el) return;
+  const upd = () => { el.textContent = new Date().toLocaleDateString('uz-UZ',
+    (window.innerWidth <= 640)
+      ? {day:'numeric', month:'short'}
+      : {weekday:'short', day:'numeric', month:'long', year:'numeric'}); };
+  upd();
+  window.addEventListener('resize', upd);
+})();
 document.getElementById('logoutBtn').addEventListener('click', () => { const _t=localStorage.getItem('theme'); localStorage.clear(); if(_t)localStorage.setItem('theme',_t); try{indexedDB.deleteDatabase('restopos_db');}catch(e){} location.replace('../shared/login.html'); });
 
 // ── Business type ─────────────────────────────────────────────────────────────
@@ -503,11 +514,12 @@ function renderBarChart(daily) {
     `).join('');
     return;
   }
-  const max = Math.max(...daily.map(d=>d.revenue||0), 1);
-  chart.innerHTML = daily.slice(-7).map(d => `
+  const max  = Math.max(...daily.map(d=>d.revenue||0), 1);
+  const many = daily.length > 10;   // "Oy" (30 kun) — yorliqlarni siyraklashtiramiz
+  chart.innerHTML = daily.map((d,i) => `
     <div class="bar-wrap">
       <div class="bar gold-bar" style="height:${Math.round((d.revenue||0)/max*100)}%;width:100%"></div>
-      <div class="bar-label">${new Date(d.date).getDate()}</div>
+      <div class="bar-label">${(!many || i % 5 === 0 || i === daily.length-1) ? new Date(d.date).getDate() : ''}</div>
     </div>
   `).join('');
 }
@@ -1021,9 +1033,13 @@ async function updateLowStockBadge() {
 
 // ── Chart period ──────────────────────────────────────────────────────────────
 document.querySelectorAll('.period-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
     document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    // Grafikni tanlangan davr bo'yicha qayta yukla (Hafta=7 kun, Oy=30 kun).
+    // Faqat grafik — KPI raqamlari "bugun" bo'yicha o'zgarmaydi.
+    const a = await apiFetch('/analytics/summary?period=' + (btn.dataset.p || 'week')).catch(() => null);
+    renderBarChart(a?.daily_revenue || []);
   });
 });
 

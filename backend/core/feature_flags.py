@@ -197,6 +197,68 @@ BUSINESS_FEATURE_MATRIX: dict[BusinessType, frozenset[Feature]] = {
 }
 
 
+# ── PRO funksiyalar — BIZNES TURI bo'yicha (O'ZGARISH 3 mapping) ────────────────
+# G'oya: har biznes turi FAQAT O'ZИГА tegishli PRO funksiyalarni ko'radi. PRO tarif
+# = shu to'plamni ochadi (global BARCHA PRO emas). Begona biznesga oid PRO funksiya
+# umuman ko'rinmaydi. Qoida: "kam yashir, ko'p ko'rsat" — shubhada funksiya qoldiriladi.
+#
+# BUSINESS_FEATURE_MATRIX (yuqorida) = FREE default (hammaga yoniq).
+# BUSINESS_PRO_MATRIX (quyida)      = shu biznesning PRO funksiyalari (PRO tarifda yoniq).
+
+# Universal PRO — analitika/loyallik, HAR BIR biznesga foydali
+_UNIVERSAL_PRO: frozenset[Feature] = frozenset({
+    Feature.PEAK_HOURS,       # peak soat/kun grafik
+    Feature.BONUS_CARD,       # mijoz bonus kartasi
+    Feature.ABC_ANALYSIS,     # ABC foyda tahlili
+})
+# Ombor/ta'minot PRO — ombori/yetkazuvchisi bor bizneslar
+_INVENTORY_PRO: frozenset[Feature] = frozenset({
+    Feature.WRITE_OFF,             # utilizatsiya/spisaniye
+    Feature.AUTO_REORDER,          # avto-zakaz (min qoldiq)
+    Feature.TURNOVER_ANALYSIS,     # oborot tahlili
+    Feature.SUPPLIER_ACCOUNTING,   # yetkazib beruvchi hisob-kitob
+    Feature.INTERNAL_TRANSFER,     # filiallar aro ko'chirish
+    Feature.LOSS_REPORT,           # zarar hisoboti
+})
+# Chakana-maxsus PRO — faqat savdo (magazin/dorixona) uchun mantiqли
+_RETAIL_ONLY_PRO: frozenset[Feature] = frozenset({
+    Feature.WHOLESALE_PRICING,     # optom/dona narx
+    Feature.DEPARTMENTS,           # bo'limlar/seksiyalar
+    Feature.GOODS_REGRADE,         # peresort
+    Feature.MARKUP_POLICY,         # avto-narx siyosati
+    Feature.CUSTOMER_RETURN_EXT,   # kengaytirilgan qaytarish
+    Feature.MARKIROVKA,            # DataMatrix markirovka
+})
+
+RETAIL_PRO:      frozenset[Feature] = _UNIVERSAL_PRO | _INVENTORY_PRO | _RETAIL_ONLY_PRO   # 15 (to'liq)
+PHARMACY_PRO:    frozenset[Feature] = RETAIL_PRO                                            # dorixona retail-og'ir
+# Ovqatlanish: universal + ombor + DEPARTMENTS (oshxona seksiyalari) + MARKUP_POLICY
+# (menyu avto-narx). Retail-maxsus (optom, peresort, markirovka, mijoz-qaytarish)
+# OLINMADI — food'ga mantiqsiz.
+FOOD_PRO:        frozenset[Feature] = _UNIVERSAL_PRO | _INVENTORY_PRO | frozenset({Feature.DEPARTMENTS, Feature.MARKUP_POLICY})
+SERVICE_INV_PRO: frozenset[Feature] = _UNIVERSAL_PRO | _INVENTORY_PRO   # ombori bor xizmat (salon/auto/hotel/kimyoviy)
+SERVICE_PRO:     frozenset[Feature] = _UNIVERSAL_PRO                    # ombori yo'q xizmat (fitnes/maktab)
+
+BUSINESS_PRO_MATRIX: dict[BusinessType, frozenset[Feature]] = {
+    # 🍽️ Ovqatlanish
+    BusinessType.RESTAURANT: FOOD_PRO,
+    BusinessType.CAFE:       FOOD_PRO,
+    BusinessType.FAST_FOOD:  FOOD_PRO,
+    # 🏪 Chakana savdo
+    BusinessType.STORE:       RETAIL_PRO,
+    BusinessType.SUPERMARKET: RETAIL_PRO,
+    BusinessType.PHARMACY:    PHARMACY_PRO,
+    # 💇 Xizmat (ombori bor)
+    BusinessType.SALON:        SERVICE_INV_PRO,
+    BusinessType.AUTO_SERVICE: SERVICE_INV_PRO,
+    BusinessType.HOTEL:        SERVICE_INV_PRO,
+    BusinessType.DRY_CLEANING: SERVICE_INV_PRO,
+    # 💪 Xizmat (ombori yo'q)
+    BusinessType.FITNESS:      SERVICE_PRO,
+    BusinessType.SCHOOL:       SERVICE_PRO,
+}
+
+
 # ── Har bir flag uchun tarif darajasi ──────────────────────────────────────────
 # FREE  — tenant egasi settings.html orqali o'zi yoqib/o'chira oladi
 # PRO   — faqat super-admin yoqa oladi (tenant PRO tarif sotib olishi kerak)
@@ -297,10 +359,23 @@ def get_pro_features() -> FrozenSet[Feature]:
 
 
 def get_default_features(business_type: BusinessType | str) -> frozenset[Feature]:
-    """Berilgan biznes turi uchun standart funksiyalar to'plamini qaytaradi"""
+    """Berilgan biznes turi uchun standart (FREE) funksiyalar to'plamini qaytaradi"""
     if not isinstance(business_type, BusinessType):
         business_type = BusinessType(business_type)
     return BUSINESS_FEATURE_MATRIX.get(business_type, frozenset())
+
+
+def get_business_pro_features(business_type: BusinessType | str) -> frozenset[Feature]:
+    """Shu biznes turiga tegishli PRO funksiyalar (PRO tarifda ochiladi)."""
+    if not isinstance(business_type, BusinessType):
+        business_type = BusinessType(business_type)
+    return BUSINESS_PRO_MATRIX.get(business_type, frozenset())
+
+
+def get_all_business_features(business_type: BusinessType | str) -> frozenset[Feature]:
+    """Shu biznes turiga tegishli BARCHA funksiya (FREE default + PRO).
+    "in_business" tekshiruvi va begonani yashirish uchun yagona manba."""
+    return get_default_features(business_type) | get_business_pro_features(business_type)
 
 
 def is_pro_plan(subscription_plan: str | None) -> bool:
@@ -316,23 +391,26 @@ def resolve_enabled_features(
 ) -> set[str]:
     """
     Kafe uchun yakuniy yoqilgan funksiyalar ro'yxatini hisoblaydi:
-    standart to'plam + (PRO tarif bo'lsa) barcha PRO flaglar
+    standart (FREE) to'plam + (PRO tarif bo'lsa) SHU biznes turining PRO flaglari
     + qo'lda yoqilganlar - qo'lda o'chirilganlar.
 
-    ILDIZ (xato #8 takroriy): tarif (subscription_plan) va feature-flag'lar
-    ilgari BOG'LANMAGAN edi — PRO tarif sotib olingan bo'lsa ham PRO funksiyalar
-    ochilmasdi (faqat super-admin qo'lda enabled_features qo'shsa). Endi PRO tarif
-    = barcha PRO flaglar avtomatik ochiq (monetizatsiya: tarif = qulf kaliti).
-    Tenant xohlasa alohida PRO flagni disabled_overrides orqali yashira oladi.
+    O'ZGARISH 3: ilgari PRO tarif = GLOBAL BARCHA PRO flag ochilardi — shu sababli
+    restoran ham magazin PRO funksiyalarini (markirovka, optom...) olardi. Endi
+    PRO tarif = FAQAT shu biznes turining PRO funksiyalari (BUSINESS_PRO_MATRIX).
+    Begona biznes turiga oid PRO funksiya umuman ochilmaydi.
 
-    Funksiyalar hech qachon butunlay o'chirilmaydi — bu funksiya faqat
+    Yangi PRO tenant → o'z biznesining hamma PRO funksiyasi BOSHIDA YONIQ; tenant
+    keyin kerakmasini disabled_overrides orqali o'chiradi (O'ZGARISH 2 toggle).
+
+    enabled_overrides — super-admin ataylab bergan istisno (monetizatsiya hatch),
+    saqlanadi. Funksiyalar hech qachon butunlay o'chirilmaydi — bu funksiya faqat
     "qaysi funksiyalar UI'da ko'rinadi" degan savolga javob beradi.
     """
     features = {f.value for f in get_default_features(business_type)}
 
-    # PRO tarif → barcha PRO darajali flaglar avtomatik yoqiladi.
+    # PRO tarif → SHU biznes turining PRO flaglari avtomatik yoqiladi (global emas).
     if is_pro_plan(subscription_plan):
-        features |= {f.value for f in get_pro_features()}
+        features |= {f.value for f in get_business_pro_features(business_type)}
 
     if enabled_overrides:
         features |= {Feature(f).value for f in enabled_overrides}

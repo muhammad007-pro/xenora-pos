@@ -14,7 +14,8 @@ from schemas import ClientPhotoCreate, ClientPhotoInDB, PaginatedResponse, Messa
 from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id
 from config import settings
 
-router = APIRouter()
+from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
+router = APIRouter(dependencies=[Depends(require_feature("before_after_photo"))])
 
 
 def _get_photo(db: Session, photo_id: int, current_user: User) -> ClientPhoto:

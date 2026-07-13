@@ -133,7 +133,7 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
   <div id="tab-plans" style="display:none">
     <div class="plans">
       <div class="plan-card">
-        <div class="pname">FREE</div>
+        <div class="pname">LITE</div>
         <div class="pprice">0 <small>UZS/oy</small></div>
         <ul class="plist">
           <li><span class="pcheck">✓</span> 1 filial</li>
@@ -276,7 +276,7 @@ function stBadge(s){
   return `<span class="badge ${s}">${m[s]||s}</span>`;
 }
 function planBadge(p){
-  const n={free:'FREE',pro:'PRO'};
+  const n={free:'LITE',pro:'PRO'};
   return `<span class="plan-badge ${p}">${n[p]||p}</span>`;
 }
 

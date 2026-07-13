@@ -50,7 +50,7 @@ async def list_payments(
 async def create_payment(
     data: SupplierPaymentCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_finance")),
 ):
     """Firmaga to'lov qilish"""
     supplier = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
@@ -94,7 +94,7 @@ async def create_payment(
 async def delete_payment(
     payment_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_finance")),
 ):
     p = apply_tenant_filter(db.query(SupplierPayment), SupplierPayment, current_user) \
           .filter(SupplierPayment.id == payment_id).first()

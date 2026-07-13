@@ -137,7 +137,7 @@ function createWindow() {
         frame: true,
         autoHideMenuBar: true,   // menyu paneli umuman ko'rinmasin
         titleBarStyle: 'default',
-        backgroundColor: '#1a1a2e',
+        backgroundColor: '#070f1e',
         show: false
     });
     // Menyu (File/Ko'rish/Yordam) BUTUNLAY yo'q — kassa dasturi, toza

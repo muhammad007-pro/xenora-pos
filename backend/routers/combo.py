@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from database import get_db
 from models import ComboSet, ComboSetItem, Product, User
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 router = APIRouter()
 
@@ -111,7 +111,7 @@ async def get_combos(
 async def create_combo(
     data: ComboCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     combo = ComboSet(
         tenant_id=resolve_tenant_id(db, current_user),
@@ -154,7 +154,7 @@ async def update_combo(
     combo_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     combo = db.query(ComboSet).filter(ComboSet.id == combo_id).first()
     if not combo:
@@ -172,7 +172,7 @@ async def update_combo(
 async def delete_combo(
     combo_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     combo = db.query(ComboSet).filter(ComboSet.id == combo_id).first()
     if not combo:

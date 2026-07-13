@@ -9,7 +9,8 @@ from schemas import MessageResponse
 from deps import get_current_user, has_permission
 from core.feature_flags import (
     BusinessType, Feature, resolve_enabled_features,
-    is_pro_feature, get_feature_tier, FeatureTier, get_default_features
+    is_pro_feature, get_feature_tier, FeatureTier, get_default_features,
+    get_business_pro_features, get_all_business_features
 )
 from pydantic import BaseModel
 from core.subscription import get_plan_info, VALID_PLANS
@@ -36,20 +37,26 @@ async def get_my_cafe_features(
 
     enabled_now = resolve_enabled_features(
         cafe.business_type, cafe.enabled_features, cafe.disabled_features,
-        cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
+        cafe.subscription_plan,   # PRO tarif → SHU biznesning PRO flaglari
     )
-    # Shu biznes turiga TEGISHLI flaglar to'plami (BUSINESS_FEATURE_MATRIX).
-    # in_business=False bo'lganlar — "begona" funksiya (UI'da kulrang/disabled).
-    default_set = {f.value for f in get_default_features(cafe.business_type)}
+    # O'ZGARISH 3: FAQAT shu biznes turiga tegishli funksiyalar (FREE default + PRO)
+    # qaytariladi — begona biznes funksiyasi UMUMAN kelmaydi (DOM'da ham chiqmaydi).
+    default_set     = {f.value for f in get_default_features(cafe.business_type)}       # FREE default
+    business_set    = get_all_business_features(cafe.business_type)                     # FREE + PRO (shu biznes)
+    business_values = {f.value for f in business_set}
+    # Super-admin enabled_overrides orqali bergan begona istisnolar ham ko'rinsin.
+    extra_enabled   = {str(f) for f in (cafe.enabled_features or [])} & {f.value for f in Feature}
+    visible_values  = business_values | extra_enabled
     features = [
         {
             "flag":        f.value,
             "tier":        get_feature_tier(f).value,
             "is_pro":      is_pro_feature(f),
             "is_enabled":  f.value in enabled_now,
-            "in_business": f.value in default_set,
+            "in_business": f.value in business_values,
         }
         for f in Feature
+        if f.value in visible_values
     ]
     return {
         "subscription_plan": cafe.subscription_plan,
@@ -63,7 +70,7 @@ async def get_my_cafe_features(
 async def update_my_cafe_features(
     body: MyCafeFeatureBody,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(has_permission("manage_settings")),
 ):
     """Tenant egasi o'z kafe uchun faqat FREE flaglarni sozlaydi.
     PRO flag so'ralsa 403 qaytariladi."""
@@ -74,17 +81,20 @@ async def update_my_cafe_features(
         raise HTTPException(404, "Kafe topilmadi")
 
     # Superuser hamma flagni o'zgartira oladi.
-    # Oddiy tenant egasi uchun (xato #8):
-    #   • PRO flag — tenant tarifi PRO bo'lsa OCHIQ (o'zi yoqadi); FREE tarifda bloklangan.
-    #   • FREE flag — biznes turiga tegishli bo'lishi shart (begona FREE flagni yoqib bo'lmaydi).
+    # Oddiy tenant egasi uchun (O'ZGARISH 2+3):
+    #   • PRO flag — (a) tarif PRO bo'lishi VA (b) shu biznes turining PRO to'plamida
+    #     bo'lishi shart. Lite tarif → bloklangan; begona biznes PRO → rad.
+    #   • FREE flag — shu biznes turining FREE default'ida bo'lishi shart (begona FREE rad).
     #   • O'chirish (disabled) — har doim ruxsat (eski override'larni tozalash uchun).
     if not current_user.is_superuser:
         plan = (cafe.subscription_plan or "free").lower()
-        is_pro_plan = plan != "free"   # free'dan boshqasi (pro/enterprise) — PRO darajali
-        default_set = {f.value for f in get_default_features(cafe.business_type)}
+        is_pro_plan = plan != "free"   # free(Lite)'dan boshqasi (pro) — PRO darajali
+        default_set     = {f.value for f in get_default_features(cafe.business_type)}       # FREE (shu biznes)
+        business_pro    = {f.value for f in get_business_pro_features(cafe.business_type)}   # PRO (shu biznes)
 
-        blocked_pro     = []   # PRO flag, lekin tarif FREE
-        foreign_free    = []   # biznes turiga begona FREE flag
+        blocked_pro     = []   # PRO flag, lekin tarif Lite
+        foreign_pro     = []   # PRO flag, lekin begona biznes turi
+        foreign_free    = []   # begona FREE flag
         for flag_str in body.enabled:
             try:
                 pro = is_pro_feature(flag_str)
@@ -93,7 +103,8 @@ async def update_my_cafe_features(
             if pro:
                 if not is_pro_plan:
                     blocked_pro.append(flag_str)
-                # PRO tarifda PRO flag ochiq — biznes turi tekshiruvidan o'tkazamiz
+                elif flag_str not in business_pro:
+                    foreign_pro.append(flag_str)   # PRO tarif bor, lekin begona biznes PRO
             elif flag_str not in default_set:
                 foreign_free.append(flag_str)
 
@@ -102,10 +113,10 @@ async def update_my_cafe_features(
                 403,
                 f"Bu funksiyalar PRO tarifda. Tarifni PRO ga o'tkazing yoki Super Admin bilan bog'laning: {', '.join(blocked_pro)}"
             )
-        if foreign_free:
+        if foreign_pro or foreign_free:
             raise HTTPException(
                 403,
-                f"Bu funksiyalar sizning biznes turingizga ({cafe.business_type}) tegishli emas: {', '.join(foreign_free)}"
+                f"Bu funksiyalar sizning biznes turingizga ({cafe.business_type}) tegishli emas: {', '.join(foreign_pro + foreign_free)}"
             )
 
     cur_enabled  = set(cafe.enabled_features  or [])

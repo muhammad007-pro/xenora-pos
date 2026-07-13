@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from database import get_db
 from models import ProductModifierGroup, ProductModifier, User
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 router = APIRouter()
 
@@ -77,7 +77,7 @@ async def get_modifier_groups(
 async def create_modifier_group(
     data: ModifierGroupCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     """Yangi modifikator guruhi yaratish"""
     group = ProductModifierGroup(
@@ -112,7 +112,7 @@ async def update_modifier_group(
     group_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     group = db.query(ProductModifierGroup).filter(ProductModifierGroup.id == group_id).first()
     if not group:
@@ -129,7 +129,7 @@ async def update_modifier_group(
 async def delete_modifier_group(
     group_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     group = db.query(ProductModifierGroup).filter(ProductModifierGroup.id == group_id).first()
     if not group:
@@ -144,7 +144,7 @@ async def add_modifier(
     group_id: int,
     data: ModifierCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     group = db.query(ProductModifierGroup).filter(ProductModifierGroup.id == group_id).first()
     if not group:
@@ -168,7 +168,7 @@ async def update_modifier(
     modifier_id: int,
     data: dict,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     mod = db.query(ProductModifier).filter(ProductModifier.id == modifier_id).first()
     if not mod:
@@ -185,7 +185,7 @@ async def update_modifier(
 async def delete_modifier(
     modifier_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("manage_menu"))
 ):
     mod = db.query(ProductModifier).filter(ProductModifier.id == modifier_id).first()
     if not mod:

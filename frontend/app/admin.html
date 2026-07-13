@@ -774,19 +774,20 @@
               <span id="settingsPlanBadge" style="font-size:.75rem;padding:.2rem .6rem;border-radius:99px;background:rgba(16,185,129,.12);color:#22c55e;font-weight:700"></span>
             </div>
             <div style="padding:.5rem 1rem .25rem;font-size:.8125rem;color:var(--text3)">
-              <b style="color:var(--success)">FREE</b> — o'zingiz yoqib-o'chira olasiz &nbsp;|&nbsp;
-              <b style="color:var(--gold)">🔒 PRO</b> — faqat Super Admin yoqa oladi
+              <b style="color:var(--success)">FREE</b> — har doim o'zingiz boshqarasiz &nbsp;|&nbsp;
+              <b style="color:var(--gold)">PRO</b> — PRO tarifda o'zingiz yoqasiz
             </div>
             <div id="settingsFreeSection" style="padding:.5rem 1rem 1rem"></div>
           </div>
-          <!-- Funksiyalar — PRO (qulflangan) -->
+          <!-- Funksiyalar — PRO -->
           <div class="data-table-wrap" style="margin-bottom:1rem">
-            <div class="dt-head"><h3 class="dt-title" style="color:var(--gold)">🔒 PRO funksiyalar</h3></div>
-            <div style="padding:.5rem 1rem .25rem;font-size:.8125rem;color:var(--text3)">Quyidagi funksiyalarni yoqish uchun Super Admin bilan bog'laning</div>
+            <div class="dt-head"><h3 class="dt-title" style="color:var(--gold)">PRO funksiyalar</h3></div>
+            <div id="settingsProNote" style="padding:.5rem 1rem .25rem;font-size:.8125rem;color:var(--text3)"></div>
             <div id="settingsProSection" style="padding:.5rem 1rem 1rem"></div>
           </div>
           <button class="tb-btn primary" id="settingsSaveBtn" style="padding:.625rem 1.5rem" onclick="saveSettingsFlags()">Saqlash</button>
           <button class="tb-btn" style="margin-left:.5rem" onclick="loadSettings()">Yangilash</button>
+          <div style="margin-top:1.25rem;padding-top:.75rem;border-top:1px solid var(--border2);font-size:.75rem;color:var(--text3)">XENORA — versiya <span id="appVersionSettings">v1.2.0</span></div>
         </div>
       </div>
 
@@ -3207,6 +3208,8 @@
 
 <!-- Umumiy pul formati (vergulli) — window.fmtMoney/parseMoney/attachMoneyInput.
      Modul EMAS, inline skriptdan oldin yuklanadi (global funksiyalar tayyor bo'lsin). -->
+<script src="../shared/version.js"></script>
+<script>/*XENORA versiya yorlig'i — yagona manba (version.js)*/(function(){var e=document.getElementById('appVersionSettings');if(e&&window.APP_VERSION)e.textContent='v'+window.APP_VERSION;})();</script>
 <script src="../js/core/money.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';

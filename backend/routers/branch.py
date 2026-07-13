@@ -5,7 +5,7 @@ from typing import List
 from database import get_db
 from models import Branch, Cafe
 from schemas import BranchCreate, BranchUpdate, BranchInDB
-from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id
+from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id, has_permission
 from models import User
 
 router = APIRouter()
@@ -35,7 +35,7 @@ def list_branches(
 @router.post("/", response_model=BranchInDB, status_code=201)
 def create_branch(
     data: BranchCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_settings")),
     db: Session = Depends(get_db)
 ):
     """Yangi filial yaratish (faqat ega/admin)"""
@@ -62,7 +62,7 @@ def create_branch(
 def update_branch(
     branch_id: int,
     data: BranchUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_settings")),
     db: Session = Depends(get_db)
 ):
     branch = _get_branch_or_404(branch_id, current_user, db)
@@ -92,7 +92,7 @@ def update_branch(
 @router.delete("/{branch_id}", status_code=204)
 def deactivate_branch(
     branch_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_settings")),
     db: Session = Depends(get_db)
 ):
     """Filialni o'chirib bo'lmaydi — faqat deaktivlash"""

@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from database import get_db
 from models import Order, Payment, Product, Customer, User, OrderItem, Category, Appointment, Service, Employee, ServiceOrder, Vehicle, Room, RoomBooking
-from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, user_has_permission, resolve_tenant_id
+from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, user_has_permission, resolve_tenant_id, require_feature
 from services.analytics_service import AnalyticsService
 from core.tenant_config import get_tenant_config
 
@@ -52,14 +52,22 @@ async def get_summary(
     for p in payments:
         by_method[p.method] = by_method.get(p.method, 0) + (p.amount or 0)
 
-    # Kunlik daromad (oxirgi 7 kun)
+    # Kunlik daromad grafigi — TANLANGAN period bo'yicha, KPI filtridan MUSTAQIL
+    # so'rov bilan. (Ilgari `orders` period=today bilan filtrlangani uchun 7 kunlik
+    # grafik faqat bugungi kunni ko'rsatib, qolgan kunlarni bo'sh qoldirardi.)
+    chart_days   = 30 if period == "month" else 7
+    chart_start  = (now - timedelta(days=chart_days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    chart_orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
+        Order.created_at >= chart_start,
+        Order.status == "completed",
+    ).all()
     daily: list = []
-    for i in range(6, -1, -1):
+    for i in range(chart_days - 1, -1, -1):
         day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
         day_end   = (now - timedelta(days=i)).replace(hour=23, minute=59, second=59)
         rev = sum(
             o.final_amount or 0
-            for o in orders
+            for o in chart_orders
             if day_start <= (o.created_at.replace(tzinfo=None) if o.created_at and o.created_at.tzinfo else o.created_at or now) <= day_end
         )
         daily.append({"date": day_start.date().isoformat(), "revenue": rev})
@@ -316,7 +324,7 @@ async def get_employee_performance(
 async def get_hourly_stats(
     date: Optional[datetime] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("view_analytics"))
 ):
     """Soatlik statistika"""
     analytics_service = AnalyticsService(db)
@@ -357,7 +365,7 @@ async def export_analytics(
 async def get_waiter_report(
     period: str = Query("week", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Ofitsiant smena hisoboti вЂ” stol soni, tushum, tips (BOSQICH 14b+)"""
     now = datetime.now()
@@ -410,7 +418,7 @@ async def get_waiter_report(
 async def get_kitchen_stats(
     days: int = Query(7, ge=1, le=90),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Oshxona taom tayyorlash o'rtacha vaqti statistikasi (BOSQICH 14b+)"""
     start = datetime.now() - timedelta(days=days)
@@ -443,7 +451,7 @@ async def get_kitchen_stats(
 @router.get("/loyalty-tiers")
 async def get_loyalty_tiers(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Mijozlar sodiqlik darajalari statistikasi (BOSQICH 14b+)"""
     customers = apply_tenant_filter(db.query(Customer), Customer, current_user).all()
@@ -596,11 +604,11 @@ async def get_cashier_report(
 
 # в”Ђв”Ђ Dorixona chuqur analitika (BOSQICH 14k+) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-@router.get("/pharmacy-stats")
+@router.get("/pharmacy-stats", dependencies=[Depends(require_feature("prescription_archive"))])
 async def get_pharmacy_stats(
     period: str = Query("week", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Dorixona retsept statistikasi вЂ” kunlik/haftalik/oylik (BOSQICH 14k+)"""
     now = datetime.now()
@@ -642,13 +650,13 @@ async def get_pharmacy_stats(
     }
 
 
-@router.get("/rx-patients")
+@router.get("/rx-patients", dependencies=[Depends(require_feature("prescription_archive"))])
 async def get_rx_patients(
     search: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=1000),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Retsept bemorlar ro'yxati (BOSQICH 14k+)"""
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
@@ -687,11 +695,11 @@ async def get_rx_patients(
 
 # в”Ђв”Ђ Salon/Fitnes chuqur analitika (BOSQICH 14l+) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-@router.get("/salon-services")
+@router.get("/salon-services", dependencies=[Depends(require_feature("services"))])
 async def get_salon_services(
     period: str = Query("week", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Xizmat tahlili вЂ” qaysi xizmat ko'p bronlanadi, tushum (BOSQICH 14l+)"""
     now = datetime.now()
@@ -739,11 +747,11 @@ async def get_salon_services(
     return {"items": result, "total_revenue": round(sum(s["revenue"] for s in stats.values()), 0)}
 
 
-@router.get("/master-report")
+@router.get("/master-report", dependencies=[Depends(require_feature("commission_report"))])
 async def get_master_report(
     period: str = Query("week", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Usta daromad hisoboti вЂ” randevu soni, tushum, o'rtacha narx (BOSQICH 14l+)"""
     now = datetime.now()
@@ -798,7 +806,7 @@ async def get_master_report(
 async def get_auto_stats(
     period: str = Query("week", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Auto servis statistikasi вЂ” status counts, tushum, davomiylik (BOSQICH 14m+)"""
     now = datetime.now()
@@ -855,7 +863,7 @@ async def get_auto_stats(
 async def get_school_stats(
     period: str = Query("month", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Maktab/Kurs statistikasi вЂ” o'quvchilar, tushum, kunlik/oylik breakdown (BOSQICH 14n+)"""
     now = datetime.now()
@@ -925,7 +933,7 @@ async def get_school_stats(
 async def get_dry_stats(
     period: str = Query("month", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Kimyoviy tozalash statistikasi вЂ” status counts, tushum, kunlik (BOSQICH 14o+)"""
     now = datetime.now()
@@ -974,7 +982,7 @@ async def get_dry_stats(
 async def get_hotel_stats(
     period: str = Query("month", pattern="^(today|week|month)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Mehmonxona statistikasi вЂ” tushum, band xonalar, dolzarblik (BOSQICH 14p+)"""
     from datetime import date as ddate
@@ -1120,10 +1128,10 @@ async def get_abc_analysis(
     }
 
 
-@router.get("/reorder-alerts")
+@router.get("/reorder-alerts", dependencies=[Depends(require_feature("auto_reorder"))])
 async def get_reorder_alerts(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Minimal qoldiqdan past tovarlar + avto-zakaz ro'yxati"""
     from models import Inventory, ProductReorderSetting, Supplier
@@ -1222,11 +1230,11 @@ async def get_turnover_analysis(
     return {"items": result, "counts": counts, "period_days": days}
 
 
-@router.get("/peak-hours")
+@router.get("/peak-hours", dependencies=[Depends(require_feature("peak_hours"))])
 async def get_peak_hours(
     period: str = Query("month", pattern="^(week|month|quarter)$"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Peak soatlar va kunlar — qaysi vaqtda ko'p savdo bo'ladi"""
     now = datetime.now()

@@ -5,7 +5,7 @@ from typing import List, Optional
 from database import get_db
 from models import Station, User
 from schemas import StationCreate, StationUpdate, StationInDB
-from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id
+from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id, has_permission
 
 router = APIRouter()
 
@@ -36,7 +36,7 @@ def list_stations(
 @router.post("/", response_model=StationInDB, status_code=201)
 def create_station(
     data: StationCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_menu")),
     db: Session = Depends(get_db)
 ):
     tenant_id = resolve_tenant_id(db, current_user)
@@ -72,7 +72,7 @@ def get_station(
 def update_station(
     station_id: int,
     data: StationUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_menu")),
     db: Session = Depends(get_db)
 ):
     station = db.query(Station).filter(Station.id == station_id).first()
@@ -90,7 +90,7 @@ def update_station(
 @router.delete("/{station_id}", status_code=204)
 def delete_station(
     station_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_menu")),
     db: Session = Depends(get_db)
 ):
     station = db.query(Station).filter(Station.id == station_id).first()

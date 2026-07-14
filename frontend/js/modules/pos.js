@@ -6,9 +6,17 @@ import { API }              from '../core/api.js';
 import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
-import { WS_BASE }          from '../core/config.js';
+import { WS_BASE, API_BASE } from '../core/config.js';
 
 const api = new API();
+
+// Rasm URL: root-relative "/uploads/..." Electron file:// da ishlamaydi — server
+// origin bilan to'liq URL qilamiz (admin core.js:1183 _uplBase bilan aynan bir xil).
+const _uplBase = API_BASE.replace('/api/v1', '');
+function imgSrc(u) {
+  if (!u) return '';
+  return /^(https?:|data:|blob:)/i.test(u) ? u : (_uplBase + u);
+}
 
 const WS_URL = `${WS_BASE}/ws/pos`;
 
@@ -342,7 +350,7 @@ function renderProducts(catId = null) {
     <div class="product-card${p.is_available === false ? ' unavail' : ''}${expSt==='expired' ? ' unavail' : ''}" data-id="${p.id}" data-unit="${p.sale_unit||'pcs'}">
       ${expBadge}${rxBadge}
       ${p.image_url
-        ? `<img class="prod-img" src="${p.image_url}" alt="${p.name}" loading="lazy" onerror="this.style.display='none'">`
+        ? `<img class="prod-img" src="${imgSrc(p.image_url)}" alt="${p.name}" loading="lazy" onerror="this.style.display='none'">`
         : `<div class="prod-img" style="display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:var(--text3)">${icon}</div>`
       }
       <div class="prod-body">
@@ -1042,12 +1050,20 @@ async function startCheckout() {
   // Tarmoq aniq yo'q → serverni chaqirmasdan to'g'ridan-to'g'ri offline navbat oqimи
   if (!navigator.onLine) { beginOfflineCheckout(); return; }
 
+  // BUG 7: reopen qilingan "kutilayotgan" buyurtma — sotuvda YANGI order yaratiladi,
+  // shuning uchun eskisini cancel qilamiz (aks holda held ro'yxatida dublikat qoladi).
+  // holdBtn'dagi dedup bilan bir xil mantiq.
+  const reopenedId = state.pendingOrderId;
+
   const res   = await api.post('/orders/', buildOrderPayload());
   const order = res && res.data;
 
   if (res && res.success && order && order.id) {
     // ── Online muvaffaqiyat ──
     state.pendingOrderId = order.id;
+    if (reopenedId && reopenedId !== order.id) {
+      try { await api.post(`/orders/${reopenedId}/cancel?reason=${encodeURIComponent('Qayta sotildi')}`); } catch {}
+    }
     offlineCheckout = false;
     document.getElementById('payOrderNum').textContent = order.order_number || order.id;
     document.getElementById('payTotalAmt').textContent = fmt(computeTotals().total);
@@ -1474,11 +1490,34 @@ function openHeldModal() {
           <div style="font-weight:600;color:var(--text)">#${n}${tbl ? ` · Stol ${tbl}` : ''}</div>
           <div style="font-size:.75rem;color:var(--text3)">${cnt} ta mahsulot${when ? ' · ' + when : ''}</div>
         </div>
-        <div style="font-weight:700;color:var(--gold)">${fmt(total)}</div>
+        <div style="display:flex;align-items:center;gap:.625rem">
+          <div style="font-weight:700;color:var(--gold)">${fmt(total)}</div>
+          <button class="held-del" data-hid="${o.id}" title="O'chirish" aria-label="O'chirish" style="flex-shrink:0;width:34px;height:34px;border-radius:.5rem;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">🗑</button>
+        </div>
       </div>`;
     }).join('');
     list.querySelectorAll('.held-row').forEach(row => {
       row.addEventListener('click', () => reopenHeldOrder(+row.dataset.hid));
+    });
+    // BUG 5: kutilayotgan buyurtmani qo'lda o'chirish (cancel). Reopen click'iga
+    // o'tib ketmasligi uchun stopPropagation.
+    list.querySelectorAll('.held-del').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const hid = +btn.dataset.hid;
+        if (!confirm('Bu kutilayotgan buyurtma o\'chirilsinmi?')) return;
+        btn.disabled = true;
+        const res = await api.post(`/orders/${hid}/cancel?reason=${encodeURIComponent('Kutilayotgan o\'chirildi')}`);
+        if (res && res.success) {
+          if (state.pendingOrderId === hid) state.pendingOrderId = null;
+          toast('Buyurtma o\'chirildi', 'success');
+          await loadHeldOrders();
+          openHeldModal();   // ro'yxatni qayta chizish
+        } else {
+          btn.disabled = false;
+          toast((res && res.error) || 'O\'chirishda xatolik', 'error');
+        }
+      });
     });
   }
   openModal('heldModal');

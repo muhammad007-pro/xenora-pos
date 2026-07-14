@@ -1,8 +1,8 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
-> Oxirgi tasdiqlangan deploy: **v1.2.0** (2026-07-13) — RBAC audit + tarif (Lite) + dizayn + menejer roli.
-> (Oldingi: v1.0.3 2026-07-11 `8800a6d`.)
+> Oxirgi tasdiqlangan deploy: **v1.2.1** (2026-07-14) — brend ∞ (splash/POS logo), kutilayotgan bug'lar, mahsulot birligi + rasm fix.
+> (Oldingi: v1.2.0 2026-07-13 RBAC audit; v1.0.3 2026-07-11 `8800a6d`.)
 
 ---
 

@@ -529,7 +529,7 @@ class ReservationInDB(ReservationBase):
 class InventoryBase(BaseModel):
     product_id: int
     quantity: float = 0.0
-    unit: str = "kg"
+    unit: str = "dona"
     min_threshold: float = 5.0
     max_threshold: float = 100.0
 

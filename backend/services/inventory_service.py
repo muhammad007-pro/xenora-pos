@@ -129,10 +129,13 @@ class InventoryService:
         if existing:
             return existing
         
+        # Ombor birligi mahsulot sotuv birligidan (kg hardcode emas); pcs → dona
+        _u = product.sale_unit or "dona"
+        _u = "dona" if _u == "pcs" else _u
         inventory = Inventory(
             product_id=product_id,
             quantity=0,
-            unit="dona",
+            unit=_u,
             min_threshold=5,
             max_threshold=100
         )

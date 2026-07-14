@@ -60,7 +60,7 @@ const FIELD_DEFS = {
   category:    {label:'Kategoriya',                 type:'cats',   key:'category_id'},
   description: {label:'Tavsif',                     type:'area',   key:'description',          ph:'Qisqa tavsif...'},
   sale_unit:   {label:"O'lchov birligi",            type:'sel',    key:'sale_unit',
-    opts:[['pcs','Dona'],['kg','Kg'],['g','Gramm'],['l','Litr'],['ml','Ml'],['portion','Porsiya']]},
+    opts:[['pcs','Dona'],['kg','Kg'],['g','Gramm'],['l','Litr'],['ml','Ml'],['m','Metr'],['sm','Sm'],['box','Quti'],['pack','Upakovka'],['portion','Porsiya']]},
   barcode:         {label:'Shtrix-kod',               type:'text',   key:'barcode',              ph:'Barcode / SKU', mono:true},
   wholesale_price: {label:"Ko'tara narx (UZS)",      type:'number', key:'wholesale_price',      ph:"0 (bo'sh = yo'q)"},
   wholesale_min:   {label:"Ko'tara min. miqdor",     type:'number', key:'wholesale_min_qty',    ph:'10'},
@@ -96,10 +96,10 @@ const FIELD_DEFS = {
 const FORM_CONFIGS = {
   restaurant:   {title:"Taom qo'shish",         fields:['name',['price','cost_price'],'sale_unit','category','station','description','available']},
   cafe:         {title:"Mahsulot qo'shish",      fields:['name',['price','cost_price'],'sale_unit','category','station','description','available']},
-  fast_food:    {title:"Mahsulot qo'shish",      fields:['name',['price','cost_price'],'category','station','available']},
-  store:        {title:"Mahsulot qo'shish",      fields:['name',['price','cost_price'],'category','barcode','available']},
+  fast_food:    {title:"Mahsulot qo'shish",      fields:['name',['price','cost_price'],'sale_unit','category','station','available']},
+  store:        {title:"Mahsulot qo'shish",      fields:['name',['price','cost_price'],'sale_unit','category','barcode','available']},
   supermarket:  {title:"Mahsulot qo'shish",      fields:['name',['price','cost_price'],'sale_unit',['department','category'],'barcode',['wholesale_price','wholesale_min'],['expiry_days','batch'],'available']},
-  pharmacy:     {title:"Dori qo'shish",          fields:['name',['price','cost_price'],'category','barcode','active_ingredient',['dosage','drug_form'],'dosing_schedule',['batch','expiry_days'],'prescription','available']},
+  pharmacy:     {title:"Dori qo'shish",          fields:['name',['price','cost_price'],'sale_unit','category','barcode','active_ingredient',['dosage','drug_form'],'dosing_schedule',['batch','expiry_days'],'prescription','available']},
   salon:        {title:"Xizmat qo'shish",        fields:['name',['price','commission_pct'],['dur_min','cost_price'],'category','description','available'],
                  alt:{type:'membership',          title:"Abonement qo'shish", fields:['name',['price','dur_days'],'visit_limit']}},
   fitness:      {title:"Xizmat qo'shish",        fields:['name',['price','dur_min'],'category','available'],
@@ -211,6 +211,12 @@ function switchPage(page) {
 }
 
 document.getElementById('refreshBtn').addEventListener('click', () => loadPageData(currentPage));
+
+// Auto-refresh: oyna/tab yana faollashsa (POS'da savdo qilib qaytganда) dashboard
+// KPI + "Sotuv dinamikasi" grafigi avtomatik yangilanadi — qo'lda F5 shart emas.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentPage === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+});
 
 // ── Modal ochish/yopish (modal-overlay tizimi) ───────────────────────────────
 // debtModal, payDebtModal, promoModal, quickSellModal, poModal, shiftOpenModal...

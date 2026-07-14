@@ -3,6 +3,25 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.1] — 2026-07-14
+
+Brend yakuni + operatsion bug tuzatishlari (deploy; Windows/Android build keyinroq).
+
+### Tuzatildi
+- **Brend ∞ (splash/logo):** Android `splash.png` (26 variant — portrait/landscape/night) eski yulduz →
+  navy + emerald→tilla ∞ (PIL). POS logotip (`pos.html` 2 joy: yuklanish + sidebar) yulduz → `logo.svg` (∞).
+- **Kutilayotgan buyurtmalar:** (BUG 7) reopen qilingan held sotilганда dublikat qolardi → sotuvда eski held
+  cancel qilinadi (`holdBtn` dedup kabi). (BUG 5) har kutilayotgan qatorга **🗑 o'chirish** tugmasi (cancel).
+- **Mahsulot o'lchov birligi:** `store`/`fast_food`/`pharmacy` formasiga `sale_unit` dropdown (Dona default,
+  ro'yxat: Dona/Kg/Gramm/Litr/Ml/Metr/Sm/Quti/Upakovka/Porsiya). Ombor `Inventory.unit` endi
+  mahsulot sotuv birligidan olinadi (kg hardcode yo'q; pcs→dona). Migratsiya yo'q.
+- **Mahsulot rasmi (POS):** `image_url` root-relative (`/uploads/...`) Electron `file://` da ishlamasdi →
+  POS `imgSrc()`/`_uplBase` bilan to'liq server URL (admin bilan izchil). Brauzер/PWA/Electron'да ko'rinadi.
+- **Dashboard grafik:** `visibilitychange` auto-refresh — POS'da savdo qilib qaytganda KPI+grafik yangilanadi.
+
+### Migratsiya
+Yo'q (barcha maydonlar mavjud).
+
 ## [1.2.0] — 2026-07-13
 
 Xavfsizlik va tarif relizi: to'liq RBAC audit tuzatishlari, tarif qayta ishlashi (Free→Lite),

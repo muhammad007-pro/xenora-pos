@@ -176,8 +176,11 @@ async def get_inventory_by_product(
         product = apply_tenant_filter(db.query(Product), Product, current_user).filter(Product.id == product_id).first()
         if not product:
             raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
+        # Ombor birligi mahsulotning sotuv birligidan (kg hardcode emas); pcs → dona (o'qilishi uchun)
+        _u = product.sale_unit or "dona"
+        _u = "dona" if _u == "pcs" else _u
         inventory = Inventory(
-            product_id=product_id, quantity=0, unit="dona",
+            product_id=product_id, quantity=0, unit=_u,
             min_threshold=5, max_threshold=100,
             tenant_id=resolve_tenant_id(db, current_user)
         )
@@ -503,7 +506,11 @@ async def create_inventory_item(
     if existing:
         raise HTTPException(status_code=400, detail="Bu mahsulot uchun ombor elementi allaqachon mavjud")
 
-    inventory = Inventory(**inventory_data.model_dump(), tenant_id=resolve_tenant_id(db, current_user))
+    # Ombor birligi mahsulotning sotuv birligidan (kg hardcode emas); pcs → dona
+    _data = inventory_data.model_dump()
+    _u = product.sale_unit or "dona"
+    _data["unit"] = "dona" if _u == "pcs" else _u
+    inventory = Inventory(**_data, tenant_id=resolve_tenant_id(db, current_user))
     db.add(inventory)
     db.commit()
     db.refresh(inventory)

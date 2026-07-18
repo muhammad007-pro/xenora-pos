@@ -3,6 +3,35 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.2] — 2026-07-18
+
+Pachka/Dona to'liq tizim + mahsulot/ombor bug tuzatishlari + ombor qiymati (deploy; build keyinroq).
+**2 migratsiya:** `a7b8c9d0e1f2` (pack ustunlar), `b8c9d0e1f2a3` (return base_qty).
+
+### Qo'shildi
+- **Pachka/Dona (B0–B7):** bitta mahsulot ham pachka, ham dona sotiladi (mustaqil narx: pachka=`pack_price`,
+  dona=`price`). Ombor **base=dona** (pachka sotilsa `pack_size` dona kamayadi). Mahsulot formasida pachka
+  narxi/o'lchami (weight bilan ziddiyat bloklangan). POS: skan/bosishда "Pachka yoki Dona?" tanlov + savat
+  yorlig'i + `unit_sold` server tomonда narx/`base_qty` hisoblaydi. Kirim pachka bilan (5 pachka=+50 dona).
+  Chek "Pachka (10 dona)". Qaytarish pachका (return `base_qty`). Eski ma'lumot guided tuzatish ("Pachka sozlash").
+  Yangi maydonlar: `products.pack_size/pack_price`, `order_items.base_qty/unit_sold`, `return_items.base_qty`.
+- **Ombor umumiy qiymati (#10):** Ombor sahifasида KPI kartalar — tannarx/sotuv/potensial foyda
+  (`SUM(qty×cost_price)`, backend SQL, tenant-scoped, `view_reports`).
+- **Bulk kategoriya (BUG 4):** mahsulotlar jadvalида checkbox + "Tanlanganlarga kategoriya berish"
+  (`PATCH /products/bulk-category`). Mahsulotlar `page_size` 20→500.
+- **POS grid/list (BUG 3):** mahsulot ko'rinishini grid ⊞ / list ☰ almashtirish (default list — ko'p mahsulotда).
+
+### Tuzatildi
+- **Mahsulot CRUD (BUG 1/8/9):** o'chirilgan mahsulot barkodi band qolardi → soft-delete barkod/sku'ni bo'shatadi
+  (faol mahsulot band hisoblanadi). O'chirishdan keyin forma qotishi (=BUG 8) hal. Soni kiritilmagan mahsulot
+  omborда ko'rinмасди → yaratishда doim 0 qoldiqli inventory qatori. Boshlang'ich qoldiq add-stock orqali.
+- **Ombor kirim (BUG 5/6):** "+ Kirim" berk toast o'rniga mahsulot tanlab kirim modali. Pagination 20→500
+  (uzun ro'yxat, mahsulotlar sahifasidek).
+
+### Skript
+- `backend/scripts/cleanup_deleted_barcodes.py` — eski soft-delete mahsulotlar barkodini bo'shatish (bir martalik,
+  dry-run + `--apply`, idempotent, tenant-safe).
+
 ## [1.2.1] — 2026-07-14
 
 Brend yakuni + operatsion bug tuzatishlari (deploy; Windows/Android build keyinroq).

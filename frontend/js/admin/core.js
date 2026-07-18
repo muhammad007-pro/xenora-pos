@@ -826,7 +826,10 @@ async function loadProducts() {
 
   const search = document.getElementById('productsSearch').value;
   const catId  = document.getElementById('productsCatFilter').value;
-  const params = new URLSearchParams({ page:1, limit:50 });
+  // BUG 4: backend `page_size` kutadi (`limit` e'tiborga olinmasdi → 20 default).
+  // 500 — barcha "Umumiy" mahsulot bir ekranda ko'rinsin (inventory bilan izchil),
+  // hammasini belgilab bulk kategoriya berish uchun.
+  const params = new URLSearchParams({ page:1, page_size:500 });
   if (search) params.set('search', search);
   if (catId)  params.set('category_id', catId);
   try {
@@ -843,11 +846,13 @@ async function loadProducts() {
     }
     const data = await apiFetch('/products/?' + params);
     const prods = data.items||data||[];
+    _loadedProducts = prods;   // BOSQICH B7: pachka sozlash modali uchun (nom/narx/pack)
     const body  = document.getElementById('productsBody');
-    if (!prods.length) { body.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Mahsulot topilmadi</td></tr>'; return; }
+    if (!prods.length) { body.innerHTML='<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Mahsulot topilmadi</td></tr>'; _resetBulkSelection(); return; }
     body.innerHTML = prods.map(p => {
       const priceVal = p.daily_price ? fmtMoney(p.daily_price)+'/kun' : fmtMoney(p.price||0);
       return `<tr>
+        <td style="text-align:center"><input type="checkbox" class="prod-cb" value="${p.id}" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer"></td>
         <td class="td-sub">${p.id}</td>
         <td class="td-bold">${p.name}</td>
         <td>${p.category_name||'—'}</td>
@@ -861,10 +866,220 @@ async function loadProducts() {
       </tr>`;
     }).join('');
     document.getElementById('productsPaginInfo').textContent = `${prods.length} ta`;
+    _resetBulkSelection();          // yangi ro'yxatда belgilash tozalanadi
+    refreshBulkCatOptions();        // bulk kategoriya select'ini yangilash
   } catch (err) { toast(err.message,'error'); }
 }
 document.getElementById('productsSearch').addEventListener('input', () => loadProducts());
 document.getElementById('productsCatFilter').addEventListener('change', () => loadProducts());
+
+// ── BUG 4: Bulk (ommaviy) kategoriya berish ────────────────────────────────────
+let _selectedProductIds = new Set();
+
+function _updateBulkBar() {
+  const bar = document.getElementById('productsBulkBar');
+  if (!bar) return;
+  const n = _selectedProductIds.size;
+  const cnt = document.getElementById('bulkCount');
+  if (cnt) cnt.textContent = `${n} ta tanlandi`;
+  bar.style.display = n > 0 ? 'flex' : 'none';
+}
+
+// Ro'yxat qayta yuklanganда — belgilash tozalanadi (yangi qatorlar belgisiz)
+function _resetBulkSelection() {
+  _selectedProductIds.clear();
+  const sa = document.getElementById('productsSelectAll');
+  if (sa) { sa.checked = false; sa.indeterminate = false; }
+  _updateBulkBar();
+}
+
+// "Bekor" — belgilangan qatorlarni ham tozalaydi (ro'yxat qayta yuklanmaydi)
+function clearBulkSelection() {
+  _selectedProductIds.clear();
+  document.querySelectorAll('#productsBody .prod-cb').forEach(cb => { cb.checked = false; });
+  const sa = document.getElementById('productsSelectAll');
+  if (sa) { sa.checked = false; sa.indeterminate = false; }
+  _updateBulkBar();
+}
+
+function _syncSelectAllState() {
+  const all = document.querySelectorAll('#productsBody .prod-cb');
+  const checked = document.querySelectorAll('#productsBody .prod-cb:checked');
+  const sa = document.getElementById('productsSelectAll');
+  if (sa) {
+    sa.checked = all.length > 0 && checked.length === all.length;
+    sa.indeterminate = checked.length > 0 && checked.length < all.length;
+  }
+}
+
+function refreshBulkCatOptions() {
+  const sel = document.getElementById('bulkCatSelect');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Kategoriya tanlang...</option>' +
+    cachedCategories.map(c => `<option value="${c.id}"${c.id==cur?' selected':''}>${c.name}</option>`).join('');
+}
+
+async function bulkAssignCategory() {
+  const catId = parseInt(document.getElementById('bulkCatSelect').value);
+  if (!catId) { toast('Kategoriya tanlang', 'warning'); return; }
+  if (!_selectedProductIds.size) { toast('Mahsulot tanlang', 'warning'); return; }
+  const ids = [..._selectedProductIds];
+  const btn = document.getElementById('bulkAssignBtn');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const res = await fetch(`${API_BASE}/products/bulk-category`, {
+      method: 'PATCH',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_ids: ids, category_id: catId }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail || 'Xatolik'); }
+    const data = await res.json().catch(()=>({}));
+    toast(data.message || 'Kategoriya berildi', 'success');
+    cachedCategories = [];   // kategoriya nomlari yangilansin
+    loadProducts();          // ichida _resetBulkSelection chaqiriladi
+  } catch (err) { toast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Berish'; }
+}
+
+// Delegatsiya: qator checkbox'lari (har renderда yangi) — bitta listener tbody'da
+document.getElementById('productsBody')?.addEventListener('change', (e) => {
+  const cb = e.target;
+  if (!cb.classList || !cb.classList.contains('prod-cb')) return;
+  const id = parseInt(cb.value);
+  if (cb.checked) _selectedProductIds.add(id); else _selectedProductIds.delete(id);
+  _syncSelectAllState();
+  _updateBulkBar();
+});
+
+// "Hammasini belgilash" (thead)
+document.getElementById('productsSelectAll')?.addEventListener('change', (e) => {
+  const on = e.target.checked;
+  document.querySelectorAll('#productsBody .prod-cb').forEach(cb => {
+    cb.checked = on;
+    const id = parseInt(cb.value);
+    if (on) _selectedProductIds.add(id); else _selectedProductIds.delete(id);
+  });
+  e.target.indeterminate = false;
+  _updateBulkBar();
+});
+
+document.getElementById('bulkAssignBtn')?.addEventListener('click', bulkAssignCategory);
+document.getElementById('bulkCancelBtn')?.addEventListener('click', clearBulkSelection);
+document.getElementById('bulkNewCatBtn')?.addEventListener('click', () => openCategoryModal());
+
+// ── BOSQICH B7: Pachka sozlash (eski ma'lumot tuzatish — guided) ───────────────
+// Egа tanlagan mahsulotlarga pachka narxi/o'lchami QO'LDA sozlaydi. AVTOMAT
+// ommaviy narx o'zgartirish YO'Q — faqat ✓ belgilangan mahsulot saqlanadi.
+let _loadedProducts = [];
+const _pkInput = 'width:100%;padding:.4rem .5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:.375rem;color:var(--text);font-size:.8125rem';
+
+function _pkRowHtml(p) {
+  const on = !!(p.pack_size >= 2 && p.pack_price > 0);
+  return `<div class="pk-row" data-id="${p.id}" data-price="${p.price||0}" style="border:1px solid var(--border2);border-radius:var(--r);padding:.625rem .75rem">
+    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-weight:600;font-size:.875rem">
+      <input type="checkbox" class="pk-on" ${on?'checked':''} style="width:16px;height:16px;accent-color:var(--gold)">
+      ${p.name} <span style="font-weight:400;color:var(--text3);font-size:.75rem">— joriy narx: ${fmtMoney(p.price||0)}</span>
+    </label>
+    <div class="pk-fields" style="display:${on?'block':'none'};margin-top:.5rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
+        <input class="pk-dona" type="number" min="0" placeholder="Dona narxi" value="${on?(p.price||''):''}" style="${_pkInput}">
+        <input class="pk-pack" type="number" min="0" placeholder="Pachka narxi" value="${p.pack_price??''}" style="${_pkInput}">
+        <input class="pk-size" type="number" min="2" placeholder="Dona soni" value="${p.pack_size??''}" style="${_pkInput}">
+      </div>
+      <button type="button" class="pk-move" style="margin-top:.375rem;font-size:.72rem;background:var(--bg3);border:1px solid var(--border2);border-radius:.375rem;padding:.25rem .5rem;cursor:pointer;color:var(--text2)">Joriy narx (${fmtMoney(p.price||0)}) → Pachka narxi</button>
+      <div class="pk-preview" style="font-size:.72rem;color:var(--text3);margin-top:.375rem"></div>
+    </div>
+  </div>`;
+}
+
+function _pkUpdatePreview(row) {
+  const dona = parseFloat(row.querySelector('.pk-dona').value);
+  const pack = parseFloat(row.querySelector('.pk-pack').value);
+  const size = parseInt(row.querySelector('.pk-size').value);
+  const old  = parseFloat(row.dataset.price) || 0;
+  const prev = row.querySelector('.pk-preview');
+  if (dona > 0 && pack > 0 && size >= 2) {
+    prev.innerHTML = `Eski: narx ${fmtMoney(old)} → <span style="color:var(--gold)">Yangi: dona ${fmtMoney(dona)}, pachka ${fmtMoney(pack)}, 1 pachka = ${size} dona</span>`;
+  } else {
+    prev.textContent = "Dona narxi + pachka narxi + dona soni (≥2) — hammasi to'ldirilsin";
+  }
+}
+
+function openPackSetup() {
+  if (!_selectedProductIds.size) { toast('Avval mahsulot(lar)ni belgilang', 'warning'); return; }
+  const sel = _loadedProducts.filter(p => _selectedProductIds.has(p.id));
+  if (!sel.length) { toast('Tanlangan mahsulot topilmadi', 'warning'); return; }
+  document.getElementById('packSetupBody').innerHTML = sel.map(_pkRowHtml).join('');
+  document.getElementById('pkBulkSize').value = '';
+  document.getElementById('packSetupModal').classList.add('open');
+  document.querySelectorAll('#packSetupBody .pk-row').forEach(_pkUpdatePreview);
+}
+
+function closePackSetup() { document.getElementById('packSetupModal').classList.remove('open'); }
+
+document.getElementById('packSetupBody')?.addEventListener('change', (e) => {
+  if (e.target.classList.contains('pk-on')) {
+    e.target.closest('.pk-row').querySelector('.pk-fields').style.display = e.target.checked ? 'block' : 'none';
+  }
+});
+document.getElementById('packSetupBody')?.addEventListener('input', (e) => {
+  const c = e.target.classList;
+  if (c.contains('pk-dona') || c.contains('pk-pack') || c.contains('pk-size')) _pkUpdatePreview(e.target.closest('.pk-row'));
+});
+document.getElementById('packSetupBody')?.addEventListener('click', (e) => {
+  if (e.target.classList.contains('pk-move')) {
+    const row = e.target.closest('.pk-row');
+    row.querySelector('.pk-pack').value = row.dataset.price;
+    _pkUpdatePreview(row);
+  }
+});
+document.getElementById('pkBulkSizeBtn')?.addEventListener('click', () => {
+  const v = parseInt(document.getElementById('pkBulkSize').value);
+  if (!(v >= 2)) { toast("Dona soni ≥ 2 bo'lsin", 'warning'); return; }
+  document.querySelectorAll('#packSetupBody .pk-row').forEach(row => {
+    if (row.querySelector('.pk-on').checked) { row.querySelector('.pk-size').value = v; _pkUpdatePreview(row); }
+  });
+});
+
+async function savePackSetup() {
+  const rows = [...document.querySelectorAll('#packSetupBody .pk-row')].filter(r => r.querySelector('.pk-on').checked);
+  if (!rows.length) { toast('Hech qaysi mahsulot belgilanmagan', 'warning'); return; }
+  const jobs = [];
+  for (const row of rows) {
+    const dona = parseFloat(row.querySelector('.pk-dona').value);
+    const pack = parseFloat(row.querySelector('.pk-pack').value);
+    const size = parseInt(row.querySelector('.pk-size').value);
+    const name = row.querySelector('.pk-on').parentElement.textContent.trim();
+    if (!(dona > 0)) { toast(`"${name}": dona narxini kiriting`, 'error'); return; }
+    if (!(pack > 0)) { toast(`"${name}": pachka narxini kiriting`, 'error'); return; }
+    if (!(size >= 2)) { toast(`"${name}": dona soni ≥ 2 bo'lsin`, 'error'); return; }
+    jobs.push({ id: parseInt(row.dataset.id), body: { price: dona, pack_price: pack, pack_size: size } });
+  }
+  const btn = document.getElementById('pkSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
+  let ok = 0, fail = 0;
+  for (const j of jobs) {
+    try {
+      const res = await fetch(`${API_BASE}/products/${j.id}`, {
+        method: 'PATCH', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(j.body),
+      });
+      if (res.ok) ok++; else fail++;
+    } catch { fail++; }
+  }
+  btn.disabled = false; btn.textContent = 'Saqlash';
+  toast(`${ok} ta saqlandi${fail ? `, ${fail} ta xato` : ''}`, fail ? 'warning' : 'success');
+  if (ok) { closePackSetup(); cachedCategories = []; loadProducts(); }
+}
+
+document.getElementById('pkSaveBtn')?.addEventListener('click', savePackSetup);
+document.getElementById('bulkPackSetupBtn')?.addEventListener('click', openPackSetup);
+// Pachka sozlash faqat store/supermarket/pharmacy da
+if (!['store', 'supermarket', 'pharmacy'].includes(bizType)) {
+  const _b = document.getElementById('bulkPackSetupBtn');
+  if (_b) _b.style.display = 'none';
+}
 
 // ── Customers page ────────────────────────────────────────────────────────────
 async function loadCustomers() {
@@ -982,7 +1197,7 @@ function loadPageData(page) {
   if (page==='dryPayments') loadDryPayments();
   if (page==='customers')  loadCustomers();
   if (page==='shifts')     loadShifts();
-  if (page==='inventory')     loadInventory();
+  if (page==='inventory')     { loadInventory(); loadInventoryValue(); }   // #10: ombor qiymati KPI
   if (page==='stockIn')       loadStockIn();
   if (page==='stockOut')      loadStockOut();
   if (page==='invCount')      loadInvCountList();
@@ -1236,6 +1451,47 @@ function buildProductModal(product) {
     }
   }
 
+  // ── BOSQICH B2: Pachka/Dona (store/supermarket/pharmacy) ────────────────────
+  // price = DONA narxi. pack_price = 1 pachka narxi, pack_size = pachkadagi dona.
+  // Weight (tarozi: kg/g/l/ml) mahsulotда yashiriladi — ikkovi birga bo'lmaydi.
+  // DIQQAT: B2'da faqat saqlanadi — POS/ombor HALI ishlatmaydi (B3+).
+  if (['store', 'supermarket', 'pharmacy'].includes(bizType)) {
+    const _pcs = 'width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5625rem .75rem;color:var(--text);font-size:.875rem';
+    const packBlock = document.createElement('div');
+    packBlock.id = 'pmPackBlock';
+    packBlock.style.cssText = 'margin-top:.75rem';
+    packBlock.innerHTML = `
+      <label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500">Pachka bilan sotish (ixtiyoriy)</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <input type="number" id="pmf_pack_price" min="0" step="0.01" placeholder="Pachka narxi (30000)" style="${_pcs}">
+        <input type="number" id="pmf_pack_size" min="2" step="1" placeholder="Pachkadagi dona (10)" style="${_pcs}">
+      </div>
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem">Kiritilsa — yuqoridagi <b>narx = DONA narxi</b> bo'ladi. Ikkalasi ham to'ldirilsin (pachka narxi + dona soni ≥ 2).</div>`;
+    document.getElementById('pmBody').appendChild(packBlock);
+
+    // Tahrirlashda: mavjud qiymatlarni to'ldirish
+    if (product) {
+      if (product.pack_price != null) document.getElementById('pmf_pack_price').value = product.pack_price;
+      if (product.pack_size  != null) document.getElementById('pmf_pack_size').value  = product.pack_size;
+    }
+
+    // Pack × Weight ziddiyati: tarozi birlikда pack blok yashiriladi + tozalanadi
+    const _saleUnitEl2 = document.getElementById('pmf_sale_unit');
+    if (_saleUnitEl2) {
+      const _wUnits = ['kg', 'g', 'l', 'ml', 'litr'];
+      const togglePack = () => {
+        const isW = _wUnits.includes(_saleUnitEl2.value);
+        packBlock.style.display = isW ? 'none' : '';
+        if (isW) {
+          document.getElementById('pmf_pack_price').value = '';
+          document.getElementById('pmf_pack_size').value = '';
+        }
+      };
+      _saleUnitEl2.addEventListener('change', togglePack);
+      togglePack();
+    }
+  }
+
   // BOSQICH 15: narx + tan narx kiritilganda foyda marjasini jonli ko'rsatish
   const _pEl = document.getElementById('pmf_price'), _cEl = document.getElementById('pmf_cost_price');
   if (_pEl && _cEl) {
@@ -1305,6 +1561,31 @@ async function saveProduct() {
   const priceField = allFields.includes('price') ? 'price' : allFields.includes('daily_price') ? 'daily_price' : null;
   if (priceField && (!payload[priceField] || payload[priceField] <= 0)) { toast('Narx kiritilmagan','error'); return; }
 
+  // ── BOSQICH B2: Pachka/Dona validatsiya + payload ─────────────────────────────
+  // Pack blok ko'rinsa (store-oila, weight emas): ikkovi to'g'ri bo'lsin yoki ikkovi bo'sh.
+  // Har doim payload'ga yoziladi (null ham) — tahrirda pachkani tozalash ishlashi uchun.
+  const _packBlock = document.getElementById('pmPackBlock');
+  if (_packBlock && _packBlock.style.display !== 'none') {
+    const ppRaw = document.getElementById('pmf_pack_price').value;
+    const psRaw = document.getElementById('pmf_pack_size').value;
+    const packPrice = ppRaw !== '' ? parseFloat(ppRaw) : null;
+    const packSize  = psRaw !== '' ? parseInt(psRaw)  : null;
+    if (packPrice != null || packSize != null) {
+      // Biri to'ldirilsa — ikkalasi ham to'g'ri bo'lishi shart
+      if (!(packSize >= 2))   { toast("Pachkadagi dona soni kamida 2 bo'lsin", 'error'); return; }
+      if (!(packPrice > 0))   { toast('Pachka narxini kiriting', 'error'); return; }
+      payload.pack_price = packPrice;
+      payload.pack_size  = packSize;
+    } else {
+      payload.pack_price = null;
+      payload.pack_size  = null;
+    }
+  } else {
+    // Weight mahsulot yoki pack blok yo'q → pachkasiz (tozalab yuboriladi)
+    payload.pack_price = null;
+    payload.pack_size  = null;
+  }
+
   // Kategoriya majburiy (backend category_id talab qiladi). Tanlanmagan bo'lsa —
   // "Umumiy" default kategoriya avtomatik ishlatiladi; yaratib bo'lmasa ochiq xato.
   if (allFields.includes('category') && !payload.category_id) {
@@ -1331,14 +1612,26 @@ async function saveProduct() {
       }).catch(()=>{});
     }
 
-    // Boshlang'ich qoldiq — faqat yangi mahsulotda, kiritilgan bo'lsa omborga kirim
+    // Boshlang'ich qoldiq — faqat yangi mahsulotda, kiritilgan bo'lsa omborga kirim.
+    // BUG 9: Inventory qatori endi create_product'da DOIM yaratiladi (0 qoldiq).
+    // Shuning uchun POST /inventory/ (yaratish) o'rniga add-stock bilan kirim
+    // qilamiz — to'g'ri StockMovement (kelim) yoziladi.
     const stockEl = document.getElementById('pmf_stock');
     const startStock = stockEl ? (parseFloat(stockEl.value) || 0) : 0;
     if (!editingProductId && saved.id && startStock > 0) {
-      await fetch(`${API_BASE}/inventory/`, {
-        method:'POST', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
-        body: JSON.stringify({ product_id: saved.id, quantity: startStock, notes: "Boshlang'ich qoldiq" }),
-      }).catch(()=>{});
+      try {
+        const invRes = await fetch(`${API_BASE}/inventory/product/${saved.id}`, {
+          headers:{'Authorization':'Bearer '+token},
+        });
+        if (invRes.ok) {
+          const inv = await invRes.json();
+          const costPrice = parseFloat(payload.cost_price) || 0;
+          await fetch(`${API_BASE}/inventory/${inv.id}/add-stock`, {
+            method:'POST', headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+            body: JSON.stringify({ quantity: startStock, unit_cost: costPrice, notes: "Boshlang'ich qoldiq" }),
+          });
+        }
+      } catch {}
     }
 
     // Tarozi PLU (weight_variable barcode) — qo'shish / yangilash / o'chirish
@@ -1364,7 +1657,19 @@ async function saveProduct() {
     closeProductModal();
     toast(editingProductId ? 'Yangilandi' : "Qo'shildi", 'success');
     cachedCategories=[]; loadProducts();
-  } catch (err) { toast(err.message,'error'); }
+  } catch (err) {
+    toast(err.message,'error');
+    // BUG 1/8: barkod band bo'lsa — modal ochiq qoladi (yopilmaydi), barkod
+    // maydonini belgilaymiz va fokuslaymiz, foydalanuvchi nima bo'lganini ko'rsin.
+    if (/barcode|barkod|band/i.test(err.message || '')) {
+      const bcEl = document.getElementById('pmf_barcode');
+      if (bcEl) {
+        bcEl.style.borderColor = '#ef4444';
+        bcEl.focus();
+        bcEl.addEventListener('input', () => { bcEl.style.borderColor = ''; }, { once: true });
+      }
+    }
+  }
   finally { btn.disabled=false; btn.textContent='Saqlash'; }
 }
 
@@ -1390,6 +1695,7 @@ async function loadCategories() {
       flt.innerHTML = '<option value="">Barcha kategoriyalar</option>' +
         cats.map(c=>`<option value="${c.id}"${c.id==cur?' selected':''}>${c.name}</option>`).join('');
     }
+    refreshBulkCatOptions();   // BUG 4: yangi kategoriya bulk select'da ham chiqsin
     const body = document.getElementById('categoriesBody');
     if (!body) return;
     if (!cats.length) { body.innerHTML='<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--text3)">Kategoriya topilmadi</td></tr>'; return; }
@@ -1449,7 +1755,7 @@ document.getElementById('addBtn').addEventListener('click', () => {
   if (currentPage === 'products')     openProductModal();
   if (currentPage === 'categories')   openCategoryModal();
   if (currentPage === 'specials')     openSpecialModal();
-  if (currentPage === 'inventory')    toast('Kirim qilish uchun mahsulot qatoridagi + tugmasini bosing','info');
+  if (currentPage === 'inventory')    openRestockPicker();
   if (currentPage === 'stockOut')     toast("Hisobdan o'chirish uchun mahsulot qatoridagi tugmasini bosing",'info');
   if (currentPage === 'memberships')   window.open('memberships.html','_blank');
   if (currentPage === 'serviceOrders') window.open('vehicles.html','_blank');

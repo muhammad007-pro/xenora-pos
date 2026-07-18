@@ -189,6 +189,12 @@ class Product(Base):
     yield_pct         = Column(Float, nullable=True)   # BOSQICH 17: chiqim foizi
     wholesale_price   = Column(Float, nullable=True)   # BOSQICH 19: ko'tara (optom) narxi
     wholesale_min_qty = Column(Integer, default=10)    # BOSQICH 19: optom minimal miqdori
+    # BOSQICH B0 (pachka/dona): 1 mahsulot ham pachka, ham dona sotiladi.
+    # price = DONA narxi; pack_price = 1 PACHKA narxi; pack_size = 1 pachkadagi dona soni.
+    # NULL yoki pack_size<2 → mahsulot pachkasiz (oddiy). Ombor base birligi = dona.
+    # DIQQAT: bu maydonlar B0'da faqat poydevor — hali hech qaysi kod ishlatmaydi.
+    pack_size  = Column(Integer, nullable=True)   # 1 pachka = nechta dona (NULL/<2 = pachkasiz)
+    pack_price = Column(Float, nullable=True)      # 1 pachka narxi
     # BOSQICH 22: dorixona maxsus maydonlar
     active_ingredient     = Column(String(300), nullable=True)  # faol modda (analog topish uchun)
     dosage                = Column(String(100), nullable=True)  # dozaj: "500mg", "250ml"
@@ -307,6 +313,12 @@ class OrderItem(Base):
     unit_price = Column(Float, nullable=False)
     unit_cost = Column(Float, default=0.0)  # BOSQICH 15: sotuv paytidagi tan narx (snapshot)
     total_price = Column(Float, nullable=False)
+    # BOSQICH B0 (pachka/dona): quantity — ko'rinadigan soni (pachka soni yoki dona soni).
+    # base_qty — ombordan ayiriladigan DONA miqdori (pachka: pack_size×quantity; dona: quantity).
+    # unit_sold — chek yorlig'i + hisobot uchun. NULL → eski/oddiy (base_qty ham NULL → quantity).
+    # DIQQAT: B0'da faqat poydevor — hali hech qaysi kod ishlatmaydi.
+    base_qty  = Column(Float, nullable=True)       # ombordan ayiriladigan dona miqdori
+    unit_sold = Column(String(20), nullable=True)  # "pachka" | "dona" | NULL
     notes = Column(Text)
     status = Column(String(20), default="pending")  # pending, preparing, ready, served
     course_number = Column(Integer, default=1)       # 1=Birinchi ovqat, 2=Ikkinchi ovqat...
@@ -1311,6 +1323,10 @@ class ReturnItem(Base):
     product_id          = Column(Integer, ForeignKey("products.id"), nullable=False)
     order_item_id       = Column(Integer, ForeignKey("order_items.id"), nullable=True)
     quantity            = Column(Float, nullable=False)
+    # BOSQICH B-returns (pachka/dona): omborga QAYTARILADIGAN dona miqdori.
+    # Pachka qaytarilsa base_qty = pack_size × quantity; dona/oddiy = quantity.
+    # NULL (eski qaytarish) → tiklashda quantity ishlatiladi (fallback).
+    base_qty            = Column(Float, nullable=True)
     unit_price          = Column(Float, nullable=False)
     total               = Column(Float, nullable=False)
     restore_to_inventory = Column(Boolean, default=True)  # omborga qaytarilsinmi

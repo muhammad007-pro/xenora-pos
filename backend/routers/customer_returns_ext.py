@@ -16,6 +16,7 @@ from database import get_db
 from models import Return, ReturnItem, Order, OrderItem, Product, Inventory, StockMovement, User
 from schemas import MessageResponse, PaginatedResponse
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from routers.returns import _return_base_qty  # BOSQICH B-returns: pachka → dona miqdori
 from pydantic import BaseModel
 from typing import Optional
 
@@ -123,25 +124,28 @@ async def create_extended_return(
     db.flush()
 
     for it in data.items:
+        # BOSQICH B-returns: omborga qaytariladigan DONA miqdori (pachka: pack_size×qty)
+        base_qty = _return_base_qty(db, it.order_item_id, it.quantity)
         db.add(ReturnItem(
             return_id            = ret.id,
             product_id           = it.product_id,
             order_item_id        = it.order_item_id,
             quantity             = it.quantity,
+            base_qty             = base_qty,
             unit_price           = it.unit_price,
             total                = it.quantity * it.unit_price,
             restore_to_inventory = it.restore_to_inventory and not it.goes_to_brak,
             goes_to_brak         = it.goes_to_brak,
         ))
 
-        # Ombor harakati
+        # Ombor harakati — base_qty (dona) bilan
         if it.restore_to_inventory and not it.goes_to_brak:
             inv = apply_tenant_filter(db.query(Inventory), Inventory, current_user) \
                       .filter(Inventory.product_id == it.product_id).first()
             if inv:
-                inv.quantity += it.quantity
+                inv.quantity += base_qty
             else:
-                db.add(Inventory(tenant_id=tid, product_id=it.product_id, quantity=it.quantity))
+                db.add(Inventory(tenant_id=tid, product_id=it.product_id, quantity=base_qty))
         # goes_to_brak=True bo'lsa omborga qaytarilmaydi — faqat yoziladi
 
     db.commit()

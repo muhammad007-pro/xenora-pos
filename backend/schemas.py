@@ -225,6 +225,10 @@ class ProductBase(BaseModel):
     # BOSQICH 19: ko'tara narx
     wholesale_price: Optional[float] = None
     wholesale_min_qty: Optional[int] = 10
+    # BOSQICH B2 (pachka/dona): price = DONA narxi; pack_price = 1 PACHKA narxi;
+    # pack_size = 1 pachkadagi dona soni. NULL/pack_size<2 → oddiy (pachkasiz).
+    pack_size: Optional[int] = None
+    pack_price: Optional[float] = None
     # BOSQICH 22: dorixona maydonlari
     active_ingredient: Optional[str] = None
     dosage: Optional[str] = None
@@ -251,6 +255,9 @@ class ProductUpdate(BaseModel):
     yield_pct: Optional[float] = None
     wholesale_price: Optional[float] = None
     wholesale_min_qty: Optional[int] = None
+    # BOSQICH B2 (pachka/dona)
+    pack_size: Optional[int] = None
+    pack_price: Optional[float] = None
     # BOSQICH 22
     active_ingredient: Optional[str] = None
     dosage: Optional[str] = None
@@ -306,6 +313,9 @@ class OrderItemCreate(BaseModel):
     product_id: int
     quantity: int = Field(gt=0)
     notes: Optional[str] = None
+    # BOSQICH B3 (pachka/dona): client FAQAT sotilgan birlikni yuboradi ("pachka"|"dona"|None).
+    # unit_price/base_qty SERVERDA product'dan hisoblanadi (client narxiga ishonilmaydi).
+    unit_sold: Optional[str] = None
 
 class OrderItemUpdate(BaseModel):
     quantity: Optional[int] = Field(None, gt=0)

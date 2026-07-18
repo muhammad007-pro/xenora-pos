@@ -1,8 +1,10 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
-> Oxirgi tasdiqlangan deploy: **v1.2.1** (2026-07-14) — brend ∞ (splash/POS logo), kutilayotgan bug'lar, mahsulot birligi + rasm fix.
-> (Oldingi: v1.2.0 2026-07-13 RBAC audit; v1.0.3 2026-07-11 `8800a6d`.)
+> Oxirgi tasdiqlangan deploy: **v1.2.2** (2026-07-18) — Pachka/Dona to'liq (B0–B7), mahsulot/ombor bug'lari, ombor qiymati KPI.
+> ⚠️ **2 MIGRATSIYA:** `a7b8c9d0e1f2` (pack ustunlar: products.pack_size/pack_price, order_items.base_qty/unit_sold),
+> `b8c9d0e1f2a3` (return_items.base_qty). Deploy'da `alembic upgrade head` + backup shart.
+> (Oldingi: v1.2.1 2026-07-14 brend ∞; v1.2.0 2026-07-13 RBAC audit; v1.0.3 2026-07-11 `8800a6d`.)
 
 ---
 

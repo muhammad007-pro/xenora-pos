@@ -681,11 +681,25 @@
               </div>
             </div>
           </div>
+          <!-- BUG 4: Bulk (ommaviy) kategoriya paneli — ≥1 tanlanganda ko'rinadi -->
+          <div id="productsBulkBar" style="display:none;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--bg3);border-bottom:1px solid var(--border2);flex-wrap:wrap">
+            <span id="bulkCount" style="font-weight:600">0 ta tanlandi</span>
+            <span style="color:var(--text3)">→</span>
+            <select class="form-control" id="bulkCatSelect" style="width:180px">
+              <option value="">Kategoriya tanlang...</option>
+            </select>
+            <button class="tb-btn primary" id="bulkAssignBtn">Berish</button>
+            <button class="tb-btn" id="bulkCancelBtn">Bekor</button>
+            <button class="tb-btn" id="bulkNewCatBtn" title="Yangi kategoriya qo'shish">+ Yangi kategoriya</button>
+            <!-- BOSQICH B7: pachka sozlash (faqat store/supermarket/pharmacy — JS yashiradi) -->
+            <button class="tb-btn" id="bulkPackSetupBtn" style="margin-left:auto" title="Tanlangan mahsulotlarga pachka narxi/o'lchami sozlash">📦 Pachka sozlash</button>
+          </div>
           <table>
             <thead><tr id="productsThead">
+              <th style="width:34px;text-align:center"><input type="checkbox" id="productsSelectAll" title="Hammasini belgilash" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer"></th>
               <th>ID</th><th>Nomi</th><th>Kategoriya</th><th>Narxi</th><th id="thExtra">Shtrixkod</th><th>Status</th><th>Amallar</th>
             </tr></thead>
-            <tbody id="productsBody"><tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
+            <tbody id="productsBody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>
           <div class="dt-pagination">
             <span id="productsPaginInfo">—</span>
@@ -1897,6 +1911,19 @@
           <div class="mini-stat">
             <div class="ms-icon ms-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round"/><polyline points="22 4 12 14.01 9 11.01" stroke="#22c55e" stroke-width="1.8"/></svg></div>
             <div><div class="ms-val" id="invOk" style="color:var(--success)">—</div><div class="ms-lbl">Normal darajada</div></div>
+          </div>
+          <!-- #10: Ombor umumiy qiymati (view_reports bo'lmasa yashiriladi) -->
+          <div class="mini-stat" id="invValCostCard" style="display:none">
+            <div class="ms-icon ms-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="var(--success)" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+            <div><div class="ms-val td-gold" id="invValCost">—</div><div class="ms-lbl">Ombor qiymati (tannarx)</div></div>
+          </div>
+          <div class="mini-stat" id="invValRetailCard" style="display:none">
+            <div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7.5 4.27L4 6.5v11L12 22l8-4.5v-11L12 2 8.5 3.6M4 6.5l8 4.5 8-4.5M12 11v11" stroke="var(--info)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div><div class="ms-val" id="invValRetail" style="color:var(--info)">—</div><div class="ms-lbl">Sotuv qiymati</div></div>
+          </div>
+          <div class="mini-stat" id="invValProfitCard" style="display:none">
+            <div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 4 8-8M21 7h-6M21 7v6" stroke="var(--warning)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div><div class="ms-val" id="invValProfit" style="color:var(--warning)">—</div><div class="ms-lbl">Potensial foyda</div></div>
           </div>
         </div>
         <div class="data-table-wrap">
@@ -3431,6 +3458,28 @@ initErrorHandler();
   </div>
 </div>
 
+<!-- BOSQICH B7: Pachka sozlash (eski ma'lumot tuzatish — guided) -->
+<div id="packSetupModal" style="position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s">
+  <div onclick="closePackSetup()" style="position:absolute;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px)"></div>
+  <div style="position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:1.5rem;width:100%;max-width:660px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between">
+      <h3 style="font-size:1rem;font-weight:700">📦 Pachka sozlash</h3>
+      <button onclick="closePackSetup()" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3);cursor:pointer;background:var(--bg3)">✕</button>
+    </div>
+    <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <span style="font-size:.8125rem;color:var(--text2)">Hammasiga bir xil dona soni:</span>
+      <input id="pkBulkSize" type="number" min="2" step="1" placeholder="10" style="width:90px;padding:.375rem .5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text)">
+      <button class="tb-btn" id="pkBulkSizeBtn">Qo'llash</button>
+      <span style="font-size:.72rem;color:var(--text3);margin-left:auto">Faqat ✓ belgilangan mahsulotlar saqlanadi. Narxlar qo'lda.</span>
+    </div>
+    <div id="packSetupBody" style="padding:1rem 1.25rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.625rem"></div>
+    <div style="padding:.875rem 1.25rem;border-top:1px solid var(--border2);display:flex;gap:.5rem">
+      <button onclick="closePackSetup()" style="flex:1;padding:.5625rem;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-weight:500;cursor:pointer">Bekor</button>
+      <button id="pkSaveBtn" style="flex:2;padding:.5625rem;border-radius:var(--r);background:linear-gradient(135deg,#16a34a,#22c55e,#16a34a);color:#04160d;font-weight:700;cursor:pointer;border:none">Saqlash</button>
+    </div>
+  </div>
+</div>
+
 <!-- Restock Modal — Kirim qilish (BOSQICH 16: kengaytirilgan) -->
 <div id="restockModal" style="position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s">
   <div onclick="closeRestockModal()" style="position:absolute;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px)"></div>
@@ -3440,10 +3489,25 @@ initErrorHandler();
       <button onclick="closeRestockModal()" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3);cursor:pointer;background:var(--bg3)">✕</button>
     </div>
     <div style="padding:1.25rem;display:flex;flex-direction:column;gap:.875rem">
-      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.875rem">
+      <!-- Header "Kirim qilish" (mahsulot tanlab) — sukut yashirin, qatordan ochilganda ko'rinmaydi -->
+      <div id="rmProdRow" style="display:none">
+        <label style="display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem">Mahsulot *</label>
+        <select id="rmProdSel" style="width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit">
+          <option value="">Mahsulot tanlang...</option>
+        </select>
+      </div>
+      <div id="rmFixedBox" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.875rem">
         <div style="font-size:.75rem;color:var(--text3);margin-bottom:.25rem">Mahsulot</div>
         <div style="font-size:.9375rem;font-weight:700" id="rmProductName">—</div>
         <div style="font-size:.8125rem;color:var(--text2);margin-top:.25rem">Joriy qoldiq: <span id="rmCurrentQty" style="color:var(--gold);font-weight:600">—</span></div>
+      </div>
+      <!-- BOSQICH B5: pachkali mahsulot uchun kirim birligi (dona/pachka) — sukut yashirin -->
+      <div id="rmUnitToggle" style="display:none">
+        <label style="display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem">Kirim birligi</label>
+        <div style="display:flex;gap:.5rem">
+          <button type="button" id="rmUnitDona" style="flex:1;padding:.5rem;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-weight:600">Dona</button>
+          <button type="button" id="rmUnitPack" style="flex:1;padding:.5rem;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-weight:600">Pachka</button>
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
         <div>
@@ -3451,7 +3515,7 @@ initErrorHandler();
           <input id="rmQty" type="number" min="0.001" step="0.001" placeholder="0" style="width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit">
         </div>
         <div>
-          <label style="display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem">Kelish narxi (birlik)</label>
+          <label id="rmPriceLabel" style="display:block;font-size:.8125rem;font-weight:500;color:var(--text2);margin-bottom:.375rem">Kelish narxi (birlik)</label>
           <input id="rmUnitPrice" type="number" min="0" step="1" placeholder="0" style="width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit">
         </div>
       </div>
@@ -3639,7 +3703,7 @@ initErrorHandler();
 </div>
 
 <style>
-#productModal.open,#categoryModal.open,#specialModal.open,#restockModal.open,#thresholdModal.open,#writeoffModal.open{opacity:1!important;visibility:visible!important}
+#productModal.open,#categoryModal.open,#specialModal.open,#restockModal.open,#thresholdModal.open,#writeoffModal.open,#packSetupModal.open{opacity:1!important;visibility:visible!important}
 #productModal.open #productModalBox,#categoryModal.open #categoryModalBox,#specialModal.open #specialModalBox,#restockModal.open #restockModalBox,#thresholdModal.open #thresholdModalBox,#writeoffModal.open #writeoffModalBox{transform:scale(1) translateY(0)!important}
 #deptModal.open{opacity:1!important;visibility:visible!important}
 #deptModal.open #deptModalBox{transform:scale(1) translateY(0)!important}

@@ -222,7 +222,10 @@ def deduct_order_ingredients(
         result = deduct_recipe_ingredients(
             db=db,
             product_id=item.product_id,
-            quantity=item.quantity,
+            # BOSQICH B1 (pachka/dona): ombordan ayiriladigan DONA miqdori.
+            # base_qty bo'lsa (pachka: pack_size×soni) shuni, aks holda quantity
+            # (oddiy/dona). Hozir hamma base_qty=NULL → aynan quantity → xulq bir xil.
+            quantity=item.base_qty if item.base_qty is not None else item.quantity,
             tenant_id=tenant_id,
             order_id=order_id,
             user_id=user_id,
@@ -394,7 +397,9 @@ def restore_order_ingredients(
         result = restore_recipe_ingredients(
             db=db,
             product_id=item.product_id,
-            quantity=item.quantity,
+            # BOSQICH B1 (pachka/dona): omborga QAYTARILADIGAN dona miqdori — deduct
+            # bilan bir xil fallback (base_qty ?? quantity). base_qty=NULL → quantity.
+            quantity=item.base_qty if item.base_qty is not None else item.quantity,
             tenant_id=tenant_id,
             order_id=order_id,
             user_id=user_id,

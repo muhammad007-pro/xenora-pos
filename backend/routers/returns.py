@@ -69,6 +69,20 @@ def _restore_inventory(db: Session, product_id: int, quantity: float, tenant_id,
     db.add(movement)
 
 
+def _return_base_qty(db: Session, order_item_id, quantity: float) -> float:
+    """BOSQICH B-returns: omborga qaytariladigan DONA miqdori.
+
+    order_item_id bo'lsa — asl sotuv nisbati bilan: pachka sotilgan bo'lsa
+    OrderItem.base_qty/quantity = pack_size → base_qty = pack_size × quantity.
+    Bog'lanmagan yoki eski sotuv (base_qty NULL) → quantity (dona).
+    """
+    if order_item_id:
+        oi = db.query(OrderItem).filter(OrderItem.id == order_item_id).first()
+        if oi and oi.base_qty is not None and oi.quantity:
+            return (oi.base_qty / oi.quantity) * quantity
+    return quantity
+
+
 # ── POST /returns/ ───────────────────────────────────────────────────────────
 @router.post("/", response_model=ReturnInDB)
 def create_return(
@@ -118,6 +132,8 @@ def create_return(
             product_id=item_data.product_id,
             order_item_id=item_data.order_item_id,
             quantity=item_data.quantity,
+            # BOSQICH B-returns: pachka qaytarilsa dona miqdori (pack_size×qty)
+            base_qty=_return_base_qty(db, item_data.order_item_id, item_data.quantity),
             unit_price=item_data.unit_price,
             total=item_data.quantity * item_data.unit_price,
             restore_to_inventory=item_data.restore_to_inventory,
@@ -240,7 +256,8 @@ def approve_return(
             _restore_inventory(
                 db,
                 item.product_id,
-                item.quantity,
+                # BOSQICH B-returns: base_qty (dona) bilan tiklash; NULL → quantity (fallback)
+                item.base_qty if item.base_qty is not None else item.quantity,
                 ret.tenant_id,
                 ret.branch_id,
                 current_user.id,

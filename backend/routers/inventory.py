@@ -193,9 +193,11 @@ async def get_inventory_by_product(
 @router.get("/value")
 async def get_inventory_value(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    # #10: ombor qiymati = tannarx/foyda (moliyaviy) → view_reports.
+    # Yagona mavjud chaqiruvchi (ombor hisoboti sahifasi) allaqachon view_reports talab qiladi.
+    current_user: User = Depends(has_permission("view_reports"))
 ):
-    """Ombor umumiy qiymati"""
+    """Ombor umumiy qiymati (tannarx + sotuv + potensial foyda)"""
     q = apply_tenant_filter(db.query(Inventory), Inventory, current_user)
     q = apply_branch_filter(q, Inventory, current_user)
     results = q.join(Product).with_entities(

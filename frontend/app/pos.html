@@ -125,6 +125,15 @@ a{text-decoration:none;color:inherit}
 .prod-name{color:var(--text);font-size:.8125rem;font-weight:600;line-height:1.3;margin-bottom:.25rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .prod-price{font-size:.9375rem;font-weight:700;color:var(--gold)}
 .prod-unit{font-size:.6875rem;color:var(--text3);font-weight:400}
+/* BUG 3: LIST ko'rinishi — bir xil .product-card, CSS bilan bir qatorga (rasm chap + nom + narx o'ng).
+   250+ mahsulotda o'qish/tanlash oson; savatga bosish grid bilan bir xil. */
+.products-grid.list-view{grid-template-columns:1fr;gap:.375rem}
+.products-grid.list-view .product-card{flex-direction:row;align-items:center;gap:.75rem;padding:.4rem .625rem}
+.products-grid.list-view .prod-img{width:46px;height:46px;aspect-ratio:1;border-radius:.5rem;flex-shrink:0;font-size:1.4rem!important}
+.products-grid.list-view .prod-body{flex:1;min-width:0;padding:0;display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.products-grid.list-view .prod-name{margin-bottom:0;-webkit-line-clamp:1;flex:1;min-width:0}
+.products-grid.list-view .prod-price{white-space:nowrap;flex-shrink:0}
+.products-grid.list-view .expiry-badge,.products-grid.list-view .rx-badge{position:static;display:inline-block;margin-left:.5rem}
 .prod-badge{position:absolute;top:.5rem;right:.5rem;background:var(--danger);color:#fff;font-size:.625rem;font-weight:700;padding:.125rem .375rem;border-radius:4px}
 .prod-empty{grid-column:1/-1;text-align:center;padding:3rem;color:var(--text3)}
 
@@ -653,6 +662,9 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
         <kbd>⌘K</kbd>
       </div>
 
+      <!-- BUG 3: Grid/List ko'rinishini almashtirish (ikonka JS bilan qo'yiladi) -->
+      <button class="icon-btn" id="viewToggleBtn" title="Ko'rinish"></button>
+
       <button class="table-btn" id="tableBtn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 17v2M18 17v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span id="tableBtnLabel">Stol tanlang</span>
@@ -1054,6 +1066,31 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
       <button class="btn btn-outline" id="scaleConnectBtn" title="Elektron tarozini ulash (USB/Serial)" style="font-size:.8rem">⚖️ Tarozi</button>
       <button class="btn btn-outline" data-close="weightModal">Bekor</button>
       <button class="btn btn-gold" id="confirmWeightBtn">Savatga qo'shish</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOSQICH B4: Pachka/Dona tanlov modali -->
+<div class="modal-wrap" id="packChoiceModal">
+  <div class="modal-overlay" data-close="packChoiceModal"></div>
+  <div class="modal-box narrow">
+    <div class="modal-header">
+      <h3>Qanday sotiladi?</h3>
+      <button class="close-btn" data-close="packChoiceModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="packChoiceName" style="text-align:center;font-weight:700;font-size:1.05rem;margin-bottom:1rem">Mahsulot</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+        <button class="btn btn-gold" id="packChoicePackBtn" style="flex-direction:column;height:auto;padding:1rem .5rem">
+          <span style="font-size:1rem;font-weight:700">📦 Pachka</span>
+          <span id="packChoicePackPrice" style="font-size:.9rem;margin-top:.35rem">—</span>
+          <span id="packChoicePackHint" style="font-size:.72rem;opacity:.85;margin-top:.15rem">—</span>
+        </button>
+        <button class="btn btn-outline" id="packChoiceDonaBtn" style="flex-direction:column;height:auto;padding:1rem .5rem">
+          <span style="font-size:1rem;font-weight:700">Dona</span>
+          <span id="packChoiceDonaPrice" style="font-size:.9rem;margin-top:.35rem">—</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>

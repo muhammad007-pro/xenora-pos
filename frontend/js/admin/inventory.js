@@ -5,10 +5,14 @@
 // ── Inventory (Ombor) page ────────────────────────────────────────────────────
 let invCurrentPage = 1;
 let invLowOnly     = false;
+// BUG 6: bir sahifada uzun ro'yxat (mahsulotlar sahifasidek). 500 qator render
+// sekin emas (standalone inventory.html ham 500 yuklaydi). 500+ katalogda
+// prev/next hali ham ishlaydi.
+const INV_PAGE_SIZE = 500;
 
 async function loadInventory() {
   const search = document.getElementById('invSearch')?.value || '';
-  const params = new URLSearchParams({ page: invCurrentPage, page_size: 20 });
+  const params = new URLSearchParams({ page: invCurrentPage, page_size: INV_PAGE_SIZE });
   if (invLowOnly) params.set('low_stock_only', 'true');
   if (search)     params.set('search', search);
   try {
@@ -48,7 +52,7 @@ async function loadInventory() {
         <td class="td-sub">${inv.min_threshold} / ${inv.max_threshold} ${inv.unit}</td>
         <td class="td-sub">${lastR}</td>
         <td class="td-actions">
-          <button class="act-btn" title="Kirim qilish" onclick="openRestockModal(${inv.id},'${nameEsc}','${inv.unit}',${inv.quantity})">
+          <button class="act-btn" title="Kirim qilish" onclick="openRestockModal(${inv.id},'${nameEsc}','${inv.unit}',${inv.quantity},${p.pack_size||0},${p.pack_price||0})">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
           <button class="act-btn act-danger" title="Hisobdan o'chirish" onclick="openWriteoffModal(${inv.id},'${nameEsc}','${inv.unit}',${inv.quantity})">
@@ -63,10 +67,27 @@ async function loadInventory() {
     document.getElementById('invLow').textContent = lowCnt;
     document.getElementById('invOk').textContent  = items.length - lowCnt;
     document.getElementById('invPrevBtn').disabled = invCurrentPage <= 1;
-    document.getElementById('invNextBtn').disabled = items.length < 20;
+    document.getElementById('invNextBtn').disabled = items.length < INV_PAGE_SIZE;
     const badge = document.getElementById('lowStockBadge');
     if (badge) { badge.textContent = lowCnt; badge.style.display = lowCnt > 0 ? '' : 'none'; }
   } catch (err) { toast(err.message, 'error'); }
+}
+
+// #10: Ombor umumiy qiymati (tannarx/sotuv/foyda) — asosiy Ombor sahifasi KPI kartalari.
+// Hisoblash BACKENDDA (SQL SUM, 438 mahsulot tez). view_reports bo'lmasa 403 →
+// kartalar jimgina yashiriladi (xato toast yo'q). Ombor DONA base — cost_price dona
+// tannarxi (B5), quantity dona → SUM(qty×cost) to'g'ri; pachka alohida hisoblanmaydi.
+async function loadInventoryValue() {
+  const cards = ['invValCostCard', 'invValRetailCard', 'invValProfitCard'];
+  const hide  = () => cards.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  try {
+    const v = await apiFetch('/inventory/value');
+    if (!v) { hide(); return; }
+    document.getElementById('invValCost').textContent   = fmtMoney(v.total_cost || 0) + ' UZS';
+    document.getElementById('invValRetail').textContent = fmtMoney(v.total_retail || 0) + ' UZS';
+    document.getElementById('invValProfit').textContent = fmtMoney(v.potential_profit || 0) + ' UZS';
+    cards.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
+  } catch { hide(); }
 }
 
 function toggleInvLow() {
@@ -83,7 +104,49 @@ function invPage(dir) {
 
 // ── Restock modal (BOSQICH 16: kengaytirilgan) ───────────────────────────────
 let _restockInvId = null;
+let _restockPicker = false;   // BUG 5: header "Kirim qilish" — mahsulot tanlash rejimi
 let _suppliersList = [];
+// BOSQICH B5 (pachka/dona): kirim birligi. _restockPack = {size,price} yoki null.
+let _restockPack = null;
+let _restockUnitMode = 'dona';   // 'dona' | 'pachka'
+let _restockBaseUnit = 'birlik'; // asl (base) birlik — odatda "dona"
+
+// Pachkali mahsulot uchun birlik toggle'ini sozlash (dona sukut bo'yicha)
+function _applyRestockPack(packSize, packPrice, baseUnit) {
+  const enabled = packSize >= 2 && packPrice > 0;
+  _restockPack = enabled ? { size: packSize, price: packPrice } : null;
+  _restockUnitMode = 'dona';
+  _restockBaseUnit = baseUnit || 'dona';
+  const toggle = document.getElementById('rmUnitToggle');
+  if (toggle) toggle.style.display = enabled ? '' : 'none';
+  _updateRestockUnitUI();
+}
+
+function _setRestockUnitMode(mode) {
+  if (mode === 'pachka' && !_restockPack) return;
+  _restockUnitMode = mode;
+  _updateRestockUnitUI();
+}
+
+function _updateRestockUnitUI() {
+  const donaBtn = document.getElementById('rmUnitDona');
+  const packBtn = document.getElementById('rmUnitPack');
+  if (packBtn && _restockPack) packBtn.textContent = `Pachka (${_restockPack.size} dona)`;
+  const active = 'background:linear-gradient(135deg,#16a34a,#22c55e);color:#04160d;border-color:#16a34a';
+  const idle   = 'background:var(--bg3);color:var(--text);border-color:var(--border2)';
+  const isPack = _restockUnitMode === 'pachka';
+  if (donaBtn) donaBtn.style.cssText = `flex:1;padding:.5rem;border-radius:var(--r);border:1px solid;cursor:pointer;font-weight:600;${isPack?idle:active}`;
+  if (packBtn) packBtn.style.cssText = `flex:1;padding:.5rem;border-radius:var(--r);border:1px solid;cursor:pointer;font-weight:600;${isPack?active:idle}`;
+  // Yorliqlar: pachka rejimida miqdor = pachka soni, narx = pachka tannarxi
+  const unitEl  = document.getElementById('rmUnit');
+  const priceEl = document.getElementById('rmPriceLabel');
+  if (unitEl)  unitEl.textContent  = isPack ? 'pachka' : _restockBaseUnit;
+  if (priceEl) priceEl.textContent = isPack ? 'Kelish narxi (pachka)' : `Kelish narxi (${_restockBaseUnit})`;
+}
+
+// BOSQICH B5: birlik toggle tugmalari (bir marta wire)
+document.getElementById('rmUnitDona')?.addEventListener('click', () => _setRestockUnitMode('dona'));
+document.getElementById('rmUnitPack')?.addEventListener('click', () => _setRestockUnitMode('pachka'));
 
 async function _loadSuppliersForModal() {
   if (_suppliersList.length) return;
@@ -101,11 +164,16 @@ async function _loadSuppliersForModal() {
   } catch {}
 }
 
-function openRestockModal(invId, productName, unit, currentQty) {
+function openRestockModal(invId, productName, unit, currentQty, packSize, packPrice) {
   _restockInvId = invId;
+  _restockPicker = false;
+  // Qatordan ochilganda: mahsulot nomi qat'iy, tanlash yashirin
+  document.getElementById('rmProdRow').style.display   = 'none';
+  document.getElementById('rmFixedBox').style.display  = '';
   document.getElementById('rmProductName').textContent = productName;
-  document.getElementById('rmUnit').textContent        = unit;
   document.getElementById('rmCurrentQty').textContent  = currentQty + ' ' + unit;
+  // BOSQICH B5: pachkali mahsulot bo'lsa birlik toggle (dona/pachka); rmUnit shu yerda
+  _applyRestockPack(packSize || 0, packPrice || 0, unit);
   document.getElementById('rmQty').value       = '';
   document.getElementById('rmUnitPrice').value  = '';
   document.getElementById('rmSupplierId').value = '';
@@ -132,16 +200,87 @@ function openRestockModal(invId, productName, unit, currentQty) {
 
 function closeRestockModal() { document.getElementById('restockModal').classList.remove('open'); }
 
+// BUG 5: Header "Kirim qilish" tugmasi — mahsulotni tanlab kirim qilish (berk
+// toast o'rniga to'g'ridan-to'g'ri modal ochiladi). Barcha mahsulot (BUG 9 tuzatuvi
+// bilan har biriga inventory qatori bor) tanlanadi va add-stock qilinadi.
+async function openRestockPicker() {
+  _restockInvId = null;
+  _restockPicker = true;
+
+  // Maydonlarni tozalash
+  document.getElementById('rmQty').value        = '';
+  document.getElementById('rmUnitPrice').value  = '';
+  document.getElementById('rmSupplierId').value = '';
+  document.getElementById('rmBatch').value      = '';
+  document.getElementById('rmExpiry').value     = '';
+  document.getElementById('rmNote').value        = '';
+  _applyRestockPack(0, 0, 'birlik');   // BOSQICH B5: mahsulot tanlanmaguncha toggle yashirin
+  document.getElementById('rmTotalCostBox').style.display = 'none';
+
+  // Rejim: mahsulot tanlash qatori ko'rinadi, qat'iy nom yashirin
+  document.getElementById('rmFixedBox').style.display = 'none';
+  document.getElementById('rmProdRow').style.display  = '';
+
+  const sel = document.getElementById('rmProdSel');
+  sel.innerHTML = '<option value="">Yuklanmoqda...</option>';
+  document.getElementById('restockModal').classList.add('open');
+  _loadSuppliersForModal();
+
+  try {
+    const data  = await apiFetch('/inventory/?page_size=1000');
+    const items = (data.items || []).filter(inv => inv.product);
+    items.sort((a, b) => (a.product.name || '').localeCompare(b.product.name || ''));
+    sel.innerHTML = '<option value="">Mahsulot tanlang...</option>' +
+      items.map(inv => {
+        const nm  = (inv.product.name || '—').replace(/</g, '&lt;');
+        const qty = inv.quantity % 1 ? inv.quantity.toFixed(2) : inv.quantity;
+        const ps  = inv.product.pack_size  || 0;
+        const pp  = inv.product.pack_price || 0;
+        return `<option value="${inv.id}" data-unit="${inv.unit}" data-pack-size="${ps}" data-pack-price="${pp}">${nm} — ${qty} ${inv.unit}</option>`;
+      }).join('');
+  } catch (err) {
+    sel.innerHTML = '<option value="">Yuklab bo\'lmadi</option>';
+    toast(err.message, 'error');
+  }
+
+  // Tanlanganda: birlik yorlig'i + pachka toggle (agar pachkali bo'lsa)
+  sel.onchange = () => {
+    const opt = sel.options[sel.selectedIndex];
+    _applyRestockPack(
+      parseFloat(opt?.dataset.packSize) || 0,
+      parseFloat(opt?.dataset.packPrice) || 0,
+      opt?.dataset.unit || 'dona'
+    );
+  };
+  setTimeout(() => sel.focus(), 100);
+}
+
 async function saveRestock() {
-  const qty = parseFloat(document.getElementById('rmQty').value);
-  if (!qty || qty <= 0) { toast("Miqdorni kiriting", 'error'); return; }
+  // BUG 5: picker rejimida — avval mahsulot tanlangan bo'lishi kerak
+  if (_restockPicker) {
+    const selVal = parseInt(document.getElementById('rmProdSel').value);
+    if (!selVal) { toast('Mahsulot tanlang', 'error'); return; }
+    _restockInvId = selVal;
+  }
+  const qtyInput = parseFloat(document.getElementById('rmQty').value);
+  if (!qtyInput || qtyInput <= 0) { toast("Miqdorni kiriting", 'error'); return; }
+  const priceInput = parseFloat(document.getElementById('rmUnitPrice').value) || 0;
+
+  // BOSQICH B5: pachka rejimi → base DONA. Ombor doim dona hisobida saqlanadi.
+  // qty = pachka × pack_size; dona tannarx = pachka tannarx / pack_size.
+  const isPack   = !!(_restockPack && _restockUnitMode === 'pachka');
+  const qty      = isPack ? qtyInput * _restockPack.size : qtyInput;
+  const unitCost = isPack ? (priceInput / _restockPack.size) : priceInput;
+  const packNote = isPack ? `${qtyInput} pachka (${qty} dona)` : '';
+
   const btn = document.getElementById('rmSaveBtn');
   btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
   try {
+    const userNote = document.getElementById('rmNote').value.trim();
     const body = {
       quantity: qty,
-      unit_cost: parseFloat(document.getElementById('rmUnitPrice').value) || 0,
-      notes: document.getElementById('rmNote').value.trim() || null,
+      unit_cost: unitCost,
+      notes: [packNote, userNote].filter(Boolean).join(' — ') || null,
     };
     const suppId = parseInt(document.getElementById('rmSupplierId').value);
     if (suppId) body.supplier_id = suppId;
@@ -157,7 +296,7 @@ async function saveRestock() {
     });
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
     closeRestockModal();
-    toast(`${qty} kiritildi`, 'success');
+    toast(isPack ? `${qty} dona (${qtyInput} pachka) kiritildi` : `${qty} kiritildi`, 'success');
     loadInventory();
     updateLowStockBadge();
   } catch (err) { toast(err.message, 'error'); }

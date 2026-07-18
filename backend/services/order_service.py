@@ -66,15 +66,42 @@ class OrderService:
                 raise ValueError(f"Mahsulot topilmadi: {item.product_id}")
             if not product.is_available:
                 raise ValueError(f"Mahsulot mavjud emas: {product.name}")
-            unit_price = product.price
+
+            # BOSQICH B3 (pachka/dona): narx + ombor miqdori SERVERDA hisoblanadi
+            # (client narxiga ishonilmaydi). unit_sold — client faqat SHUNI yuboradi.
+            unit_sold = getattr(item, "unit_sold", None)
+            pack_enabled = bool(
+                product.pack_size and product.pack_size >= 2
+                and product.pack_price and product.pack_price > 0
+            )
+            dona_cost = self._product_cost(product)
+            if unit_sold == "pachka" and pack_enabled:
+                # Pachka sotuvi: pack_price × soni; ombordan pack_size×soni DONA kamayadi.
+                # unit_cost ham pachka bo'yicha (dona_cost × pack_size) — COGS to'g'ri.
+                # Wholesale (optom) qo'llanmaydi — pachka o'zi ulgurji (backend'da
+                # wholesale mantig'i yo'q, shu bois qo'shimcha bloklash shart emas).
+                unit_price = product.pack_price
+                unit_cost  = dona_cost * product.pack_size
+                base_qty   = product.pack_size * item.quantity
+                item_unit_sold = "pachka"
+            else:
+                # Dona yoki oddiy: mavjud mantiq. Client "pachka" desa-yu mahsulot
+                # pachkasiz bo'lsa — oddiy dona sifatida (xavfsiz fallback, xato emas).
+                unit_price = product.price
+                unit_cost  = dona_cost
+                base_qty   = item.quantity
+                item_unit_sold = "dona" if unit_sold == "dona" else None
+
             total_price = unit_price * item.quantity
             total_amount += total_price
             items_data.append({
                 "product_id": product.id,
                 "quantity": item.quantity,
                 "unit_price": unit_price,
-                "unit_cost": self._product_cost(product),
+                "unit_cost": unit_cost,
                 "total_price": total_price,
+                "base_qty": base_qty,
+                "unit_sold": item_unit_sold,
                 "notes": item.notes,
             })
 
@@ -150,6 +177,8 @@ class OrderService:
                     unit_price=item_data["unit_price"],
                     unit_cost=item_data["unit_cost"],
                     total_price=item_data["total_price"],
+                    base_qty=item_data["base_qty"],       # BOSQICH B3: ombor chiqimi (dona)
+                    unit_sold=item_data["unit_sold"],     # BOSQICH B3: "pachka"|"dona"|None
                     notes=item_data["notes"],
                 ))
             try:

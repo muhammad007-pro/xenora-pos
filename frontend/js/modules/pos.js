@@ -67,6 +67,10 @@ const MODE = (() => {
 
 // BOSQICH 21: faol bo'lim filtri (null = barchasi)
 let _activeDeptId = null;
+// BUG 3: POS mahsulot ko'rinishi — 'list' (bir qator, ko'p mahsulotda o'qish oson)
+// yoki 'grid' (karta). localStorage EMAS (Electron'da ishonchsiz) — sessiya
+// davomida oddiy o'zgaruvchi. Default = 'list' (250+ mahsulotda grid siqiladi).
+let _posView = 'list';
 
 // ─── Toast ───────────────────────────────────────────────────────────────────
 function toast(msg, type = 'info', dur = 3500) {
@@ -241,6 +245,7 @@ function renderCart() {
     <div class="cart-item" data-idx="${idx}">
       <div class="ci-info">
         <div class="ci-name">${item.name}</div>
+        ${item._packLabel ? `<div style="font-size:.7rem;color:var(--gold);margin-top:.1rem">📦 ${item._packLabel}</div>` : ''}
         ${item.modLabel ? `<div style="font-size:.7rem;color:var(--text3);margin-top:.1rem">${item.modLabel}</div>` : ''}
         ${MODE.isPharmacy && item._dosage   ? `<div style="font-size:.7rem;color:var(--info);margin-top:.1rem">${item._dosage}</div>` : ''}
         ${MODE.isPharmacy && item._batch    ? `<div style="font-size:.7rem;color:var(--text3);margin-top:.05rem">Partiya: ${item._batch}</div>` : ''}
@@ -314,6 +319,8 @@ function renderCategories(cats) {
 
 function renderProducts(catId = null) {
   const grid   = document.getElementById('productsGrid');
+  // BUG 3: joriy ko'rinish (grid/list) — innerHTML almashsa ham konteyner klassi saqlanadi
+  grid.classList.toggle('list-view', _posView === 'list');
   const search = document.getElementById('searchInput').value.toLowerCase().trim();
   let list     = state.products;
   if (_activeDeptId) list = list.filter(p => p.department_id === _activeDeptId);
@@ -365,11 +372,38 @@ function renderProducts(catId = null) {
   });
 }
 
-async function addToCart(productId, presetWeight = null) {
+// BOSQICH B4 (pachka/dona): mahsulot pachkali sotiladimi (pack_size≥2 AND pack_price>0)
+function isPackProduct(p) {
+  return !!(p && p.pack_size >= 2 && p.pack_price > 0);
+}
+
+// Pachkali mahsulot uchun modifikator oqimida birlik (pachka/dona) saqlash
+let _modUnitMode = null;
+// Pachka/Dona tanlov modali uchun joriy mahsulot
+let _packChoiceProduct = null;
+
+function showPackChoiceModal(product) {
+  _packChoiceProduct = product;
+  document.getElementById('packChoiceName').textContent = product.name;
+  document.getElementById('packChoicePackPrice').textContent = fmtNum(product.pack_price) + ' UZS';
+  document.getElementById('packChoicePackHint').textContent  = product.pack_size + ' dona';
+  document.getElementById('packChoiceDonaPrice').textContent = fmtNum(product.price) + ' UZS';
+  openModal('packChoiceModal');
+}
+
+async function addToCart(productId, presetWeight = null, unitMode = null) {
   const p = state.products.find(x => x.id === productId);
   if (!p) return;
   const card = document.querySelector(`.product-card[data-id="${productId}"]`);
   if (card) { card.style.transform = 'scale(0.95)'; setTimeout(() => card.style.transform = '', 120); }
+
+  // BOSQICH B4: Pachkali mahsulot — AVVAL birlik tanlash (pachka/dona), keyin qolgan
+  // oqim (rx-tasdiq, modifikator) bir marta. Pachkasiz mahsulot — tanlovsiz, avvalgidek.
+  // Weight (tarozi) mahsulot pachkali bo'lmaydi (B2 bloklaydi) — himoya uchun tekshiramiz.
+  if (unitMode == null && presetWeight == null && isPackProduct(p) && !isWeightUnit(p.sale_unit)) {
+    showPackChoiceModal(p);
+    return;
+  }
 
   // BOSQICH 22: Dorixona — retseptli dori ogohlantirish
   if (MODE.isPharmacy && p.requires_prescription) {
@@ -413,9 +447,10 @@ async function addToCart(productId, presetWeight = null) {
   } catch {}
 
   if (groups.length) {
+    _modUnitMode = unitMode;
     showModifierModal(p, groups);
   } else {
-    doAddToCart(p, []);
+    doAddToCart(p, [], null, unitMode);
   }
 }
 
@@ -568,10 +603,11 @@ function collectModifiers() {
   return selected;
 }
 
-function doAddToCart(product, modifiers, weight = null) {
+function doAddToCart(product, modifiers, weight = null, unitMode = null) {
   const modKey   = modifiers.map(m => m.modifier_id).sort().join(',');
   const modDelta = modifiers.reduce((s, m) => s + (m.price_delta || 0), 0);
   const isWeight = isWeightUnit(product.sale_unit);
+  const isPack   = unitMode === 'pachka' && isPackProduct(product);
 
   if (isWeight && weight != null) {
     // Og'irlik mahsulot: narx = baho_per_unit × og'irlik; har bir bor yangi qator
@@ -599,6 +635,25 @@ function doAddToCart(product, modifiers, weight = null) {
       _is_part    : !!(product.is_spare_part || product.product_type === 'part'),
       _cleaning   : MODE.isDryCleaning && state.cleaningInfo ? { ...state.cleaningInfo } : null,
     });
+  } else if (isPack) {
+    // BOSQICH B4: Pachka — qat'iy pack_price (+modDelta). Ombor pack_size dona
+    // (server B3 hisoblaydi). Wholesale QO'LLANMAYDI (pachka o'zi ulgurji). Pachka
+    // va dona qatorlari alohida turadi (_modKey '_pk' suffiksi).
+    const modLabelP = modifiers.map(m => m.name).join(', ');
+    const priceP = (product.pack_price || 0) + modDelta;
+    const pkKey  = modKey + '_pk';
+    const sameP  = MODE.isService ? null : state.cart.find(x => x.id === product.id && x._modKey === pkKey);
+    if (sameP) { sameP.qty++; }
+    else {
+      state.cart.push({
+        id: product.id, name: product.name, price: priceP, qty: 1,
+        _modKey: pkKey, modifiers, modLabel: modLabelP || null,
+        _unitSold : 'pachka',
+        _packLabel: `Pachka (${product.pack_size} dona)`,
+        _batch    : product.batch_number || null,
+        _master   : state.staffMember ? { ...state.staffMember } : null,
+      });
+    }
   } else {
     // BOSQICH 19: Ko'tara (optom) narxni hisoblash
     const basePrice = product.price + modDelta;
@@ -624,6 +679,7 @@ function doAddToCart(product, modifiers, weight = null) {
       state.cart.push({
         id: product.id, name: product.name, price: finalPrice, qty: 1,
         _modKey: modKey, modifiers, modLabel: modLabel || null,
+        _unitSold   : unitMode === 'dona' ? 'dona' : null,   // BOSQICH B4
         _dosage     : product.dosage         || null,
         _batch      : product.batch_number   || null,
         _duration   : product.duration_min   || null,
@@ -655,7 +711,18 @@ document.getElementById('modConfirmBtn').addEventListener('click', () => {
     if (!checked) { toast(`"${g.name}" bo'limidan tanlash shart`, 'warning'); return; }
   }
   closeModal('modifierModal');
-  doAddToCart(_modProduct, mods);
+  doAddToCart(_modProduct, mods, null, _modUnitMode);
+  _modUnitMode = null;
+});
+
+// ─── BOSQICH B4: Pachka/Dona tanlov modali tugmalari ──────────────────────────
+document.getElementById('packChoicePackBtn')?.addEventListener('click', () => {
+  const p = _packChoiceProduct; closeModal('packChoiceModal');
+  if (p) addToCart(p.id, null, 'pachka');
+});
+document.getElementById('packChoiceDonaBtn')?.addEventListener('click', () => {
+  const p = _packChoiceProduct; closeModal('packChoiceModal');
+  if (p) addToCart(p.id, null, 'dona');
 });
 
 // ─── Course select (COURSES feature) ──────────────────────────────────────────
@@ -1115,6 +1182,7 @@ function buildOrderPayload() {
       quantity      : i._weight != null ? i._weight : i.qty,
       price         : i._weight != null ? i._unitPrice : i.price,
       weight_unit   : i._unit     || null,
+      unit_sold     : i._unitSold || null,   // BOSQICH B4: "pachka"|"dona"|null (server base_qty/narx hisoblaydi)
       course_number : MODE.hasCourses ? (i.course_number || 1) : 1,
       staff_id      : i._master?.id   || null,
       duration_min  : i._duration    || null,
@@ -1130,6 +1198,7 @@ function buildOrderPayload() {
       id: i.id, name: i.name, price: i.price, qty: i.qty,
       _modKey: i._modKey || '', modifiers: i.modifiers || [], modLabel: i.modLabel || null,
       _weight: i._weight ?? null, _unit: i._unit || null, _unitPrice: i._unitPrice ?? null,
+      _unitSold: i._unitSold || null, _packLabel: i._packLabel || null,   // BOSQICH B4
       course_number: i.course_number || 1,
     })),
     discount_type   : state.discount.value > 0 ? state.discount.type : null,
@@ -1250,7 +1319,7 @@ function renderOfflineReceipt(payment) {
     </div>
     <table class="receipt-table">
       <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
-      <tbody>${state.cart.map(i=>`<tr><td>${i.name}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
+      <tbody>${state.cart.map(i=>`<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>
@@ -1313,6 +1382,15 @@ async function showReceipt(orderId) {
   }
 }
 
+// BOSQICH B6: chek pachka yorlig'i — savat item'ida _packLabel, server item'ida
+// unit_sold + base_qty (1 pachka = base_qty/quantity dona). Pachka bo'lmasa '' qaytadi.
+function _rcptPackLabel(i) {
+  if (i._packLabel) return i._packLabel;
+  const q = i.quantity || i.qty;
+  if (i.unit_sold === 'pachka' && i.base_qty && q) return `Pachka (${Math.round(i.base_qty / q)} dona)`;
+  return '';
+}
+
 function renderReceiptData(rec) {
   const t    = computeTotals();
   const body = document.getElementById('receiptBody');
@@ -1336,7 +1414,8 @@ function renderReceiptData(rec) {
           const per = MODE.isFitness  && i._end_date
             ? `📅 ${new Date(i._end_date).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'})} gacha`
             : '';
-          const sub = [d, m ? `✂️ ${m}` : '', dur ? `⏱ ${dur}` : '', per].filter(Boolean).join(' · ');
+          const pk  = _rcptPackLabel(i);
+          const sub = [pk ? `📦 ${pk}` : '', d, m ? `✂️ ${m}` : '', dur ? `⏱ ${dur}` : '', per].filter(Boolean).join(' · ');
           return `<tr><td>${i.name||i.product_name||''}${sub?`<br><small style="font-size:.65rem;color:#9a9ab8">${sub}</small>`:''}</td><td>${i.quantity||i.qty}</td>
           <td style="text-align:right">${fmtNum(i.total||(i.price*(i.qty||i.quantity)))}</td></tr>`;
         }).join('')}
@@ -1377,7 +1456,7 @@ function renderReceiptFallback(orderId) {
     <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem">Buyurtma #${orderId}</div>
     <table class="receipt-table">
       <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
-      <tbody>${state.cart.map(i=>`<tr><td>${i.name}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
+      <tbody>${state.cart.map(i=>`<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>
@@ -1548,6 +1627,8 @@ async function reopenHeldOrder(orderId) {
       _weight: i._weight ?? null,
       _unit: i._unit || null,
       _unitPrice: i._unitPrice ?? null,
+      _unitSold: i._unitSold || null,      // BOSQICH B4
+      _packLabel: i._packLabel || null,    // BOSQICH B4
       course_number: i.course_number || 1,
     }));
   } else {
@@ -1586,6 +1667,30 @@ document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
   else document.exitFullscreen?.();
 });
+
+// ─── BUG 3: Grid/List ko'rinishini almashtirish ─────────────────────────────────
+const _ICON_GRID = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>`;
+const _ICON_LIST = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 6h13M8 12h13M8 18h13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="3.5" cy="6" r="1.3" fill="currentColor"/><circle cx="3.5" cy="12" r="1.3" fill="currentColor"/><circle cx="3.5" cy="18" r="1.3" fill="currentColor"/></svg>`;
+
+function applyPosView() {
+  const grid = document.getElementById('productsGrid');
+  if (grid) grid.classList.toggle('list-view', _posView === 'list');
+  const btn = document.getElementById('viewToggleBtn');
+  if (btn) {
+    const isList = _posView === 'list';
+    // Tugmada — o'tiladigan ko'rinish ikonkasi (list'da → grid ikonka)
+    btn.innerHTML = isList ? _ICON_GRID : _ICON_LIST;
+    btn.title = isList ? "Katta (grid) ko'rinishga o'tish" : "Ro'yxat (list) ko'rinishga o'tish";
+  }
+}
+
+function togglePosView() {
+  _posView = _posView === 'list' ? 'grid' : 'list';
+  applyPosView();
+}
+
+document.getElementById('viewToggleBtn')?.addEventListener('click', togglePosView);
+applyPosView();   // boshlang'ich ikonka + grid klassi
 
 // ─── Audio feedback ───────────────────────────────────────────────────────────
 let _audioCtx = null;

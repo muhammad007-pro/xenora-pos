@@ -338,7 +338,10 @@ async def get_order_receipt(
                 "sale_unit": item.product.sale_unit,
                 "unit_price": item.unit_price,
                 "total": item.total_price,
-                "notes": item.notes
+                "notes": item.notes,
+                # BOSQICH B6 (pachka/dona): chek yorlig'i uchun
+                "unit_sold": item.unit_sold,
+                "base_qty": item.base_qty,
             }
             for item in order.items
         ],
@@ -412,7 +415,10 @@ async def print_order_receipt(
         "receipt_number": order.order_number,
         "items": [
             {
-                "name": it.product.name if it.product else "",
+                # BOSQICH B6: pachka sotilsa nomga yorliq (termal chek) — 1 pachka = N dona
+                "name": ((it.product.name if it.product else "")
+                         + (f" (pachka, {int(it.base_qty / it.quantity)} dona)"
+                            if it.unit_sold == "pachka" and it.base_qty and it.quantity else "")),
                 "quantity": it.quantity,
                 "unit_price": it.unit_price,
                 "total": it.total_price,

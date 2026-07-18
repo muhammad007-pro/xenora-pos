@@ -117,10 +117,14 @@ Frontend PWA cache (alohida versiya sxemasi):
 
 ## 5. Native build
 
+> **v1.2.2 build:** Android `versionCode 9` / `versionName 1.2.2`; Electron `1.2.2`.
+> Ikkala platforma ilova ichida **1.2.2** ko'rsatadi (version.js/login.html bilan izchil).
+
 **Android (APK):**
-- GitHub Actions workflow: **"Android APK Build"** (`.github/workflows/android.yml`).
-- `git push origin main` → workflow ishga tushadi (yoki Actions → Run workflow qo'lda).
-- APK: Actions run → **Artifacts** dan yuklab olinadi.
+- GitHub Actions workflow: **"Android APK Build"** (`.github/workflows/android.yml`) — `workflow_dispatch` (qo'lda).
+- Trigger: `gh workflow run android.yml` (yoki Actions tab → Run workflow). Push AVTOMATIK ishga tushirmaydi.
+- `npx cap sync android` frontend (v1.2.2) ni Android assets'ga ko'chiradi → APK yangi frontend bilan.
+- APK: Actions run → **Artifacts** (`XENORA-app-debug`) dan yuklab olinadi.
 - (Bu mashinada Java/SDK yo'q — Android faqat Actions'da quriladi.)
 
 **Windows (.exe) — Electron:**

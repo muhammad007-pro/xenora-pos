@@ -29,6 +29,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openBackupFolder: () => ipcRenderer.invoke('backup:open-folder'),
     pickBackupFile: () => ipcRenderer.invoke('backup:pick'),
 
+    // Chek LOKAL silent print (do'kon kompyuteridagi printerga)
+    printReceipt: (payload) => ipcRenderer.invoke('print-receipt', payload),
+    listPrinters: () => ipcRenderer.invoke('list-printers'),
+
     // Oyna boshqaruvi
     minimize: () => ipcRenderer.send('window-minimize'),
     maximize: () => ipcRenderer.send('window-maximize'),

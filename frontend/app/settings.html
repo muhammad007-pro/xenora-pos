@@ -330,6 +330,15 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
         <div class="form-row full pm-spooler" style="display:none">
           <div class="form-group"><label>Lokal port</label><input id="printerSpoolerPort" placeholder="COM1 / /dev/usb/lp0"></div>
         </div>
+        <!-- LOKAL silent print (Electron) — chek do'kon kompyuteridagi printerga chiqadi -->
+        <div class="form-row full">
+          <div class="form-group">
+            <label>Chek printeri (Windows nomi)</label>
+            <input id="printerName" list="printerNameList" placeholder="Bo'sh = standart printer (masalan: XP-58)">
+            <datalist id="printerNameList"></datalist>
+            <div class="toggle-hint" style="margin-top:.35rem">Chek do'kon kompyuteridagi shu printerga chiqadi (Electron silent). Bo'sh qolsa — OS standart printeri.</div>
+          </div>
+        </div>
         <div style="margin-bottom:1rem">
           <div class="toggle-row">
             <div><div class="toggle-label">Avtomatik chop etish</div><div class="toggle-hint">To'lovdan so'ng chek avtomatik chiqadi</div></div>
@@ -981,9 +990,24 @@ async function loadPrinterSettings() {
   if (r.vendor_id)    document.getElementById('printerVendor').value  = r.vendor_id;
   if (r.product_id)   document.getElementById('printerProduct').value = r.product_id;
   if (r.spooler_port) document.getElementById('printerSpoolerPort').value = r.spooler_port;
+  if (r.printer_name) document.getElementById('printerName').value = r.printer_name;
   document.getElementById('printerAutoPrint').checked = !!r.auto_print;
   document.getElementById('printerKitchen').checked   = !!r.kitchen_print;
   _applyPrinterMode();
+  _loadElectronPrinters();
+}
+
+// Electron'da mavjud printerlar ro'yxatini datalist'ga to'ldirish (tanlash qulay)
+async function _loadElectronPrinters() {
+  try {
+    if (!(window.electronAPI && window.electronAPI.listPrinters)) return;
+    const list = await window.electronAPI.listPrinters();
+    const dl = document.getElementById('printerNameList');
+    if (!dl || !Array.isArray(list)) return;
+    dl.innerHTML = list.map(p =>
+      `<option value="${(p.name||'').replace(/"/g,'&quot;')}">${p.isDefault ? '(standart) ' : ''}${(p.displayName||p.name||'')}</option>`
+    ).join('');
+  } catch { /* Electron emas — datalist bo'sh qoladi */ }
 }
 
 document.getElementById('testPrinterBtn').onclick = async () => {
@@ -1000,6 +1024,7 @@ document.getElementById('savePrinterBtn').onclick = async () => {
     vendor_id:    document.getElementById('printerVendor').value.trim(),
     product_id:   document.getElementById('printerProduct').value.trim(),
     spooler_port: document.getElementById('printerSpoolerPort').value.trim(),
+    printer_name: document.getElementById('printerName').value.trim(),
     auto_print:   document.getElementById('printerAutoPrint').checked,
     kitchen_print:document.getElementById('printerKitchen').checked,
   };

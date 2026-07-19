@@ -3,6 +3,28 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.4] — 2026-07-20
+
+Chek LOKAL silent print + reprint. **Migratsiya YO'Q** (kod, DB emas).
+
+### Tuzatildi
+- **Chek printerga chiqmasligi (KRITIK):** backend SERVERda (146.190.225.168) ishlaydi va
+  do'kondagi USB printer (XP-58) ga yeta olmasdi; ustiga `mode=mock` yolg'on "yuborildi" toast
+  ko'rsatib `window.print()` fallback'ni bloklardi. Endi chek **do'kon kompyuterida LOKAL**
+  chiqadi: Electron'da yashirin oyna orqali **silent** (dialogsiz) print, brauzerda iframe dialog.
+  Server ESC/POS yo'li POS'dan bypass qilindi; mock yolg'on-muvaffaqiyat olib tashlandi (xatoda aniq toast).
+
+### Qo'shildi
+- **Chek reprint (qayta chop):** POS "Chop etish" tugmasi oxirgi chekni qayta bosadi; Sotuvlar
+  tarixida har sotuv yonida 🖨 tugma + sotuv detali modalida "Chekni chop etish". Bir xil LOKAL silent yo'l.
+- **Chek printeri sozlamasi:** Sozlamalar → Printer → "Chek printeri (Windows nomi)" (`printer_name`,
+  bo'sh = OS standart printeri) + Electron mavjud printerlar ro'yxati (datalist).
+
+### Texnik
+- `electron/main.js` `print-receipt`/`list-printers` IPC (silent `webContents.print`); `preload.js` ko'prigi.
+- `frontend/js/core/receipt-print.js` (yangi) — `printReceiptHTML` + `buildReceipt58` (58mm); global scope tegmaydi.
+- `backend/routers/settings.py` — `/settings/printer/status` endi `printer_name` qaytaradi.
+
 ## [1.2.3] — 2026-07-19
 
 Sodiqlik (mijoz % chegirma), nasiya tez mijoz, Firmalar iframe, yangi grafik + bug fixlar.

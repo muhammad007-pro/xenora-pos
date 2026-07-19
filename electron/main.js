@@ -70,6 +70,58 @@ ipcMain.handle('toggle-fullscreen', () => {
 });
 ipcMain.handle('is-fullscreen', () => (mainWindow ? mainWindow.isFullScreen() : false));
 
+// ── Chek: LOKAL silent print (do'kon kompyuteridagi printerga) ──
+// Backend SERVERda (146.190.225.168) ishlaydi va do'kondagi USB printerga (XP-58)
+// yeta OLMAYDI. Shu sabab chek shu yerda — Electron ichida, yashirin oynada
+// yuklanib — LOKAL printerga silent (dialogsiz) yuboriladi.
+// deviceName bo'sh bo'lsa OS standart printeri ishlatiladi.
+ipcMain.handle('print-receipt', async (_e, payload) => {
+    const { html, deviceName } = payload || {};
+    if (!html) return { ok: false, error: "Chek HTML bo'sh" };
+    let win = null;
+    try {
+        win = new BrowserWindow({
+            show: false,
+            webPreferences: { offscreen: false, sandbox: true },
+        });
+        await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+        // Layout + (bo'lsa) rasm/QR yuklanishiga ozgina vaqt
+        await new Promise((r) => setTimeout(r, 300));
+        const result = await new Promise((resolve) => {
+            win.webContents.print(
+                {
+                    silent: true,
+                    deviceName: deviceName || '',
+                    margins: { marginType: 'none' },
+                    printBackground: false,
+                },
+                (success, failureReason) =>
+                    resolve({ ok: !!success, error: success ? null : (failureReason || 'Print bekor qilindi') })
+            );
+        });
+        return result;
+    } catch (err) {
+        console.error('print-receipt error', err);
+        return { ok: false, error: err.message };
+    } finally {
+        if (win && !win.isDestroyed()) win.close();
+    }
+});
+
+// Mavjud printerlar ro'yxati (sozlamada tanlash uchun)
+ipcMain.handle('list-printers', async () => {
+    try {
+        if (!mainWindow) return [];
+        const printers = await mainWindow.webContents.getPrintersAsync();
+        return (printers || []).map((p) => ({
+            name: p.name, displayName: p.displayName, isDefault: p.isDefault, status: p.status,
+        }));
+    } catch (err) {
+        console.error('list-printers error', err);
+        return [];
+    }
+});
+
 // Kirish nuqtasi — TO'G'RIDAN login sahifasi (landing/index.html chetlab o'tiladi).
 // login.html allaqachon: token bo'lsa avtomatik app'ga (rol bo'yicha) yo'naltiradi.
 function resolveFrontend() {

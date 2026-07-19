@@ -7,6 +7,7 @@ import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
+import { printReceiptHTML }  from '../core/receipt-print.js';
 
 const api = new API();
 
@@ -1437,24 +1438,26 @@ async function loadPrinterStatus() {
   } catch { /* status olinmasa — window.print fallback ishlaydi */ }
 }
 
-// Chekni ESC/POS printerga yuborish. Printer o'chiq yoki xato bo'lsa —
-// brauzer window.print() ga qaytadi (orqaga moslik).
-async function sendEscposPrint(orderId) {
-  if (!orderId) { window.print(); return false; }
-  try {
-    const res  = await api.post(`/orders/${orderId}/print`, {});
-    const data = res && res.data;              // api.js wrapped: {success,data}
-    if (res && res.success && data && data.ok) {
-      toast(`Chek yuborildi (${data.mode || 'printer'})`, 'success');
-      return true;
-    }
-    // enabled=false (disabled) yoki xato → brauzer chop etish
-    window.print();
-    return false;
-  } catch {
-    window.print();
-    return false;
+// Chekni LOKAL printerga chiqarish (do'kon kompyuteridagi XP-58).
+// MUHIM: Backend SERVERda ishlaydi va do'kondagi USB printerga yeta olmaydi,
+// shuning uchun server ESC/POS yo'li ISHLATILMAYDI (mock yolg'on "yuborildi"
+// yo'q). Electron'da yashirin oyna orqali silent (dialogsiz) print, brauzerda
+// esa oddiy print dialogi (fallback). Chek mazmuni #receiptBody dan olinadi —
+// S3 chegirma yorlig'i, pachka, jami — barchasi saqlanadi.
+async function sendEscposPrint(_orderId) {
+  const inner = (document.getElementById('receiptBody') || {}).innerHTML || '';
+  if (!inner.trim()) { toast('Chek mavjud emas', 'warning'); return false; }
+  const res = await printReceiptHTML(inner, {
+    deviceName: _printerStatus.printer_name || '',
+    title: 'Chek',
+  });
+  if (res && res.ok) {
+    if (!res.browser) toast('Chek chiqarildi', 'success');  // brauzer dialogida jimgina
+    return true;
   }
+  // HAQIQIY xato — jimgina "yuborildi" demaymiz
+  toast('Chek chiqmadi: ' + ((res && res.error) || "noma'lum xato"), 'error');
+  return false;
 }
 
 async function showReceipt(orderId) {
@@ -1570,9 +1573,8 @@ function renderReceiptFallback(orderId) {
   `;
 }
 document.getElementById('printReceiptBtn').addEventListener('click', () => {
-  // ESC/POS printer yoqilgan bo'lsa unga, aks holda brauzer chop etish (fallback)
-  if (_lastReceiptOrderId && _printerStatus.enabled) sendEscposPrint(_lastReceiptOrderId);
-  else window.print();
+  // Chekni LOKAL printerga (Electron silent / brauzer dialog) — reprint ham shu.
+  sendEscposPrint(_lastReceiptOrderId);
 });
 
 // ─── Hold order ───────────────────────────────────────────────────────────────

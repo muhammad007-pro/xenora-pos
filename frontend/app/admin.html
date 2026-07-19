@@ -661,6 +661,7 @@
             <div style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</div>
           </div>
           <div class="modal-footer">
+            <button class="tb-btn" id="sdReprintBtn" data-reprint="">🖨 Chekni chop etish</button>
             <button class="tb-btn" onclick="closeModal('saleDetailModal')">Yopish</button>
           </div>
         </div>
@@ -3292,6 +3293,46 @@ initErrorHandler();
 <script src="../js/admin/food.js"></script>
 <script src="../js/admin/settings.js"></script>
 <script src="../js/admin/branches.js"></script>
+
+<!-- Chek REPRINT (Sotuvlar tarixi) — LOKAL silent print. Module: global scope tegmaydi. -->
+<script type="module">
+import { printReceiptHTML, buildReceipt58 } from '../js/core/receipt-print.js';
+
+let _deviceName = '';   // Windows printer nomi (bo'sh = OS default)
+(async () => {
+  try {
+    const s = await window.apiFetch('/settings/printer/status');
+    if (s && typeof s.printer_name === 'string') _deviceName = s.printer_name;
+  } catch { /* status olinmasa OS default printer */ }
+})();
+
+async function reprintOrder(id) {
+  if (!id) return;
+  try {
+    const rec = await window.apiFetch('/orders/' + id + '/receipt');
+    const html = buildReceipt58(rec);
+    const res = await printReceiptHTML(html, { deviceName: _deviceName, title: 'Chek #' + (rec.order_number || id) });
+    if (res && res.ok) {
+      if (!res.browser) window.toast && window.toast('Chek chiqarildi', 'success');
+    } else {
+      window.toast && window.toast('Chek chiqmadi: ' + ((res && res.error) || "noma'lum xato"), 'error');
+    }
+  } catch (err) {
+    window.toast && window.toast('Chek xato: ' + (err.message || err), 'error');
+  }
+}
+
+// CAPTURE fazasi: reprint tugmasi bosilganda qator onclick (openSaleDetail) ochilmasin.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-reprint]');
+  if (!btn) return;
+  const id = btn.dataset.reprint;
+  if (!id) return;
+  e.preventDefault();
+  e.stopPropagation();
+  reprintOrder(id);
+}, true);
+</script>
 
 <!-- Product Modal (dinamik — buildProductModal() tomonidan to'ldiriladi) -->
 <div id="productModal" style="position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s">

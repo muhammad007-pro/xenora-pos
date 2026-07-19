@@ -64,6 +64,8 @@ async def printer_status(
         "auto_print": bool(cfg.get("auto_print")),
         "mode":       cfg.get("mode", "mock"),
         "width":      int(cfg.get("width") or 80),
+        # LOKAL silent print uchun Windows printer nomi (bo'sh → OS default printer)
+        "printer_name": cfg.get("printer_name") or "",
     }
 
 

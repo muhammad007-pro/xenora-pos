@@ -1,0 +1,174 @@
+/**
+ * XENORA — Chek LOKAL chop etish (silent print) qatlami.
+ *
+ * NEGA: Backend SERVERda ishlaydi (146.190.225.168), XP-58 esa DO'KON
+ * kompyuteriga USB orqali ulangan. Server do'kondagi USB printerga yeta
+ * olmaydi. Shu sabab chek MIJOZ tomonda (Electron) — yashirin oynada
+ * yuklanib — LOKAL printerga silent (dialogsiz) yuboriladi.
+ *
+ *   Electron → window.electronAPI.printReceipt({html, deviceName})  (silent)
+ *   Brauzer  → yashirin iframe ichida window.print()                (dialog)
+ *
+ * Bu modul HECH QANDAY global o'zgaruvchi yaratmaydi — faqat export qiladi.
+ */
+
+// Electron server rejimida printReceipt IPC mavjudmi?
+export function isElectron() {
+  return !!(window.electronAPI && window.electronAPI.isElectron && window.electronAPI.printReceipt);
+}
+
+// ── 58mm termal chek uslubi (qora matn, oq fon) ────────────────────────────────
+// Ham buildReceipt58() chiqishi, ham POS #receiptBody innerHTML (.receipt-* / .rt-row)
+// bir xil renderlansin. CSS o'zgaruvchilari (var(--...)) bu yangi hujjatda
+// aniqlanmagan → majburan qora rang.
+const RECEIPT_CSS = `
+  *{margin:0;padding:0;box-sizing:border-box}
+  @page{margin:0}
+  html,body{background:#fff}
+  .r58{width:58mm;max-width:58mm;margin:0 auto;padding:2mm 1.5mm;
+       font-family:'Courier New',monospace;font-size:11px;line-height:1.35;color:#000}
+  .r58, .r58 *{color:#000 !important;background:transparent !important;border-color:#000 !important}
+  .r58 h4{font-size:13px;font-weight:700;margin-bottom:2px}
+  .r58 small{font-size:9px}
+  .r58 img{max-width:100%;display:block;margin:3px auto}
+  .receipt-center{text-align:center;margin-bottom:6px;padding-bottom:6px;border-bottom:1px dashed #000}
+  .receipt-center p{font-size:10px;line-height:1.5}
+  .receipt-table{width:100%;border-collapse:collapse;margin:4px 0}
+  .receipt-table th{text-align:left;font-size:10px;font-weight:700;border-bottom:1px solid #000;padding:1px 2px}
+  .receipt-table td{padding:1px 2px;font-size:10px;vertical-align:top}
+  .receipt-table td:last-child,.receipt-table th:last-child{text-align:right}
+  .receipt-totals{border-top:1px dashed #000;padding-top:4px;margin-top:4px}
+  .rt-row{display:flex;justify-content:space-between;font-size:11px;padding:1px 0}
+  .rt-row.bold{font-weight:700;font-size:12px;border-top:1px solid #000;margin-top:3px;padding-top:3px}
+  .receipt-footer{text-align:center;border-top:1px dashed #000;margin-top:5px;padding-top:5px;font-size:10px;line-height:1.6}
+`;
+
+function wrapDoc(innerHTML, title) {
+  return `<!DOCTYPE html><html lang="uz"><head><meta charset="UTF-8">`
+    + `<title>${title || 'Chek'}</title><style>${RECEIPT_CSS}</style></head>`
+    + `<body><div class="r58">${innerHTML}</div></body></html>`;
+}
+
+// Brauzer (PWA) fallback — yashirin iframe ichida chop etish (butun sahifa emas).
+function _printViaIframe(html) {
+  return new Promise((resolve) => {
+    const ifr = document.createElement('iframe');
+    Object.assign(ifr.style, {
+      position: 'fixed', right: '0', bottom: '0', width: '0', height: '0',
+      border: '0', visibility: 'hidden',
+    });
+    let done = false;
+    const finish = (res) => { if (done) return; done = true; try { ifr.remove(); } catch {} resolve(res); };
+    ifr.onload = () => {
+      try {
+        ifr.contentWindow.focus();
+        ifr.contentWindow.print();
+      } catch (e) { finish({ ok: false, error: e.message, browser: true }); return; }
+      setTimeout(() => finish({ ok: true, browser: true }), 1200);
+    };
+    document.body.appendChild(ifr);
+    try {
+      const doc = ifr.contentWindow.document;
+      doc.open(); doc.write(html); doc.close();
+    } catch (e) { finish({ ok: false, error: e.message, browser: true }); }
+  });
+}
+
+/**
+ * Chek innerHTML (58mm) ni LOKAL printerga chiqarish.
+ * @returns {Promise<{ok:boolean, error?:string, browser?:boolean}>}
+ *   ok:true  — chiqarildi. browser:true bo'lsa brauzer dialogi ishlatildi.
+ *   ok:false — HAQIQIY xato (jimgina "yuborildi" demaymiz).
+ */
+export async function printReceiptHTML(innerHTML, opts = {}) {
+  if (!innerHTML || !String(innerHTML).trim()) return { ok: false, error: 'Chek bo\'sh' };
+  const html = wrapDoc(innerHTML, opts.title);
+  if (isElectron()) {
+    try {
+      const res = await window.electronAPI.printReceipt({ html, deviceName: opts.deviceName || '' });
+      return res && typeof res === 'object' ? res : { ok: false, error: 'Printerdan javob yo\'q' };
+    } catch (e) {
+      return { ok: false, error: e.message || 'Electron print xato' };
+    }
+  }
+  return _printViaIframe(html);
+}
+
+// ── Yordamchi: pul + HTML-escape ───────────────────────────────────────────────
+function _money(n) {
+  const v = Math.round(Number(n) || 0);
+  return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+function _esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+const _PAY = { cash: 'Naqd', card: 'Karta', click: 'Click', payme: 'Payme', credit: 'Nasiya', transfer: "O'tkazma", room_charge: 'Xona hisobi' };
+
+/**
+ * `/orders/{id}/receipt` server ma'lumotidan 58mm chek innerHTML yasash (REPRINT uchun).
+ * Chek mazmuni POS chekiga mos: pachka yorlig'i, chegirma, jami, to'lov, fiskal QR.
+ */
+export function buildReceipt58(rec) {
+  rec = rec || {};
+  const items = rec.items || [];
+  const sub = rec.subtotal != null ? rec.subtotal : rec.total_amount;
+  const disc = rec.discount_amount != null ? rec.discount_amount : (rec.discount || 0);
+  const tax = rec.tax_amount != null ? rec.tax_amount : (rec.tax || 0);
+  const service = rec.service_amount || 0;
+  const total = rec.final_amount != null ? rec.final_amount : rec.total;
+  const pays = rec.payment_methods || [];
+  const payTxt = pays.length
+    ? pays.map(p => _PAY[p.method] || p.method).join(', ')
+    : '—';
+
+  const rowsHtml = items.map(it => {
+    const name = _esc(it.name || it.product_name || '');
+    const qty = it.quantity != null ? it.quantity : (it.qty || 1);
+    const line = it.total != null ? it.total : (it.total_price || 0);
+    // Pachka yorlig'i (1 pachka = base_qty/quantity dona) — POS bilan bir xil
+    let sub2 = '';
+    if (it.unit_sold === 'pachka' && it.base_qty && qty) {
+      sub2 = `<br><small>📦 Pachka (${Math.round(it.base_qty / qty)} dona)</small>`;
+    }
+    return `<tr><td>${name}${sub2}</td><td>${_esc(qty)}</td>`
+      + `<td style="text-align:right">${_money(line)}</td></tr>`;
+  }).join('');
+
+  const dateTxt = _esc(rec.date || new Date().toLocaleString('uz-UZ'));
+  const num = _esc(rec.order_number != null ? rec.order_number : (rec.order_id || ''));
+
+  let html = `
+    <div class="receipt-center">
+      <h4>${_esc(rec.cafe_name || 'XENORA')}</h4>
+      <p>${_esc(rec.cafe_address || '')}${rec.cafe_address ? '<br>' : ''}${dateTxt}</p>
+    </div>
+    <div style="font-size:10px;margin-bottom:4px">Chek #${num}${rec.table ? ' | Stol: #' + _esc(rec.table) : ''}</div>
+    <table class="receipt-table">
+      <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
+      <tbody>${rowsHtml || '<tr><td colspan="3">—</td></tr>'}</tbody>
+    </table>
+    <div class="receipt-totals">
+      <div class="rt-row"><span>Jami:</span><span>${_money(sub)}</span></div>
+      ${(disc > 0) ? `<div class="rt-row"><span>Chegirma:</span><span>-${_money(disc)}</span></div>` : ''}
+      ${(tax > 0) ? `<div class="rt-row"><span>Soliq (12%):</span><span>${_money(tax)}</span></div>` : ''}
+      ${(service > 0) ? `<div class="rt-row"><span>Xizmat (10%):</span><span>${_money(service)}</span></div>` : ''}
+      <div class="rt-row bold"><span>UMUMIY:</span><span>${_money(total)} UZS</span></div>
+      <div class="rt-row"><span>To'lov:</span><span>${_esc(payTxt)}</span></div>
+    </div>
+    <div class="receipt-footer">Xarid uchun rahmat!</div>`;
+
+  if (rec.fiscal_qr_url) {
+    html += `
+    <div style="text-align:center;margin-top:5px;padding-top:5px;border-top:1px dashed #000">
+      <div style="font-size:10px;font-weight:700">🧾 FISKAL CHEK</div>
+      ${rec.fiscal_number ? `<div style="font-size:9px">№ ${_esc(rec.fiscal_number)}</div>` : ''}
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(rec.fiscal_qr_url)}"
+           width="110" height="110" alt="Fiskal QR" onerror="this.style.display='none'">
+      <div style="font-size:9px">Soliq ilovasida skanerlang</div>
+    </div>`;
+  }
+  return html;
+}

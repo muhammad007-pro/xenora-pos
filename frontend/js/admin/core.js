@@ -824,7 +824,7 @@ async function loadSalesHistory() {
         <td>${pay}</td>
         <td class="td-gold">${fmtMoney(o.final_amount)}</td>
         <td><span class="badge ${sCls}">${sLbl}</span></td>
-        <td class="td-actions"><button class="act-btn" title="Ko'rish" onclick="event.stopPropagation();openSaleDetail(${o.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></button></td>
+        <td class="td-actions"><button class="act-btn" title="Chekni chop etish" data-reprint="${o.id}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 21h12v-6H6v6z" stroke="currentColor" stroke-width="1.8"/><path d="M18 9h2a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="1.8"/></svg></button><button class="act-btn" title="Ko'rish" onclick="event.stopPropagation();openSaleDetail(${o.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></button></td>
       </tr>`;
     }).join('');
     const total = data.total || orders.length;
@@ -847,6 +847,7 @@ async function openSaleDetail(id) {
   try {
     const o = await apiFetch('/orders/' + id);
     document.getElementById('sdTitle').textContent = 'Chek ' + (o.daily_number != null ? '#'+o.daily_number : (o.order_number||''));
+    const _rb = document.getElementById('sdReprintBtn'); if (_rb) _rb.dataset.reprint = id;
     const pay = o.payment_method ? (_payLabel[o.payment_method]||o.payment_method) : '—';
     const rows = (o.items||[]).map(it => `
       <tr>

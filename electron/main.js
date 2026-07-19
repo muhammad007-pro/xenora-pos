@@ -71,10 +71,15 @@ ipcMain.handle('toggle-fullscreen', () => {
 ipcMain.handle('is-fullscreen', () => (mainWindow ? mainWindow.isFullScreen() : false));
 
 // ── Chek: LOKAL silent print (do'kon kompyuteridagi printerga) ──
-// Backend SERVERda (146.190.225.168) ishlaydi va do'kondagi USB printerga (XP-58)
+// Backend SERVERda (146.190.225.168) ishlaydi va do'kondagi USB printerga (XP-58C)
 // yeta OLMAYDI. Shu sabab chek shu yerda — Electron ichida, yashirin oynada
 // yuklanib — LOKAL printerga silent (dialogsiz) yuboriladi.
-// deviceName bo'sh bo'lsa OS standart printeri ishlatiladi.
+//
+// MUHIM: deviceName BO'SH bo'lsa `deviceName` kalitini BERMAYMIZ (bo'sh satr EMAS)
+// — shundagina Electron OS STANDART printerini (XP-58C) ishlatadi. `deviceName:''`
+// berish default'ga tushmaydi va chek hech qayerga ketadi (eski bug).
+// pageSize — 58mm termal rolik (A4 emas); balandlik chek kontentiga qarab.
+const PX_TO_MICRON = 264.58; // 1 CSS px ≈ 264.58 mikron (96dpi)
 ipcMain.handle('print-receipt', async (_e, payload) => {
     const { html, deviceName } = payload || {};
     if (!html) return { ok: false, error: "Chek HTML bo'sh" };
@@ -87,16 +92,31 @@ ipcMain.handle('print-receipt', async (_e, payload) => {
         await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
         // Layout + (bo'lsa) rasm/QR yuklanishiga ozgina vaqt
         await new Promise((r) => setTimeout(r, 300));
+
+        // Chek kontenti balandligini o'lchab, sahifa balandligini shунга moslash
+        // (termal rolik uzluksiz — ortiqcha bo'sh qog'oz chiqmasin).
+        let pageHeight = 200000; // fallback ~200mm
+        try {
+            const h = await win.webContents.executeJavaScript('document.body.scrollHeight');
+            if (h && h > 0) pageHeight = Math.round(h * PX_TO_MICRON) + 6000; // + kichik quyruq
+        } catch { /* o'lchab bo'lmasa fallback */ }
+
+        const printOpts = {
+            silent: true,
+            margins: { marginType: 'none' },
+            printBackground: false,
+            pageSize: { width: 58000, height: pageHeight }, // 58mm = 58000 mikron
+        };
+        // Faqat NOMLI printer bo'lsa deviceName beramiz; bo'sh → OS default (XP-58C).
+        if (deviceName && String(deviceName).trim()) printOpts.deviceName = String(deviceName).trim();
+
         const result = await new Promise((resolve) => {
-            win.webContents.print(
-                {
-                    silent: true,
-                    deviceName: deviceName || '',
-                    margins: { marginType: 'none' },
-                    printBackground: false,
-                },
-                (success, failureReason) =>
-                    resolve({ ok: !!success, error: success ? null : (failureReason || 'Print bekor qilindi') })
+            win.webContents.print(printOpts, (success, failureReason) =>
+                resolve({
+                    ok: !!success,
+                    error: success ? null : (failureReason || 'Printer topilmadi yoki chop bekor qilindi'),
+                    device: printOpts.deviceName || '(OS default)',
+                })
             );
         });
         return result;

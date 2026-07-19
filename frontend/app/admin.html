@@ -1865,6 +1865,12 @@
                 <select class="form-control" id="rsFontSize"><option value="normal">Normal</option><option value="small">Kichik</option><option value="large">Katta</option></select>
               </div>
             </div>
+            <div class="form-group">
+              <label>Chek printeri (silent print)</label>
+              <input class="form-control" id="rsPrinter" list="rsPrinterList" placeholder="Bo'sh = Windows standart printeri (XP-58C)">
+              <datalist id="rsPrinterList"></datalist>
+              <small style="color:var(--text3);display:block;margin-top:.35rem">Chek shu printerga chiqadi. Bo'sh qolsa — Windows standart printeri ishlatiladi.</small>
+            </div>
             <div class="form-group" style="display:flex;align-items:center;gap:.75rem">
               <input type="checkbox" id="rsQrEnabled" onchange="document.getElementById('rsQrUrlGroup').style.display=this.checked?'block':'none'">
               <label for="rsQrEnabled" style="margin:0">QR-kod chekda ko'rinsin (fiskal link)</label>

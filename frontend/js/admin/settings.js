@@ -223,6 +223,22 @@ async function loadReceiptSettings() {
   document.getElementById('rsQrEnabled').checked = !!s.qr_enabled;
   document.getElementById('rsQrUrlGroup').style.display = s.qr_enabled ? '' : 'none';
   document.getElementById('rsQrUrl').value = s.qr_url || '';
+
+  // ── Chek printeri (tenant printer config /settings/printer) ──
+  try {
+    const p = await apiFetch(`/settings/printer`);
+    const rp = document.getElementById('rsPrinter');
+    if (rp && p && typeof p.printer_name === 'string') rp.value = p.printer_name;
+  } catch { /* printer config yo'q — bo'sh (OS default) */ }
+  // Electron'da mavjud printerlar ro'yxati (datalist)
+  try {
+    if (window.electronAPI && window.electronAPI.listPrinters) {
+      const list = await window.electronAPI.listPrinters();
+      const dl = document.getElementById('rsPrinterList');
+      if (dl && Array.isArray(list)) dl.innerHTML = list.map(pr =>
+        `<option value="${(pr.name||'').replace(/"/g,'&quot;')}">${pr.isDefault?'(standart) ':''}${pr.displayName||pr.name||''}</option>`).join('');
+    }
+  } catch { /* Electron emas — datalist bo'sh */ }
 }
 async function saveReceiptSettings() {
   const body = {
@@ -238,6 +254,11 @@ async function saveReceiptSettings() {
     qr_url: document.getElementById('rsQrUrl').value.trim(),
   };
   await apiFetchPost(`/receipt-settings/`, body, 'PUT');
+  // Chek printerini (silent print deviceName) tenant printer config'ga saqlash
+  try {
+    const rp = document.getElementById('rsPrinter');
+    if (rp) await apiFetchPost(`/settings/printer`, { printer_name: rp.value.trim() }, 'PATCH');
+  } catch { /* printer saqlanmasa chek sozlamasi baribir saqlandi */ }
   toast('Chek sozlamalari saqlandi!');
   previewReceipt();
 }

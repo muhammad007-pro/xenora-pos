@@ -85,7 +85,8 @@ export async function printReceiptHTML(innerHTML, opts = {}) {
   const html = wrapDoc(innerHTML, opts.title);
   if (isElectron()) {
     try {
-      const res = await window.electronAPI.printReceipt({ html, deviceName: opts.deviceName || '' });
+      // deviceName bo'sh bo'lsa uzatmaymiz — main.js OS default printerni ishlatadi.
+      const res = await window.electronAPI.printReceipt({ html, deviceName: (opts.deviceName || '').trim() });
       return res && typeof res === 'object' ? res : { ok: false, error: 'Printerdan javob yo\'q' };
     } catch (e) {
       return { ok: false, error: e.message || 'Electron print xato' };

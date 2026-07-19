@@ -3,6 +3,25 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.5] — 2026-07-20
+
+Chek silent print jonli sinov tuzatish. **Migratsiya YO'Q** (kod).
+
+### Tuzatildi
+- **Chek chiqmasligi (silent print, KRITIK):** XP-58C Windows default bo'lsa ham chek chiqmadi va
+  "Chek chiqarildi" yolg'on toast ko'rsatilardi. Sabab: `webContents.print` ga `deviceName:''`
+  (bo'sh satr) berilardi — bu OS default'ga tushmaydi (kalitni butunlay tushirish kerak), job
+  hech qayerga ketib baribir `success=true` qaytarardi. Endi deviceName bo'sh bo'lsa **kalit
+  berilmaydi** → Windows standart printeri (XP-58C) ishlatiladi.
+- **58mm pageSize:** print A4 emas, `pageSize {width:58000, height: kontent}` (mikронда) — termal
+  rolikga mos, ortiqcha bo'sh qog'oz yo'q.
+- **Toast halolligi:** "Chek chiqarildi" faqat print callback muvaffaqiyatida; xatoда aniq
+  "Chek chiqmadi: printer topilmadi/…".
+
+### Qo'shildi
+- **Chek printeri tanlash:** "Chek sozlamalari" sahifasida printer datalist (Electron mavjud
+  printerlar ro'yxati; XP-58C tanlanadi, `printer_name` tenant config'ga saqlanadi). Bo'sh = OS default.
+
 ## [1.2.4] — 2026-07-20
 
 Chek LOKAL silent print + reprint. **Migratsiya YO'Q** (kod, DB emas).

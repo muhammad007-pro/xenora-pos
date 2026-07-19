@@ -1,10 +1,9 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
-> Oxirgi tasdiqlangan deploy: **v1.2.2** (2026-07-18) — Pachka/Dona to'liq (B0–B7), mahsulot/ombor bug'lari, ombor qiymati KPI.
-> ⚠️ **2 MIGRATSIYA:** `a7b8c9d0e1f2` (pack ustunlar: products.pack_size/pack_price, order_items.base_qty/unit_sold),
-> `b8c9d0e1f2a3` (return_items.base_qty). Deploy'da `alembic upgrade head` + backup shart.
-> (Oldingi: v1.2.1 2026-07-14 brend ∞; v1.2.0 2026-07-13 RBAC audit; v1.0.3 2026-07-11 `8800a6d`.)
+> Oxirgi tasdiqlangan deploy: **v1.2.3** (2026-07-19) — Sodiqlik (mijoz % chegirma), nasiya tez mijoz, Firmalar iframe, yangi SVG grafik + getApiBase fixlar.
+> ⚠️ **1 MIGRATSIYA:** `c9d0e1f2a3b4` (customers.discount_percent). Android versionCode **10** / 1.2.3.
+> (Oldingi: v1.2.2 2026-07-18 Pachka/Dona [`a7b8c9d0e1f2`,`b8c9d0e1f2a3`]; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
 
 ---
 
@@ -117,8 +116,8 @@ Frontend PWA cache (alohida versiya sxemasi):
 
 ## 5. Native build
 
-> **v1.2.2 build:** Android `versionCode 9` / `versionName 1.2.2`; Electron `1.2.2`.
-> Ikkala platforma ilova ichida **1.2.2** ko'rsatadi (version.js/login.html bilan izchil).
+> **v1.2.3 build:** Android `versionCode 10` / `versionName 1.2.3`; Electron `1.2.3`.
+> Ikkala platforma ilova ichida **1.2.3** ko'rsatadi (version.js/login.html bilan izchil).
 
 **Android (APK):**
 - GitHub Actions workflow: **"Android APK Build"** (`.github/workflows/android.yml`) — `workflow_dispatch` (qo'lda).

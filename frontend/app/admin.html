@@ -330,7 +330,7 @@
         Tez sotuv
       </a>
       <!-- BOSQICH 7: Firmalar bo'limi (birlashtirilgan — suppliers.html ichida 5 tab: Firmalar/Priyomka/Qarzlar/Vozvrat/Buxgalteriya). store/supermarket + pharmacy, supplier_card flagi bilan gated. -->
-      <a class="nav-item nav-store nav-pharmacy nav-feature-supplier_card" onclick="window.open('suppliers.html','_blank')" style="display:none;cursor:pointer">
+      <a class="nav-item nav-store nav-pharmacy nav-feature-supplier_card" data-page="suppliers" style="display:none;cursor:pointer">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M1 3h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 001.95-1.57l1.65-7.43H5.12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="20.5" r="1" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="20.5" r="1" stroke="currentColor" stroke-width="1.8"/></svg>
         Firmalar
       </a>
@@ -732,9 +732,25 @@
             </div>
           </div>
           <table>
-            <thead><tr><th>ID</th><th>Ism</th><th>Telefon</th><th>Buyurtmalar</th><th>Sarflagan</th><th>Balllar</th><th>Daraja</th></tr></thead>
-            <tbody id="customersBody"><tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
+            <thead><tr><th>ID</th><th>Ism</th><th>Telefon</th><th>Chegirma</th><th>Buyurtmalar</th><th>Sarflagan</th><th>Balllar</th><th>Daraja</th><th>Amallar</th></tr></thead>
+            <tbody id="customersBody"><tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- BOSQICH S1: Mijoz qo'shish/tahrirlash (chegirma % bilan) -->
+      <div class="modal-overlay" id="customerEditModal">
+        <div class="modal-card" style="max-width:440px">
+          <div class="modal-header"><span class="modal-title" id="ceModalTitle">Yangi Mijoz</span><button class="modal-close" id="ceCloseBtn">✕</button></div>
+          <div class="modal-body">
+            <div class="form-group"><label>Ism *</label><input class="form-control" id="ceName" placeholder="Mijoz ismi"></div>
+            <div class="form-group"><label>Telefon *</label><input class="form-control" id="cePhone" placeholder="+998..." inputmode="tel"></div>
+            <div class="form-group"><label>Chegirma % (0–100)</label><input class="form-control" type="number" id="ceDiscount" min="0" max="100" step="0.5" placeholder="0"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" id="ceCancelBtn">Bekor</button>
+            <button class="tb-btn tb-btn-primary" id="ceSaveBtn">Saqlash</button>
+          </div>
         </div>
       </div>
 
@@ -1533,6 +1549,16 @@
           <div class="modal-body">
             <div class="form-group"><label>Mijoz *</label>
               <select class="form-control" id="dmCustomer"><option value="">— Tanlang —</option></select>
+              <!-- BOSQICH 13: nasiyada tez yangi mijoz qo'shish (ism + telefon) -->
+              <button type="button" class="tb-btn" id="dmNewCustBtn" style="margin-top:.4rem;font-size:.8rem">+ Yangi mijoz</button>
+              <div id="dmNewCustBox" style="display:none;margin-top:.5rem;padding:.6rem;background:var(--bg3);border:1px solid var(--border2);border-radius:8px">
+                <div class="form-row">
+                  <div class="form-group" style="margin:0"><label>Ism *</label><input class="form-control" id="dmNewName" placeholder="Mijoz ismi"></div>
+                  <div class="form-group" style="margin:0"><label>Telefon *</label><input class="form-control" id="dmNewPhone" placeholder="+998..." inputmode="tel"></div>
+                </div>
+                <div class="form-group" style="margin:.4rem 0 0"><label>Chegirma % (ixtiyoriy)</label><input class="form-control" type="number" id="dmNewDiscount" min="0" max="100" step="0.5" placeholder="0"></div>
+                <button type="button" class="tb-btn tb-btn-primary" id="dmNewCustSave" style="margin-top:.5rem;font-size:.8rem">Qo'shish va tanlash</button>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group"><label>Qarz miqdori (so'm) *</label>
@@ -1896,6 +1922,14 @@
         </div>
       </div>
 
+      <!-- BOSQICH 16: Firmalar — suppliers.html admin panel ICHIDA (iframe, yangi oyna emas).
+           src bo'sh — core.js switchPage'da BIRINCHI kirilganda lazy o'rnatiladi. ?embed=1
+           suppliers.html'da "← Admin panel" havolasini yashiradi (ichma-ich oyna bo'lmasin). -->
+      <div class="admin-page" id="pageSuppliers">
+        <iframe id="suppliersFrame" src="" title="Firmalar"
+                style="width:100%;height:calc(100vh - 96px);border:none;border-radius:14px;background:var(--bg2)"></iframe>
+      </div>
+
       <!-- ── Staff / Inventory placeholders ── -->
       <div class="admin-page" id="pageInventory">
         <!-- Inventory Stats -->
@@ -1941,10 +1975,10 @@
           <table>
             <thead>
               <tr>
-                <th>Mahsulot</th><th>Barkod</th><th>Qoldiq / Holat</th><th>Min / Max</th><th>Oxirgi kirim</th><th>Amallar</th>
+                <th>Mahsulot</th><th>Barkod</th><th>Qoldiq / Holat</th><th>Narx</th><th>Min / Max</th><th>Oxirgi kirim</th><th>Amallar</th>
               </tr>
             </thead>
-            <tbody id="invBody"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
+            <tbody id="invBody"><tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>
           <div class="dt-pagination">
             <span id="invPagInfo" style="color:var(--text2)">—</span>

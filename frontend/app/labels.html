@@ -169,12 +169,12 @@ select.form-control option{background:var(--bg2)}
 <div id="printArea" style="display:none"></div>
 
 <script type="module">
-import { getApiBase } from '/js/core/config.js';
+import { API_BASE } from '/js/core/config.js';
 import { getToken } from '/js/core/auth.js';
 import { initErrorHandler } from '/js/core/error-handler.js';
 initErrorHandler();
 
-const API = getApiBase();
+const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js API_BASE eksport qiladi)
 let allProducts = [];
 let selected = {};   // product_id → { product, qty }
 let currentSize = 'sm';

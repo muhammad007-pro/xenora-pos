@@ -210,7 +210,7 @@ async function saveSettingsFlags() {
 // BOSQICH 20 — Receipt Settings (Chek Sozlamasi)
 // ═══════════════════════════════════════════════════════
 async function loadReceiptSettings() {
-  const s = await apiFetch(`${getApiBase()}/receipt-settings/`);
+  const s = await apiFetch(`/receipt-settings/`);
   if (!s) return;
   document.getElementById('rsStoreName').value = s.store_name || '';
   document.getElementById('rsAddress').value = s.address || '';
@@ -237,12 +237,12 @@ async function saveReceiptSettings() {
     qr_enabled: document.getElementById('rsQrEnabled').checked,
     qr_url: document.getElementById('rsQrUrl').value.trim(),
   };
-  await apiFetch(`${getApiBase()}/receipt-settings/`, { method:'PUT', body: JSON.stringify(body) });
+  await apiFetchPost(`/receipt-settings/`, body, 'PUT');
   toast('Chek sozlamalari saqlandi!');
   previewReceipt();
 }
 async function previewReceipt() {
-  const data = await apiFetch(`${getApiBase()}/receipt-settings/preview`);
+  const data = await apiFetch(`/receipt-settings/preview`);
   const box = document.getElementById('receiptPreviewBox');
   if (box && data.html) box.innerHTML = data.html;
 }

@@ -24,7 +24,7 @@ async function loadInventory() {
     document.getElementById('invPagInfo').textContent = `${items.length} / ${total} ta`;
     const body = document.getElementById('invBody');
     if (!items.length) {
-      body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Mahsulot topilmadi</td></tr>';
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Mahsulot topilmadi</td></tr>';
       document.getElementById('invLow').textContent = 0;
       document.getElementById('invOk').textContent  = 0;
       return;
@@ -48,6 +48,10 @@ async function loadInventory() {
             <span style="font-size:.875rem;font-weight:700;${isLow?'color:var(--danger)':''};min-width:50px;white-space:nowrap">${inv.quantity} ${inv.unit}</span>
             ${isLow?'<span class="badge badge-red">Kam</span>':''}
           </div>
+        </td>
+        <td>
+          <div class="td-gold" style="font-weight:600;white-space:nowrap">${fmtMoney(p.price||0)}</div>
+          ${p.cost_price ? `<div style="font-size:.7rem;color:var(--text3);white-space:nowrap">tan: ${fmtMoney(p.cost_price)}</div>` : ''}
         </td>
         <td class="td-sub">${inv.min_threshold} / ${inv.max_threshold} ${inv.unit}</td>
         <td class="td-sub">${lastR}</td>

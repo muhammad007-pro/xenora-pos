@@ -215,12 +215,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </div>
 
 <script type="module">
-import { getApiBase } from '/js/core/config.js';
+import { API_BASE } from '/js/core/config.js';
 import { getToken } from '/js/core/auth.js';
 import { initErrorHandler, showToast } from '/js/core/error-handler.js';
 initErrorHandler();
 
-const API = getApiBase();
+const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js API_BASE eksport qiladi)
 const h = () => ({ Authorization: 'Bearer ' + getToken(), 'Content-Type': 'application/json' });
 
 let allProducts = [];

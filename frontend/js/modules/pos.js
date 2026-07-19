@@ -195,6 +195,7 @@ const state = {
   tables     : [],
   cart       : [],
   discount   : { type: 'pct', value: 0 },
+  discountSource: null,   // BOSQICH S2: 'customer' | 'manual' | null (kim chegirmani o'rnatdi)
   customer   : null,
   table      : null,
   orderType  : 'dine-in',
@@ -749,6 +750,7 @@ document.getElementById('clearCartBtn').addEventListener('click', () => {
   if (!state.cart.length) return;
   state.cart = [];
   state.discount = { type: 'pct', value: 0 };
+  state.discountSource = null;   // BOSQICH S2
   state.customer = null;
   state.table    = null;
   updateCustBtn();
@@ -778,7 +780,11 @@ function updateCustBtn() {
   }
 }
 
-document.getElementById('custBtn').addEventListener('click', () => { openModal('customerModal'); loadCustomers(); });
+document.getElementById('custBtn').addEventListener('click', () => {
+  openModal('customerModal'); _posToggleNewCust(false); loadCustomers();
+  const db = document.getElementById('custDeselectBtn');   // BOSQICH S2: mijoz tanlangan bo'lsa "olib tashlash"
+  if (db) db.style.display = state.customer ? '' : 'none';
+});
 
 let custTimer;
 document.getElementById('custSearch').addEventListener('input', e => {
@@ -796,7 +802,7 @@ async function loadCustomers(q = '') {
     const custs = (d && d.items) || (Array.isArray(d) ? d : []);
     if (!custs.length) { list.innerHTML = '<div style="padding:1rem;color:var(--text3);text-align:center">Topilmadi</div>'; return; }
     list.innerHTML = custs.map(c => `
-      <div class="cust-item" data-id="${c.id}" data-name="${c.name}" data-phone="${c.phone || ''}">
+      <div class="cust-item" data-id="${c.id}" data-name="${c.name}" data-phone="${c.phone || ''}" data-discount="${c.discount_percent || 0}">
         <div class="cust-ava">${c.name[0].toUpperCase()}</div>
         <div class="cust-detail">
           <div class="cust-name-row">${c.name}</div>
@@ -807,14 +813,96 @@ async function loadCustomers(q = '') {
     `).join('');
     list.querySelectorAll('.cust-item').forEach(item => {
       item.addEventListener('click', () => {
-        state.customer = { id: +item.dataset.id, name: item.dataset.name, phone: item.dataset.phone };
-        updateCustBtn();
-        closeModal('customerModal');
-        toast(`${state.customer.name} tanlandi`, 'success');
+        // BOSQICH S2: _posSelectCustomer mijoz chegirmasini avtomatik qo'llaydi
+        _posSelectCustomer({ id: +item.dataset.id, name: item.dataset.name, phone: item.dataset.phone, discount_percent: +item.dataset.discount || 0 });
+        toast(`${item.dataset.name} tanlandi`, 'success');
       });
     });
   } catch { list.innerHTML = '<div style="padding:1rem;color:var(--text3)">Xatolik</div>'; }
 }
+
+// ─── BOSQICH 13: nasiyada tez yangi mijoz qo'shish (kassir) ────────────────────
+function _posToggleNewCust(show) {
+  const box = document.getElementById('posNewCustBox');
+  if (!box) return;
+  const on = (show === undefined) ? (box.style.display === 'none') : show;
+  box.style.display = on ? '' : 'none';
+  if (on) {
+    document.getElementById('posNewName').value = '';
+    document.getElementById('posNewPhone').value = '';
+    const d = document.getElementById('posNewDiscount'); if (d) d.value = '';
+    setTimeout(() => document.getElementById('posNewName').focus(), 50);
+  }
+}
+function _posSelectCustomer(c) {
+  state.customer = { id: +c.id, name: c.name, phone: c.phone || '', discount_percent: +c.discount_percent || 0 };
+  _applyCustomerDiscount();   // BOSQICH S2: mijoz chegirmasini avtomatik qo'llash
+  updateCustBtn();
+  _posToggleNewCust(false);
+  closeModal('customerModal');
+}
+
+// BOSQICH S2: mijoz chegirmasini savatga qo'llash (variant A — manual override).
+// Qo'lda chegirma (manual) ustun — mijoz chegirmasi uni bosmaydi. Ikki chegirma
+// STACK bo'lmaydi (bitta state.discount slot). computeTotals O'ZGARMAYDI.
+function _applyCustomerDiscount() {
+  if (state.discountSource === 'manual') return;   // qo'lda chegirma ustun
+  const pct = state.customer?.discount_percent || 0;
+  if (pct > 0) {
+    state.discount = { type: 'pct', value: pct };
+    state.discountSource = 'customer';
+  } else if (state.discountSource === 'customer') {
+    // Yangi mijozda chegirma yo'q, lekin oldingi mijoznikini tozalaymiz
+    state.discount = { type: 'pct', value: 0 };
+    state.discountSource = null;
+  }
+  renderTotals();
+}
+
+// BOSQICH S2: mijozni olib tashlash — customer-source chegirma tozalanadi, manual qoladi
+function _posDeselectCustomer() {
+  state.customer = null;
+  if (state.discountSource === 'customer') {
+    state.discount = { type: 'pct', value: 0 };
+    state.discountSource = null;
+  }
+  updateCustBtn();
+  renderTotals();
+  closeModal('customerModal');
+}
+document.getElementById('custDeselectBtn')?.addEventListener('click', _posDeselectCustomer);
+async function posAddNewCustomer() {
+  const name  = document.getElementById('posNewName').value.trim();
+  const phone = document.getElementById('posNewPhone').value.trim();
+  if (!name)  { toast('Ism kiriting', 'warning'); return; }
+  if (!phone) { toast('Telefon kiriting', 'warning'); return; }   // nasiya — telefon majburiy
+  // BOSQICH S1: chegirma % (ixtiyoriy, 0-100)
+  const discRaw = document.getElementById('posNewDiscount')?.value;
+  const disc = discRaw !== '' && discRaw != null ? parseFloat(discRaw) : 0;
+  if (!(disc >= 0 && disc <= 100)) { toast("Chegirma 0-100 oralig'ida", 'warning'); return; }
+  const btn = document.getElementById('posNewCustSave');
+  btn.disabled = true;
+  try {
+    // Shu do'kon ro'yxatida telefon bo'lsa — mavjudni tanla (dublikat yaratma)
+    try {
+      const sr = await api.get(`/customers/?search=${encodeURIComponent(phone)}&limit=20`);
+      const sd = sr && sr.data;
+      const found = ((sd && sd.items) || (Array.isArray(sd) ? sd : [])).find(c => (c.phone || '') === phone);
+      if (found) { _posSelectCustomer(found); toast(`${found.name} tanlandi`, 'success'); return; }
+    } catch {}
+    const res = await api.post('/customers/', { name, phone, discount_percent: disc });
+    const c = res && res.data;
+    if (!res || !res.success || !c || !c.id) throw new Error((res && res.error) || 'Telefon band yoki xato');
+    _posSelectCustomer(c);
+    toast("Mijoz qo'shildi va tanlandi", 'success');
+  } catch (e) {
+    toast(e.message || 'Xato', 'error');   // backend 400: "Bu telefon raqam band" (global unique)
+  } finally {
+    btn.disabled = false;
+  }
+}
+document.getElementById('posNewCustBtn')?.addEventListener('click', () => _posToggleNewCust());
+document.getElementById('posNewCustSave')?.addEventListener('click', posAddNewCustomer);
 
 // ─── Table ────────────────────────────────────────────────────────────────────
 function updateCarBtn() {
@@ -973,6 +1061,7 @@ document.getElementById('applyDiscBtn').addEventListener('click', () => {
   const v = parseMoney(document.getElementById('discValue').value);
   if (discType === 'pct' && (v < 0 || v > 100)) { toast('Foiz 0–100 oralig\'ida bo\'lishi kerak', 'error'); return; }
   state.discount = { type: discType, value: v };
+  state.discountSource = v > 0 ? 'manual' : null;   // BOSQICH S2: qo'lda → manual (ustun); bo'sh → null
   renderTotals();
   closeModal('discountModal');
   toast(v > 0 ? `Chegirma qo\'llandi` : 'Chegirma olib tashlandi', 'success');
@@ -1323,7 +1412,7 @@ function renderOfflineReceipt(payment) {
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>
-      ${t.disc>0?`<div class="rt-row disc"><span>Chegirma:</span><span>-${fmtNum(t.disc)}</span></div>`:''}
+      ${t.disc>0?`<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(t.disc)}</span></div>`:''}
       ${t.tax>0?`<div class="rt-row"><span>Soliq:</span><span>${fmtNum(t.tax)}</span></div>`:''}
       ${t.service>0?`<div class="rt-row"><span>Xizmat:</span><span>${fmtNum(t.service)}</span></div>`:''}
       ${payment.tip_amount>0?`<div class="rt-row"><span>Choy puli:</span><span>${fmtNum(payment.tip_amount)}</span></div>`:''}
@@ -1391,6 +1480,18 @@ function _rcptPackLabel(i) {
   return '';
 }
 
+// BOSQICH S3: chek chegirma yorlig'i — " -10% (mijoz)" | " -5% (qo'lda)" | "" (bo'sh).
+// Chek doim sotuvdan keyin (clearOrderState'dan oldin) render bo'ladi → state joriy.
+// Faqat YORLIQ (foiz + manba); chegirma SUMMASI o'zgarmaydi (jami to'g'ri).
+function _rcptDiscountLabel() {
+  const d = state.discount;
+  if (!d || !d.value || d.value <= 0) return '';
+  const pct = d.type === 'pct' ? ` -${d.value}%` : '';
+  const src = state.discountSource === 'customer' ? ' (mijoz)'
+            : state.discountSource === 'manual'   ? " (qo'lda)" : '';
+  return `${pct}${src}`;
+}
+
 function renderReceiptData(rec) {
   const t    = computeTotals();
   const body = document.getElementById('receiptBody');
@@ -1423,7 +1524,7 @@ function renderReceiptData(rec) {
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(rec.subtotal||t.sub)}</span></div>
-      ${(rec.discount_amount||t.disc)>0 ? `<div class="rt-row disc"><span>Chegirma:</span><span>-${fmtNum(rec.discount_amount||t.disc)}</span></div>` : ''}
+      ${(rec.discount_amount||t.disc)>0 ? `<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(rec.discount_amount||t.disc)}</span></div>` : ''}
       ${(rec.tax_amount||t.tax)>0?`<div class="rt-row"><span>Soliq (12%):</span><span>${fmtNum(rec.tax_amount||t.tax)}</span></div>`:''}
       ${(rec.service_amount||t.service)>0?`<div class="rt-row"><span>Xizmat (10%):</span><span>${fmtNum(rec.service_amount||t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(rec.final_amount||t.total)} UZS</span></div>
@@ -1460,7 +1561,7 @@ function renderReceiptFallback(orderId) {
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>
-      ${t.disc>0?`<div class="rt-row disc"><span>Chegirma:</span><span>-${fmtNum(t.disc)}</span></div>`:''}
+      ${t.disc>0?`<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(t.disc)}</span></div>`:''}
       ${t.tax>0?`<div class="rt-row"><span>Soliq:</span><span>${fmtNum(t.tax)}</span></div>`:''}
       ${t.service>0?`<div class="rt-row"><span>Xizmat:</span><span>${fmtNum(t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(t.total)} UZS</span></div>
@@ -1513,7 +1614,7 @@ document.getElementById('holdBtn').addEventListener('click', async () => {
 });
 
 function clearOrderState() {
-  state.cart = []; state.discount = { type: 'pct', value: 0 };
+  state.cart = []; state.discount = { type: 'pct', value: 0 }; state.discountSource = null;   // BOSQICH S2
   state.customer = null; state.table = null; state.pendingOrderId = null;
   state.rxInfo       = null;
   state.staffMember  = null;

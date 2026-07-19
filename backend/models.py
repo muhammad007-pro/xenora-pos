@@ -366,6 +366,9 @@ class Customer(Base):
     credit_limit  = Column(Float, nullable=True)          # maksimal qarz limiti (None=cheksiz)
     customer_type = Column(String(20), default="retail")  # retail|wholesale
     total_debt    = Column(Float, default=0.0)            # joriy umumiy qarz
+    # BOSQICH S0 (sodiqlik): doimiy mijoz avtomatik % chegirmasi (0-100). NULL/0 = chegirma yo'q.
+    # DIQQAT: S0'da faqat poydevor — POS/forma/chek HALI ishlatmaydi (S1/S2).
+    discount_percent = Column(Float, nullable=True, default=0)
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
     updated_at    = Column(DateTime(timezone=True), onupdate=func.now())
 

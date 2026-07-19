@@ -113,7 +113,7 @@ const FORM_CONFIGS = {
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _prodTitle = (FORM_CONFIGS[bizType] || FORM_CONFIGS.cafe).title;
-const pageTitles = { dashboard:'Dashboard', orders:'Buyurtmalar', products:'Mahsulotlar', categories:'Kategoriyalar', specials:'Kunlik maxsus', waiters:'Ofitsiantlar reytingi', reservCalendar:'Bron Kalendar', loyaltyTiers:'Sodiqlik darajalari', topDishes:'Top taomlar', waiterShift:'Smena hisoboti', kitchenStats:'Oshxona vaqti statistikasi', stopList:'Stop-list', staffMeal:'Xodimlar ovqati', stations:'Stansiyalar', storeTop:'Top mahsulotlar', storeMargin:'Foyda marjasi', storeCats:'Kategoriya tahlili', storeCashier:'Kassir hisoboti', storePriceList:"Narx ro'yxati", storeDiscounts:'Chegirmalar', debtList:'Nasiya / Qarz Daftar', promotionsList:'Aksiyalar', quickSellList:'Tez Sotuv Paneli', registersList:'Kassalar', cashRegisterList:'Kassa Smena', receiptSettingsPage:'Chek Sozlamalari', departmentsList:"Bo'limlar (Seksiyalar)", pharmStats:'Retsept statistika', pharmPatients:'Bemorlar', pharmTopMeds:'Top dorilar', pharmExpiry:'Yaroqlilik muddati', pharmCats:'Kategoriya tahlili', pharmCashier:'Kassir hisoboti', prescriptions:'Retseptlar jurnali', memberships:'Abonementlar', masters:'Ustalar reytingi', salonSchedule:'Usta ish grafigi', salonServices:'Xizmat tahlili', salonPeakHours:'Band soatlar', salonExpiring:'Tugayotgan abonementlar', salonClients:'Mijoz tahlili', salonMasterReport:'Usta daromad hisoboti', serviceOrders:'Xizmat buyurtmalari', autoStats:'Auto statistika', autoReady:'Tayyor buyurtmalar', autoDebt:'Qarzlar', autoDuration:'Xizmat vaqti', autoBrands:'Avtomobil markalari', autoClients:'Mijoz tarixi', students:"O'quvchilar jurnali", groups:'Guruhlar statistikasi', schoolStats:'Daromad statistikasi', schoolTopStudents:"O'quvchi reytingi", schoolGroupDetail:'Guruh tafsiloti', schoolPayments:"To'lov tahlili", schoolMonthly:'Oylik hisobot', schoolTopCourses:'Top kurslar', cleaning:'Kimyoviy tozalash jurnali', dryStats:'Statistika', dryReady:'Tayyor buyurtmalar', dryServices:'Xizmat tahlili', dryClients:'Mijoz tarixi', dryWorkload:'Kunlik ish yuki', dryPayments:"To'lov tahlili", hotelRooms:'Xonalar holati', hotelBookings:'Bronlar', hotelStats:'Statistika', hotelOccupancy:'Xona dolzarbligi', hotelGuests:'Mehmon tarixi', hotelDebt:'Qarzlar', hotelArrivals:'Bugungi kelish/ketish', hotelRoomRevenue:'Xona tushumi', customers:'Mijozlar', shifts:'Smenalar', inventory:'Ombor', staff:'Xodimlar', settings:'Sozlamalar', stockIn:'Kirim tarixi', stockOut:"Chiqim / Hisobdan o'chirish", invCount:'Inventarizatsiya', invReport:'Ombor hisoboti',
+const pageTitles = { dashboard:'Dashboard', orders:'Buyurtmalar', products:'Mahsulotlar', categories:'Kategoriyalar', specials:'Kunlik maxsus', waiters:'Ofitsiantlar reytingi', reservCalendar:'Bron Kalendar', loyaltyTiers:'Sodiqlik darajalari', topDishes:'Top taomlar', waiterShift:'Smena hisoboti', kitchenStats:'Oshxona vaqti statistikasi', stopList:'Stop-list', staffMeal:'Xodimlar ovqati', stations:'Stansiyalar', storeTop:'Top mahsulotlar', storeMargin:'Foyda marjasi', storeCats:'Kategoriya tahlili', storeCashier:'Kassir hisoboti', storePriceList:"Narx ro'yxati", storeDiscounts:'Chegirmalar', debtList:'Nasiya / Qarz Daftar', promotionsList:'Aksiyalar', quickSellList:'Tez Sotuv Paneli', registersList:'Kassalar', cashRegisterList:'Kassa Smena', receiptSettingsPage:'Chek Sozlamalari', departmentsList:"Bo'limlar (Seksiyalar)", pharmStats:'Retsept statistika', pharmPatients:'Bemorlar', pharmTopMeds:'Top dorilar', pharmExpiry:'Yaroqlilik muddati', pharmCats:'Kategoriya tahlili', pharmCashier:'Kassir hisoboti', prescriptions:'Retseptlar jurnali', memberships:'Abonementlar', masters:'Ustalar reytingi', salonSchedule:'Usta ish grafigi', salonServices:'Xizmat tahlili', salonPeakHours:'Band soatlar', salonExpiring:'Tugayotgan abonementlar', salonClients:'Mijoz tahlili', salonMasterReport:'Usta daromad hisoboti', serviceOrders:'Xizmat buyurtmalari', autoStats:'Auto statistika', autoReady:'Tayyor buyurtmalar', autoDebt:'Qarzlar', autoDuration:'Xizmat vaqti', autoBrands:'Avtomobil markalari', autoClients:'Mijoz tarixi', students:"O'quvchilar jurnali", groups:'Guruhlar statistikasi', schoolStats:'Daromad statistikasi', schoolTopStudents:"O'quvchi reytingi", schoolGroupDetail:'Guruh tafsiloti', schoolPayments:"To'lov tahlili", schoolMonthly:'Oylik hisobot', schoolTopCourses:'Top kurslar', cleaning:'Kimyoviy tozalash jurnali', dryStats:'Statistika', dryReady:'Tayyor buyurtmalar', dryServices:'Xizmat tahlili', dryClients:'Mijoz tarixi', dryWorkload:'Kunlik ish yuki', dryPayments:"To'lov tahlili", hotelRooms:'Xonalar holati', hotelBookings:'Bronlar', hotelStats:'Statistika', hotelOccupancy:'Xona dolzarbligi', hotelGuests:'Mehmon tarixi', hotelDebt:'Qarzlar', hotelArrivals:'Bugungi kelish/ketish', hotelRoomRevenue:'Xona tushumi', customers:'Mijozlar', shifts:'Smenalar', inventory:'Ombor', suppliers:'Firmalar', staff:'Xodimlar', settings:'Sozlamalar', stockIn:'Kirim tarixi', stockOut:"Chiqim / Hisobdan o'chirish", invCount:'Inventarizatsiya', invReport:'Ombor hisoboti',
   storeDashboard:'Magazin Dashboard', abcAnalysis:'ABC Tahlil', reorderAlerts:'Avto-Zakaz / Kam Qoldiq', turnoverAnalysis:'Oborot Tahlili', peakHours:'Peak Soatlar va Kunlar', salesHistory:'Sotuvlar tarixi', reportsHub:'Hisobotlar', auditLog:'Xodimlar faoliyati' };
 const addLabels  = { products:_prodTitle, categories:"Kategoriya qo'shish", specials:"Maxsus taom qo'shish", inventory:"Kirim qilish", customers:"Mijoz qo'shish", staff:"Xodim qo'shish", stations:"Stansiya qo'shish", stockOut:"Hisobdan o'chirish" };
 
@@ -202,6 +202,12 @@ function switchPage(page) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pageEl = document.getElementById('page' + page.charAt(0).toUpperCase() + page.slice(1));
   if (pageEl) pageEl.classList.add('active');
+  // BOSQICH 16: Firmalar iframe — lazy-load (faqat birinchi kirilganda src o'rnatiladi;
+  // ?embed=1 → suppliers.html "← Admin panel" havolasini yashiradi)
+  if (page === 'suppliers') {
+    const fr = document.getElementById('suppliersFrame');
+    if (fr && !fr.getAttribute('src')) fr.src = 'suppliers.html?embed=1';
+  }
   document.querySelectorAll(`.nav-item[data-page="${page}"]`).forEach(n => n.classList.add('active'));
   document.getElementById('pageTitle').textContent   = pageTitles[page] || page;
   document.getElementById('addBtnLabel').textContent = addLabels[page] || 'Qo\'shish';
@@ -506,28 +512,98 @@ function renderRecentOrders(orders) {
   }).join('');
 }
 
+// ── Sotuv dinamikasi — silliq AREA grafik (toza SVG, kutubxonasiz, Electron file:// da ishlaydi) ──
+// Ma'lumot: [{date, revenue}]. Endpoint TEGILMAYDI — faqat render.
+// Qiymatni "chiroyli" qadamga yaxlitlaydi (1/2/2.5/5 × 10^k) — aniq Y yorliqlar uchun
+function _niceStep(x) {
+  if (x <= 0) return 1;
+  const exp = Math.floor(Math.log10(x));
+  const base = Math.pow(10, exp);
+  const f = x / base;
+  const nice = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
+  return nice * base;
+}
+function _shortMoney(v) {
+  if (v >= 1e9) return (v / 1e9).toFixed(v % 1e9 === 0 ? 0 : 1) + 'B';
+  if (v >= 1e6) return (v / 1e6).toFixed(v % 1e6 === 0 ? 0 : 1) + 'M';
+  if (v >= 1e3) return Math.round(v / 1e3) + 'K';
+  return String(Math.round(v));
+}
+// Catmull-Rom → kubik bezier (silliq egri chiziq)
+function _smoothPath(pts) {
+  if (!pts.length) return '';
+  if (pts.length === 1) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const t = 0.16;
+    const c1x = p1[0] + (p2[0] - p0[0]) * t, c1y = p1[1] + (p2[1] - p0[1]) * t;
+    const c2x = p2[0] - (p3[0] - p1[0]) * t, c2y = p2[1] - (p3[1] - p1[1]) * t;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
 function renderBarChart(daily) {
   const chart = document.getElementById('revenueChart');
-  if (!daily?.length) {
-    const days = ['Du','Se','Ch','Pa','Ju','Sh','Ya'];
-    const vals = [350,480,420,560,390,610,520];
-    const max  = Math.max(...vals);
-    chart.innerHTML = days.map((d,i) => `
-      <div class="bar-wrap">
-        <div class="bar gold-bar" style="height:${Math.round(vals[i]/max*100)}%;width:100%"></div>
-        <div class="bar-label">${d}</div>
-      </div>
-    `).join('');
+  if (!chart) return;
+  const data = (daily || []).map(d => ({ date: d.date, val: +d.revenue || 0 }));
+
+  // Bo'sh yoki hammasi 0 → "Ma'lumot yo'q" (crash emas)
+  if (!data.length || !data.some(d => d.val > 0)) {
+    chart.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text3);gap:.5rem">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M3 3v18h18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M7 14l3-3 3 3 4-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/></svg>
+      <span style="font-size:.85rem">Ma'lumot yo'q</span></div>`;
     return;
   }
-  const max  = Math.max(...daily.map(d=>d.revenue||0), 1);
-  const many = daily.length > 10;   // "Oy" (30 kun) — yorliqlarni siyraklashtiramiz
-  chart.innerHTML = daily.map((d,i) => `
-    <div class="bar-wrap">
-      <div class="bar gold-bar" style="height:${Math.round((d.revenue||0)/max*100)}%;width:100%"></div>
-      <div class="bar-label">${(!many || i % 5 === 0 || i === daily.length-1) ? new Date(d.date).getDate() : ''}</div>
-    </div>
-  `).join('');
+
+  const W = 600, H = 220, padL = 52, padR = 12, padT = 16, padB = 26;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const n = data.length;
+  // Avtomatik masshtab: chiroyli qadam (step) → aniq yorliqlar (0, 1M, 2M, 3M, 4M)
+  const rawMax  = Math.max(...data.map(d => d.val), 1);
+  const step    = _niceStep(rawMax / 4);
+  const niceMax = Math.max(step, Math.ceil(rawMax / step) * step);
+  const nTicks  = Math.round(niceMax / step);
+  const X = i => padL + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const Y = v => padT + ih - (v / niceMax) * ih;
+  const pts = data.map((d, i) => [X(i), Y(d.val)]);
+
+  const linePath = _smoothPath(pts);
+  const areaPath = `${linePath} L${X(n - 1).toFixed(1)},${(padT + ih).toFixed(1)} L${X(0).toFixed(1)},${(padT + ih).toFixed(1)} Z`;
+
+  // Y gridlar + yorliqlar
+  let grid = '', ylabels = '';
+  for (let t = 0; t <= nTicks; t++) {
+    const v = step * t, gy = Y(v).toFixed(1);
+    grid += `<line x1="${padL}" y1="${gy}" x2="${W - padR}" y2="${gy}" stroke="currentColor" stroke-width="0.5" opacity="0.12"/>`;
+    ylabels += `<text x="${padL - 8}" y="${(+gy + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="currentColor" opacity="0.55">${_shortMoney(v)}</text>`;
+  }
+
+  // X yorliqlar (sana kuni) — ko'p bo'lsa siyraklashtirish
+  const xStep = n > 10 ? Math.ceil(n / 6) : 1;
+  let xlabels = '';
+  data.forEach((d, i) => {
+    if (i % xStep !== 0 && i !== n - 1) return;
+    xlabels += `<text x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.55">${new Date(d.date).getDate()}</text>`;
+  });
+
+  // Oxirgi nuqta (yoki yagona nuqta) belgilanadi
+  let dots = '';
+  pts.forEach(([px, py], i) => {
+    if (n === 1 || i === n - 1) dots += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.5" fill="#22c55e" stroke="var(--bg2)" stroke-width="1.5"/>`;
+  });
+
+  chart.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;height:auto;color:var(--text)" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="revArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22c55e" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#22c55e" stop-opacity="0.02"/>
+    </linearGradient></defs>
+    <g>${grid}</g>
+    <path d="${areaPath}" fill="url(#revArea)"/>
+    <path d="${linePath}" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>${ylabels}</g><g>${xlabels}</g><g>${dots}</g>
+  </svg>`;
 }
 
 // ═══ Dashboard atmosphere — visual layer only (no data/nav/SPA logic) ═══════════
@@ -1089,20 +1165,80 @@ async function loadCustomers() {
   try {
     const data  = await apiFetch('/customers/?' + params);
     const custs = data.items||data||[];
+    _loadedCustomers = custs;   // BOSQICH S1: tahrir modali uchun
     const body  = document.getElementById('customersBody');
     const tierMap = { bronze:'🥉 Bronze', silver:'🥈 Silver', gold:'🥇 Gold', platinum:'💎 Platinum' };
-    if (!custs.length) { body.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Mijoz topilmadi</td></tr>'; return; }
+    if (!custs.length) { body.innerHTML='<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)">Mijoz topilmadi</td></tr>'; return; }
     body.innerHTML = custs.map(c => `<tr>
       <td class="td-sub">${c.id}</td>
       <td class="td-bold">${c.name}</td>
       <td class="td-sub">${c.phone||'—'}</td>
+      <td>${c.discount_percent ? c.discount_percent + '%' : '—'}</td>
       <td>${c.total_orders||0}</td>
       <td class="td-gold">${fmtMoney(c.total_spent||0)} UZS</td>
       <td>${c.loyalty_points||0} ball</td>
       <td>${tierMap[c.loyalty_tier]||c.loyalty_tier||'—'}</td>
+      <td class="td-actions"><button class="act-btn" data-edit-cust="${c.id}" title="Tahrirlash"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.8"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.8"/></svg></button></td>
     </tr>`).join('');
   } catch (err) { toast(err.message,'error'); }
 }
+
+// ── BOSQICH S1: Mijoz qo'shish/tahrirlash (chegirma % bilan) ───────────────────
+let _loadedCustomers = [];
+let _editingCustomerId = null;
+
+function openCustomerAdd() {
+  _editingCustomerId = null;
+  document.getElementById('ceModalTitle').textContent = 'Yangi Mijoz';
+  document.getElementById('ceName').value = '';
+  document.getElementById('cePhone').value = '';
+  document.getElementById('ceDiscount').value = '';
+  document.getElementById('customerEditModal').classList.add('open');
+  setTimeout(() => document.getElementById('ceName').focus(), 60);
+}
+function openCustomerEdit(id) {
+  const c = _loadedCustomers.find(x => x.id === id);
+  if (!c) return;
+  _editingCustomerId = id;
+  document.getElementById('ceModalTitle').textContent = 'Mijozni tahrirlash';
+  document.getElementById('ceName').value = c.name || '';
+  document.getElementById('cePhone').value = c.phone || '';
+  document.getElementById('ceDiscount').value = c.discount_percent != null ? c.discount_percent : '';
+  document.getElementById('customerEditModal').classList.add('open');
+  setTimeout(() => document.getElementById('ceName').focus(), 60);
+}
+function closeCustomerModal() { document.getElementById('customerEditModal').classList.remove('open'); }
+
+async function saveCustomer() {
+  const name  = document.getElementById('ceName').value.trim();
+  const phone = document.getElementById('cePhone').value.trim();
+  const discRaw = document.getElementById('ceDiscount').value;
+  const disc = discRaw !== '' ? parseFloat(discRaw) : 0;
+  if (!name)  { toast('Ism kiriting', 'error'); return; }
+  if (!phone) { toast('Telefon kiriting', 'error'); return; }
+  if (!(disc >= 0 && disc <= 100)) { toast("Chegirma 0-100 oralig'ida bo'lsin", 'error'); return; }
+  const body = { name, phone, discount_percent: disc };
+  const btn = document.getElementById('ceSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
+  try {
+    // apiFetch faqat GET — PATCH/POST uchun apiFetchPost
+    if (_editingCustomerId) await apiFetchPost(`/customers/${_editingCustomerId}`, body, 'PATCH');
+    else                    await apiFetchPost('/customers/', body, 'POST');
+    closeCustomerModal();
+    toast(_editingCustomerId ? 'Saqlandi' : "Mijoz qo'shildi", 'success');
+    loadCustomers();
+  } catch (e) { toast(e.message || 'Xato', 'error'); }   // backend 400: telefon band / chegirma 0-100
+  finally { btn.disabled = false; btn.textContent = 'Saqlash'; }
+}
+
+document.getElementById('customersBody')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-edit-cust]');
+  if (b) openCustomerEdit(parseInt(b.dataset.editCust));
+});
+document.getElementById('ceCloseBtn')?.addEventListener('click', closeCustomerModal);
+document.getElementById('ceCancelBtn')?.addEventListener('click', closeCustomerModal);
+document.getElementById('ceSaveBtn')?.addEventListener('click', saveCustomer);
+document.getElementById('customerEditModal')?.addEventListener('click', (e) => { if (e.target.id === 'customerEditModal') closeCustomerModal(); });
 
 // ── Shifts page ───────────────────────────────────────────────────────────────
 async function loadShifts() {
@@ -1764,7 +1900,7 @@ document.getElementById('addBtn').addEventListener('click', () => {
   if (currentPage === 'cleaning')      toast('Buyurtma POS orqali qabul qilinadi','info');
   if (currentPage === 'hotelRooms')    toast("Xona qo'shish tez orada",'info');
   if (currentPage === 'hotelBookings') toast("Bron qo'shish tez orada",'info');
-  if (currentPage === 'customers')    toast("Mijoz qo'shish tez orada",'info');
+  if (currentPage === 'customers')    openCustomerAdd();
   if (currentPage === 'staff')        openStaffModal();
   if (currentPage === 'stations')     openStationModal();
 });
@@ -2109,7 +2245,7 @@ let _promoEditId = null;
 async function loadPromotions() {
   const type = document.getElementById('promoTypeFilter')?.value || '';
   const active = document.getElementById('promoActiveFilter')?.value || '';
-  let url = `${getApiBase()}/promotions/?page_size=100`;
+  let url = `/promotions/?page_size=100`;
   if (type) url += `&promo_type=${type}`;
   if (active !== '') url += `&is_active=${active}`;
   const data = await apiFetch(url);
@@ -2164,7 +2300,7 @@ async function openPromoModal(id=null) {
   document.getElementById('pmTimeFrom').value = '';
   document.getElementById('pmTimeTo').value = '';
   // Load products
-  const prods = await apiFetch(`${getApiBase()}/products/?page_size=200&is_active=true`);
+  const prods = await apiFetch(`/products/?page_size=200&is_active=true`);
   const sel = document.getElementById('pmProduct');
   sel.innerHTML = '<option value="">— Barcha mahsulotlar —</option>' +
     (prods.items||[]).map(p=>`<option value="${p.id}">${escH(p.name)}</option>`).join('');
@@ -2199,19 +2335,19 @@ async function savePromotion() {
   };
   if (!body.name) return toast('Nomi kiritilmagan', 'error');
   const method = _promoEditId ? 'PUT' : 'POST';
-  const url = _promoEditId ? `${getApiBase()}/promotions/${_promoEditId}` : `${getApiBase()}/promotions/`;
-  await apiFetch(url, { method, body: JSON.stringify(body) });
+  const url = _promoEditId ? `/promotions/${_promoEditId}` : `/promotions/`;
+  await apiFetchPost(url, body, method);   // apiFetch faqat GET — mutation uchun apiFetchPost
   closeModal('promoModal');
   loadPromotions();
   toast('Saqlandi!');
 }
 async function togglePromo(id, active) {
-  await apiFetch(`${getApiBase()}/promotions/${id}`, { method:'PUT', body: JSON.stringify({is_active: active}) });
+  await apiFetchPost(`/promotions/${id}`, { is_active: active }, 'PUT');
   loadPromotions();
 }
 async function deletePromo(id) {
   if (!confirm('Aksiyani o\'chirasizmi?')) return;
-  await apiFetch(`${getApiBase()}/promotions/${id}`, { method:'DELETE' });
+  await apiFetchPost(`/promotions/${id}`, null, 'DELETE');
   loadPromotions();
   toast('O\'chirildi');
 }
@@ -2221,7 +2357,7 @@ async function deletePromo(id) {
 // ═══════════════════════════════════════════════════════
 let _qsSelectedProductId = null;
 async function loadQuickSellItems() {
-  const items = await apiFetch(`${getApiBase()}/quick-sell/`);
+  const items = await apiFetch(`/quick-sell/`);
   const grid = document.getElementById('quickSellGrid');
   if (!grid) return;
   if (!items.length) { grid.innerHTML = '<p style="color:#888;grid-column:1/-1">Tez sotuv mahsulotlari yo\'q. "Qo\'shish" tugmasini bosing.</p>'; return; }
@@ -2245,7 +2381,7 @@ async function openAddQuickSellModal() {
 async function searchQsProducts() {
   const q = document.getElementById('qsSearch').value.trim();
   if (q.length < 1) { document.getElementById('qsProductList').style.display = 'none'; return; }
-  const data = await apiFetch(`${getApiBase()}/products/?search=${encodeURIComponent(q)}&page_size=10&is_active=true`);
+  const data = await apiFetch(`/products/?search=${encodeURIComponent(q)}&page_size=10&is_active=true`);
   const list = document.getElementById('qsProductList');
   const items = data.items || [];
   if (!items.length) { list.innerHTML = '<div style="padding:.5rem;color:#888">Topilmadi</div>'; list.style.display = ''; return; }
@@ -2261,14 +2397,14 @@ function selectQsProduct(id, name) {
 async function addQuickSellItem() {
   if (!_qsSelectedProductId) return toast('Mahsulot tanlanmagan', 'error');
   const body = { product_id: _qsSelectedProductId, display_name: document.getElementById('qsName').value.trim() || null, color: document.getElementById('qsColor').value };
-  await apiFetch(`${getApiBase()}/quick-sell/?product_id=${_qsSelectedProductId}&display_name=${encodeURIComponent(body.display_name||'')}&color=${encodeURIComponent(body.color)}`, { method:'POST' });
+  await apiFetchPost(`/quick-sell/?product_id=${_qsSelectedProductId}&display_name=${encodeURIComponent(body.display_name||'')}&color=${encodeURIComponent(body.color)}`, null, 'POST');
   closeModal('quickSellModal');
   loadQuickSellItems();
   toast('Qo\'shildi!');
 }
 async function removeQuickSell(id) {
   if (!confirm('O\'chirasizmi?')) return;
-  await apiFetch(`${getApiBase()}/quick-sell/${id}`, { method:'DELETE' });
+  await apiFetchPost(`/quick-sell/${id}`, null, 'DELETE');
   loadQuickSellItems();
   toast('O\'chirildi');
 }

@@ -55,6 +55,21 @@ def _row(left: str, right: str, width: int) -> str:
     return f"{left}{' ' * space}{right}"
 
 
+def _disc_label(data) -> str:
+    """BOSQICH S3: chegirma yorlig'iga foiz (discount/subtotal'dan hosila).
+
+    Manba (mijoz/qo'lda) SERVER tomonda noma'lum (client-only) — faqat foiz.
+    subtotal 0/yo'q bo'lsa oddiy "Chegirma:" (xato bermaydi).
+    """
+    d = data.get("discount") or 0
+    sub = data.get("subtotal") or 0
+    if d > 0 and sub > 0:
+        pct = round(d / sub * 100, 1)
+        pct_s = str(int(pct)) if pct == int(pct) else str(pct)
+        return f"Chegirma -{pct_s}%:"
+    return "Chegirma:"
+
+
 def _wrap(text: str, width: int) -> List[str]:
     """Uzun matnni kenglik bo'yicha bo'lish."""
     text = _sanitize(text)
@@ -139,7 +154,7 @@ def build_receipt(data: Dict[str, Any], width_mm: int = 80) -> bytes:
     # ── Jami / soliq / chegirma ──
     d.text(_row("Jami:", _money(data.get("subtotal")), w) + "\n")
     if (data.get("discount") or 0) > 0:
-        d.text(_row("Chegirma:", "-" + _money(data["discount"]), w) + "\n")
+        d.text(_row(_disc_label(data), "-" + _money(data["discount"]), w) + "\n")
     if (data.get("tax") or 0) > 0:
         d.text(_row("Soliq (12%):", _money(data["tax"]), w) + "\n")
     if (data.get("service") or 0) > 0:
@@ -241,7 +256,7 @@ def render_text(data: Dict[str, Any], width_mm: int = 80) -> str:
     L.append("-" * w)
     L.append(_row("Jami:", _money(data.get("subtotal")), w))
     if (data.get("discount") or 0) > 0:
-        L.append(_row("Chegirma:", "-" + _money(data["discount"]), w))
+        L.append(_row(_disc_label(data), "-" + _money(data["discount"]), w))
     if (data.get("tax") or 0) > 0:
         L.append(_row("Soliq (12%):", _money(data["tax"]), w))
     if (data.get("service") or 0) > 0:

@@ -222,7 +222,9 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
 <div class="layout">
   <div id="sidebar-container"></div>
   <main class="main-content">
-    <a href="admin.html" style="display:inline-block;margin-bottom:1rem;color:var(--text2);text-decoration:none;font-size:.875rem">← Admin panel</a>
+    <a href="admin.html" id="backToAdmin" style="display:inline-block;margin-bottom:1rem;color:var(--text2);text-decoration:none;font-size:.875rem">← Admin panel</a>
+    <!-- BOSQICH 16: admin panel iframe'ida (?embed=1) ochilsa — back-havola yashirin (ichma-ich oyna bo'lmasin) -->
+    <script>if (location.search.includes('embed=1')) document.getElementById('backToAdmin').style.display='none';</script>
     <div class="page-header">
       <h1 class="page-title">🏭 Firmalar</h1>
     </div>

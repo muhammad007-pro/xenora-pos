@@ -455,6 +455,8 @@ class CustomerBase(BaseModel):
     # BOSQICH 19: nasiya tizimi
     credit_limit: Optional[float] = None
     customer_type: str = "retail"  # retail|wholesale
+    # BOSQICH S0 (sodiqlik): doimiy mijoz avtomatik % chegirmasi (0-100)
+    discount_percent: Optional[float] = Field(0, ge=0, le=100)
 
 class CustomerCreate(CustomerBase):
     pass
@@ -466,6 +468,8 @@ class CustomerUpdate(BaseModel):
     birthday: Optional[datetime] = None
     credit_limit: Optional[float] = None
     customer_type: Optional[str] = None
+    # BOSQICH S0 (sodiqlik)
+    discount_percent: Optional[float] = Field(None, ge=0, le=100)
 
 class CustomerInDB(CustomerBase):
     id: int

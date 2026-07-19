@@ -3,6 +3,27 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.3] — 2026-07-19
+
+Sodiqlik (mijoz % chegirma), nasiya tez mijoz, Firmalar iframe, yangi grafik + bug fixlar.
+**1 migratsiya:** `c9d0e1f2a3b4` (customers.discount_percent).
+
+### Qo'shildi
+- **Sodiqlik dasturi (S0–S3):** doimiy mijozga avtomatik % chegirma. `customers.discount_percent`
+  (0–100). Kiritish: #13 tez qo'shish (debt+POS) + Admin Mijozlar tahrir/qo'shish modali. POS: mijoz
+  tanlanганda chegirма avtomatик (variant A — qo'lда chegирма ustun, stack yo'q). Chek: "Chegirma −10% (mijoz)".
+- **Nasiyada tez mijoz qo'shish (#13):** admin debt modal + POS customerModal — ism+telefon (majburiy)
+  bilan inline yangi mijoz. Mijozlar sahifasi endi to'liq (qo'shish/tahrir; "tez orada" olib tashlandi).
+- **Firmalar iframe (#16):** suppliers.html admin panel ICHIDA ochiladi (yangi oyna emas) — `data-page` + iframe.
+- **Sotuv dinamikasi grafik (#18):** eski div-bar → toza SVG area (silliq egri, emerald gradient,
+  avtomatik Y masshtab, "Ma'lumot yo'q" holati). Kutubxonasiz (Electron file:// mos).
+- **Ombor narx ustuni (#12):** ombor jadvalida sotuv narxi (+ tannarx sub-qator).
+
+### Tuzatildi
+- **`getApiBase` oilasi (#14/15/19):** Aksiyalar/Tez sotuv/Etiketka/Chek sozlamalari — mavjud bo'lmagan
+  `getApiBase()` → API_BASE/apiFetch/apiFetchPost. Admin nasiya (saveDebt/payDebt) yashirin GET→POST
+  (nasiya haqiqatan saqlanadi).
+
 ## [1.2.2] — 2026-07-18
 
 Pachka/Dona to'liq tizim + mahsulot/ombor bug tuzatishlari + ombor qiymati (deploy; build keyinroq).

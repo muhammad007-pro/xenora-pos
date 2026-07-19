@@ -234,6 +234,7 @@ async function updateActiveDiscountsBadge() {
 // ══ BOSQICH 19: NASIYA / QARZ DAFTAR ══════════════════════════════════════════
 let debtCurrentPage = 1;
 let currentDebtId = null;
+let _debtCustomers = [];   // BOSQICH 13: yuklangan mijozlar (mahalliy dublikat tekshiruvi uchun)
 
 async function updateDebtBadge() {
   try {
@@ -303,6 +304,7 @@ async function openDebtModal() {
     try {
       const custs = await apiFetch('/customers/?page_size=500');
       const list = Array.isArray(custs) ? custs : (custs.items || []);
+      _debtCustomers = list;   // BOSQICH 13: mahalliy dublikat tekshiruvi uchun saqlash
       list.forEach(c => {
         const o = document.createElement('option');
         o.value = c.id;
@@ -314,8 +316,65 @@ async function openDebtModal() {
   document.getElementById('dmAmount').value = '';
   document.getElementById('dmDueDate').value = '';
   document.getElementById('dmNotes').value = '';
+  _dmToggleNewCust(false);   // BOSQICH 13: yangi mijoz bloki yopiq holatda
   openModal('debtModal');
 }
+
+// ── BOSQICH 13: nasiyada tez yangi mijoz qo'shish ──────────────────────────────
+function _dmToggleNewCust(show) {
+  const box = document.getElementById('dmNewCustBox');
+  if (!box) return;
+  const on = (show === undefined) ? (box.style.display === 'none') : show;
+  box.style.display = on ? '' : 'none';
+  if (on) {
+    document.getElementById('dmNewName').value = '';
+    document.getElementById('dmNewPhone').value = '';
+    const d = document.getElementById('dmNewDiscount'); if (d) d.value = '';
+    setTimeout(() => document.getElementById('dmNewName').focus(), 50);
+  }
+}
+
+async function dmAddNewCustomer() {
+  const name  = document.getElementById('dmNewName').value.trim();
+  const phone = document.getElementById('dmNewPhone').value.trim();
+  if (!name)  { showAlert('Ism kiriting', 'error'); return; }
+  if (!phone) { showAlert('Telefon kiriting', 'error'); return; }   // do'kon nasiyasi — telefon majburiy
+  // BOSQICH S1: chegirma % (ixtiyoriy, 0-100)
+  const discRaw = document.getElementById('dmNewDiscount')?.value;
+  const disc = discRaw !== '' && discRaw != null ? parseFloat(discRaw) : 0;
+  if (!(disc >= 0 && disc <= 100)) { showAlert("Chegirma 0-100 oralig'ida bo'lsin", 'error'); return; }
+  const sel = document.getElementById('dmCustomer');
+
+  // Mahalliy dublikat: shu do'kon ro'yxatida telefon bo'lsa — mavjudni tanla (yangi yaratma)
+  const existing = _debtCustomers.find(c => (c.phone || '') === phone);
+  if (existing) {
+    sel.value = String(existing.id);
+    _dmToggleNewCust(false);
+    showAlert('Mavjud mijoz tanlandi', 'info');
+    return;
+  }
+
+  const btn = document.getElementById('dmNewCustSave');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const c = await apiFetchPost('/customers/', { name, phone, discount_percent: disc }, 'POST');
+    const o = document.createElement('option');
+    o.value = String(c.id);
+    o.textContent = `${c.name}${c.phone ? ' · ' + c.phone : ''}`;
+    sel.appendChild(o);
+    sel.value = String(c.id);
+    _debtCustomers.push(c);
+    _dmToggleNewCust(false);
+    showAlert("Mijoz qo'shildi va tanlandi", 'success');
+  } catch (e) {
+    showAlert(e.message || 'Xato', 'error');   // backend 400 "Bu telefon raqam band" (global unique)
+  } finally {
+    btn.disabled = false; btn.textContent = 'Qo\'shish va tanlash';
+  }
+}
+
+document.getElementById('dmNewCustBtn')?.addEventListener('click', () => _dmToggleNewCust());
+document.getElementById('dmNewCustSave')?.addEventListener('click', dmAddNewCustomer);
 
 async function saveDebt() {
   const custId = document.getElementById('dmCustomer').value;
@@ -330,7 +389,7 @@ async function saveDebt() {
     notes: document.getElementById('dmNotes').value || null,
   };
   try {
-    await apiFetch('/debts/', { method:'POST', body: JSON.stringify(payload) });
+    await apiFetchPost('/debts/', payload, 'POST');   // apiFetch faqat GET — POST uchun apiFetchPost
     closeModal('debtModal');
     showAlert('Qarz yozildi', 'success');
     loadDebtSummary(); loadDebts(); updateDebtBadge();
@@ -357,7 +416,7 @@ async function submitDebtPayment() {
     notes: document.getElementById('pdNotes').value || null,
   };
   try {
-    await apiFetch(`/debts/${currentDebtId}/pay`, { method:'POST', body: JSON.stringify(payload) });
+    await apiFetchPost(`/debts/${currentDebtId}/pay`, payload, 'POST');   // apiFetch faqat GET
     closeModal('payDebtModal');
     showAlert('To\'lov qabul qilindi', 'success');
     loadDebtSummary(); loadDebts(); updateDebtBadge();

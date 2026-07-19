@@ -78,8 +78,9 @@ ipcMain.handle('is-fullscreen', () => (mainWindow ? mainWindow.isFullScreen() : 
 // MUHIM: deviceName BO'SH bo'lsa `deviceName` kalitini BERMAYMIZ (bo'sh satr EMAS)
 // — shundagina Electron OS STANDART printerini (XP-58C) ishlatadi. `deviceName:''`
 // berish default'ga tushmaydi va chek hech qayerga ketadi (eski bug).
-// pageSize — 58mm termal rolik (A4 emas); balandlik chek kontentiga qarab.
-const PX_TO_MICRON = 264.58; // 1 CSS px ≈ 264.58 mikron (96dpi)
+// pageSize BERMAYMIZ — XP-58C termal drayveri o'z 58mm formini ishlatadi
+// (Windows sinov cheki ham pageSize'siz chiqdi). Custom pageSize height=0
+// xavfini butunlay yo'qotadi (bo'sh job → hech narsa bosmaydi bug'i).
 ipcMain.handle('print-receipt', async (_e, payload) => {
     const { html, deviceName } = payload || {};
     if (!html) return { ok: false, error: "Chek HTML bo'sh" };
@@ -89,23 +90,19 @@ ipcMain.handle('print-receipt', async (_e, payload) => {
             show: false,
             webPreferences: { offscreen: false, sandbox: true },
         });
+        // Chek HTML TO'LIQ yuklansin: loadURL did-finish-load'da hal bo'ladi
+        // (yuklanmasa reject → catch → ok:false). Shundan KEYIN print — aks holda
+        // bo'sh oyna → bo'sh job (scrollHeight=0 eski bug).
         await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-        // Layout + (bo'lsa) rasm/QR yuklanishiga ozgina vaqt
-        await new Promise((r) => setTimeout(r, 300));
+        // Render / shrift / QR uchun kichik qo'shimcha kechikish
+        await new Promise((r) => setTimeout(r, 250));
 
-        // Chek kontenti balandligini o'lchab, sahifa balandligini shунга moslash
-        // (termal rolik uzluksiz — ortiqcha bo'sh qog'oz chiqmasin).
-        let pageHeight = 200000; // fallback ~200mm
-        try {
-            const h = await win.webContents.executeJavaScript('document.body.scrollHeight');
-            if (h && h > 0) pageHeight = Math.round(h * PX_TO_MICRON) + 6000; // + kichik quyruq
-        } catch { /* o'lchab bo'lmasa fallback */ }
-
+        // pageSize BERMAYMIZ — XP-58C drayveri 58mm formini O'ZI biladi
+        // (sinov cheki pageSize'siz chiqdi). Custom height=0 xavfi yo'q.
         const printOpts = {
             silent: true,
             margins: { marginType: 'none' },
             printBackground: false,
-            pageSize: { width: 58000, height: pageHeight }, // 58mm = 58000 mikron
         };
         // Faqat NOMLI printer bo'lsa deviceName beramiz; bo'sh → OS default (XP-58C).
         if (deviceName && String(deviceName).trim()) printOpts.deviceName = String(deviceName).trim();

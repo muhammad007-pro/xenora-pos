@@ -1,10 +1,10 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
-> Oxirgi tasdiqlangan deploy: **v1.2.5** (2026-07-20) — Chek silent print fix (deviceName bo'sh→OS default XP-58C, 58mm pageSize, toast halolligi, printer tanlash).
-> ⚠️ **MIGRATSIYA YO'Q** (chek = kod, DB emas). Sodiqlik `c9d0e1f2a3b4` v1.2.3'da qo'llangan (`alembic current` tasdiqlaydi). Android versionCode **12** / 1.2.5.
+> Oxirgi tasdiqlangan deploy: **v1.2.6** (2026-07-20) — Chek silent print fix (did-finish-load render kutish + pageSize olib tashlash → height=0 bo'sh job bug'i hал; XP-58C drayveri o'z 58mm formida bosadi).
+> ⚠️ **MIGRATSIYA YO'Q** (chek = kod, DB emas). Sodiqlik `c9d0e1f2a3b4` v1.2.3'da qo'llangan (`alembic current` tasdiqlaydi). Android versionCode **13** / 1.2.6.
 > ⚠️ **BUILD SHART:** Chek fixi Electron .exe (`main.js`) va Android .apk'da — foydalanuvchi yangi build o'rnatmasa chek chiqmaydi. Server deploy chekni O'ZI tuzatmaydi (chek — mijoz tomonda lokal print).
-> (Oldingi: v1.2.4 2026-07-20 Chek lokal silent print; v1.2.3 2026-07-19 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 2026-07-18 Pachka/Dona [`a7b8c9d0e1f2`,`b8c9d0e1f2a3`]; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
+> (Oldingi: v1.2.5 2026-07-20 deviceName default+58mm pageSize; v1.2.4 2026-07-20 Chek lokal silent print; v1.2.3 2026-07-19 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 Pachka/Dona; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
 
 ---
 
@@ -117,8 +117,8 @@ Frontend PWA cache (alohida versiya sxemasi):
 
 ## 5. Native build
 
-> **v1.2.5 build:** Android `versionCode 12` / `versionName 1.2.5`; Electron `1.2.5`.
-> Ikkala platforma ilova ichida **1.2.5** ko'rsatadi (version.js/login.html bilan izchil).
+> **v1.2.6 build:** Android `versionCode 13` / `versionName 1.2.6`; Electron `1.2.6`.
+> Ikkala platforma ilova ichida **1.2.6** ko'rsatadi (version.js/login.html bilan izchil).
 > ⚠️ **Chek fixi (silent print) BUILD'da:** Electron `extraResources` (`from: ../frontend`) build vaqtida
 > frontend'ni yangidan nusxalaydi — `receipt-print.js`/`pos.js`/`main.js`/`preload.js` avtomatik kiradi.
 > Eski `electron/dist/win-unpacked` build'da qayta yoziladi. Android: `npx cap sync` frontend'ni yangilaydi.

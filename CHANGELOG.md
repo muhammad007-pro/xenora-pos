@@ -3,6 +3,20 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.6] — 2026-07-20
+
+Chek silent print — did-finish-load + pageSize olib tashlash. **Migratsiya YO'Q** (kod).
+
+### Tuzatildi
+- **Chek chiqmasligi (success=true, lekin qog'oz yo'q):** XP-58C tanlangan/default bo'lsa ham chek
+  chiqmadi. Sabab: (1) chek HTML to'liq render bo'lishidan oldin o'lchov → `scrollHeight=0` →
+  `pageSize.height=0` → printer bo'sh job oldi; (2) custom `pageSize` (58mm micron) ni termal
+  drayver o'z formiga moslay olmadi. Yechim (`electron/main.js`): `did-finish-load` kutiladi (loadURL
+  await) + 250ms render kechikish; **`pageSize` umuman berilmaydi** — XP-58C drayveri o'z 58mm formini
+  ishlatadi (Windows sinov cheki ham pageSize'siz chiqadi). Height=0 bug'i butunlay yo'qoldi.
+- deviceName mantiqi (printer_name yoki bo'sh→OS default) va toast halolligi (success faqat haqiqiy
+  print callback'da) saqlandi. Reprint (POS + Sotuvlar tarixi) shu yo'lni ishlatadi.
+
 ## [1.2.5] — 2026-07-20
 
 Chek silent print jonli sinov tuzatish. **Migratsiya YO'Q** (kod).

@@ -104,79 +104,165 @@ function _runExe(exe, args) {
         execFile(exe, args, { windowsHide: true }, (err) => (err ? reject(err) : resolve()));
     });
 }
-ipcMain.handle('print-receipt', async (_e, payload) => {
-    const { html, deviceName } = payload || {};
-    if (!html) return { ok: false, error: "Chek HTML bo'sh" };
-    const dev = (deviceName && String(deviceName).trim()) ? String(deviceName).trim() : null;
-    let win = null;
-    let pdfPath = null;
-    try {
-        win = new BrowserWindow({
-            show: false,
-            width: 400, height: 800,
-            webPreferences: { offscreen: false, sandbox: false, backgroundThrottling: false },
-            backgroundColor: '#ffffff',
-        });
-        const wc = win.webContents;
-        // Chek HTML TO'LIQ yuklansin: loadURL did-finish-load'da hal bo'ladi
-        // (yuklanmasa reject → catch → ok:false). Shundan KEYIN PDF/print.
-        await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-        await _delay(300);   // render / shrift / QR
+// ══ MARKAZIY PRINT SERVIS (B1) ══════════════════════════════════════════════
+// Bitta kirish nuqtasi: printDocument(payload). payload.printType ga qarab
+// TRANSPORT tanlaydi. Har transport bir xil shakl: async send(html, opts) →
+// { ok, error, ... }. Kelajakda yangi transport = shu obyektga yangi kalit;
+// printDocument O'ZGARMAYDI. default "usb" → hozirgi SumatraPDF (regressiya yo'q).
 
-        // PDF sahifasini 58mm × (kontent balandligi) qilamiz — ortiqcha bo'sh qog'oz yo'q.
-        let hmm = 200;
+// ── USB transport = AYNAN hozirgi SumatraPDF yo'li (render→PDF→SumatraPDF→GDI
+//    fallback). Kod o'zgarmadi — faqat o'raldi. Chek shu orqali toza chiqadi. ──
+const usbTransport = {
+    async send(html, opts) {
+        const dev = (opts && opts.deviceName && String(opts.deviceName).trim())
+            ? String(opts.deviceName).trim() : null;
+        let win = null;
+        let pdfPath = null;
         try {
-            const hpx = await wc.executeJavaScript('document.body.scrollHeight');
-            if (hpx && hpx > 0) hmm = Math.ceil((hpx / 96) * 25.4) + 4;   // px→mm + kichik quyruq
-        } catch { /* o'lchab bo'lmasa 200mm */ }
-        try {
-            await wc.executeJavaScript(
-                "(function(){var s=document.createElement('style');s.textContent='@page{size:58mm "
-                + hmm + "mm;margin:0}';document.head.appendChild(s);})()"
-            );
-        } catch { /* @page bermasak Letter bo'ladi — SumatraPDF fit tuzatadi */ }
-        await _delay(60);
-
-        const sumatra = _sumatraExe();
-        if (sumatra) {
-            // ── PDF yo'li (ISHONCHLI — Chrome kabi raster) ──
-            const pdf = await wc.printToPDF({
-                printBackground: true,
-                preferCSSPageSize: true,
-                margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            win = new BrowserWindow({
+                show: false,
+                width: 400, height: 800,
+                webPreferences: { offscreen: false, sandbox: false, backgroundThrottling: false },
+                backgroundColor: '#ffffff',
             });
-            pdfPath = path.join(os.tmpdir(), 'xenora_chek_' + Date.now() + '.pdf');
-            fs.writeFileSync(pdfPath, Buffer.from(pdf));
-            // SumatraPDF PDF'ni RASTER qilib GDI orqali bosadi (matn bayt yo'q → krakozyabra yo'q).
-            const args = dev
-                ? ['-print-to', dev, '-silent', '-print-settings', 'fit', pdfPath]
-                : ['-print-to-default', '-silent', '-print-settings', 'fit', pdfPath];
-            await _runExe(sumatra, args);
-            return { ok: true, device: dev || '(OS default)', engine: 'pdf' };
-        }
+            const wc = win.webContents;
+            // Chek HTML TO'LIQ yuklansin: loadURL did-finish-load'da hal bo'ladi
+            // (yuklanmasa reject → catch → ok:false). Shundan KEYIN PDF/print.
+            await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+            await _delay(300);   // render / shrift / QR
 
-        // ── Fallback: SumatraPDF yo'q → webContents.print (silent GDI) ──
-        const printOpts = { silent: true, margins: { marginType: 'none' }, printBackground: true };
-        if (dev) printOpts.deviceName = dev;
-        const result = await new Promise((resolve) => {
-            wc.print(printOpts, (success, failureReason) =>
-                resolve({
-                    ok: !!success,
-                    error: success ? null : (failureReason || 'Printer topilmadi yoki chop bekor qilindi'),
-                    device: dev || '(OS default)',
-                    engine: 'gdi-fallback',
-                })
-            );
-        });
-        return result;
+            // PDF sahifasini 58mm × (kontent balandligi) qilamiz — ortiqcha bo'sh qog'oz yo'q.
+            let hmm = 200;
+            try {
+                const hpx = await wc.executeJavaScript('document.body.scrollHeight');
+                if (hpx && hpx > 0) hmm = Math.ceil((hpx / 96) * 25.4) + 4;   // px→mm + kichik quyruq
+            } catch { /* o'lchab bo'lmasa 200mm */ }
+            try {
+                await wc.executeJavaScript(
+                    "(function(){var s=document.createElement('style');s.textContent='@page{size:58mm "
+                    + hmm + "mm;margin:0}';document.head.appendChild(s);})()"
+                );
+            } catch { /* @page bermasak Letter bo'ladi — SumatraPDF fit tuzatadi */ }
+            await _delay(60);
+
+            const sumatra = _sumatraExe();
+            if (sumatra) {
+                // ── PDF yo'li (ISHONCHLI — Chrome kabi raster) ──
+                const pdf = await wc.printToPDF({
+                    printBackground: true,
+                    preferCSSPageSize: true,
+                    margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                });
+                pdfPath = path.join(os.tmpdir(), 'xenora_chek_' + Date.now() + '.pdf');
+                fs.writeFileSync(pdfPath, Buffer.from(pdf));
+                // SumatraPDF PDF'ni RASTER qilib GDI orqali bosadi (matn bayt yo'q → krakozyabra yo'q).
+                const args = dev
+                    ? ['-print-to', dev, '-silent', '-print-settings', 'fit', pdfPath]
+                    : ['-print-to-default', '-silent', '-print-settings', 'fit', pdfPath];
+                await _runExe(sumatra, args);
+                return { ok: true, device: dev || '(OS default)', engine: 'pdf' };
+            }
+
+            // ── Fallback: SumatraPDF yo'q → webContents.print (silent GDI) ──
+            const printOpts = { silent: true, margins: { marginType: 'none' }, printBackground: true };
+            if (dev) printOpts.deviceName = dev;
+            const result = await new Promise((resolve) => {
+                wc.print(printOpts, (success, failureReason) =>
+                    resolve({
+                        ok: !!success,
+                        error: success ? null : (failureReason || 'Printer topilmadi yoki chop bekor qilindi'),
+                        device: dev || '(OS default)',
+                        engine: 'gdi-fallback',
+                    })
+                );
+            });
+            return result;
+        } catch (err) {
+            console.error('usbTransport error', err);
+            return { ok: false, error: err.message };
+        } finally {
+            if (win && !win.isDestroyed()) win.close();
+            if (pdfPath) { try { fs.unlinkSync(pdfPath); } catch { /* ignore */ } }
+        }
+    },
+};
+
+// ── LAN/API transport — SKELETON (B2). Struktura to'liq, ichi STUB. ────────────
+// Tarmoq (LAN/Wi-Fi) termal printerlari uchun. USB'dan FARQI: LAN termal printer
+// odatda RAW ESC/POS baytlarni TCP 9100 (RAW/JetDirect) portida kutadi — PDF EMAS.
+// Shu sabab kelajakda html'ni to'g'ridan yubormaymiz, balki ESC/POS'ga o'giramiz.
+//
+// KELAJAKDA (stub o'rniga) — send() ichi shunday to'ldiriladi, interfeys O'ZGARMAYDI:
+//
+//   1) RAW TCP 9100 (eng keng tarqalgan — Epson/Xprinter LAN):
+//        const net = require('net');
+//        const bytes = htmlToEscpos(html, opts);   // matn/qator/QR → ESC/POS buffer
+//        await new Promise((resolve, reject) => {
+//          const sock = net.connect(port, ip, () => sock.write(bytes, () => sock.end()));
+//          sock.on('error', reject);
+//          sock.on('close', () => resolve());
+//          sock.setTimeout(5000, () => { sock.destroy(); reject(new Error('LAN timeout')); });
+//        });
+//        return { ok: true, engine: 'lan-tcp', device: `${ip}:${port}` };
+//
+//   2) HTTP/JSON API (bulut yoki print-server bridge):
+//        const res = await fetch(`http://${ip}:${port}/print`, {
+//          method:'POST', headers:{'Content-Type':'application/json'},
+//          body: JSON.stringify({ escpos: Buffer.from(bytes).toString('base64') }),
+//        });
+//        return { ok: res.ok, engine: 'lan-http', ... };
+//
+//   htmlToEscpos(): alohida modul (kelajak) — chek HTML/struktura → ESC/POS
+//   (init, encoding CP864/UTF, qator, QR GS, kesish). USB (SumatraPDF/PDF) bu
+//   bosqichni talab qilmaydi; faqat LAN raw uchun kerak.
+//
+// Hozir: ulanish qo'llab-quvvatlanmaydi → aniq xato (crash EMAS). Sozlama
+// (IP/port) allaqachon saqlanadi; do'kon LAN printer olsa — shu send() to'ldiriladi.
+const lanTransport = {
+    async send(_html, opts) {
+        const ip = opts && opts.printerIp ? String(opts.printerIp).trim() : '';
+        const port = Number((opts && opts.printerPort) || 0) || 9100;
+        // IP bo'sh bo'lsa — aniq yo'naltiruvchi xato.
+        if (!ip) {
+            return { ok: false, engine: 'lan-stub',
+                error: 'LAN IP kiritilmagan — sozlamalarda "Printer IP" ni to\'ldiring' };
+        }
+        // IP kiritilgan, lekin ulanish hali yo'q (skeleton).
+        return { ok: false, engine: 'lan-stub',
+            error: `LAN printer tez orada — sozlamalarda IP kiritilgan (${ip}:${port}), `
+                 + 'lekin tarmoq ulanishi hali qo\'llab-quvvatlanmaydi' };
+    },
+};
+
+// ── QR transport — STUB (kelajak). ──
+const qrTransport = {
+    async send(_html, _opts) {
+        return { ok: false, engine: 'qr-stub', error: 'QR print tez orada' };
+    },
+};
+
+const _transports = { usb: usbTransport, lan: lanTransport, qr: qrTransport };
+
+// ── MARKAZIY: printType ga qarab transport tanlab, send() chaqiradi ──
+async function printDocument(payload) {
+    const p = payload || {};
+    if (!p.html) return { ok: false, error: "Print HTML bo'sh" };
+    const type = (p.printType && String(p.printType).trim().toLowerCase()) || 'usb';
+    const transport = _transports[type] || usbTransport;   // noma'lum tur → usb (regressiya yo'q)
+    try {
+        return await transport.send(p.html, p);
     } catch (err) {
-        console.error('print-receipt error', err);
+        console.error('printDocument error', err);
         return { ok: false, error: err.message };
-    } finally {
-        if (win && !win.isDestroyed()) win.close();
-        if (pdfPath) { try { fs.unlinkSync(pdfPath); } catch { /* ignore */ } }
     }
-});
+}
+
+// Yangi markaziy IPC — Z-hisobot / kunlik hisobot (B4) shu orqali o'tadi.
+ipcMain.handle('print-document', (_e, payload) => printDocument(payload));
+// Orqaga moslik: chek hozircha 'print-receipt' IPC ishlatadi → printDocument
+// (printType bo'sh → 'usb' → AYNI SumatraPDF yo'li). Chek natijasi o'zgarmaydi.
+ipcMain.handle('print-receipt', (_e, payload) =>
+    printDocument({ ...(payload || {}), printType: (payload && payload.printType) || 'usb' }));
 
 // Mavjud printerlar ro'yxati (sozlamada tanlash uchun)
 ipcMain.handle('list-printers', async () => {

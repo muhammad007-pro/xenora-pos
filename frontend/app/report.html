@@ -210,7 +210,7 @@ body{background:radial-gradient(ellipse 120% 75% at 72% -12%,#0b291e 0%,#05160f 
 <header class="ph">
   <a href="pos.html" class="bk">←</a>
   <h1 class="ph-title">Hisobotlar</h1>
-  <button class="btn btn-out btn-sm" onclick="window.print()">Chop etish</button>
+  <button class="btn btn-out btn-sm" onclick="printDailyReport()">Chop etish</button>
 </header>
 
 <div class="pc">
@@ -684,6 +684,89 @@ loadReport();
     .observe(area, { childList:true, subtree:true });
   scan();
 })();
+</script>
+
+<!-- KUNLIK HISOBOT chop etish (B5) — MARKAZIY printDocument (58mm, silent).
+     window.print() (butun sahifa: grafik/dropdown/tugma) O'RNIGA — faqat hisobot
+     mazmuni (KPI kartalar + jadval), grafik/boshqaruv EMAS. -->
+<script type="module">
+import { printReceiptHTML } from '../js/core/receipt-print.js';
+
+const _lp = window.location.port;
+const _dev = ['5500','5501','3000','4200','8080'].includes(_lp) && ['localhost','127.0.0.1'].includes(window.location.hostname);
+const _BASE = _dev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER || '') + '/api/v1');
+const _tok = () => localStorage.getItem('access_token');
+const _jget = (u) => fetch(`${_BASE}${u}`, { headers: { Authorization: 'Bearer ' + _tok() } }).then(r => r.json()).catch(() => null);
+
+// Chek sozlamalari (B1/B3) — print_type/ip/port/shrift + printer nomi.
+let _cfg = { print_type: 'usb', printer_ip: null, printer_port: null, font_size: 'normal', deviceName: '' };
+(async () => {
+  const r = await _jget('/receipt-settings/');
+  if (r && typeof r === 'object') {
+    _cfg.print_type = r.print_type || 'usb';
+    _cfg.printer_ip = r.printer_ip || null;
+    _cfg.printer_port = r.printer_port || null;
+    _cfg.font_size = r.font_size || 'normal';
+  }
+  const s = await _jget('/settings/printer/status');
+  if (s && typeof s.printer_name === 'string') _cfg.deviceName = s.printer_name;
+})();
+
+const _esc = (x) => String(x == null ? '' : x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// Ekrandagi hisobotdan 58mm innerHTML (chek idiomi). Faqat KPI kartalar (.sc) +
+// detal jadval (.tbl → nom + asosiy summa). Grafik (canvas), dropdown, tugmalar OLINMAYDI.
+function buildDailyReport58() {
+  const tabEl = document.querySelector('.tab.active');
+  const tabName = tabEl ? tabEl.textContent.trim() : 'Hisobot';
+  const df = document.getElementById('dateFrom').value;
+  const dt = document.getElementById('dateTo').value;
+  const area = document.getElementById('reportArea');
+
+  let cards = '';
+  area.querySelectorAll('.sc').forEach((sc) => {
+    const l = sc.querySelector('.sl'), v = sc.querySelector('.sv'), s = sc.querySelector('.ss');
+    if (l && v) cards += `<div class="rt-row"><span>${_esc(l.textContent.trim())}:</span>`
+      + `<span>${_esc(v.textContent.trim())}${s ? ' ' + _esc(s.textContent.trim()) : ''}</span></div>`;
+  });
+
+  let tbl = '';
+  const table = area.querySelector('table.tbl');
+  if (table) {
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    tbl = rows.map((tr) => {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      if (!tds.length) return '';
+      const name = tds[0].textContent.trim();
+      if (tds.length === 1) return `<tr><td colspan="2">${_esc(name)}</td></tr>`;   // "Ma'lumot yo'q"
+      const amtCell = tr.querySelector('.amt') || tds[tds.length - 1];
+      const val = amtCell ? amtCell.textContent.trim() : '';
+      return `<tr><td>${_esc(name)}</td><td style="text-align:right">${_esc(val)}</td></tr>`;
+    }).join('');
+  }
+
+  return `
+    <div class="receipt-center"><h4>KUNLIK HISOBOT</h4><p>${_esc(tabName)}<br>${_esc(df)} — ${_esc(dt)}</p></div>
+    <div class="receipt-totals">${cards || '<div class="rt-row"><span>Ma\'lumot yo\'q</span><span></span></div>'}</div>
+    ${tbl ? `<table class="receipt-table"><tbody>${tbl}</tbody></table>` : ''}
+    <div class="receipt-footer">XENORA POS · Hisobot</div>`;
+}
+
+// window.print() O'RNIGA — markaziy printDocument (B1) orqali silent 58mm.
+window.printDailyReport = function () {
+  const html = buildDailyReport58();
+  printReceiptHTML(html, {
+    title: 'Kunlik hisobot',
+    deviceName: _cfg.deviceName,
+    fontSize: _cfg.font_size,
+    printType: _cfg.print_type,
+    printerIp: _cfg.printer_ip,
+    printerPort: _cfg.printer_port,
+  }).then((res) => {
+    if (res && res.ok) return;                       // silent (SumatraPDF) yoki brauzer dialog
+    alert('Hisobot chiqmadi: ' + ((res && res.error) || 'noma\'lum xato'));
+  }).catch((e) => alert('Hisobot xato: ' + (e.message || e)));
+};
 </script>
 </body>
 </html>

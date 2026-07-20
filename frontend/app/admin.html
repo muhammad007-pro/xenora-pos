@@ -1866,10 +1866,23 @@
               </div>
             </div>
             <div class="form-group">
+              <label>Print turi</label>
+              <select class="form-control" id="rsPrintType" onchange="document.getElementById('rsLanGroup').style.display=this.value==='lan'?'grid':'none'">
+                <option value="usb">USB — SumatraPDF (do'kon)</option>
+                <option value="lan">LAN — tarmoq printer (tez orada)</option>
+                <option value="qr">QR — ekran (kelajak)</option>
+              </select>
+              <small style="color:var(--text3);display:block;margin-top:.35rem">USB — SumatraPDF orqali (do'kon). LAN — tarmoq printer (restoran, tez orada). Bo'sh = USB.</small>
+            </div>
+            <div id="rsLanGroup" style="display:none;grid-template-columns:2fr 1fr;gap:.5rem">
+              <div class="form-group"><label>Printer IP</label><input class="form-control" id="rsPrinterIp" placeholder="192.168.1.50"></div>
+              <div class="form-group"><label>Port</label><input class="form-control" id="rsPrinterPort" type="number" placeholder="9100"></div>
+            </div>
+            <div class="form-group">
               <label>Chek printeri (silent print)</label>
               <input class="form-control" id="rsPrinter" list="rsPrinterList" placeholder="Bo'sh = Windows standart printeri (XP-58C)">
               <datalist id="rsPrinterList"></datalist>
-              <small style="color:var(--text3);display:block;margin-top:.35rem">Chek shu printerga chiqadi. Bo'sh qolsa — Windows standart printeri ishlatiladi.</small>
+              <small style="color:var(--text3);display:block;margin-top:.35rem">Chek shu printerga chiqadi (USB). Bo'sh qolsa — Windows standart printeri ishlatiladi.</small>
             </div>
             <div class="form-group" style="display:flex;align-items:center;gap:.75rem">
               <input type="checkbox" id="rsQrEnabled" onchange="document.getElementById('rsQrUrlGroup').style.display=this.checked?'block':'none'">
@@ -3305,12 +3318,34 @@ initErrorHandler();
 import { printReceiptHTML, buildReceipt58 } from '../js/core/receipt-print.js';
 
 let _deviceName = '';   // Windows printer nomi (bo'sh = OS default)
+// Chek sozlamalari (B1/B3) — markaziy print servisga uzatiladi.
+let _rcptCfg = { print_type: 'usb', printer_ip: null, printer_port: null, font_size: 'normal' };
 (async () => {
   try {
     const s = await window.apiFetch('/settings/printer/status');
     if (s && typeof s.printer_name === 'string') _deviceName = s.printer_name;
   } catch { /* status olinmasa OS default printer */ }
+  try {
+    const r = await window.apiFetch('/receipt-settings/');
+    if (r && typeof r === 'object') {
+      _rcptCfg.print_type   = r.print_type   || 'usb';
+      _rcptCfg.printer_ip   = r.printer_ip   || null;
+      _rcptCfg.printer_port = r.printer_port || null;
+      _rcptCfg.font_size    = r.font_size    || 'normal';
+    }
+  } catch { /* sozlama olinmasa — usb + normal */ }
 })();
+
+// MARKAZIY chop etish (B4): 58mm innerHTML → printReceiptHTML → printDocument (B1).
+// deviceName + print_type/ip/port + shrift avtomatik qo'shiladi. Z-hisobot /
+// kunlik hisobot shu orqali (klassik skriptlar window'dan chaqiradi).
+window.printReceiptDoc = (innerHTML, opts = {}) => printReceiptHTML(innerHTML, Object.assign({
+  deviceName:  _deviceName,
+  fontSize:    _rcptCfg.font_size,
+  printType:   _rcptCfg.print_type,
+  printerIp:   _rcptCfg.printer_ip,
+  printerPort: _rcptCfg.printer_port,
+}, opts));
 
 async function reprintOrder(id) {
   if (!id) return;

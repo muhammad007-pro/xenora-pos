@@ -224,6 +224,13 @@ async function loadReceiptSettings() {
   document.getElementById('rsQrUrlGroup').style.display = s.qr_enabled ? '' : 'none';
   document.getElementById('rsQrUrl').value = s.qr_url || '';
 
+  // ── Print turi (B3): USB (default) / LAN / QR ──
+  const pt = s.print_type || 'usb';
+  document.getElementById('rsPrintType').value = pt;
+  document.getElementById('rsPrinterIp').value = s.printer_ip || '';
+  document.getElementById('rsPrinterPort').value = s.printer_port || '';
+  document.getElementById('rsLanGroup').style.display = pt === 'lan' ? 'grid' : 'none';
+
   // ── Chek printeri (tenant printer config /settings/printer) ──
   try {
     const p = await apiFetch(`/settings/printer`);
@@ -252,6 +259,10 @@ async function saveReceiptSettings() {
     font_size: document.getElementById('rsFontSize').value,
     qr_enabled: document.getElementById('rsQrEnabled').checked,
     qr_url: document.getElementById('rsQrUrl').value.trim(),
+    // Print turi (B3) — printDocument (B1) shu asosda transport tanlaydi.
+    print_type: document.getElementById('rsPrintType').value || 'usb',
+    printer_ip: document.getElementById('rsPrinterIp').value.trim() || null,
+    printer_port: parseInt(document.getElementById('rsPrinterPort').value, 10) || null,
   };
   await apiFetchPost(`/receipt-settings/`, body, 'PUT');
   // Chek printerini (silent print deviceName) tenant printer config'ga saqlash

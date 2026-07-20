@@ -1444,9 +1444,10 @@ function renderOfflineReceipt(payment) {
 // ─── Receipt + ESC/POS chop etish ─────────────────────────────────────────────
 let _printerStatus = { enabled: false, auto_print: false, mode: 'mock' };
 let _lastReceiptOrderId = null;
-// Chek sozlamalari (Shrift o'lchami) — chek print CSS'iga uzatiladi.
-// Kichik/Normal/Katta ('small'/'normal'/'large') → 11/13/15px (receipt-print.js).
-let _receiptCfg = { font_size: 'normal' };
+// Chek sozlamalari — chek print CSS'iga + markaziy print servisga uzatiladi.
+// font_size: Kichik/Normal/Katta ('small'/'normal'/'large') → 11/13/15px (receipt-print.js).
+// print_type (B1): 'usb' (SumatraPDF, default) | 'lan' (IP:port, stub) | 'qr'.
+let _receiptCfg = { font_size: 'normal', print_type: 'usb', printer_ip: null, printer_port: null };
 
 async function loadPrinterStatus() {
   try {
@@ -1459,8 +1460,23 @@ async function loadReceiptSettings() {
   try {
     const s = await api.get('/receipt-settings/');
     const d = (s && s.success && s.data) ? s.data : s;   // api.js wrapped yoki xom
-    if (d && typeof d === 'object' && d.font_size) _receiptCfg.font_size = d.font_size;
-  } catch { /* sozlama olinmasa — 'normal' shrift ishlatiladi */ }
+    if (d && typeof d === 'object') {
+      if (d.font_size)  _receiptCfg.font_size  = d.font_size;
+      if (d.print_type) _receiptCfg.print_type = d.print_type;   // B1: usb/lan/qr
+      _receiptCfg.printer_ip   = d.printer_ip   || null;
+      _receiptCfg.printer_port = d.printer_port || null;
+    }
+  } catch { /* sozlama olinmasa — 'normal' shrift + 'usb' print ishlatiladi */ }
+}
+
+// Markaziy print servisga uzatiladigan print sozlamalari (bir joyda).
+function _printOpts(extra) {
+  return Object.assign({
+    fontSize:    _receiptCfg.font_size,
+    printType:   _receiptCfg.print_type,
+    printerIp:   _receiptCfg.printer_ip,
+    printerPort: _receiptCfg.printer_port,
+  }, extra || {});
 }
 
 // Chekni LOKAL printerga chiqarish (do'kon kompyuteridagi XP-58).
@@ -1472,11 +1488,10 @@ async function loadReceiptSettings() {
 async function sendEscposPrint(_orderId) {
   const inner = (document.getElementById('receiptBody') || {}).innerHTML || '';
   if (!inner.trim()) { toast('Chek mavjud emas', 'warning'); return false; }
-  const res = await printReceiptHTML(inner, {
+  const res = await printReceiptHTML(inner, _printOpts({
     deviceName: _printerStatus.printer_name || '',
     title: 'Chek',
-    fontSize: _receiptCfg.font_size,
-  });
+  }));
   if (res && res.ok) {
     if (!res.browser) toast('Chek chiqarildi', 'success');  // brauzer dialogida jimgina
     return true;
@@ -1698,7 +1713,7 @@ async function reprintSale(id) {
     const rec = res && res.data;
     if (!rec) { toast('Chek topilmadi', 'error'); return; }
     const html = buildReceipt58(rec);   // admin reprint bilan bir xil (global state'siz)
-    const r = await printReceiptHTML(html, { deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id), fontSize: _receiptCfg.font_size });
+    const r = await printReceiptHTML(html, _printOpts({ deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id) }));
     if (r && r.ok) { if (!r.browser) toast('Chek chiqarildi', 'success'); }
     else toast('Chek chiqmadi: ' + ((r && r.error) || "noma'lum xato"), 'error');
   } catch (e) {

@@ -1,11 +1,11 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
-> Oxirgi tasdiqlangan deploy: **v1.3.2** (2026-07-21) — Chek CHAPGA surish fixi: `.r58` `margin:0 auto`→**`margin:0`** (48mm kontent 58mm qog'oz o'rtasiga markazlashib, chapda ~5mm bo'sh joy qoldirib o'ngdan KESILARDI — "UZS"→"U2", "CASH"→"CAS") + chap/o'ng padding 1.5mm→0.5mm → butun 48mm zona chapdan boshlanadi, narx/UZS/CASH to'liq sig'adi. Faqat frontend (receipt-print.js).
-> ⚠️ **MIGRATSIYA YO'Q** (v1.3.2 faqat frontend CSS). Sodiqlik `c9d0e1f2a3b4` v1.2.3'da qo'llangan (`alembic current` tasdiqlaydi). Android versionCode **19** / 1.3.2.
-> ⚠️ **BACKEND DEPLOY (v1.3.2 uchun shart EMAS):** v1.3.2 backend o'zgarishsiz (faqat config.py VERSION satri). Frontend deploy (git pull) yetarli; xohlasa restart.
+> Oxirgi tasdiqlangan deploy: **v1.4.0** (2026-07-21) — **PRINT TIZIMI (markaziy servis)**: barcha print (chek, Z-hisobot, kunlik hisobot) bitta `printDocument` (Electron main.js) dan o'tadi; `print_type` (usb/lan/qr) transportni tanlaydi — USB=SumatraPDF (hozirgi), LAN=stub ("tez orada"), QR=stub. Chek sozlamasida "Print turi" + IP/port UI. Z-hisobot to'liq (SOTILGAN MAHSULOTLAR breakdown + kamomad). Kunlik hisobot (report.html) 58mm markaziyga (grafik/panel EMAS). Barcha `window.print()` (butun panel) → markaziy (etiketka/QR/legacy alohida media, tegilmadi).
+> ⚠️ **MIGRATSIYA BOR (B0):** `d0e1f2a3b4c5` — `receipt_settings.print_type/printer_ip/printer_port` (nullable, `print_type` default 'usb', idempotent). `c9d0e1f2a3b4`→`d0e1f2a3b4c5`. Android versionCode **20** / 1.4.0.
+> ⚠️ **BACKEND DEPLOY SHART:** shift.py (Z-hisobot products/avg_order/store_name), receipt_settings.py (print config), models.py + migratsiya. `alembic upgrade head` MAJBURIY. Backup majburiy.
 > ⚠️ **BUILD SHART + SumatraPDF:** Chek Electron .exe'да. Build oldin `electron/vendor/SumatraPDF.exe` (20MB, git'да yo'q — build mashinasida lokal) bo'lishi SHART — `extraResources` uni `resources/`ga nusxalaydi. Busiz GDI fallback (krakozyabra).
-> (Oldingi: v1.3.1 Chek narx 48mm+shrift o'lchami; v1.3.0 Chek 54mm+QR toggle+atir+POS tarix/ombor; v1.2.8 capturePage raster; v1.2.7 avtomatik chek+HTML GDI; v1.2.6 did-finish-load+pageSize yo'q; v1.2.5 deviceName default+58mm; v1.2.4 Chek lokal silent print; v1.2.3 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 Pachka/Dona; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
+> (Oldingi: v1.3.2 Chek chapga surish margin:0; v1.3.1 Chek narx 48mm+shrift o'lchami; v1.3.0 Chek 54mm+QR toggle+atir+POS tarix/ombor; v1.2.8 capturePage raster; v1.2.7 avtomatik chek+HTML GDI; v1.2.6 did-finish-load+pageSize yo'q; v1.2.5 deviceName default+58mm; v1.2.4 Chek lokal silent print; v1.2.3 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 Pachka/Dona; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
 
 ---
 
@@ -118,8 +118,8 @@ Frontend PWA cache (alohida versiya sxemasi):
 
 ## 5. Native build
 
-> **v1.3.2 build:** Android `versionCode 19` / `versionName 1.3.2`; Electron `1.3.2`.
-> Ikkala platforma ilova ichida **1.3.2** ko'rsatadi (version.js/login.html bilan izchil).
+> **v1.4.0 build:** Android `versionCode 20` / `versionName 1.4.0`; Electron `1.4.0`.
+> Ikkala platforma ilova ichida **1.4.0** ko'rsatadi (version.js/login.html bilan izchil).
 > ⚠️ **Electron build oldin:** `electron/vendor/SumatraPDF.exe` (64-bit portable, ~20MB) bo'lishi shart —
 > git'da yo'q (`.gitignore`), lokal build mashinasida. Yo'q bo'lsa chek GDI fallback (krakozyabra).
 > ⚠️ **Chek fixi (silent print) BUILD'da:** Electron `extraResources` (`from: ../frontend`) build vaqtida

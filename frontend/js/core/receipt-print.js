@@ -117,8 +117,21 @@ export async function printReceiptHTML(innerHTML, opts = {}) {
   const html = wrapDoc(innerHTML, opts.title, { fontSize: opts.fontSize });
   if (isElectron()) {
     try {
-      // deviceName bo'sh bo'lsa uzatmaymiz — main.js OS default printerni ishlatadi.
-      const res = await window.electronAPI.printReceipt({ html, deviceName: (opts.deviceName || '').trim() });
+      const api = window.electronAPI;
+      // Markaziy print servis (B1): printType (usb/lan/qr) transportni tanlaydi.
+      // deviceName bo'sh bo'lsa main.js OS default printerni ishlatadi.
+      // printType bo'sh → main.js 'usb' (SumatraPDF) → chek natijasi o'zgarmaydi.
+      const payload = {
+        html,
+        deviceName: (opts.deviceName || '').trim(),
+        printType: opts.printType || 'usb',
+        printerIp: opts.printerIp || null,
+        printerPort: opts.printerPort || null,
+      };
+      // printDocument mavjud bo'lsa markaziy yo'l; bo'lmasa (eski preload) — printReceipt.
+      const res = api.printDocument
+        ? await api.printDocument(payload)
+        : await api.printReceipt(payload);
       return res && typeof res === 'object' ? res : { ok: false, error: 'Printerdan javob yo\'q' };
     } catch (e) {
       return { ok: false, error: e.message || 'Electron print xato' };

@@ -34,7 +34,8 @@ async def update_receipt_settings(
 
     allowed = {"store_name", "address", "phone", "tax_id", "header_text",
                "footer_text", "show_logo", "qr_enabled", "qr_url",
-               "paper_width", "font_size"}
+               "paper_width", "font_size",
+               "print_type", "printer_ip", "printer_port"}
 
     if not settings:
         settings = ReceiptSettings(tenant_id=tid)
@@ -110,6 +111,9 @@ def _settings_dict(s: ReceiptSettings) -> dict:
         "qr_url": s.qr_url,
         "paper_width": s.paper_width,
         "font_size": s.font_size,
+        "print_type": s.print_type or "usb",
+        "printer_ip": s.printer_ip,
+        "printer_port": s.printer_port,
     }
 
 
@@ -127,4 +131,7 @@ def _default_settings(tenant_id: int) -> dict:
         "qr_url": None,
         "paper_width": 80,
         "font_size": "normal",
+        "print_type": "usb",
+        "printer_ip": None,
+        "printer_port": None,
     }

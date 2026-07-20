@@ -196,8 +196,10 @@ async def close_shift(
         "expected_cash": round(expected_cash, 0),
         "shortage": round(shortage, 0),
     })
+    cafe = db.query(Cafe).filter(Cafe.id == shift.tenant_id).first()
     return {
         "id":             shift.id,
+        "store_name":     (cafe.name if cafe else None) or "XENORA",
         "start_time":     shift.start_time.isoformat(),
         "end_time":       shift.end_time.isoformat(),
         "cashier":        shift.user.full_name if shift.user else None,
@@ -207,6 +209,7 @@ async def close_shift(
         "credit_total":   credit_total,
         "total_sales":    total_sales,
         "sales_count":    sales_count,
+        "avg_order":      round(total_sales / sales_count, 0) if sales_count else 0,
         "discount_total": round(discount_total, 0),
         "returns_total":  round(returns_total, 0),
         "cash_refunds":   round(cash_refunds, 0),
@@ -214,6 +217,8 @@ async def close_shift(
         "counted_cash":   counted_cash,
         "shortage":       round(shortage, 0),
         "shortage_type":  "ortiqcha" if shortage > 0 else ("kamomad" if shortage < 0 else "mos"),
+        # Z-hisobot: SOTILGAN MAHSULOTLAR (nima nechta, summa) — faqat to'langan
+        "products":       _shift_products(orders, paid_order_ids),
         "notes":          notes,
     }
 
@@ -343,6 +348,24 @@ def _require_z_report(db: Session, current_user: User) -> None:
         raise HTTPException(status_code=403, detail="Z-hisobot funksiyasi yoqilmagan")
 
 
+def _shift_products(orders, paid_order_ids) -> list:
+    """Smenada SOTILGAN mahsulotlar breakdown — nom, soni, summa (faqat to'langan
+    buyurtmalar). Z-hisobot 'nima nechta sotildi' uchun. Summa bo'yicha kamayadi."""
+    agg: dict = {}
+    for o in orders:
+        if o.id not in paid_order_ids:
+            continue
+        for it in (o.items or []):
+            name = it.product.name if it.product else f"#{it.product_id}"
+            e = agg.get(name)
+            if not e:
+                e = {"name": name, "quantity": 0, "revenue": 0.0}
+                agg[name] = e
+            e["quantity"] += it.quantity or 0
+            e["revenue"]  += it.total_price or 0
+    return sorted(agg.values(), key=lambda x: x["revenue"], reverse=True)
+
+
 def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
     """Yopilgan (yoki ochiq) smenadan Z-hisobot chek ma'lumotlarini tayyorlaydi."""
     now = datetime.now()
@@ -405,6 +428,7 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
         "credit_total":   credit_total,
         "total_sales":    cash_sales + card_sales + credit_total,
         "sales_count":    sales_count,
+        "avg_order":      round((cash_sales + card_sales + credit_total) / sales_count, 0) if sales_count else 0,
         "discount_total": round(discount_total, 0),
         "returns_total":  round(returns_total, 0),
         "cash_refunds":   round(cash_refunds, 0),
@@ -412,6 +436,7 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
         "counted_cash":   counted_cash,
         "shortage":       round(shortage, 0),
         "shortage_type":  "ortiqcha" if shortage > 0 else ("kamomad" if shortage < 0 else "mos"),
+        "products":       _shift_products(orders, paid_order_ids),
         "notes":          shift.notes,
     }
 

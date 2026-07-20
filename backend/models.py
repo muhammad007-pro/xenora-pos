@@ -1466,6 +1466,12 @@ class ReceiptSettings(Base):
     qr_url      = Column(String(300), nullable=True)
     paper_width = Column(Integer, default=80)    # 57 yoki 80 mm
     font_size   = Column(String(10), default="normal")
+    # Print turi (B0 poydevor) — markaziy print servis shu yo'lni tanlaydi:
+    #   "usb" → SumatraPDF (hozirgi, do'kon); "lan" → IP:port (kelajak); "qr" → ekran QR
+    # default "usb" → mavjud do'kon avvalgidek SumatraPDF (regressiya yo'q).
+    print_type   = Column(String(10), default="usb")
+    printer_ip   = Column(String(45), nullable=True)   # LAN/API uchun (kelajak)
+    printer_port = Column(Integer, nullable=True)      # LAN/API porti (mas. 9100)
     updated_at  = Column(DateTime(timezone=True), onupdate=func.now())
 
 

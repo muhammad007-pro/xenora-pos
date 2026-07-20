@@ -97,6 +97,7 @@ async function deleteRegister(id, name) {
 let _activeShiftId = null;
 let _shiftsCache = [];
 let _registerNameMap = {};
+let _lastZReport = null;   // oxirgi Z-hisobot ma'lumoti (chop etish uchun)
 async function loadShiftsPage() {
   const data = await apiFetch('/shifts/');
   _shiftsCache = Array.isArray(data) ? data : (data.items || []);
@@ -237,20 +238,32 @@ async function closeShift() {
 // Smena yopilish chekini (Z-hisobot) chiroyli ko'rsatadi — jami savdo, naqd, karta,
 // Click/Payme (card ichida), nasiya, qaytarish, sotuvlar soni, vaqt, kamomad.
 function showShiftReceipt(r, shiftId) {
+  _lastZReport = r;   // chop etish uchun saqlaymiz (buildZReport58)
   const fdt = (s) => { try { return new Date(s).toLocaleString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return s || '—'; } };
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;${bold?'font-weight:700;':''}"><span>${l}</span><span>${v}</span></div>`;
   const line = '<div style="border-top:1px dashed #999;margin:.4rem 0"></div>';
   const money = (n) => fmtNum(n || 0) + ' so\'m';
   const shortage = r.shortage || 0;
   const shTxt = shortage < 0 ? `⚠️ Kamomad: ${money(Math.abs(shortage))}` : (shortage > 0 ? `Ortiqcha: ${money(shortage)}` : 'Mos ✓');
+  // SOTILGAN MAHSULOTLAR — nima nechta sotildi (summa bo'yicha)
+  const prods = Array.isArray(r.products) ? r.products : [];
+  const prodHtml = prods.length
+    ? prods.map(p => `<div style="display:flex;justify-content:space-between;font-size:.78rem"><span>${esc(p.name)} ×${p.quantity}</span><span>${money(p.revenue)}</span></div>`).join('')
+    : '<div style="font-size:.75rem;color:#888">— sotuv yo\'q —</div>';
   document.getElementById('shiftReceiptArea').innerHTML = `
-    <div style="text-align:center;font-weight:700;margin-bottom:.3rem">SMENA HISOB-KITOBI</div>
+    <div style="text-align:center;font-weight:700;margin-bottom:.3rem">${esc(r.store_name || 'XENORA')}</div>
+    <div style="text-align:center;font-weight:700">SMENA HISOB-KITOBI</div>
     <div style="text-align:center;font-size:.72rem;color:#555;margin-bottom:.6rem">Z-HISOBOT · #${r.id ?? shiftId ?? ''}</div>
-    ${row('Kassir:', r.cashier || '—')}
+    ${row('Kassir:', esc(r.cashier || '—'))}
     ${row('Ochilish:', fdt(r.start_time))}
     ${row('Yopilish:', fdt(r.end_time))}
     ${line}
+    <div style="font-weight:700;font-size:.78rem;margin-bottom:.2rem">SOTILGAN MAHSULOTLAR</div>
+    ${prodHtml}
+    ${line}
     ${row('Sotuvlar soni:', (r.sales_count ?? 0) + ' ta')}
+    ${row('O\'rtacha chek:', money(r.avg_order))}
     ${row('Naqd sotuv:', money(r.cash_sales))}
     ${row('Karta/Click/Payme:', money(r.card_sales))}
     ${row('Nasiya:', money(r.credit_total))}
@@ -263,7 +276,7 @@ function showShiftReceipt(r, shiftId) {
     ${row('Kutilgan naqd:', money(r.expected_cash))}
     ${row('Sanaldi (haqiqiy):', money(r.counted_cash))}
     ${row(shortage < 0 ? 'Kamomad:' : (shortage > 0 ? 'Ortiqcha:' : 'Farq:'), shTxt, true)}
-    ${r.notes ? line + `<div style="font-size:.75rem;color:#555">Izoh: ${(r.notes+'').replace(/</g,'&lt;')}</div>` : ''}
+    ${r.notes ? line + `<div style="font-size:.75rem;color:#555">Izoh: ${esc(r.notes)}</div>` : ''}
   `;
   const zbtn = document.getElementById('shiftReceiptPrintZBtn');
   if (zbtn) {
@@ -273,13 +286,66 @@ function showShiftReceipt(r, shiftId) {
   openModal('shiftReceiptModal');
 }
 
-// Ekrandagi chekni brauzer/printer orqali chop etish (fizik Z-printer'siz ham).
+// Z-hisobot 58mm innerHTML (chek idiomida: .receipt-* / .rt-row → margin:0, 48mm,
+// chapga, monospace, shrift sozlama). Markaziy printDocument shu HTML'ni bosadi.
+function buildZReport58(r) {
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const m = (n) => fmtNum(n || 0);
+  const dt = (s) => { try { return new Date(s).toLocaleString('uz-UZ'); } catch { return s || '—'; } };
+  const sh = r.shortage || 0;
+  const shLabel = sh < 0 ? 'KAMOMAD' : (sh > 0 ? 'ORTIQCHA' : 'FARQ');
+  const prodRows = (Array.isArray(r.products) ? r.products : []).map(p =>
+    `<tr><td>${esc(p.name)}</td><td>${p.quantity}</td><td style="text-align:right">${m(p.revenue)}</td></tr>`
+  ).join('') || '<tr><td colspan="3">—</td></tr>';
+  return `
+    <div class="receipt-center">
+      <h4>${esc(r.store_name || 'XENORA')}</h4>
+      <p>SMENA HISOB-KITOBI<br>Z-HISOBOT #${esc(r.id != null ? r.id : '')}</p>
+    </div>
+    <div style="font-size:0.85em;margin-bottom:4px">
+      Kassir: ${esc(r.cashier || '—')}<br>
+      Ochilish: ${esc(dt(r.start_time))}<br>
+      Yopilish: ${esc(dt(r.end_time))}
+    </div>
+    <table class="receipt-table">
+      <thead><tr><th>Mahsulot</th><th>Soni</th><th>Summa</th></tr></thead>
+      <tbody>${prodRows}</tbody>
+    </table>
+    <div class="receipt-totals">
+      <div class="rt-row"><span>Sotuvlar soni:</span><span>${r.sales_count || 0} ta</span></div>
+      <div class="rt-row"><span>O'rtacha chek:</span><span>${m(r.avg_order)}</span></div>
+      <div class="rt-row bold"><span>JAMI SAVDO:</span><span>${m(r.total_sales)}</span></div>
+    </div>
+    <div class="receipt-totals">
+      <div class="rt-row"><span>Naqd:</span><span>${m(r.cash_sales)}</span></div>
+      <div class="rt-row"><span>Karta/Click/Payme:</span><span>${m(r.card_sales)}</span></div>
+      <div class="rt-row"><span>Nasiya:</span><span>${m(r.credit_total)}</span></div>
+      ${(r.discount_total > 0) ? `<div class="rt-row"><span>Chegirma:</span><span>-${m(r.discount_total)}</span></div>` : ''}
+      ${(r.returns_total > 0) ? `<div class="rt-row"><span>Qaytarish:</span><span>-${m(r.returns_total)}</span></div>` : ''}
+    </div>
+    <div class="receipt-totals">
+      <div class="rt-row"><span>Boshlang'ich naqd:</span><span>${m(r.starting_cash)}</span></div>
+      <div class="rt-row"><span>Kutilgan naqd:</span><span>${m(r.expected_cash)}</span></div>
+      <div class="rt-row"><span>Sanaldi (haqiqiy):</span><span>${m(r.counted_cash)}</span></div>
+      <div class="rt-row bold"><span>${shLabel}:</span><span>${sh < 0 ? '-' : ''}${m(Math.abs(sh))}</span></div>
+    </div>
+    ${r.notes ? `<div style="font-size:0.8em;margin-top:4px">Izoh: ${esc(r.notes)}</div>` : ''}
+    <div class="receipt-footer">XENORA POS · Z-hisobot</div>`;
+}
+
+// Z-hisobotni MARKAZIY print servisga (B1: printDocument) yuboradi — 58mm, silent,
+// Windows oyna YO'Q. window.printReceiptDoc admin.html modulida (deviceName +
+// print_type/ip/port + shrift avtomatik qo'shiladi).
 function printShiftReceipt() {
-  const html = document.getElementById('shiftReceiptArea').innerHTML;
-  const w = window.open('', '_blank', 'width=380,height=640');
-  if (!w) { toast('Chop oynasi bloklandi', 'error'); return; }
-  w.document.write(`<html><head><title>Smena cheki</title></head><body style="font-family:'Courier New',monospace;font-size:12px;padding:10px">${html}</body></html>`);
-  w.document.close(); w.focus(); w.print();
+  if (!_lastZReport) { toast('Z-hisobot ma\'lumoti yo\'q', 'error'); return; }
+  if (!window.printReceiptDoc) { toast('Print servis topilmadi', 'error'); return; }
+  const html = buildZReport58(_lastZReport);
+  window.printReceiptDoc(html, { title: 'Z-hisobot #' + (_lastZReport.id || '') })
+    .then((res) => {
+      if (res && res.ok) { if (!res.browser) toast('Z-hisobot chiqarildi', 'success'); }
+      else toast('Z-hisobot chiqmadi: ' + ((res && res.error) || 'noma\'lum xato'), 'error');
+    })
+    .catch((e) => toast('Z-hisobot xato: ' + (e.message || e), 'error'));
 }
 async function printZReport(shiftId, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '...'; }

@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Chek LOKAL silent print (do'kon kompyuteridagi printerga)
     printReceipt: (payload) => ipcRenderer.invoke('print-receipt', payload),
+    // Markaziy print servis (B1) — payload.printType (usb/lan/qr) ga qarab transport.
+    // Chek + Z-hisobot + kunlik hisobot shu yagona yo'ldan o'tadi.
+    printDocument: (payload) => ipcRenderer.invoke('print-document', payload),
     listPrinters: () => ipcRenderer.invoke('list-printers'),
 
     // Oyna boshqaruvi

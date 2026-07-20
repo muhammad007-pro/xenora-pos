@@ -75,12 +75,15 @@ ipcMain.handle('is-fullscreen', () => (mainWindow ? mainWindow.isFullScreen() : 
 // yeta OLMAYDI. Shu sabab chek shu yerda — Electron ichida, yashirin oynada
 // yuklanib — LOKAL printerga silent (dialogsiz) yuboriladi.
 //
-// MUHIM: deviceName BO'SH bo'lsa `deviceName` kalitini BERMAYMIZ (bo'sh satr EMAS)
-// — shundagina Electron OS STANDART printerini (XP-58C) ishlatadi. `deviceName:''`
-// berish default'ga tushmaydi va chek hech qayerga ketadi (eski bug).
-// pageSize BERMAYMIZ — XP-58C termal drayveri o'z 58mm formini ishlatadi
-// (Windows sinov cheki ham pageSize'siz chiqdi). Custom pageSize height=0
-// xavfini butunlay yo'qotadi (bo'sh job → hech narsa bosmaydi bug'i).
+// ENCODING FIX: `webContents.print` (silent, GDI) termal drayverга matn/vektor
+// yuborganda XP-58C uni CP437'da talqin qilib KRAKOZYABRA qiladi. Chrome esa
+// sahifani RASTER (rasm) qilib yuboradi — shuning uchun toza. Yechim: chekni
+// RASM (PNG raster) qilib chop etamiz — printer sof bitmap oladi, matn bo'lmagani
+// uchun krakozyabra FIZIK jihatdan imkonsiz. RASM olmasa — to'g'ridan HTML print (fallback).
+//
+// deviceName BO'SH bo'lsa `deviceName` kalitini BERMAYMIZ (bo'sh satr EMAS) —
+// shundagina Electron OS STANDART printerini (XP-58C) ishlatadi. pageSize yo'q.
+const _delay = (ms) => new Promise((r) => setTimeout(r, ms));
 ipcMain.handle('print-receipt', async (_e, payload) => {
     const { html, deviceName } = payload || {};
     if (!html) return { ok: false, error: "Chek HTML bo'sh" };
@@ -88,31 +91,69 @@ ipcMain.handle('print-receipt', async (_e, payload) => {
     try {
         win = new BrowserWindow({
             show: false,
-            webPreferences: { offscreen: false, sandbox: true },
+            x: -20000, y: -20000,          // ekrandan tashqarida (capture uchun ko'rsatsak flash bo'lmasin)
+            width: 520, height: 900,
+            frame: false, skipTaskbar: true,
+            webPreferences: { offscreen: false, sandbox: false, backgroundThrottling: false },
+            backgroundColor: '#ffffff',
         });
-        // Chek HTML TO'LIQ yuklansin: loadURL did-finish-load'da hal bo'ladi
-        // (yuklanmasa reject → catch → ok:false). Shundan KEYIN print — aks holda
-        // bo'sh oyna → bo'sh job (scrollHeight=0 eski bug).
+        const wc = win.webContents;
+        // Chek HTML TO'LIQ yuklansin: loadURL did-finish-load'da hal bo'ladi.
         await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-        // Render / shrift / QR uchun kichik qo'shimcha kechikish
-        await new Promise((r) => setTimeout(r, 250));
+        // 2x zoom → crisp raster (58mm da o'qiladigan); render/QR uchun kutish.
+        try { wc.setZoomFactor(2); } catch { /* zoom bo'lmasa 1x */ }
+        await _delay(350);
 
-        // pageSize BERMAYMIZ — XP-58C drayveri 58mm formini O'ZI biladi
-        // (sinov cheki pageSize'siz chiqdi). Custom height=0 xavfi yo'q.
+        // Kontent o'lchamiga oynani moslash (rasm faqat chek — ortiqcha oq yo'q).
+        let dims = { w: 480, h: 800 };
+        try {
+            dims = await wc.executeJavaScript(
+                '({w: Math.ceil(document.documentElement.scrollWidth||440), h: Math.ceil(document.documentElement.scrollHeight||400)})'
+            );
+        } catch { /* o'lchab bo'lmasa default */ }
+        win.setContentSize(Math.max(200, Math.min(1400, dims.w)), Math.max(80, Math.min(8000, dims.h)));
+        await _delay(120);
+
+        // ── Chekni RASM (raster) qilib olamiz — Chrome kabi bitmap ──
+        let png = null;
+        try {
+            let image = await wc.capturePage();
+            if (image.isEmpty()) {                 // yashirin oyna chizilmagan bo'lsa
+                win.showInactive();                // ekran tashqarisida ko'rsatib chizdiramiz (flash yo'q)
+                await _delay(180);
+                image = await wc.capturePage();
+                win.hide();
+            }
+            if (image && !image.isEmpty()) png = image.toDataURL();
+        } catch (e) { console.error('capturePage error', e); /* rasm bo'lmasa HTML fallback */ }
+
+        // RASM olsak — uni 58mm kенgликda chop etamiz (sof bitmap → krakozyabra yo'q).
+        // Olmasak — asl HTML allaqachon yuklangan, to'g'ridan chop (fallback).
+        if (png) {
+            const imgHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">'
+                + '<style>*{margin:0;padding:0}@page{margin:0}html,body{background:#fff}'
+                + 'img{width:58mm;display:block}</style></head>'
+                + '<body><img src="' + png + '"></body></html>';
+            await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(imgHtml));
+            await _delay(150);
+        }
+
+        // pageSize BERMAYMIZ — drayver 58mm formini O'ZI biladi.
         const printOpts = {
             silent: true,
             margins: { marginType: 'none' },
-            printBackground: false,
+            printBackground: true,      // rasm chiqishi uchun
         };
         // Faqat NOMLI printer bo'lsa deviceName beramiz; bo'sh → OS default (XP-58C).
         if (deviceName && String(deviceName).trim()) printOpts.deviceName = String(deviceName).trim();
 
         const result = await new Promise((resolve) => {
-            win.webContents.print(printOpts, (success, failureReason) =>
+            wc.print(printOpts, (success, failureReason) =>
                 resolve({
                     ok: !!success,
                     error: success ? null : (failureReason || 'Printer topilmadi yoki chop bekor qilindi'),
                     device: printOpts.deviceName || '(OS default)',
+                    raster: !!png,        // rasm bilan chiqdimi (toza) yoki HTML fallback
                 })
             );
         });
@@ -131,7 +172,8 @@ ipcMain.handle('list-printers', async () => {
         if (!mainWindow) return [];
         const printers = await mainWindow.webContents.getPrintersAsync();
         return (printers || []).map((p) => ({
-            name: p.name, displayName: p.displayName, isDefault: p.isDefault, status: p.status,
+            name: p.name, displayName: p.displayName || p.name,
+            isDefault: !!p.isDefault, status: p.status,
         }));
     } catch (err) {
         console.error('list-printers error', err);

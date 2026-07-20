@@ -1,10 +1,10 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
-> Oxirgi tasdiqlangan deploy: **v1.2.7** (2026-07-20) — Chek avtomatik chiqarish (to'lovdan keyin har doim 1×) + HTML GDI print tasdiqlandi (backend RAW bypass). Krakozyabra bo'lsa — DRAYVER (XP-58 grafik/raster rejim kerak), dastur emas.
-> ⚠️ **MIGRATSIYA YO'Q** (chek = kod, DB emas). Sodiqlik `c9d0e1f2a3b4` v1.2.3'da qo'llangan (`alembic current` tasdiqlaydi). Android versionCode **14** / 1.2.7.
-> ⚠️ **BUILD SHART:** Chek fixi Electron .exe va Android .apk'da — foydalanuvchi yangi build o'rnatmasa o'zgarish ko'rinmaydi.
-> (Oldingi: v1.2.6 2026-07-20 did-finish-load+pageSize yo'q; v1.2.5 deviceName default+58mm; v1.2.4 Chek lokal silent print; v1.2.3 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 Pachka/Dona; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
+> Oxirgi tasdiqlangan deploy: **v1.2.8** (2026-07-20) — Chek RASTER (rasm) print: capturePage → PNG → 58mm bitmap. Krakozyabra ildizdan hal (silent GDI matn/vektor emas, sof rasm — Chrome kabi). RAW ESC/POS umuman yo'q.
+> ⚠️ **MIGRATSIYA YO'Q** (chek = kod, DB emas). Sodiqlik `c9d0e1f2a3b4` v1.2.3'da qo'llangan (`alembic current` tasdiqlaydi). Android versionCode **15** / 1.2.8.
+> ⚠️ **BUILD SHART:** Chek fixi Electron .exe (`main.js`) va Android .apk'da — foydalanuvchi yangi build o'rnatmasa o'zgarish ko'rinmaydi.
+> (Oldingi: v1.2.7 avtomatik chek+HTML GDI; v1.2.6 did-finish-load+pageSize yo'q; v1.2.5 deviceName default+58mm; v1.2.4 Chek lokal silent print; v1.2.3 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 Pachka/Dona; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
 
 ---
 
@@ -117,8 +117,8 @@ Frontend PWA cache (alohida versiya sxemasi):
 
 ## 5. Native build
 
-> **v1.2.7 build:** Android `versionCode 14` / `versionName 1.2.7`; Electron `1.2.7`.
-> Ikkala platforma ilova ichida **1.2.7** ko'rsatadi (version.js/login.html bilan izchil).
+> **v1.2.8 build:** Android `versionCode 15` / `versionName 1.2.8`; Electron `1.2.8`.
+> Ikkala platforma ilova ichida **1.2.8** ko'rsatadi (version.js/login.html bilan izchil).
 > ⚠️ **Chek fixi (silent print) BUILD'da:** Electron `extraResources` (`from: ../frontend`) build vaqtida
 > frontend'ni yangidan nusxalaydi — `receipt-print.js`/`pos.js`/`main.js`/`preload.js` avtomatik kiradi.
 > Eski `electron/dist/win-unpacked` build'da qayta yoziladi. Android: `npx cap sync` frontend'ni yangilaydi.

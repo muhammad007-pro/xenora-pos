@@ -3,6 +3,23 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.8] — 2026-07-20
+
+Chek RASTER (rasm) print — krakozyabra ildizdan hal. **Migratsiya YO'Q** (kod).
+
+### Tuzatildi
+- **Chek matni buzuq (krakozyabra):** Chrome bilan XP-58C toza chiqardi, XENORA esa CP437 krakozyabra.
+  Sabab: `webContents.print` (silent, preview'siz) kontentni rasterga aylantirmay GDI matn/vektor
+  yuborardi; XP-58C termal drayveri buni o'z codepage'ida (CP437) talqin qilib buzardi. Yechim
+  (`electron/main.js`): chek endi **RASM (raster)** qilib bosiladi — `capturePage()` → PNG → 58mm
+  `<img>` bitmap print. Printer sof rasm oladi, matn yo'q → krakozyabra fizik jihatdan imkonsiz
+  (Chrome ham raster yuboradi — shu sababли toza). capturePage ishlamasa → HTML fallback.
+- `list-printers`: `isDefault` doim boolean; `displayName` fallback.
+
+### Texnik
+- did-finish-load kutish + pageSize yo'q + deviceName omit (bo'sh→OS default XP-58C) saqlandi.
+- POS chek oqimida RAW ESC/POS umuman yo'q (electron faqat webContents.print + capturePage raster).
+
 ## [1.2.7] — 2026-07-20
 
 Chek: avtomatik chiqarish + HTML GDI print (encoding). **Migratsiya YO'Q** (kod).

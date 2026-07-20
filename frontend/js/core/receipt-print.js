@@ -27,6 +27,12 @@ export function isElectron() {
 // ("505,000"→"505"). Shu sabab 48mm + jadval table-layout:fixed (uzun nom narxni
 // o'ngga surib yubormasin, narx ustuni doim to'liq sig'sin).
 //
+// TAYANCH: konteyner CHAPGA tayanadi (margin:0 — `auto`/markaz EMAS). `margin:0 auto`
+// bo'lsa 48mm kontent 58mm qog'oz o'rtasiga markazlashib, chapda ~5mm bo'sh joy
+// qoladi, o'ng cheti esa printerning chapdan boshlanuvchi 48mm bosiladigan zonasidan
+// chiqib KESILADI ("UZS"→"U2", "CASH"→"CAS"). Chapga tayansa — matn 0mm dan boshlanib
+// butun 48mm ishlatiladi, narx o'ngda to'liq sig'adi. Chap/o'ng padding minimal (0.5mm).
+//
 // SHRIFT: bola elementlar `em` (base'ga nisbatan) — "Shrift o'lchami" sozlamasi
 // (Kichik/Normal/Katta → 11/13/15px) butun chekni proporsional kattalashtiradi.
 const FONT_PX = { small: 11, normal: 13, large: 15 };
@@ -39,8 +45,10 @@ function buildCss(fontPx) {
   return `
   *{margin:0;padding:0;box-sizing:border-box}
   @page{margin:0}
-  html,body{background:#fff}
-  .r58{width:48mm;max-width:48mm;margin:0 auto;padding:2mm 1.5mm;
+  html,body{background:#fff;margin:0;padding:0;text-align:left}
+  /* CHAPGA tayanadi: margin:0 (auto EMAS) → chapda bo'sh joy yo'q, narx o'ngda kesilmaydi.
+     padding chap/o'ng 0.5mm → butun 48mm bosiladigan zona matn uchun ishlatiladi. */
+  .r58{width:48mm;max-width:48mm;margin:0;padding:2mm 0.5mm;
        font-family:'Courier New',monospace;font-size:${fontPx}px;line-height:1.35;color:#000}
   .r58, .r58 *{color:#000 !important;background:transparent !important;border-color:#000 !important}
   .r58 h4{font-size:1.2em;font-weight:700;margin-bottom:2px}

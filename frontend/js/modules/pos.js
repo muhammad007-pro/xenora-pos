@@ -7,7 +7,7 @@ import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
-import { printReceiptHTML }  from '../core/receipt-print.js';
+import { printReceiptHTML, buildReceipt58 } from '../core/receipt-print.js';
 
 const api = new API();
 
@@ -261,7 +261,7 @@ function renderCart() {
         ${MODE.isDryCleaning && item._cleaning?.items ? `<div style="font-size:.7rem;color:var(--text2);margin-top:.05rem">👔 ${item._cleaning.items}</div>` : ''}
         ${MODE.isDryCleaning && item._cleaning?.pickup_date ? `<div style="font-size:.7rem;color:var(--warning);margin-top:.05rem">📦 ${new Date(item._cleaning.pickup_date).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit'})}</div>` : ''}
         <div style="display:flex;align-items:center;gap:.5rem;margin-top:.2rem">
-          <div class="ci-price">${fmtNum(item.price)} × ${item.qty}${item._unit ? ' ' + item._unit : ''}</div>
+          <div class="ci-price">${item._weight != null ? `${item._weight} ${item._unit || ''} — ${fmtNum(item.price)}` : `${fmtNum(item.price)} × ${item.qty}${item._unit ? ' ' + item._unit : ''}`}</div>
           ${MODE.hasCourses ? `<select class="course-sel" data-cidx="${idx}" title="Kurs" style="background:var(--bg3);border:1px solid rgba(255,255,255,.08);border-radius:.25rem;color:var(--text2);font-size:.7rem;padding:.1rem .25rem;outline:none;cursor:pointer">
             <option value="1" ${(item.course_number||1)===1?'selected':''}>1-kurs</option>
             <option value="2" ${(item.course_number||1)===2?'selected':''}>2-kurs</option>
@@ -386,10 +386,15 @@ let _packChoiceProduct = null;
 
 function showPackChoiceModal(product) {
   _packChoiceProduct = product;
+  // #20 atir (hajm): sale_unit "ml" → "Butun (150 ml)" / "ml"; oddiy → "Pachka (N dona)" / "Dona"
+  const isVol = product.sale_unit === 'ml';
+  const unit  = product.sale_unit || 'dona';
   document.getElementById('packChoiceName').textContent = product.name;
+  document.getElementById('packChoicePackLbl').textContent   = isVol ? '🧴 Butun' : '📦 Pachka';
   document.getElementById('packChoicePackPrice').textContent = fmtNum(product.pack_price) + ' UZS';
-  document.getElementById('packChoicePackHint').textContent  = product.pack_size + ' dona';
-  document.getElementById('packChoiceDonaPrice').textContent = fmtNum(product.price) + ' UZS';
+  document.getElementById('packChoicePackHint').textContent  = product.pack_size + (isVol ? ' ' + unit : ' dona');
+  document.getElementById('packChoiceDonaLbl').textContent   = isVol ? unit : 'Dona';
+  document.getElementById('packChoiceDonaPrice').textContent = fmtNum(product.price) + ' UZS' + (isVol ? ' / ' + unit : '');
   openModal('packChoiceModal');
 }
 
@@ -467,9 +472,10 @@ function showWeightModal(product) {
   document.getElementById('weightInput').value           = '';
   document.getElementById('weightTotalAmt').textContent  = '0 UZS';
 
-  // Preset tugmalari: gram mahsulot uchun boshqacha
-  const isGram = product.sale_unit === 'g';
-  const presets = isGram
+  // Preset tugmalari: ml (atir #20) / gram / kg uchun boshqacha
+  const presets = product.sale_unit === 'ml'
+    ? [['10','10 ml'],['20','20 ml'],['30','30 ml'],['50','50 ml'],['100','100 ml'],['150','150 ml']]
+    : product.sale_unit === 'g'
     ? [['100','100g'],['200','200g'],['300','300g'],['500','500g'],['750','750g'],['1000','1 kg']]
     : [['0.1','100g'],['0.25','250g'],['0.5','500g'],['1','1 kg'],['1.5','1.5 kg'],['2','2 kg']];
   const container = document.getElementById('weightPresets');
@@ -608,7 +614,9 @@ function collectModifiers() {
 function doAddToCart(product, modifiers, weight = null, unitMode = null) {
   const modKey   = modifiers.map(m => m.modifier_id).sort().join(',');
   const modDelta = modifiers.reduce((s, m) => s + (m.price_delta || 0), 0);
-  const isWeight = isWeightUnit(product.sale_unit);
+  // #20 atir: ml ham hajm (necha ml) — weight branch (narx = 1ml × ml). Flakon esa
+  // weight=null bo'lgani uchun bu branch'ga kirmaydi → pack branch (pastda).
+  const isWeight = isWeightUnit(product.sale_unit) || product.sale_unit === 'ml';
   const isPack   = unitMode === 'pachka' && isPackProduct(product);
 
   if (isWeight && weight != null) {
@@ -651,7 +659,9 @@ function doAddToCart(product, modifiers, weight = null, unitMode = null) {
         id: product.id, name: product.name, price: priceP, qty: 1,
         _modKey: pkKey, modifiers, modLabel: modLabelP || null,
         _unitSold : 'pachka',
-        _packLabel: `Pachka (${product.pack_size} dona)`,
+        _packLabel: product.sale_unit === 'ml'
+          ? `Butun (${product.pack_size} ml)`      // #20 atir: butun flakon
+          : `Pachka (${product.pack_size} dona)`,
         _batch    : product.batch_number || null,
         _master   : state.staffMember ? { ...state.staffMember } : null,
       });
@@ -724,7 +734,10 @@ document.getElementById('packChoicePackBtn')?.addEventListener('click', () => {
 });
 document.getElementById('packChoiceDonaBtn')?.addEventListener('click', () => {
   const p = _packChoiceProduct; closeModal('packChoiceModal');
-  if (p) addToCart(p.id, null, 'dona');
+  if (!p) return;
+  // #20 atir: "ml" tanlansa "necha ml?" (weight modal); oddiy pachka: 'dona' (avvalgidek)
+  if (p.sale_unit === 'ml') showWeightModal(p);
+  else addToCart(p.id, null, 'dona');
 });
 
 // ─── Course select (COURSES feature) ──────────────────────────────────────────
@@ -1481,7 +1494,11 @@ async function showReceipt(orderId) {
 function _rcptPackLabel(i) {
   if (i._packLabel) return i._packLabel;
   const q = i.quantity || i.qty;
-  if (i.unit_sold === 'pachka' && i.base_qty && q) return `Pachka (${Math.round(i.base_qty / q)} dona)`;
+  if (i.unit_sold === 'pachka' && i.base_qty && q) {
+    const per = Math.round(i.base_qty / q);
+    // #20 atir (sale_unit "ml") → "Butun (150 ml)"; oddiy pachka → "Pachka (N dona)"
+    return i.sale_unit === 'ml' ? `Butun (${per} ml)` : `Pachka (${per} dona)`;
+  }
   return '';
 }
 
@@ -1521,7 +1538,10 @@ function renderReceiptData(rec) {
             ? `📅 ${new Date(i._end_date).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'})} gacha`
             : '';
           const pk  = _rcptPackLabel(i);
-          const sub = [pk ? `📦 ${pk}` : '', d, m ? `✂️ ${m}` : '', dur ? `⏱ ${dur}` : '', per].filter(Boolean).join(' · ');
+          // #20 atir: ml sotuvi — "10 ml" (client: _weight; server: sale_unit=ml, unit_sold≠pachka)
+          const ml  = i._weight != null ? `${i._weight} ${i._unit || 'ml'}`
+                    : (i.sale_unit === 'ml' && i.unit_sold !== 'pachka' && (i.quantity || i.qty) ? `${i.quantity || i.qty} ml` : '');
+          const sub = [pk ? `📦 ${pk}` : '', ml ? `🧴 ${ml}` : '', d, m ? `✂️ ${m}` : '', dur ? `⏱ ${dur}` : '', per].filter(Boolean).join(' · ');
           return `<tr><td>${i.name||i.product_name||''}${sub?`<br><small style="font-size:.65rem;color:#9a9ab8">${sub}</small>`:''}</td><td>${i.quantity||i.qty}</td>
           <td style="text-align:right">${fmtNum(i.total||(i.price*(i.qty||i.quantity)))}</td></tr>`;
         }).join('')}
@@ -1577,6 +1597,183 @@ function renderReceiptFallback(orderId) {
 document.getElementById('printReceiptBtn').addEventListener('click', () => {
   // Chekni LOKAL printerga (Electron silent / brauzer dialog) — reprint ham shu.
   sendEscposPrint(_lastReceiptOrderId);
+});
+
+// ─── #21/#22: POS Sotuvlar tarixi + reprint ───────────────────────────────────
+// Kassir → o'z bugungi sotuvlari (cashier_id filtri); admin/menejer → barchasi.
+// Reprint: admin bilan bir xil buildReceipt58(rec) + printReceiptHTML (PDF/SumatraPDF,
+// global payMethod/state'ga tayanmaydi → tarix uchun to'g'ri).
+function _shEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function _posUser() { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } }
+function _posIsManager() {
+  const u = _posUser();
+  if (u.is_superuser) return true;
+  const r = canonRole(u.role?.name || u.role || '');
+  return r === 'admin' || r === 'manager';
+}
+const _shPay = { cash: 'Naqd', card: 'Karta', click: 'Click', payme: 'Payme', credit: 'Nasiya', transfer: "O'tkazma", room_charge: 'Xona' };
+
+async function loadSalesHistory() {
+  const list = document.getElementById('salesHistoryList');
+  const det  = document.getElementById('salesHistoryDetail');
+  det.style.display = 'none'; list.style.display = '';
+  list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Yuklanmoqda…</div>';
+  const mgr = _posIsManager();
+  document.getElementById('shTitle').textContent = mgr ? 'Sotuvlar tarixi — bugun' : 'Mening sotuvlarim — bugun';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const params = new URLSearchParams({ page: '1', page_size: '40', date_from: today.toISOString() });
+  const u = _posUser();
+  if (!mgr && u.id) params.set('cashier_id', String(u.id));   // RBAC: kassir → faqat o'z sotuvlari
+  try {
+    const res = await api.get('/orders/?' + params.toString());
+    const orders = (res && res.data && res.data.items) || [];
+    if (!orders.length) {
+      list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Bugun sotuv yo\'q</div>';
+      return;
+    }
+    list.innerHTML = orders.map(o => {
+      const time = o.created_at ? new Date(o.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
+      const num  = o.daily_number != null ? '#' + o.daily_number : (o.order_number || '');
+      const pay  = _shPay[o.payment_method] || o.payment_method || '—';
+      const who  = mgr && o.waiter_name ? ' · ' + _shEsc(o.waiter_name) : '';
+      return `<div class="sh-row" data-sh-detail="${o.id}" style="display:flex;align-items:center;gap:.5rem;padding:.6rem .4rem;border-bottom:1px solid var(--border2);cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.85rem">${_shEsc(num)} · ${time}</div>
+          <div style="font-size:.72rem;color:var(--text3)">${_shEsc(pay)}${who}</div>
+        </div>
+        <div style="font-weight:700;color:var(--gold);font-size:.85rem">${fmtNum(o.final_amount)}</div>
+        <button data-sh-print="${o.id}" title="Chekni chop etish" style="background:var(--bg3);border:1px solid var(--border2);border-radius:.4rem;padding:.35rem .55rem;cursor:pointer;color:var(--text);font-size:.9rem">🖨</button>
+      </div>`;
+    }).join('');
+  } catch {
+    list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--danger)">Xatolik — qayta urinib ko\'ring</div>';
+  }
+}
+
+async function showSalesDetail(id) {
+  const list = document.getElementById('salesHistoryList');
+  const det  = document.getElementById('salesHistoryDetail');
+  list.style.display = 'none'; det.style.display = '';
+  det.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Yuklanmoqda…</div>';
+  try {
+    const res = await api.get('/orders/' + id + '/receipt');
+    const rec = res && res.data;
+    if (!rec) { det.innerHTML = '<div style="color:var(--danger);padding:1rem">Chek topilmadi</div>'; return; }
+    const rows = (rec.items || []).map(it =>
+      `<tr><td style="padding:2px 0">${_shEsc(it.name || '')}</td><td style="text-align:center">${_shEsc(it.quantity)}</td>
+       <td style="text-align:right">${fmtNum(it.total)}</td></tr>`).join('');
+    const pay = (rec.payment_methods || []).map(p => _shPay[p.method] || p.method).join(', ') || '—';
+    det.innerHTML =
+      `<button data-sh-back="1" style="background:var(--bg3);border:1px solid var(--border2);border-radius:.4rem;padding:.35rem .6rem;cursor:pointer;color:var(--text);font-size:.8rem;margin-bottom:.6rem">← Orqaga</button>
+      <div style="font-weight:700;margin-bottom:.4rem">Chek ${rec.order_number ? '#' + _shEsc(rec.order_number) : ''} · ${_shEsc(rec.date || '')}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+        <thead><tr style="color:var(--text3);text-align:left"><th style="padding:2px 0">Mahsulot</th><th style="text-align:center">Soni</th><th style="text-align:right">Jami</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="3" style="color:var(--text3);padding:.5rem">Mahsulot yo\'q</td></tr>'}</tbody>
+      </table>
+      <div style="border-top:1px dashed var(--border2);margin-top:.5rem;padding-top:.5rem;display:flex;justify-content:space-between;font-weight:700"><span>UMUMIY</span><span style="color:var(--gold)">${fmtNum(rec.final_amount)} UZS</span></div>
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.2rem">To'lov: ${_shEsc(pay)}</div>
+      <button data-sh-print="${id}" style="margin-top:.75rem;width:100%;background:var(--gold);color:#0a0a0f;border:none;border-radius:.5rem;padding:.55rem;cursor:pointer;font-weight:700">🖨 Chekni chop etish</button>`;
+  } catch {
+    det.innerHTML = '<div style="color:var(--danger);padding:1rem">Xatolik</div>';
+  }
+}
+
+async function reprintSale(id) {
+  try {
+    const res = await api.get('/orders/' + id + '/receipt');
+    const rec = res && res.data;
+    if (!rec) { toast('Chek topilmadi', 'error'); return; }
+    const html = buildReceipt58(rec);   // admin reprint bilan bir xil (global state'siz)
+    const r = await printReceiptHTML(html, { deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id) });
+    if (r && r.ok) { if (!r.browser) toast('Chek chiqarildi', 'success'); }
+    else toast('Chek chiqmadi: ' + ((r && r.error) || "noma'lum xato"), 'error');
+  } catch (e) {
+    toast('Chek xato: ' + (e?.message || e), 'error');
+  }
+}
+
+document.getElementById('salesHistoryBtn')?.addEventListener('click', () => {
+  openModal('salesHistoryModal');
+  loadSalesHistory();
+});
+document.getElementById('salesHistoryList')?.addEventListener('click', (e) => {
+  const pb = e.target.closest('[data-sh-print]');
+  if (pb) { e.stopPropagation(); reprintSale(pb.dataset.shPrint); return; }
+  const rb = e.target.closest('[data-sh-detail]');
+  if (rb) showSalesDetail(rb.dataset.shDetail);
+});
+document.getElementById('salesHistoryDetail')?.addEventListener('click', (e) => {
+  if (e.target.closest('[data-sh-back]')) {
+    document.getElementById('salesHistoryDetail').style.display = 'none';
+    document.getElementById('salesHistoryList').style.display = '';
+    return;
+  }
+  const pb = e.target.closest('[data-sh-print]');
+  if (pb) reprintSale(pb.dataset.shPrint);
+});
+
+// ─── #23: POS Ombor qoldig'i (narx + qoldiq; TANNARX faqat admin/view_finance) ──
+// Kassir mijozga "bor, X so'm, Y qoldi" deb ayta oladi. Tannarx/ombor qiymatini
+// kassir KO'RMAYDI (backend /inventory/pos-stock cost'ni faqat view_finance'ga beradi).
+let _posStockTimer = null;
+function _stockNum(n) {
+  const v = Number(n) || 0;
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '');
+}
+async function loadPosStock(search = '') {
+  const list  = document.getElementById('posStockList');
+  const totEl = document.getElementById('posStockTotal');
+  list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Yuklanmoqda…</div>';
+  totEl.style.display = 'none';
+  const params = new URLSearchParams({ limit: '400' });
+  if (search) params.set('search', search);
+  try {
+    const res  = await api.get('/inventory/pos-stock?' + params.toString());
+    const data = res && res.data;
+    const rows = (data && data.items) || [];
+    if (!rows.length) {
+      list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Mahsulot topilmadi</div>';
+      return;
+    }
+    // Ombor qiymati (jami tannarx) — FAQAT admin (backend can_cost bo'lsa qaytaradi)
+    if (data.can_cost && data.total_value != null) {
+      totEl.style.display = '';
+      totEl.textContent = `Ombor qiymati (tannarx): ${fmtNum(data.total_value)} UZS`;
+    }
+    list.innerHTML = rows.map(r => {
+      const low  = (r.quantity != null && r.min_threshold != null && r.quantity <= r.min_threshold);
+      const qty  = `${_shEsc(_stockNum(r.quantity))} ${_shEsc(r.unit || r.sale_unit || '')}`;
+      const cost = (data.can_cost && r.cost_price != null)
+        ? `<div style="font-size:.68rem;color:var(--text3)">Tannarx: ${fmtNum(r.cost_price)}</div>` : '';
+      return `<div style="display:flex;align-items:center;gap:.5rem;padding:.55rem .4rem;border-bottom:1px solid var(--border2)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.85rem">${_shEsc(r.name)}</div>
+          <div style="font-size:.72rem;color:var(--gold)">${fmtNum(r.price)} UZS${r.sale_unit ? ' / ' + _shEsc(r.sale_unit) : ''}</div>
+          ${cost}
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;font-size:.85rem;color:${low ? 'var(--danger)' : 'var(--text)'}">${qty}</div>
+          ${low ? '<div style="font-size:.6rem;color:var(--danger)">kam qoldi</div>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch {
+    list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--danger)">Xatolik — qayta urinib ko\'ring</div>';
+  }
+}
+document.getElementById('posStockBtn')?.addEventListener('click', () => {
+  const s = document.getElementById('posStockSearch');
+  if (s) s.value = '';
+  openModal('posStockModal');
+  loadPosStock('');
+  setTimeout(() => s?.focus(), 100);
+});
+document.getElementById('posStockSearch')?.addEventListener('input', (e) => {
+  const q = e.target.value.trim();
+  clearTimeout(_posStockTimer);
+  _posStockTimer = setTimeout(() => loadPosStock(q), 250);
 });
 
 // ─── Hold order ───────────────────────────────────────────────────────────────

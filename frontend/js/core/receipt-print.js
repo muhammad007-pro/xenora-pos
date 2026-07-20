@@ -25,7 +25,9 @@ const RECEIPT_CSS = `
   *{margin:0;padding:0;box-sizing:border-box}
   @page{margin:0}
   html,body{background:#fff}
-  .r58{width:58mm;max-width:58mm;margin:0 auto;padding:2mm 1.5mm;
+  /* 54mm kontent (58mm rolik) — o'ng/chap ~2mm chet, termal bosilmaydigan zonaga
+     tushmasin (narx/matn o'ng tomonda KESILMASIN). */
+  .r58{width:54mm;max-width:54mm;margin:0 auto;padding:2mm 1.5mm;
        font-family:'Courier New',monospace;font-size:11px;line-height:1.35;color:#000}
   .r58, .r58 *{color:#000 !important;background:transparent !important;border-color:#000 !important}
   .r58 h4{font-size:13px;font-weight:700;margin-bottom:2px}

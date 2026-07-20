@@ -325,6 +325,12 @@ async def get_order_receipt(
     paid_payments = [p for p in order.payments if p.status == "paid"]
     total_paid = sum(p.amount for p in paid_payments)
 
+    # Chek QR/fiskal blok — faqat tenant "qr_enabled" (soliq/kassa integratsiyasi)
+    # YOQIQ bo'lsa chekda ko'rinadi. Default O'CHIQ (ko'p do'kon ulanmagan) → QR/fiskal yo'q.
+    tid = order.tenant_id or resolve_tenant_id(db, current_user)
+    rs = db.query(ReceiptSettings).filter(ReceiptSettings.tenant_id == tid).first()
+    qr_on = bool(rs and rs.qr_enabled)
+
     return {
         "receipt_number": order.order_number,
         "date": order.created_at.strftime("%d.%m.%Y %H:%M"),
@@ -357,10 +363,11 @@ async def get_order_receipt(
         ],
         "status":          order.status,
         "notes":           order.notes,
-        # OFD fiskal
-        "fiscal_number":   order.fiscal_number,
-        "fiscal_qr_url":   order.fiscal_qr_url,
+        # OFD fiskal — faqat qr_enabled (soliq integratsiyasi) YOQIQ bo'lsa chekda ko'rinadi
+        "fiscal_number":   order.fiscal_number if qr_on else None,
+        "fiscal_qr_url":   order.fiscal_qr_url if qr_on else None,
         "fiscal_sent_at":  order.fiscal_sent_at.isoformat() if order.fiscal_sent_at else None,
+        "qr_enabled":      qr_on,
         # pos.js renderReceiptData uchun
         "order_id":        order.id,
         "order_number":    order.order_number,

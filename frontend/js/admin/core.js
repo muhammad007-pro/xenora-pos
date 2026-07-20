@@ -1590,7 +1590,8 @@ function buildProductModal(product) {
 
   // ── BOSQICH B2: Pachka/Dona (store/supermarket/pharmacy) ────────────────────
   // price = DONA narxi. pack_price = 1 pachka narxi, pack_size = pachkadagi dona.
-  // Weight (tarozi: kg/g/l/ml) mahsulotда yashiriladi — ikkovi birga bo'lmaydi.
+  // OG'IRLIK (tarozi: kg/g/l) mahsulotда yashiriladi. "ml" (atir #20) — pack (Butun
+  // flakon) bilan birga bo'ladi, bloklanmaydi.
   // DIQQAT: B2'da faqat saqlanadi — POS/ombor HALI ishlatmaydi (B3+).
   if (['store', 'supermarket', 'pharmacy'].includes(bizType)) {
     const _pcs = 'width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5625rem .75rem;color:var(--text);font-size:.875rem';
@@ -1612,10 +1613,12 @@ function buildProductModal(product) {
       if (product.pack_size  != null) document.getElementById('pmf_pack_size').value  = product.pack_size;
     }
 
-    // Pack × Weight ziddiyati: tarozi birlikда pack blok yashiriladi + tozalanadi
+    // Pack × Weight ziddiyati: OG'IRLIK (kg/g/l) birlikда pack blok yashiriladi + tozalanadi.
+    // #20 atir: "ml" HAJM birligi — pack (Butun flakon) BILAN birga bo'ladi, shuning uchun
+    // ml BLOKLANMAYDI (POS ham isWeightUnit'da ml YO'Q, "Butun/ml" tanlovi uchun).
     const _saleUnitEl2 = document.getElementById('pmf_sale_unit');
     if (_saleUnitEl2) {
-      const _wUnits = ['kg', 'g', 'l', 'ml', 'litr'];
+      const _wUnits = ['kg', 'g', 'l', 'litr'];
       const togglePack = () => {
         const isW = _wUnits.includes(_saleUnitEl2.value);
         packBlock.style.display = isW ? 'none' : '';

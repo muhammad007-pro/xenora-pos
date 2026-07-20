@@ -598,6 +598,16 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" stroke-width="1.8"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="16" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="16" r="1.5" fill="currentColor"/><circle cx="16" cy="16" r="1.5" fill="currentColor"/></svg>
       <span class="nav-label">POS Terminal</span>
     </a>
+    <!-- #21/#22: POS Sotuvlar tarixi (modal) — kassir o'z sotuvlari, admin barchasi -->
+    <button class="nav-item" id="salesHistoryBtn" type="button" title="Sotuvlar tarixi">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="nav-label">Sotuvlar tarixi</span>
+    </button>
+    <!-- #23: POS Ombor qoldig'i (modal) — narx+qoldiq (kassir); tannarx faqat admin -->
+    <button class="nav-item" id="posStockBtn" type="button" title="Ombor qoldig'i (narx/qoldiq)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span class="nav-label">Qoldiq</span>
+    </button>
     <a href="kitchen.html"     class="nav-item" title="Oshxona" data-roles="admin manager kitchen waiter">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 8h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M8 4V2h8v2" stroke="currentColor" stroke-width="1.8"/></svg>
       <span class="nav-label">Oshxona</span>
@@ -1092,15 +1102,47 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
       <div id="packChoiceName" style="text-align:center;font-weight:700;font-size:1.05rem;margin-bottom:1rem">Mahsulot</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
         <button class="btn btn-gold" id="packChoicePackBtn" style="flex-direction:column;height:auto;padding:1rem .5rem">
-          <span style="font-size:1rem;font-weight:700">📦 Pachka</span>
+          <span id="packChoicePackLbl" style="font-size:1rem;font-weight:700">📦 Pachka</span>
           <span id="packChoicePackPrice" style="font-size:.9rem;margin-top:.35rem">—</span>
           <span id="packChoicePackHint" style="font-size:.72rem;opacity:.85;margin-top:.15rem">—</span>
         </button>
         <button class="btn btn-outline" id="packChoiceDonaBtn" style="flex-direction:column;height:auto;padding:1rem .5rem">
-          <span style="font-size:1rem;font-weight:700">Dona</span>
+          <span id="packChoiceDonaLbl" style="font-size:1rem;font-weight:700">Dona</span>
           <span id="packChoiceDonaPrice" style="font-size:.9rem;margin-top:.35rem">—</span>
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- #21/#22: Sotuvlar tarixi + reprint modali -->
+<div class="modal-wrap" id="salesHistoryModal">
+  <div class="modal-overlay" data-close="salesHistoryModal"></div>
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header">
+      <h3 id="shTitle">Sotuvlar tarixi — bugun</h3>
+      <button class="close-btn" data-close="salesHistoryModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="salesHistoryList" style="max-height:62vh;overflow-y:auto"></div>
+      <div id="salesHistoryDetail" style="display:none;max-height:62vh;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- #23: POS Ombor qoldig'i modali (narx + qoldiq; tannarx faqat admin) -->
+<div class="modal-wrap" id="posStockModal">
+  <div class="modal-overlay" data-close="posStockModal"></div>
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header">
+      <h3>Ombor — narx / qoldiq</h3>
+      <button class="close-btn" data-close="posStockModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="search" id="posStockSearch" placeholder="Mahsulot qidirish..." autocomplete="off"
+             style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.55rem .75rem;color:var(--text);outline:none;margin-bottom:.6rem">
+      <div id="posStockTotal" style="display:none;font-size:.8rem;color:var(--text2);margin-bottom:.5rem"></div>
+      <div id="posStockList" style="max-height:60vh;overflow-y:auto"></div>
     </div>
   </div>
 </div>

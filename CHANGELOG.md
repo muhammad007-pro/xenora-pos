@@ -3,6 +3,31 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.3.0] — 2026-07-21
+
+Katta reliz: chek 54mm + QR toggle, atir maydalash, POS tarix/ombor, grafik ramka. **Migratsiya YO'Q**.
+
+### Chek
+- **Kenglik 54mm** (`receipt-print.js`) — 58mm rolikда o'ng tomon **kesilmaydi** (narx to'liq).
+- **QR/fiskal toggle** (`order.py /orders/{id}/receipt`) — QR/fiskal blok faqat `qr_enabled` (Chek
+  sozlamalari toggle, soliq integratsiyasi) YOQIQ bo'lsa chiqadi. **Default O'CHIQ** (ko'p do'kon).
+
+### Atir maydalab sotish (#20)
+- **POS:** pachka/dona mexanizmi ml uchun — "🧴 Butun (150 ml) 250 000" / "ml 2 000/ml"; ml → "necha ml?"
+  (weight modal). Savat/chek yorliqlari: "Butun (150 ml)" / "10 ml". Ombor ml base (flakon −150, ml −N).
+- **Admin forma:** `sale_unit="ml"` endi pack maydonlarini bloklamaydi (`_wUnits`dan ml olib tashlandi) —
+  atir yaratса bo'ladi. Migratsiya YO'Q (mavjud pack_size/pack_price/price).
+
+### POS (#21/#22/#23)
+- **Sotuvlar tarixi + reprint:** sidebar "Sotuvlar tarixi" → bugungi sotuvlar (kassir → o'ziники,
+  admin → barchasi; RBAC `cashier_id`). Detal + 🖨 reprint (buildReceipt58 + PDF/SumatraPDF).
+- **Ombor qoldig'i:** sidebar "Qoldiq" → mahsulot + sotuv narxi + qoldiq. Yangi `GET /inventory/pos-stock`
+  — **TANNARX/ombor qiymati faqat `view_finance` (admin)**; kassir ko'rmaydi. Tenant/branch izolyatsiya.
+
+### Dashboard
+- **Sotuv dinamikasi grafik** (`admin.css`) — SVG konteyner ICHIDA qoladi (o'ng "To'lov usullari"
+  kartasига tegmaydi). Faqat CSS (grafik funksiyasi tegilmadi).
+
 ## [1.2.9] — 2026-07-20
 
 Chek PDF → SumatraPDF raster print (Chrome kabi). **Migratsiya YO'Q** (kod).

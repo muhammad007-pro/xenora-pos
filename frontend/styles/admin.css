@@ -190,6 +190,14 @@ a{text-decoration:none;color:inherit}
 .bar.blue-bar{background:linear-gradient(180deg,#60a5fa,var(--info))}
 .bar-label{font-size:.5625rem;color:var(--text3)}
 
+/* #18 "Sotuv dinamikasi" AREA SVG — konteyner ICHIDA qolsin (o'ng "To'lov usullari"
+   kartasiga tegmasin). Sabab: grid item min-width:auto (SVG intrinsik 600px) +
+   .mini-chart eski flex/fixed-height. Yechim: karta shrink + SVG 100% fit (height:auto).
+   Grafik FUNKSIYASI (chiziq/Y o'qi/ma'lumot — JS) tegilmaydi, faqat ramka/o'lcham. */
+.charts-row > .chart-card:first-child{min-width:0}
+#revenueChart{display:block;height:auto;min-width:0;overflow:hidden}
+#revenueChart > svg{display:block;width:100%;max-width:100%;height:auto}
+
 /* Donut chart */
 .donut-wrap{position:relative;width:120px;height:120px;margin:0 auto .875rem}
 .donut-svg{transform:rotate(-90deg)}

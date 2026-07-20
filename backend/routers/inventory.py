@@ -31,6 +31,7 @@ from schemas import (
 from deps import (
     resolve_tenant_id, get_current_user, get_current_active_user,
     has_permission, apply_tenant_filter, apply_branch_filter,
+    user_has_permission,
 )
 
 router = APIRouter()
@@ -145,6 +146,56 @@ async def get_inventory_items(
         total=total, page=page, page_size=page_size,
         total_pages=(total + page_size - 1) // page_size
     )
+
+
+@router.get("/pos-stock")
+async def get_pos_stock(
+    search: Optional[str] = None,
+    limit: int = Query(400, ge=1, le=2000),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """POS ombor ko'rinishi (kassir tez qidiruvi): mahsulot + SOTUV narxi + QOLDIQ + birlik.
+
+    Kassir mijozga "bor, X so'm, Y dona qoldi" deb ayta oladi. TANNARX (cost_price) va
+    ombor QIYMATI (stock_value/total_value) FAQAT `view_finance` ruxsatli (admin/menejer)
+    userga qaytariladi — kassir sotuv siriga tegmasin. Tenant/branch izolyatsiyalangan.
+    """
+    can_cost = user_has_permission(current_user, "view_finance")
+    query = db.query(Inventory).join(Product)
+    query = apply_tenant_filter(query, Inventory, current_user)
+    query = apply_branch_filter(query, Inventory, current_user)
+    if search:
+        query = query.filter(Product.name.ilike(f"%{search}%"))
+    items = query.order_by(Product.name).limit(limit).all()
+
+    out = []
+    total_value = 0.0
+    for i in items:
+        p = i.product
+        row = {
+            "product_id":  i.product_id,
+            "name":        p.name if p else "",
+            "price":       (p.price if p else 0),
+            "sale_unit":   (p.sale_unit if p else "pcs"),
+            "quantity":    i.quantity,
+            "unit":        i.unit,
+            "min_threshold": i.min_threshold,
+            "image_url":   (p.image_url if p else None),
+            "pack_size":   (p.pack_size if p else None),
+            "pack_price":  (p.pack_price if p else None),
+        }
+        if can_cost and p:
+            cost = p.cost_price or 0
+            row["cost_price"]  = cost
+            row["stock_value"] = round(i.quantity * cost, 2)
+            total_value += i.quantity * cost
+        out.append(row)
+
+    resp = {"items": out, "can_cost": can_cost}
+    if can_cost:
+        resp["total_value"] = round(total_value, 2)
+    return resp
 
 
 @router.get("/low-stock", response_model=list[InventoryInDB])

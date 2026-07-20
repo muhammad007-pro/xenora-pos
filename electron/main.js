@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog, shell, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const { execFile } = require('child_process');
 
 // ── XENORA SaaS server manzili ──
 // Backend SERVERDA ishlaydi (http://146.190.225.168). Electron o'z backendini
@@ -71,89 +73,98 @@ ipcMain.handle('toggle-fullscreen', () => {
 ipcMain.handle('is-fullscreen', () => (mainWindow ? mainWindow.isFullScreen() : false));
 
 // ── Chek: LOKAL silent print (do'kon kompyuteridagi printerga) ──
-// Backend SERVERda (146.190.225.168) ishlaydi va do'kondagi USB printerga (XP-58C)
-// yeta OLMAYDI. Shu sabab chek shu yerda — Electron ichida, yashirin oynada
-// yuklanib — LOKAL printerga silent (dialogsiz) yuboriladi.
+// Backend SERVERda ishlaydi va do'kondagi USB printerga (XP-58C) yeta OLMAYDI.
+// Shu sabab chek shu yerda — Electron ichida — LOKAL printerga silent yuboriladi.
 //
-// ENCODING FIX: `webContents.print` (silent, GDI) termal drayverга matn/vektor
-// yuborganda XP-58C uni CP437'da talqin qilib KRAKOZYABRA qiladi. Chrome esa
-// sahifani RASTER (rasm) qilib yuboradi — shuning uchun toza. Yechim: chekni
-// RASM (PNG raster) qilib chop etamiz — printer sof bitmap oladi, matn bo'lmagani
-// uchun krakozyabra FIZIK jihatdan imkonsiz. RASM olmasa — to'g'ridan HTML print (fallback).
-//
-// deviceName BO'SH bo'lsa `deviceName` kalitini BERMAYMIZ (bo'sh satr EMAS) —
-// shundagina Electron OS STANDART printerini (XP-58C) ishlatadi. pageSize yo'q.
+// ENCODING (krakozyabra) YECHIMI — PDF orqali (Chrome Ctrl+P AYNAN shu yo'l):
+//   1. Chek HTML yashirin oynada render (did-finish-load kutiladi).
+//   2. webContents.printToPDF() — Chromium PDF engine (Chrome "Save as PDF"). @page
+//      size:58mm → PDF eni 58mm.
+//   3. PDF'ni SumatraPDF (-print-to, silent) bilan XP-58C ga yuboramiz. SumatraPDF
+//      PDF'ni RASTER qilib GDI orqali bosadi (Chrome kabi). PDF'da "matn baytlari"
+//      yo'q → drayver CP437 talqin qilolmaydi → KRAKOZYABRA IMKONSIZ.
+//   SumatraPDF bo'lmasa → webContents.print (silent) FALLBACK (regressiya yo'q).
 const _delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Bundle qilingan SumatraPDF (extraResources → resources/SumatraPDF.exe;
+// dev muhitda electron/vendor/SumatraPDF.exe). Yo'q bo'lsa null → GDI fallback.
+function _sumatraExe() {
+    try {
+        const packaged = path.join(process.resourcesPath || '', 'SumatraPDF.exe');
+        if (fs.existsSync(packaged)) return packaged;
+    } catch { /* ignore */ }
+    try {
+        const dev = path.join(__dirname, 'vendor', 'SumatraPDF.exe');
+        if (fs.existsSync(dev)) return dev;
+    } catch { /* ignore */ }
+    return null;
+}
+function _runExe(exe, args) {
+    return new Promise((resolve, reject) => {
+        execFile(exe, args, { windowsHide: true }, (err) => (err ? reject(err) : resolve()));
+    });
+}
 ipcMain.handle('print-receipt', async (_e, payload) => {
     const { html, deviceName } = payload || {};
     if (!html) return { ok: false, error: "Chek HTML bo'sh" };
+    const dev = (deviceName && String(deviceName).trim()) ? String(deviceName).trim() : null;
     let win = null;
+    let pdfPath = null;
     try {
         win = new BrowserWindow({
             show: false,
-            x: -20000, y: -20000,          // ekrandan tashqarida (capture uchun ko'rsatsak flash bo'lmasin)
-            width: 520, height: 900,
-            frame: false, skipTaskbar: true,
+            width: 400, height: 800,
             webPreferences: { offscreen: false, sandbox: false, backgroundThrottling: false },
             backgroundColor: '#ffffff',
         });
         const wc = win.webContents;
-        // Chek HTML TO'LIQ yuklansin: loadURL did-finish-load'da hal bo'ladi.
+        // Chek HTML TO'LIQ yuklansin: loadURL did-finish-load'da hal bo'ladi
+        // (yuklanmasa reject → catch → ok:false). Shundan KEYIN PDF/print.
         await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-        // 2x zoom → crisp raster (58mm da o'qiladigan); render/QR uchun kutish.
-        try { wc.setZoomFactor(2); } catch { /* zoom bo'lmasa 1x */ }
-        await _delay(350);
+        await _delay(300);   // render / shrift / QR
 
-        // Kontent o'lchamiga oynani moslash (rasm faqat chek — ortiqcha oq yo'q).
-        let dims = { w: 480, h: 800 };
+        // PDF sahifasini 58mm × (kontent balandligi) qilamiz — ortiqcha bo'sh qog'oz yo'q.
+        let hmm = 200;
         try {
-            dims = await wc.executeJavaScript(
-                '({w: Math.ceil(document.documentElement.scrollWidth||440), h: Math.ceil(document.documentElement.scrollHeight||400)})'
+            const hpx = await wc.executeJavaScript('document.body.scrollHeight');
+            if (hpx && hpx > 0) hmm = Math.ceil((hpx / 96) * 25.4) + 4;   // px→mm + kichik quyruq
+        } catch { /* o'lchab bo'lmasa 200mm */ }
+        try {
+            await wc.executeJavaScript(
+                "(function(){var s=document.createElement('style');s.textContent='@page{size:58mm "
+                + hmm + "mm;margin:0}';document.head.appendChild(s);})()"
             );
-        } catch { /* o'lchab bo'lmasa default */ }
-        win.setContentSize(Math.max(200, Math.min(1400, dims.w)), Math.max(80, Math.min(8000, dims.h)));
-        await _delay(120);
+        } catch { /* @page bermasak Letter bo'ladi — SumatraPDF fit tuzatadi */ }
+        await _delay(60);
 
-        // ── Chekni RASM (raster) qilib olamiz — Chrome kabi bitmap ──
-        let png = null;
-        try {
-            let image = await wc.capturePage();
-            if (image.isEmpty()) {                 // yashirin oyna chizilmagan bo'lsa
-                win.showInactive();                // ekran tashqarisida ko'rsatib chizdiramiz (flash yo'q)
-                await _delay(180);
-                image = await wc.capturePage();
-                win.hide();
-            }
-            if (image && !image.isEmpty()) png = image.toDataURL();
-        } catch (e) { console.error('capturePage error', e); /* rasm bo'lmasa HTML fallback */ }
-
-        // RASM olsak — uni 58mm kенgликda chop etamiz (sof bitmap → krakozyabra yo'q).
-        // Olmasak — asl HTML allaqachon yuklangan, to'g'ridan chop (fallback).
-        if (png) {
-            const imgHtml = '<!DOCTYPE html><html><head><meta charset="utf-8">'
-                + '<style>*{margin:0;padding:0}@page{margin:0}html,body{background:#fff}'
-                + 'img{width:58mm;display:block}</style></head>'
-                + '<body><img src="' + png + '"></body></html>';
-            await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(imgHtml));
-            await _delay(150);
+        const sumatra = _sumatraExe();
+        if (sumatra) {
+            // ── PDF yo'li (ISHONCHLI — Chrome kabi raster) ──
+            const pdf = await wc.printToPDF({
+                printBackground: true,
+                preferCSSPageSize: true,
+                margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            });
+            pdfPath = path.join(os.tmpdir(), 'xenora_chek_' + Date.now() + '.pdf');
+            fs.writeFileSync(pdfPath, Buffer.from(pdf));
+            // SumatraPDF PDF'ni RASTER qilib GDI orqali bosadi (matn bayt yo'q → krakozyabra yo'q).
+            const args = dev
+                ? ['-print-to', dev, '-silent', '-print-settings', 'fit', pdfPath]
+                : ['-print-to-default', '-silent', '-print-settings', 'fit', pdfPath];
+            await _runExe(sumatra, args);
+            return { ok: true, device: dev || '(OS default)', engine: 'pdf' };
         }
 
-        // pageSize BERMAYMIZ — drayver 58mm formini O'ZI biladi.
-        const printOpts = {
-            silent: true,
-            margins: { marginType: 'none' },
-            printBackground: true,      // rasm chiqishi uchun
-        };
-        // Faqat NOMLI printer bo'lsa deviceName beramiz; bo'sh → OS default (XP-58C).
-        if (deviceName && String(deviceName).trim()) printOpts.deviceName = String(deviceName).trim();
-
+        // ── Fallback: SumatraPDF yo'q → webContents.print (silent GDI) ──
+        const printOpts = { silent: true, margins: { marginType: 'none' }, printBackground: true };
+        if (dev) printOpts.deviceName = dev;
         const result = await new Promise((resolve) => {
             wc.print(printOpts, (success, failureReason) =>
                 resolve({
                     ok: !!success,
                     error: success ? null : (failureReason || 'Printer topilmadi yoki chop bekor qilindi'),
-                    device: printOpts.deviceName || '(OS default)',
-                    raster: !!png,        // rasm bilan chiqdimi (toza) yoki HTML fallback
+                    device: dev || '(OS default)',
+                    engine: 'gdi-fallback',
                 })
             );
         });
@@ -163,6 +174,7 @@ ipcMain.handle('print-receipt', async (_e, payload) => {
         return { ok: false, error: err.message };
     } finally {
         if (win && !win.isDestroyed()) win.close();
+        if (pdfPath) { try { fs.unlinkSync(pdfPath); } catch { /* ignore */ } }
     }
 });
 

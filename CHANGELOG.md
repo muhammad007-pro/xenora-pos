@@ -3,6 +3,24 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.9] — 2026-07-20
+
+Chek PDF → SumatraPDF raster print (Chrome kabi). **Migratsiya YO'Q** (kod).
+
+### Tuzatildi
+- **Chek krakozyabra (yakuniy hal):** oldingi yo'llar (RAW, HTML GDI, capturePage) termal
+  drayverda krakozyabra berardi. Chrome Ctrl+P toza chiqardi (PDF/raster). Endi XENORA ham
+  AYNAN shunday: `webContents.printToPDF()` (Chromium PDF engine, @page 58mm) → PDF →
+  **SumatraPDF** `-print-to -silent -print-settings fit` bilan LOKAL printerga raster print.
+  PDF'da matn baytlari yo'q → drayver CP437 talqin qilolmaydi → krakozyabra IMKONSIZ.
+  SumatraPDF topilmasa → `webContents.print` (GDI) fallback.
+
+### Texnik
+- `electron/main.js`: printToPDF + SumatraPDF (`execFile`); did-finish-load + deviceName omit saqlandi.
+- `electron/vendor/SumatraPDF.exe` (20MB, git'da yo'q — `.gitignore`; build mashinasida lokal).
+  `extraResources` uni `resources/SumatraPDF.exe` ga nusxalaydi.
+- Auto-print (to'lovdan keyin 1×) va reprint shu PDF yo'lini ishlatadi (pos.js tegilmadi).
+
 ## [1.2.8] — 2026-07-20
 
 Chek RASTER (rasm) print — krakozyabra ildizdan hal. **Migratsiya YO'Q** (kod).

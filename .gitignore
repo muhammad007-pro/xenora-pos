@@ -80,3 +80,6 @@ electron/node_modules/
 *.log
 backend/_start_*.log
 
+
+# SumatraPDF (chek PDF print — 20MB binary; build mashinasida lokal, git'da yo'q)
+electron/vendor/*.exe

@@ -1,10 +1,10 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
-> Oxirgi tasdiqlangan deploy: **v1.2.8** (2026-07-20) — Chek RASTER (rasm) print: capturePage → PNG → 58mm bitmap. Krakozyabra ildizdan hal (silent GDI matn/vektor emas, sof rasm — Chrome kabi). RAW ESC/POS umuman yo'q.
-> ⚠️ **MIGRATSIYA YO'Q** (chek = kod, DB emas). Sodiqlik `c9d0e1f2a3b4` v1.2.3'da qo'llangan (`alembic current` tasdiqlaydi). Android versionCode **15** / 1.2.8.
-> ⚠️ **BUILD SHART:** Chek fixi Electron .exe (`main.js`) va Android .apk'da — foydalanuvchi yangi build o'rnatmasa o'zgarish ko'rinmaydi.
-> (Oldingi: v1.2.7 avtomatik chek+HTML GDI; v1.2.6 did-finish-load+pageSize yo'q; v1.2.5 deviceName default+58mm; v1.2.4 Chek lokal silent print; v1.2.3 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 Pachka/Dona; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
+> Oxirgi tasdiqlangan deploy: **v1.2.9** (2026-07-20) — Chek PDF→SumatraPDF raster print (Chrome kabi): printToPDF (58mm) → SumatraPDF -print-to -silent. Krakozyabra yakuniy hal (PDF'da matn bayti yo'q).
+> ⚠️ **MIGRATSIYA YO'Q** (chek = kod, DB emas). Sodiqlik `c9d0e1f2a3b4` v1.2.3'da qo'llangan (`alembic current` tasdiqlaydi). Android versionCode **16** / 1.2.9.
+> ⚠️ **BUILD SHART + SumatraPDF:** Chek fixi Electron .exe'da. Build oldin `electron/vendor/SumatraPDF.exe` (20MB, git'da yo'q — build mashinasida lokal) bo'lishi SHART — `extraResources` uni `resources/`ga nusxalaydi. Busiz GDI fallback (krakozyabra qaytadi).
+> (Oldingi: v1.2.8 capturePage raster; v1.2.7 avtomatik chek+HTML GDI; v1.2.6 did-finish-load+pageSize yo'q; v1.2.5 deviceName default+58mm; v1.2.4 Chek lokal silent print; v1.2.3 Sodiqlik [`c9d0e1f2a3b4`]; v1.2.2 Pachka/Dona; v1.2.1 brend ∞; v1.2.0 RBAC audit; v1.0.3 `8800a6d`.)
 
 ---
 
@@ -117,8 +117,10 @@ Frontend PWA cache (alohida versiya sxemasi):
 
 ## 5. Native build
 
-> **v1.2.8 build:** Android `versionCode 15` / `versionName 1.2.8`; Electron `1.2.8`.
-> Ikkala platforma ilova ichida **1.2.8** ko'rsatadi (version.js/login.html bilan izchil).
+> **v1.2.9 build:** Android `versionCode 16` / `versionName 1.2.9`; Electron `1.2.9`.
+> Ikkala platforma ilova ichida **1.2.9** ko'rsatadi (version.js/login.html bilan izchil).
+> ⚠️ **Electron build oldin:** `electron/vendor/SumatraPDF.exe` (64-bit portable, ~20MB) bo'lishi shart —
+> git'da yo'q (`.gitignore`), lokal build mashinasida. Yo'q bo'lsa chek GDI fallback (krakozyabra).
 > ⚠️ **Chek fixi (silent print) BUILD'da:** Electron `extraResources` (`from: ../frontend`) build vaqtida
 > frontend'ni yangidan nusxalaydi — `receipt-print.js`/`pos.js`/`main.js`/`preload.js` avtomatik kiradi.
 > Eski `electron/dist/win-unpacked` build'da qayta yoziladi. Android: `npx cap sync` frontend'ni yangilaydi.

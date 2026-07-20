@@ -3,6 +3,23 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.2.7] — 2026-07-20
+
+Chek: avtomatik chiqarish + HTML GDI print (encoding). **Migratsiya YO'Q** (kod).
+
+### Qo'shildi
+- **Avtomatik chek:** to'lov muvaffaqiyatli tugagach chek **har doim bir marta** avtomatik chiqadi
+  (kassir "Chop etish" bosmaydi) — online (`showReceipt`) va offline checkout ikkalasida. "Chop etish"
+  tugmasi qayta bosish (reprint) uchun qoladi. Ikki nusxa chiqmaydi.
+
+### Tasdiqlandi (arxitektura)
+- POS chek oqimi backend RAW ESC/POS (`/orders/{id}/print`) ni **chaqirmaydi** — `sendEscposPrint →
+  printReceiptHTML → webContents.print` = **HTML GDI** (v1.2.4'dan beri). Chek HTML: `<meta charset=UTF-8>`,
+  Courier New monospace, 58mm, pageSize yo'q. Reprint (POS + Sotuvlar tarixi) shu HTML GDI yo'lini ishlatadi.
+
+> ⚠️ Eslatma: agar chek matni buzuq (krakozyabra) chiqsa — bu DRAYVER muammosi (XP-58 "matnli/ESC-POS"
+> rejimда), dastur to'g'ri HTML GDI yuboradi. Yechim: XP-58 ni "Grafik/Raster" drayver bilan o'rnatish.
+
 ## [1.2.6] — 2026-07-20
 
 Chek silent print — did-finish-load + pageSize olib tashlash. **Migratsiya YO'Q** (kod).

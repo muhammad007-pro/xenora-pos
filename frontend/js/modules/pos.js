@@ -1344,6 +1344,7 @@ async function doPayment() {
     offlineCheckout = false;
     renderOfflineReceipt(paymentPayload);
     openModal('receiptModal');
+    sendEscposPrint(null);   // AVTOMATIK chek (offline ham) — HTML GDI print
     toast('Offline: buyurtma+to\'lov saqlandi', 'warning');
     clearOrderState();
     btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish';
@@ -1468,10 +1469,11 @@ async function showReceipt(orderId) {
     else renderReceiptFallback(orderId);
   } catch { renderReceiptFallback(orderId); }
   openModal('receiptModal');
-  // Avto-chop: printer yoqilgan va auto_print bo'lsa, to'lovdan keyin avtomatik
-  if (orderId && _printerStatus.enabled && _printerStatus.auto_print) {
-    sendEscposPrint(orderId);
-  }
+  // AVTOMATIK CHEK — to'lovdan so'ng HAR DOIM bir marta chiqadi (kassir bosmaydi).
+  // Chek mazmuni #receiptBody da render bo'lgandan keyin (yuqorida) HTML GDI silent
+  // print (backend RAW ESC/POS emas — krakozyabra bo'lmasin). did-finish-load
+  // main.js da kutiladi. "Chop etish" tugmasi qayta bosish (reprint) uchun qoladi.
+  sendEscposPrint(orderId);
 }
 
 // BOSQICH B6: chek pachka yorlig'i — savat item'ida _packLabel, server item'ida

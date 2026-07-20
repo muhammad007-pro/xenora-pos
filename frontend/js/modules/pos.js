@@ -1444,12 +1444,23 @@ function renderOfflineReceipt(payment) {
 // ─── Receipt + ESC/POS chop etish ─────────────────────────────────────────────
 let _printerStatus = { enabled: false, auto_print: false, mode: 'mock' };
 let _lastReceiptOrderId = null;
+// Chek sozlamalari (Shrift o'lchami) — chek print CSS'iga uzatiladi.
+// Kichik/Normal/Katta ('small'/'normal'/'large') → 11/13/15px (receipt-print.js).
+let _receiptCfg = { font_size: 'normal' };
 
 async function loadPrinterStatus() {
   try {
     const s = await api.get('/settings/printer/status');
     if (s && s.success && s.data && typeof s.data === 'object') _printerStatus = s.data;
   } catch { /* status olinmasa — window.print fallback ishlaydi */ }
+}
+
+async function loadReceiptSettings() {
+  try {
+    const s = await api.get('/receipt-settings/');
+    const d = (s && s.success && s.data) ? s.data : s;   // api.js wrapped yoki xom
+    if (d && typeof d === 'object' && d.font_size) _receiptCfg.font_size = d.font_size;
+  } catch { /* sozlama olinmasa — 'normal' shrift ishlatiladi */ }
 }
 
 // Chekni LOKAL printerga chiqarish (do'kon kompyuteridagi XP-58).
@@ -1464,6 +1475,7 @@ async function sendEscposPrint(_orderId) {
   const res = await printReceiptHTML(inner, {
     deviceName: _printerStatus.printer_name || '',
     title: 'Chek',
+    fontSize: _receiptCfg.font_size,
   });
   if (res && res.ok) {
     if (!res.browser) toast('Chek chiqarildi', 'success');  // brauzer dialogida jimgina
@@ -1686,7 +1698,7 @@ async function reprintSale(id) {
     const rec = res && res.data;
     if (!rec) { toast('Chek topilmadi', 'error'); return; }
     const html = buildReceipt58(rec);   // admin reprint bilan bir xil (global state'siz)
-    const r = await printReceiptHTML(html, { deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id) });
+    const r = await printReceiptHTML(html, { deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id), fontSize: _receiptCfg.font_size });
     if (r && r.ok) { if (!r.browser) toast('Chek chiqarildi', 'success'); }
     else toast('Chek chiqmadi: ' + ((r && r.error) || "noma'lum xato"), 'error');
   } catch (e) {
@@ -2829,6 +2841,7 @@ async function init() {
     renderCart();
     await ensureShiftGate();
     loadPrinterStatus();
+    loadReceiptSettings();   // "Shrift o'lchami" — chek print CSS'iga
     loadHeldOrders();   // kutilayotgan buyurtmalar sonini ko'rsatish (badge)
   } catch (e) {
     console.error('POS init error:', e);

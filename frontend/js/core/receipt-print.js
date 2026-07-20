@@ -21,33 +21,54 @@ export function isElectron() {
 // Ham buildReceipt58() chiqishi, ham POS #receiptBody innerHTML (.receipt-* / .rt-row)
 // bir xil renderlansin. CSS o'zgaruvchilari (var(--...)) bu yangi hujjatda
 // aniqlanmagan → majburan qora rang.
-const RECEIPT_CSS = `
+//
+// KENGLIK: kontent 48mm (58mm rolik) — XP-58 termal printerning BOSILADIGAN zonasi
+// ~48mm. 54mm qilinsa o'ng chetdagi NARX ustuni bosilmaydigan zonaga tushib KESILADI
+// ("505,000"→"505"). Shu sabab 48mm + jadval table-layout:fixed (uzun nom narxni
+// o'ngga surib yubormasin, narx ustuni doim to'liq sig'sin).
+//
+// SHRIFT: bola elementlar `em` (base'ga nisbatan) — "Shrift o'lchami" sozlamasi
+// (Kichik/Normal/Katta → 11/13/15px) butun chekni proporsional kattalashtiradi.
+const FONT_PX = { small: 11, normal: 13, large: 15 };
+function _fontPx(size) {
+  if (typeof size === 'number' && size > 0) return size;
+  return FONT_PX[size] || FONT_PX.normal;
+}
+
+function buildCss(fontPx) {
+  return `
   *{margin:0;padding:0;box-sizing:border-box}
   @page{margin:0}
   html,body{background:#fff}
-  /* 54mm kontent (58mm rolik) — o'ng/chap ~2mm chet, termal bosilmaydigan zonaga
-     tushmasin (narx/matn o'ng tomonda KESILMASIN). */
-  .r58{width:54mm;max-width:54mm;margin:0 auto;padding:2mm 1.5mm;
-       font-family:'Courier New',monospace;font-size:11px;line-height:1.35;color:#000}
+  .r58{width:48mm;max-width:48mm;margin:0 auto;padding:2mm 1.5mm;
+       font-family:'Courier New',monospace;font-size:${fontPx}px;line-height:1.35;color:#000}
   .r58, .r58 *{color:#000 !important;background:transparent !important;border-color:#000 !important}
-  .r58 h4{font-size:13px;font-weight:700;margin-bottom:2px}
-  .r58 small{font-size:9px}
+  .r58 h4{font-size:1.2em;font-weight:700;margin-bottom:2px}
+  .r58 small{font-size:0.8em}
   .r58 img{max-width:100%;display:block;margin:3px auto}
   .receipt-center{text-align:center;margin-bottom:6px;padding-bottom:6px;border-bottom:1px dashed #000}
-  .receipt-center p{font-size:10px;line-height:1.5}
-  .receipt-table{width:100%;border-collapse:collapse;margin:4px 0}
-  .receipt-table th{text-align:left;font-size:10px;font-weight:700;border-bottom:1px solid #000;padding:1px 2px}
-  .receipt-table td{padding:1px 2px;font-size:10px;vertical-align:top}
-  .receipt-table td:last-child,.receipt-table th:last-child{text-align:right}
+  .receipt-center p{font-size:0.85em;line-height:1.5}
+  /* table-layout:fixed → nom uzun bo'lsa keyingi qatorga o'tadi (narxni surmaydi) */
+  .receipt-table{width:100%;border-collapse:collapse;margin:4px 0;table-layout:fixed}
+  .receipt-table th,.receipt-table td{padding:1px 2px;vertical-align:top;overflow:hidden}
+  .receipt-table th{text-align:left;font-size:0.85em;font-weight:700;border-bottom:1px solid #000}
+  .receipt-table td{font-size:0.85em;word-break:break-word;overflow-wrap:anywhere}
+  .receipt-table th:nth-child(1),.receipt-table td:nth-child(1){width:50%}
+  .receipt-table th:nth-child(2),.receipt-table td:nth-child(2){width:14%;text-align:center}
+  /* narx ustuni: o'ngga tayanadi, bir qatorda (nowrap) va to'liq sig'adi */
+  .receipt-table th:nth-child(3),.receipt-table td:nth-child(3){width:36%;text-align:right;white-space:nowrap}
   .receipt-totals{border-top:1px dashed #000;padding-top:4px;margin-top:4px}
-  .rt-row{display:flex;justify-content:space-between;font-size:11px;padding:1px 0}
-  .rt-row.bold{font-weight:700;font-size:12px;border-top:1px solid #000;margin-top:3px;padding-top:3px}
-  .receipt-footer{text-align:center;border-top:1px dashed #000;margin-top:5px;padding-top:5px;font-size:10px;line-height:1.6}
+  .rt-row{display:flex;justify-content:space-between;gap:6px;font-size:1em;padding:1px 0}
+  .rt-row span:last-child{text-align:right}
+  .rt-row.bold{font-weight:700;font-size:1.1em;border-top:1px solid #000;margin-top:3px;padding-top:3px}
+  .receipt-footer{text-align:center;border-top:1px dashed #000;margin-top:5px;padding-top:5px;font-size:0.85em;line-height:1.6}
 `;
+}
 
-function wrapDoc(innerHTML, title) {
+function wrapDoc(innerHTML, title, opts) {
+  const css = buildCss(_fontPx((opts || {}).fontSize));
   return `<!DOCTYPE html><html lang="uz"><head><meta charset="UTF-8">`
-    + `<title>${title || 'Chek'}</title><style>${RECEIPT_CSS}</style></head>`
+    + `<title>${title || 'Chek'}</title><style>${css}</style></head>`
     + `<body><div class="r58">${innerHTML}</div></body></html>`;
 }
 
@@ -84,7 +105,8 @@ function _printViaIframe(html) {
  */
 export async function printReceiptHTML(innerHTML, opts = {}) {
   if (!innerHTML || !String(innerHTML).trim()) return { ok: false, error: 'Chek bo\'sh' };
-  const html = wrapDoc(innerHTML, opts.title);
+  // opts.fontSize: 'small'|'normal'|'large' (yoki px) — "Shrift o'lchami" sozlamasi
+  const html = wrapDoc(innerHTML, opts.title, { fontSize: opts.fontSize });
   if (isElectron()) {
     try {
       // deviceName bo'sh bo'lsa uzatmaymiz — main.js OS default printerni ishlatadi.

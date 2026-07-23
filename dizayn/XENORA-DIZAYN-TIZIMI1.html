@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --emerald:#22c55e;--emerald-lt:#34d399;--emerald-dk:#0d9488;
+  --gold:#c9a227;--gold-lt:#f5d97a;
+  --font-d:'Sora',sans-serif;--font-b:'Inter',sans-serif;--font-m:'JetBrains Mono',monospace;
+}
+/* DARK */
+.dark{
+  --bg:#070f1e;--bg-mid:#0a1628;--bg-glow:#0d1c33;
+  --panel1:#0f2038;--panel2:#0d1c33;--sidebar1:#0d1c33;--sidebar2:#0a1628;
+  --line:rgba(120,160,220,.10);--line-str:rgba(120,160,220,.18);
+  --ink:#e8eef5;--ink-mut:#8b9bb0;--ink-dim:#5d6f86;
+  --girih:#5eb3ff;--girih-op:0.09;--emerald-glow:rgba(34,197,94,.14);
+  --card-shadow:0 8px 28px rgba(0,0,0,.42), 0 2px 6px rgba(0,0,0,.3);
+  --card-shadow-hover:0 16px 40px rgba(0,0,0,.5), 0 4px 12px rgba(34,197,94,.12);
+}
+/* LIGHT */
+.light{
+  --bg:#f4f6fb;--bg-mid:#eef2f9;--bg-glow:#ffffff;
+  --panel1:#ffffff;--panel2:#f8fafd;--sidebar1:#ffffff;--sidebar2:#f4f7fc;
+  --line:rgba(30,60,120,.10);--line-str:rgba(30,60,120,.16);
+  --ink:#0d1b2e;--ink-mut:#5a6b82;--ink-dim:#8b9bb0;
+  --girih:#3b6fb5;--girih-op:0.14;--emerald-glow:rgba(34,197,94,.12);
+  --card-shadow:0 6px 20px rgba(30,60,120,.10), 0 1px 4px rgba(30,60,120,.08);
+  --card-shadow-hover:0 14px 32px rgba(30,60,120,.16), 0 4px 10px rgba(34,197,94,.10);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-b);line-height:1.5}
+.mode-wrap{min-height:100vh}
+.mode-title{font-family:var(--font-d);font-weight:700;font-size:14px;letter-spacing:2px;text-transform:uppercase;padding:14px 20px;color:var(--emerald);background:var(--bg-mid)}
+
+.shell{display:grid;grid-template-columns:248px 1fr;min-height:760px;position:relative;
+  background:radial-gradient(1400px 800px at 50% 25%,var(--bg-glow),var(--bg) 68%);
+  color:var(--ink);overflow:hidden}
+.shell::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background-repeat:repeat;background-position:center}
+.dark .shell::before{background-image:url('koshin-dark.svg');opacity:.09}
+.light .shell::before{background-image:url('koshin-light.svg');opacity:.16}
+.bg-girih{display:none}
+.shell > .sidebar, .shell > .main{position:relative;z-index:2}
+
+.sidebar{background:linear-gradient(180deg,color-mix(in srgb,var(--sidebar1) 88%,transparent),color-mix(in srgb,var(--sidebar2) 88%,transparent));border-right:1px solid var(--line);padding:22px 14px;position:relative;z-index:2}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 10px 22px}
+.brand .nm{font-family:var(--font-d);font-weight:800;font-size:20px;letter-spacing:1.5px;color:var(--ink)}
+.brand .nm .x{color:var(--emerald)}
+.brand .tag{font-size:9.5px;color:var(--ink-dim);letter-spacing:2px;text-transform:uppercase}
+.nav-lbl{font-size:10px;color:var(--ink-dim);letter-spacing:1.5px;text-transform:uppercase;padding:16px 12px 8px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--ink-mut);font-size:13.5px;font-weight:500;margin-bottom:2px;position:relative}
+.nav-item.active{background:linear-gradient(90deg,var(--emerald-glow),transparent);color:var(--ink);font-weight:600}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--emerald);border-radius:0 3px 3px 0}
+.nav-ic{width:18px;height:18px;flex-shrink:0}
+
+.main{position:relative;z-index:2}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--line)}
+.topbar h1{font-family:var(--font-d);font-size:19px;font-weight:700}
+.topbar .right{display:flex;align-items:center;gap:16px}
+.topbar .date{font-size:12px;color:var(--ink-mut);font-family:var(--font-m)}
+.toggle{width:44px;height:24px;border-radius:20px;background:var(--line-str);position:relative;cursor:pointer}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--emerald)}
+.light .toggle::after{left:22px}
+.content{padding:26px 28px}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+.stat{background:linear-gradient(150deg,var(--panel1),var(--panel2));border:1px solid var(--line-str);border-radius:16px;padding:20px;position:relative;overflow:hidden;box-shadow:var(--card-shadow);
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease;
+  animation:cardIn .5s cubic-bezier(.16,1,.3,1) backwards;cursor:default}
+.stat:nth-child(1){animation-delay:.05s}
+.stat:nth-child(2){animation-delay:.12s}
+.stat:nth-child(3){animation-delay:.19s}
+.stat:nth-child(4){animation-delay:.26s}
+.stat:hover{transform:translateY(-4px);box-shadow:var(--card-shadow-hover)}
+.stat:active{transform:translateY(-1px) scale(.99)}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.stat .gh{position:absolute;right:0;top:0;bottom:0;width:52%;opacity:.10;-webkit-mask-image:linear-gradient(90deg,transparent,#000 65%);mask-image:linear-gradient(90deg,transparent,#000 65%)}
+.light .stat .gh{opacity:.16}
+.stat .k{font-size:12.5px;color:var(--ink-mut);position:relative;z-index:2;margin-bottom:8px}
+.stat .v{font-family:var(--font-d);font-weight:800;font-size:25px;position:relative;z-index:2;letter-spacing:-.5px;color:var(--ink)}
+.stat .v.green{color:var(--emerald-dk)}
+.light .stat .v.green{color:#0d9488}
+.dark .stat .v.green{color:var(--emerald-lt)}
+.stat .v .u{font-size:13px;color:var(--ink-mut);font-weight:600;margin-left:4px}
+.stat .d{margin-top:8px;font-size:11.5px;position:relative;z-index:2}
+.stat .d.up{color:var(--emerald)}.stat .d.down{color:#ef4444}
+
+.panels{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+.panel{background:linear-gradient(150deg,var(--panel1),var(--panel2));border:1px solid var(--line-str);border-radius:16px;padding:20px;position:relative;overflow:hidden;box-shadow:var(--card-shadow);animation:cardIn .5s cubic-bezier(.16,1,.3,1) backwards;animation-delay:.33s}
+.panel-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.panel-h h3{font-family:var(--font-d);font-size:15px;font-weight:600;color:var(--ink)}
+.panel-h .more{font-size:12px;color:var(--emerald);cursor:pointer}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:11px 10px;font-size:13px;border-bottom:1px solid var(--line);color:var(--ink)}
+tr:last-child td{border-bottom:none}
+.pill{display:inline-flex;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.pill.ok{background:var(--emerald-glow);color:var(--emerald-dk)}
+.dark .pill.ok{color:var(--emerald-lt)}
+.pill.wait{background:rgba(201,162,39,.16);color:var(--gold)}
+.mono{font-family:var(--font-m);font-weight:600;color:var(--ink)}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.btn{padding:11px 18px;border:none;border-radius:11px;font-family:var(--font-d);font-weight:600;font-size:13.5px;cursor:pointer}
+.btn-primary{background:linear-gradient(135deg,var(--emerald),var(--emerald-dk));color:#04160d}
+.btn-ghost{background:var(--line);color:var(--ink);border:1px solid var(--line-str)}
+.btn-gold{background:linear-gradient(135deg,var(--gold-lt),var(--gold));color:#1a1400}
+.pos-item{display:flex;justify-content:space-between;padding:10px 12px;border-radius:10px;background:var(--line);margin-bottom:8px}
+.pos-item .nm{font-size:13px;color:var(--ink)}
+.pos-item .pr{font-family:var(--font-m);font-size:13px;color:var(--emerald-dk);font-weight:600}
+.dark .pos-item .pr{color:var(--emerald-lt)}
+.total-row{display:flex;justify-content:space-between;padding:14px 12px;margin-top:8px;border-top:1px solid var(--line-str)}
+.total-row .lbl{font-size:13px;color:var(--ink-mut)}
+.total-row .val{font-family:var(--font-d);font-size:22px;font-weight:800;color:var(--emerald-dk)}
+.dark .total-row .val{color:var(--emerald-lt)}
+</style>
+</head>
+<body>
+
+<!-- ========== DARK MODE ========== -->
+<div class="mode-wrap dark">
+  <div class="mode-title">🌙 Dark mode</div>
+  <div class="shell" id="darkShell"></div>
+</div>
+
+<!-- ========== LIGHT MODE ========== -->
+<div class="mode-wrap light">
+  <div class="mode-title">☀️ Light mode</div>
+  <div class="shell" id="lightShell"></div>
+</div>
+
+<script>
+const P=Math.PI;
+function poly(cx,cy,n,r,rot=0){let s='';for(let i=0;i<n;i++){const a=(2*P/n)*i-P/2+rot;s+=(i===0?'M':'L')+(cx+r*Math.cos(a)).toFixed(2)+' '+(cy+r*Math.sin(a)).toFixed(2)+' ';}return s+'Z';}
+function pStar(cx,cy,n,ro,ri,rot=0){let s='';for(let i=0;i<n*2;i++){const a=(P/n)*i-P/2+rot,r=(i%2===0)?ro:ri;s+=(i===0?'M':'L')+(cx+r*Math.cos(a)).toFixed(2)+' '+(cy+r*Math.sin(a)).toFixed(2)+' ';}return s+'Z';}
+function infPath(cx,cy,scale){let d='';for(let i=0;i<=100;i++){const t=(i/100)*2*P,den=1+Math.sin(t)*Math.sin(t);d+=(i===0?'M':'L')+(cx+scale*Math.cos(t)/den).toFixed(2)+' '+(cy+scale*Math.sin(t)*Math.cos(t)/den).toFixed(2)+' ';}return d+'Z';}
+
+function girih(id,color,tile,op){
+  const T=tile,R=T*0.44,r=T*0.18;
+  const st=(cx,cy)=>pStar(cx,cy,8,R,r), oc=(cx,cy)=>poly(cx,cy,8,r*1.4,P/8);
+  const c=`<path d="${st(0,0)}" fill="none" stroke="${color}" stroke-width="1"/><path d="${st(T,0)}" fill="none" stroke="${color}" stroke-width="1"/><path d="${st(0,T)}" fill="none" stroke="${color}" stroke-width="1"/><path d="${st(T,T)}" fill="none" stroke="${color}" stroke-width="1"/><path d="${st(T/2,T/2)}" fill="none" stroke="${color}" stroke-width="1"/><path d="${oc(T/2,T/2)}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.6"/><path d="M${T/2} ${T/2-R} L${T/2} 0 M${T/2} ${T/2+R} L${T/2} ${T} M${T/2-R} ${T/2} L0 ${T/2} M${T/2+R} ${T/2} L${T} ${T/2}" stroke="${color}" stroke-width="1"/><path d="M0 0 L${T/2} ${T/2} M${T} 0 L${T/2} ${T/2} M0 ${T} L${T/2} ${T/2} M${T} ${T} L${T/2} ${T/2}" stroke="${color}" stroke-width="0.6" opacity="0.4"/>`;
+  return `<defs><pattern id="${id}" width="${T}" height="${T}" patternUnits="userSpaceOnUse">${c}</pattern></defs><rect width="100%" height="100%" fill="url(#${id})" opacity="${op}"/>`;
+}
+function halfGirih(id,color){const T=48,R=T*0.44,r=T*0.18;const st=(cx,cy)=>pStar(cx,cy,8,R,r);const c=`<path d="${st(0,0)}" fill="none" stroke="${color}" stroke-width="0.9"/><path d="${st(T,0)}" fill="none" stroke="${color}" stroke-width="0.9"/><path d="${st(0,T)}" fill="none" stroke="${color}" stroke-width="0.9"/><path d="${st(T,T)}" fill="none" stroke="${color}" stroke-width="0.9"/><path d="${st(T/2,T/2)}" fill="none" stroke="${color}" stroke-width="0.9"/><path d="M${T/2} ${T/2-R} L${T/2} 0 M${T/2} ${T/2+R} L${T/2} ${T} M${T/2-R} ${T/2} L0 ${T/2} M${T/2+R} ${T/2} L${T} ${T/2}" stroke="${color}" stroke-width="0.9"/>`;return `<defs><pattern id="${id}" width="${T}" height="${T}" patternUnits="userSpaceOnUse">${c}</pattern></defs><rect width="100%" height="100%" fill="url(#${id})"/>`;}
+function mark(size){return `<svg width="${size}" height="${size*0.6}" viewBox="0 0 ${size} ${size*0.6}"><defs><linearGradient id="lm${size}${Math.random().toString(36).slice(2,5)}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5eead4"/><stop offset=".5" stop-color="#22c55e"/><stop offset="1" stop-color="#0d9488"/></linearGradient></defs><path d="${infPath(size/2,size*0.3,size*0.28)}" fill="none" stroke="url(#lm${size})" stroke-width="${size*0.11}" stroke-linecap="round"/></svg>`;}
+const icons={i1:'<rect x="2" y="2" width="6" height="6" rx="1"/><rect x="10" y="2" width="6" height="6" rx="1"/><rect x="2" y="10" width="6" height="6" rx="1"/><rect x="10" y="10" width="6" height="6" rx="1"/>',i2:'<path d="M2 4h14l-1.5 8H3.5z"/><circle cx="6" cy="16" r="1.4"/><circle cx="13" cy="16" r="1.4"/>',i3:'<path d="M2 6l7-4 7 4v8l-7 4-7-4z"/>',i4:'<rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M2 8h14"/>',i5:'<circle cx="9" cy="6" r="3"/><path d="M3 16c0-3.3 2.7-5 6-5s6 1.7 6 5"/>',i6:'<path d="M3 15V8M8 15V4M13 15v-6"/>',i7:'<circle cx="9" cy="9" r="3"/><path d="M9 1v3M9 14v3M1 9h3M14 9h3"/>'};
+function ic(k){return `<svg class="nav-ic" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">${icons[k]}</svg>`;}
+
+function buildShell(prefix,girihColor,cardGirih,girihOp){
+  return `
+  <svg class="bg-girih">${girih(prefix+'bg',girihColor,130,girihOp)}</svg>
+  <aside class="sidebar">
+    <div class="brand">${mark(40)}<div><div class="nm"><span class="x">X</span>ENORA</div><div class="tag">Savdo tizimi</div></div></div>
+    <div class="nav-item active">${ic('i1')} Boshqaruv</div>
+    <div class="nav-item">${ic('i2')} Savdo (POS)</div>
+    <div class="nav-item">${ic('i3')} Ombor</div>
+    <div class="nav-item">${ic('i4')} Kassa smena</div>
+    <div class="nav-lbl">Boshqaruv</div>
+    <div class="nav-item">${ic('i5')} Xodimlar</div>
+    <div class="nav-item">${ic('i6')} Hisobot</div>
+    <div class="nav-item">${ic('i7')} Sozlamalar</div>
+  </aside>
+  <div class="main">
+    <div class="topbar"><h1>Boshqaruv paneli</h1><div class="right"><span class="date">12-iyul, Shanba</span><div class="toggle"></div></div></div>
+    <div class="content">
+      <div class="stats">
+        <div class="stat"><svg class="gh">${halfGirih(prefix+'h1',cardGirih)}</svg><div class="k">Bugungi savdo</div><div class="v green">4 280 000<span class="u">so'm</span></div><div class="d up">▲ 12% · kechagidan</div></div>
+        <div class="stat"><svg class="gh">${halfGirih(prefix+'h2',girihColor)}</svg><div class="k">Sotuvlar soni</div><div class="v">142</div><div class="d up">▲ 8 ta</div></div>
+        <div class="stat"><svg class="gh">${halfGirih(prefix+'h3',cardGirih)}</svg><div class="k">O'rtacha chek</div><div class="v">30 140<span class="u">so'm</span></div><div class="d down">▼ 3%</div></div>
+        <div class="stat"><svg class="gh">${halfGirih(prefix+'h4',girihColor)}</svg><div class="k">Ochiq smena</div><div class="v green">1</div><div class="d up">● Faol · 09:00 dan</div></div>
+      </div>
+      <div class="panels">
+        <div class="panel">
+          <div class="panel-h"><h3>So'nggi sotuvlar</h3><span class="more">Barchasi →</span></div>
+          <table><thead><tr><th>Chek</th><th>Kassir</th><th>Summa</th><th>Holat</th></tr></thead><tbody>
+            <tr><td class="mono">#10428</td><td>Kamoldin</td><td class="mono">86 400</td><td><span class="pill ok">To'landi</span></td></tr>
+            <tr><td class="mono">#10427</td><td>Dilnoza</td><td class="mono">142 000</td><td><span class="pill ok">To'landi</span></td></tr>
+            <tr><td class="mono">#10426</td><td>Kamoldin</td><td class="mono">54 200</td><td><span class="pill wait">Nasiya</span></td></tr>
+            <tr><td class="mono">#10425</td><td>Dilnoza</td><td class="mono">31 900</td><td><span class="pill ok">To'landi</span></td></tr>
+          </tbody></table>
+          <div class="btns"><button class="btn btn-primary">＋ Yangi savdo</button><button class="btn btn-ghost">Hisobot</button><button class="btn btn-gold">Smena yopish</button></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h3>Joriy savat</h3><span class="more">Tozalash</span></div>
+          <div class="pos-item"><span class="nm">Chanel №5 — 100ml</span><span class="pr">890 000</span></div>
+          <div class="pos-item"><span class="nm">Dior Sauvage</span><span class="pr">720 000</span></div>
+          <div class="pos-item"><span class="nm">Versace Eros</span><span class="pr">540 000</span></div>
+          <div class="total-row"><span class="lbl">Jami</span><span class="val">2 150 000 so'm</span></div>
+          <div class="btns"><button class="btn btn-primary" style="width:100%;justify-content:center;text-align:center;display:block">To'lovga o'tish</button></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+document.getElementById('darkShell').innerHTML=buildShell('d','#5eb3ff','#34d399',0.16);
+document.getElementById('lightShell').innerHTML=buildShell('l','#3b6fb5','#1d9a6c',0.20);
+
+// ===== COUNT-UP: raqamlar 0 dan sanaydi =====
+function countUp(el,target,dur,suffix){
+  const start=performance.now();
+  const fmt=n=>Math.floor(n).toLocaleString('ru-RU').replace(/,/g,' ');
+  function step(now){
+    const t=Math.min((now-start)/dur,1);
+    const ease=1-Math.pow(1-t,3); // easeOutCubic
+    el.textContent=fmt(target*ease)+(suffix||'');
+    if(t<1)requestAnimationFrame(step);
+    else el.textContent=fmt(target)+(suffix||'');
+  }
+  requestAnimationFrame(step);
+}
+// har .v ichidagi raqamni sanash (u ichida <span> bo'lsa saqlaymiz)
+function animateNumbers(root){
+  root.querySelectorAll('.v').forEach(v=>{
+    const uSpan=v.querySelector('.u');
+    const uHtml=uSpan?uSpan.outerHTML:'';
+    const raw=v.childNodes[0]?v.childNodes[0].textContent:v.textContent;
+    const num=parseInt(raw.replace(/[^\d]/g,''),10);
+    if(!isNaN(num)&&num>0){
+      const holder=document.createElement('span');
+      v.textContent='';v.appendChild(holder);
+      if(uHtml)v.insertAdjacentHTML('beforeend',' '+uHtml);
+      countUp(holder,num,1100);
+    }
+  });
+}
+animateNumbers(document.getElementById('darkShell'));
+setTimeout(()=>animateNumbers(document.getElementById('lightShell')),100);
+</script>
+</body>
+</html>

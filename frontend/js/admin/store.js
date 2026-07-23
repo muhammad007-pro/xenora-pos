@@ -175,6 +175,7 @@ async function loadStoreDiscounts() {
   try {
     const data  = await apiFetch('/discounts/?' + params);
     const items = data.items || [];
+    _discItems = items;   // #34: tahrir uchun cache
     const total = data.total || 0;
     document.getElementById('discTotal').textContent  = total;
     document.getElementById('discActive').textContent = items.filter(d=>d.is_active).length;
@@ -196,10 +197,16 @@ async function loadStoreDiscounts() {
         <td class="td-sub">${d.used_count||0} / ${d.usage_limit||'∞'}</td>
         <td>${d.is_active?'<span class="badge badge-green">Faol</span>':'<span class="badge badge-gray">Nofaol</span>'}</td>
         <td class="td-actions">
-          <button class="act-btn" title="${d.is_active?'O\'chirish':'Yoqish'}" onclick="discToggle(${d.id},${!d.is_active})">
+          <button class="act-btn" title="Tahrirlash" onclick="editDiscount(${d.id})" style="margin-right:.25rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="act-btn" title="${d.is_active?'O\'chirish (nofaol)':'Yoqish'}" onclick="discToggle(${d.id},${!d.is_active})">
             ${d.is_active
               ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
               : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+          </button>
+          <button class="act-btn" title="Butunlay o'chirish" onclick="discDelete(${d.id})" style="color:var(--danger);margin-left:.25rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H6a1 1 0 01-1-1V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </td>
       </tr>`;
@@ -229,6 +236,134 @@ async function updateActiveDiscountsBadge() {
     const badge = document.getElementById('activeDiscountsBadge');
     if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
   } catch {}
+}
+
+// ══ #34: Chegirma yaratish/tahrirlash (POST + PUT /discounts/) ══════════════════
+let _dscProducts = [];       // datalist uchun mahsulotlar (nom → id)
+let _discItems = [];         // joriy ro'yxat (tahrir uchun cache)
+let _editDiscountId = null;  // tahrir rejimi: id yoki null (yaratish)
+let _editDiscount = null;    // tahrirlanayotgan chegirma (is_active taqqoslash uchun)
+
+async function openDiscountModal(edit) {
+  _editDiscountId = edit ? edit.id : null;
+  _editDiscount   = edit || null;
+  ['dscName','dscValue','dscMinAmount','dscFrom','dscTo','dscProductSearch'].forEach(id => { const el=document.getElementById(id); if (el) el.value=''; });
+  document.getElementById('dscTarget').value = 'all';
+  document.getElementById('dscCategory').value = '';
+  document.getElementById('dscType').value = 'percentage';
+  document.getElementById('dscActive').checked = true;
+  document.getElementById('dscModalTitle').textContent = edit ? 'Chegirmani tahrirlash' : 'Yangi chegirma';
+  await _loadDiscountPickers();   // pickerlar tayyor bo'lgach prefill
+  if (edit) {
+    document.getElementById('dscName').value      = edit.name || '';
+    document.getElementById('dscType').value      = edit.type || 'percentage';
+    document.getElementById('dscValue').value     = edit.value ?? '';
+    document.getElementById('dscMinAmount').value = edit.min_order_amount || '';
+    document.getElementById('dscFrom').value      = edit.valid_from ? edit.valid_from.slice(0,10) : '';
+    document.getElementById('dscTo').value        = edit.valid_to   ? edit.valid_to.slice(0,10)   : '';
+    document.getElementById('dscActive').checked  = edit.is_active !== false;
+    if (edit.product_id) {
+      document.getElementById('dscTarget').value = 'product';
+      const p = _dscProducts.find(x => x.id === edit.product_id);
+      document.getElementById('dscProductSearch').value = p ? p.name : '';
+    } else if (edit.category_id) {
+      document.getElementById('dscTarget').value = 'category';
+      document.getElementById('dscCategory').value = edit.category_id;
+    } else {
+      document.getElementById('dscTarget').value = 'all';
+    }
+  }
+  discTargetChange();
+  openModal('discountModal');
+}
+
+function editDiscount(id) {
+  const d = _discItems.find(x => x.id === id);
+  if (d) openDiscountModal(d);
+  else toast('Chegirma topilmadi', 'error');
+}
+
+function discTargetChange() {
+  const t = document.getElementById('dscTarget').value;
+  document.getElementById('dscCategoryGroup').style.display = t === 'category' ? '' : 'none';
+  document.getElementById('dscProductGroup').style.display  = t === 'product'  ? '' : 'none';
+}
+
+async function _loadDiscountPickers() {
+  try {
+    const cats = await apiFetch('/categories/all') || [];
+    const sel = document.getElementById('dscCategory');
+    sel.innerHTML = '<option value="">— Tanlang —</option>' +
+      cats.map(c => `<option value="${c.id}">${(c.name||'').replace(/"/g,'&quot;')}</option>`).join('');
+  } catch { /* kategoriya olinmasa bo'sh */ }
+  try {
+    _dscProducts = await apiFetch('/products/all') || [];
+    const dl = document.getElementById('dscProductList');
+    if (dl) dl.innerHTML = _dscProducts.map(p => `<option value="${(p.name||'').replace(/"/g,'&quot;')}">`).join('');
+  } catch { _dscProducts = []; }
+}
+
+async function saveDiscount() {
+  const name  = document.getElementById('dscName').value.trim();
+  const target= document.getElementById('dscTarget').value;
+  const type  = document.getElementById('dscType').value;
+  const value = parseFloat(document.getElementById('dscValue').value);
+  if (!name)          { toast('Chegirma nomini kiriting', 'error'); return; }
+  if (!(value > 0))   { toast("Qiymat musbat bo'lsin", 'error'); return; }
+  if (type === 'percentage' && value > 100) { toast('Foiz 0–100 orasida bo\'lsin', 'error'); return; }
+
+  let product_id = null, category_id = null;
+  if (target === 'category') {
+    category_id = parseInt(document.getElementById('dscCategory').value) || null;
+    if (!category_id) { toast('Kategoriyani tanlang', 'error'); return; }
+  } else if (target === 'product') {
+    const nm = document.getElementById('dscProductSearch').value.trim();
+    const p  = _dscProducts.find(x => (x.name || '').trim() === nm);
+    if (!p) { toast("Mahsulotni ro'yxatdan tanlang", 'error'); return; }
+    product_id = p.id;
+  }
+
+  const minAmount = parseFloat(document.getElementById('dscMinAmount').value) || 0;
+  const fromV = document.getElementById('dscFrom').value;
+  const toV   = document.getElementById('dscTo').value;
+  if (fromV && toV && fromV > toV) { toast("Muddat noto'g'ri (boshlanish > tugash)", 'error'); return; }
+
+  const payload = {
+    name, type, value, product_id, category_id,
+    min_order_amount: minAmount,
+    valid_from: fromV ? new Date(fromV + 'T00:00:00').toISOString() : null,
+    valid_to:   toV   ? new Date(toV   + 'T23:59:59').toISOString() : null,
+  };
+
+  const isEdit   = _editDiscountId != null;
+  const wantActive = document.getElementById('dscActive').checked;
+  try {
+    const saved = isEdit
+      ? await apiFetchPost(`/discounts/${_editDiscountId}`, payload, 'PUT')
+      : await apiFetchPost('/discounts/', payload, 'POST');
+    // is_active: PUT/POST uni o'zgartirmaydi (default faol) — kerak bo'lsa toggle.
+    const curActive = isEdit ? (_editDiscount && _editDiscount.is_active !== false) : true;
+    const targetId  = isEdit ? _editDiscountId : (saved && saved.id);
+    if (curActive !== wantActive && targetId) {
+      try { await fetch(`${API_BASE}/discounts/${targetId}/toggle`, { method: 'PATCH', headers: { Authorization: 'Bearer ' + token } }); } catch {}
+    }
+    closeModal('discountModal');
+    toast(isEdit ? 'Chegirma yangilandi' : 'Chegirma yaratildi', 'success');
+    _editDiscountId = null; _editDiscount = null;
+    loadStoreDiscounts();
+    updateActiveDiscountsBadge();
+  } catch (e) { toast(e.message || 'Chegirma saqlanmadi', 'error'); }
+}
+
+async function discDelete(id) {
+  if (!confirm("Chegirma o'chirilsinmi?")) return;
+  try {
+    const res = await fetch(`${API_BASE}/discounts/${id}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || 'Xato'); }
+    toast("Chegirma o'chirildi", 'success');
+    loadStoreDiscounts();
+    updateActiveDiscountsBadge();
+  } catch (e) { toast(e.message || "O'chirilmadi", 'error'); }
 }
 
 // ══ BOSQICH 19: NASIYA / QARZ DAFTAR ══════════════════════════════════════════

@@ -80,7 +80,38 @@ async def create_discount(
     db.add(discount)
     db.commit()
     db.refresh(discount)
-    
+
+    return DiscountInDB.model_validate(discount)
+
+@router.put("/{discount_id}", response_model=DiscountInDB)
+async def update_discount(
+    discount_id: int,
+    discount_data: DiscountCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_discounts"))
+):
+    """Chegirmani tahrirlash (#34 2-bosqich) — create bilan bir xil validatsiya,
+    tenant izolyatsiya + RBAC (manage_discounts). is_active tegilmaydi (toggle alohida)."""
+    discount = apply_tenant_filter(db.query(Discount), Discount, current_user).filter(Discount.id == discount_id).first()
+    if not discount:
+        raise HTTPException(status_code=404, detail="Chegirma topilmadi")
+
+    # Mahsulot / kategoriya tekshirish (create bilan bir xil)
+    if discount_data.product_id:
+        product = db.query(Product).filter(Product.id == discount_data.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
+    if discount_data.category_id:
+        category = db.query(Category).filter(Category.id == discount_data.category_id).first()
+        if not category:
+            raise HTTPException(status_code=404, detail="Kategoriya topilmadi")
+
+    # Maydonlarni yangilash (tenant_id / is_active / used_count TEGILMAYDI)
+    for field, value in discount_data.model_dump().items():
+        setattr(discount, field, value)
+    db.commit()
+    db.refresh(discount)
+
     return DiscountInDB.model_validate(discount)
 
 @router.get("/{discount_id}", response_model=DiscountInDB)

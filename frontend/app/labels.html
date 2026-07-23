@@ -102,7 +102,7 @@ select.form-control option{background:var(--bg2)}
 <body>
 <div class="xa-atmos" aria-hidden="true"></div>
 <div class="ph">
-  <a class="bk" href="/app/admin.html">←</a>
+  <a class="bk" href="admin.html">←</a>
   <div class="ph-title">🏷 Etiketka Chop Etish</div>
   <button class="btn btn-out" onclick="clearAll()">Tozalash</button>
   <button class="btn btn-gold" onclick="printLabels()">🖨 Chop Etish</button>
@@ -169,9 +169,9 @@ select.form-control option{background:var(--bg2)}
 <div id="printArea" style="display:none"></div>
 
 <script type="module">
-import { API_BASE } from '/js/core/config.js';
-import { getToken } from '/js/core/auth.js';
-import { initErrorHandler } from '/js/core/error-handler.js';
+import { API_BASE } from '../js/core/config.js';
+import { getToken } from '../js/core/auth.js';
+import { initErrorHandler } from '../js/core/error-handler.js';
 initErrorHandler();
 
 const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js API_BASE eksport qiladi)

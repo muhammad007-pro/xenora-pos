@@ -48,8 +48,10 @@ function buildCss(fontPx) {
   html,body{background:#fff;margin:0;padding:0;text-align:left}
   /* CHAPGA tayanadi: margin:0 (auto EMAS) → chapda bo'sh joy yo'q, narx o'ngda kesilmaydi.
      padding chap/o'ng 0.5mm → butun 48mm bosiladigan zona matn uchun ishlatiladi. */
+  /* font-weight:600 — termal printer ingichka shriftni XIRA bosadi; butun chek
+     to'qroq (bold) → mahsulot nomi/narx aniq chiqadi. Shrift o'lchami saqlanadi. */
   .r58{width:48mm;max-width:48mm;margin:0;padding:2mm 0.5mm;
-       font-family:'Courier New',monospace;font-size:${fontPx}px;line-height:1.35;color:#000}
+       font-family:'Courier New',monospace;font-size:${fontPx}px;font-weight:600;line-height:1.35;color:#000}
   .r58, .r58 *{color:#000 !important;background:transparent !important;border-color:#000 !important}
   .r58 h4{font-size:1.2em;font-weight:700;margin-bottom:2px}
   .r58 small{font-size:0.8em}
@@ -60,7 +62,8 @@ function buildCss(fontPx) {
   .receipt-table{width:100%;border-collapse:collapse;margin:4px 0;table-layout:fixed}
   .receipt-table th,.receipt-table td{padding:1px 2px;vertical-align:top;overflow:hidden}
   .receipt-table th{text-align:left;font-size:0.85em;font-weight:700;border-bottom:1px solid #000}
-  .receipt-table td{font-size:0.85em;word-break:break-word;overflow-wrap:anywhere}
+  /* mahsulot nomi + soni + narx — BOLD (termal aniq, xira emas) */
+  .receipt-table td{font-size:0.85em;font-weight:700;word-break:break-word;overflow-wrap:anywhere}
   .receipt-table th:nth-child(1),.receipt-table td:nth-child(1){width:50%}
   .receipt-table th:nth-child(2),.receipt-table td:nth-child(2){width:14%;text-align:center}
   /* narx ustuni: o'ngga tayanadi, bir qatorda (nowrap) va to'liq sig'adi */

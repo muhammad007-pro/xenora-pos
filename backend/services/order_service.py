@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime, time
 from typing import Optional, List
 
-from models import Order, OrderItem, Product, Table, User, Shift
+from models import Order, OrderItem, Product, Table, User, Shift, Discount, order_discounts
 from schemas import OrderCreate, OrderUpdate
 
 class OrderService:
@@ -48,6 +48,69 @@ class OrderService:
         """Sotuv paytidagi tan narx snapshoti (retseptli bo'lsa — retseptdan)"""
         from services.cost_service import get_product_cost
         return get_product_cost(self.db, product.id)
+
+    # ── #34 1-bosqich: AVTOMATIK chegirma (server-authoritative) ─────────────────
+    def _disc_amount(self, d: Discount, base: float) -> float:
+        """Bitta chegirma summasi. Foiz → base×%; belgilangan → value (base'dan oshmaydi)."""
+        if base <= 0:
+            return 0.0
+        if d.type == "percentage":
+            return base * (d.value or 0) / 100.0
+        return min(d.value or 0, base)   # fixed — narxni 0 dan pastga tushirmaydi
+
+    def _compute_auto_discount(self, tenant_id, items_data, subtotal):
+        """Faol chegirmalarni SERVER tomonda qo'llab, umumiy chegirma + qo'llangan
+        id'larni qaytaradi. Ustuvorlik: mahsulot > kategoriya > butun savat; bir
+        mahsulotga bitta (eng aniq qamrov) chegirma; bir xil qamrovda eng foydalisi.
+        Butun savat chegirmasi item-chegirmalardan keyingi summaga (min_order_amount).
+        Client yuborgan chegirmaga ISHONILMAYDI — shu hisob asosiy.
+        """
+        now = datetime.now()
+        active = self.db.query(Discount).filter(
+            Discount.tenant_id == tenant_id,
+            Discount.is_active == True,   # noqa: E712
+            (Discount.valid_from.is_(None) | (Discount.valid_from <= now)),
+            (Discount.valid_to.is_(None) | (Discount.valid_to >= now)),
+            (Discount.usage_limit.is_(None) | (Discount.used_count < Discount.usage_limit)),
+        ).all()
+        if not active:
+            return 0.0, []
+        prod_disc, cat_disc, cart_disc = {}, {}, []
+        for d in active:
+            if d.product_id:
+                prod_disc.setdefault(d.product_id, []).append(d)
+            elif d.category_id:
+                cat_disc.setdefault(d.category_id, []).append(d)
+            else:
+                cart_disc.append(d)
+        # product → category xaritasi
+        pids = [it["product_id"] for it in items_data]
+        cat_of = {}
+        if pids:
+            for pid, cid in self.db.query(Product.id, Product.category_id).filter(Product.id.in_(pids)).all():
+                cat_of[pid] = cid
+        applied = {}
+        item_total = 0.0
+        for it in items_data:
+            pid, line = it["product_id"], it["total_price"]
+            cands = prod_disc.get(pid) or cat_disc.get(cat_of.get(pid)) or []
+            if cands:
+                best = max(cands, key=lambda d: self._disc_amount(d, line))
+                amt = min(self._disc_amount(best, line), line)
+                if amt > 0:
+                    item_total += amt
+                    applied[best.id] = best
+        sub_after = subtotal - item_total
+        cart_total = 0.0
+        if cart_disc and sub_after > 0:
+            eligible = [d for d in cart_disc if (d.min_order_amount or 0) <= sub_after]
+            if eligible:
+                best = max(eligible, key=lambda d: self._disc_amount(d, sub_after))
+                amt = min(self._disc_amount(best, sub_after), sub_after)
+                if amt > 0:
+                    cart_total += amt
+                    applied[best.id] = best
+        return round(item_total + cart_total, 2), list(applied.keys())
 
     def create_order(self, order_data: OrderCreate, waiter_id: int, tenant_id: Optional[int] = None) -> Order:
         """Yangi buyurtma yaratish.
@@ -105,10 +168,26 @@ class OrderService:
                 "notes": item.notes,
             })
 
-        # Narx: agar frontend yuborsa (POS/delivery), shuni ishlatamiz
+        # SERVER subtotal (item totallaridan) — CHEGIRMA shundan hisoblanadi (xavfsizlik).
+        server_subtotal = total_amount
+        # Ko'rinadigan total_amount: agar frontend yuborsa (POS/delivery), shuni ishlatamiz
         if order_data.total_amount is not None:
             total_amount = order_data.total_amount
-        final = order_data.final_amount if order_data.final_amount is not None else total_amount
+
+        # #34: AVTOMATIK chegirma — SERVER tomonda qayta hisoblanadi (client'ga ishonilmaydi).
+        auto_disc, applied_discount_ids = self._compute_auto_discount(tenant_id, items_data, server_subtotal)
+        # Qo'lda/mijoz % chegirma — discount_type/value dan QAYTA hisoblanadi (client'ning
+        # tayyor discount_amount summasiga ISHONILMAYDI): foiz 0–100, fixed subtotaldan oshmaydi.
+        dv = order_data.discount_value or 0
+        if dv > 0:
+            manual_disc = (server_subtotal * min(dv, 100) / 100.0
+                           if order_data.discount_type == "pct" else min(dv, server_subtotal))
+        else:
+            manual_disc = 0
+        tax_amount  = order_data.tax_amount or 0
+        service_amt = getattr(order_data, "service_amount", 0) or 0
+        total_disc  = min(round(manual_disc + auto_disc, 2), server_subtotal)   # subtotaldan oshmaydi
+        final = round(server_subtotal - total_disc + tax_amount + service_amt, 2)
 
         # Biznes-turi xususiy meta (pharmacy rx, auto_service car, school student, dry_cleaning)
         biz_meta = {}
@@ -150,8 +229,9 @@ class OrderService:
                 shift_id=shift_id,
                 customer_id=order_data.customer_id,
                 total_amount=total_amount,
-                discount_amount=order_data.discount_amount or 0,
-                tax_amount=order_data.tax_amount or 0,
+                discount_amount=total_disc,        # #34: qo'lda + AVTOMATIK (server)
+                tax_amount=tax_amount,
+                service_charge=service_amt,
                 final_amount=final,
                 notes=order_data.notes,
                 order_type=order_data.order_type or "dine-in",
@@ -181,6 +261,12 @@ class OrderService:
                     unit_sold=item_data["unit_sold"],     # BOSQICH B3: "pachka"|"dona"|None
                     notes=item_data["notes"],
                 ))
+            # #34: qo'llangan avtomatik chegirmalar — order_discounts M2M + used_count
+            if applied_discount_ids:
+                applied = self.db.query(Discount).filter(Discount.id.in_(applied_discount_ids)).all()
+                order.applied_discounts = applied
+                for d in applied:
+                    d.used_count = (d.used_count or 0) + 1
             try:
                 self.db.commit()
             except IntegrityError:

@@ -1599,12 +1599,12 @@ function buildProductModal(product) {
     packBlock.id = 'pmPackBlock';
     packBlock.style.cssText = 'margin-top:.75rem';
     packBlock.innerHTML = `
-      <label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500">Pachka bilan sotish (ixtiyoriy)</label>
+      <label id="pmPackTitle" style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500">Pachka bilan sotish (ixtiyoriy)</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
         <input type="number" id="pmf_pack_price" min="0" step="0.01" placeholder="Pachka narxi (30000)" style="${_pcs}">
         <input type="number" id="pmf_pack_size" min="2" step="1" placeholder="Pachkadagi dona (10)" style="${_pcs}">
       </div>
-      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem">Kiritilsa — yuqoridagi <b>narx = DONA narxi</b> bo'ladi. Ikkalasi ham to'ldirilsin (pachka narxi + dona soni ≥ 2).</div>`;
+      <div id="pmPackHint" style="font-size:.75rem;color:var(--text3);margin-top:.25rem">Kiritilsa — yuqoridagi <b>narx = DONA narxi</b> bo'ladi. Ikkalasi ham to'ldirilsin (pachka narxi + dona soni ≥ 2).</div>`;
     document.getElementById('pmBody').appendChild(packBlock);
 
     // Tahrirlashda: mavjud qiymatlarni to'ldirish
@@ -1619,6 +1619,35 @@ function buildProductModal(product) {
     const _saleUnitEl2 = document.getElementById('pmf_sale_unit');
     if (_saleUnitEl2) {
       const _wUnits = ['kg', 'g', 'l', 'litr'];
+      // HAJM/OG'IRLIK birliklari (atir/suyuqlik) — yorliqlar "Flakon" ko'rinishida.
+      const _volUnits = ['ml', 'l', 'litr', 'g', 'kg', 'dl', 'cl'];
+      // #20b (KOSMETIK): pack yorliqlari sale_unit ga qarab DINAMIK — FAQAT matn,
+      // funksiya (pack_size/pack_price/price qiymatlar, saqlash) TEGILMAYDI.
+      const _priceInput = document.getElementById('pmf_price');
+      const _priceLabel = _priceInput ? _priceInput.parentElement.querySelector('label') : null;
+      const _origPriceLabel = _priceLabel ? _priceLabel.textContent : '';
+      const updatePackLabels = () => {
+        const u = (_saleUnitEl2.value || '').toLowerCase();
+        const title = document.getElementById('pmPackTitle');
+        const hint  = document.getElementById('pmPackHint');
+        const pp = document.getElementById('pmf_pack_price');
+        const ps = document.getElementById('pmf_pack_size');
+        if (_volUnits.includes(u)) {
+          // Atir/suyuqlik — "Flakon (butun)" yorliqlari
+          if (title) title.textContent = 'Butun (flakon) bilan sotish (ixtiyoriy)';
+          if (pp) pp.placeholder = 'Flakon narxi (250000)';
+          if (ps) ps.placeholder = `Flakon hajmi (${u})`;
+          if (hint) hint.innerHTML = `Kiritilsa — yuqoridagi <b>narx = 1 ${u} narxi</b> bo'ladi. Ikkalasi ham to'ldirilsin (flakon narxi + hajm).`;
+          if (_priceLabel) _priceLabel.textContent = `1 ${u} narxi (UZS) *`;
+        } else {
+          // Do'kon (dona) — avvalgidek "Pachka" yorliqlari
+          if (title) title.textContent = 'Pachka bilan sotish (ixtiyoriy)';
+          if (pp) pp.placeholder = 'Pachka narxi (30000)';
+          if (ps) ps.placeholder = 'Pachkadagi dona (10)';
+          if (hint) hint.innerHTML = "Kiritilsa — yuqoridagi <b>narx = DONA narxi</b> bo'ladi. Ikkalasi ham to'ldirilsin (pachka narxi + dona soni ≥ 2).";
+          if (_priceLabel) _priceLabel.textContent = _origPriceLabel;   // avvalgidek
+        }
+      };
       const togglePack = () => {
         const isW = _wUnits.includes(_saleUnitEl2.value);
         packBlock.style.display = isW ? 'none' : '';
@@ -1626,6 +1655,7 @@ function buildProductModal(product) {
           document.getElementById('pmf_pack_price').value = '';
           document.getElementById('pmf_pack_size').value = '';
         }
+        updatePackLabels();   // yorliqlar birlikка mos yangilansin
       };
       _saleUnitEl2.addEventListener('change', togglePack);
       togglePack();

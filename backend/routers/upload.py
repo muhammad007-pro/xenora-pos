@@ -15,10 +15,16 @@ from config import settings
 router = APIRouter()
 
 ALLOWED_EXTENSIONS = {
-    'image': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'],
+    # XAVFSIZLIK: .svg OLIB TASHLANDI — SVG ichida <script> bo'lishi mumkin (stored XSS).
+    # Faqat RASTER rasm formatlari (skript bajarmaydi). .gif ham olindi (kerak emas).
+    'image': ['.jpg', '.jpeg', '.png', '.webp'],
     'document': ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt'],
     'audio': ['.mp3', '.wav', '.ogg']
 }
+
+# Magic-byte tekshiruvi uchun — PIL ochib ko'radigan RUXSAT etilgan formatlar.
+# (kengaytma/Content-Type YOLG'ON bo'lishi mumkin; bayt darajasida haqiqiy rasmligini tasdiqlaymiz)
+ALLOWED_IMAGE_FORMATS = {'JPEG', 'PNG', 'WEBP'}
 
 # ── Tenant izolyatsiya (B5) ──────────────────────────────────────────────────
 # Fayllar tenant bo'yicha alohida bucket'da saqlanadi: uploads/tenant_<id>/<folder>/...
@@ -98,7 +104,10 @@ async def save_uploaded_file(
     file_ext = os.path.splitext(file.filename)[1].lower()
 
     if file_type == 'image' and file_ext not in ALLOWED_EXTENSIONS['image']:
-        raise HTTPException(status_code=400, detail="Ruxsat etilmagan rasm formati")
+        raise HTTPException(
+            status_code=400,
+            detail="Ruxsat etilmagan format. Faqat rasm: JPG, JPEG, PNG, WEBP",
+        )
 
     # Tenant bucket + tozalangan papka (traversal himoyasi)
     bucket = _tenant_bucket(db, current_user)
@@ -121,6 +130,29 @@ async def save_uploaded_file(
     # Fayl hajmini tekshirish
     if len(content) > settings.MAX_UPLOAD_SIZE:
         raise HTTPException(status_code=400, detail="Fayl hajmi juda katta")
+
+    # ── MAGIC-BYTE: fayl HAQIQATAN rasmligini bayt darajasida tasdiqlash ──────────
+    # Kengaytma yoki Content-Type YOLG'ON bo'lishi mumkin (nomi .png, ichi SVG/skript).
+    # PIL faylni ochib formatni aniqlaydi — SVG/skript/buzuq fayl ochilmaydi → rad.
+    if file_type == 'image':
+        from io import BytesIO
+        try:
+            from PIL import Image
+            probe = Image.open(BytesIO(content))
+            fmt = (probe.format or '').upper()   # 'JPEG' | 'PNG' | 'WEBP' | ...
+            probe.verify()                        # butunlik: buzuq/rasm-emas → xato tashlaydi
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail="Fayl haqiqiy rasm emas (buzuq yoki noto'g'ri format). Faqat: JPG, PNG, WEBP",
+            )
+        if fmt not in ALLOWED_IMAGE_FORMATS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{fmt or 'aniqlanmadi'}' formati ruxsat etilmagan. Faqat: JPG, PNG, WEBP",
+            )
 
     with open(file_path, "wb") as f:
         f.write(content)

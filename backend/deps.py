@@ -43,16 +43,67 @@ async def get_current_user(
 
     return user
 
-async def get_current_active_user(
+async def get_current_active_user_no_sub(
     current_user: User = Depends(get_current_user)
 ) -> User:
-    """Faol foydalanuvchini tekshirish"""
+    """Faol foydalanuvchi — obuna ENFORCEMENT'siz (xom).
+
+    Faqat autentifikatsiyani talab qiladi. Bloklangan tenant HAM o'ta oladi —
+    shuning uchun FAQAT istisno endpointlar uchun (bloklangan do'kon sababni
+    ko'rishi / o'z ma'lumotini eksport qilishi kerak bo'lganlar):
+      • /cafes/my/subscription (nega bloklangan + qancha to'lash)
+      • /backups/my-tenant (o'z ma'lumotini eksport)
+    Oddiy endpointlar `get_current_active_user` (enforcement bilan) ishlatadi.
+    """
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Autentifikatsiya talab qilinadi",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return current_user
+
+
+def _enforce_subscription(current_user: User, db: Session) -> None:
+    """Obuna muddati/holatiga qarab kirishni bloklaydi (KILL-SWITCH ostida).
+
+    - ENFORCE_SUBSCRIPTION=False → hech narsa qilmaydi (dark deploy, hozirgi xulq).
+    - Super-admin (is_superuser) va tenant_id=None → HECH QACHON bloklanmaydi.
+    - Cafe topilmasa → bloklamaymiz (xavfsizlik: noaniqlik uchun kirish yopilmasin).
+    - Bloklangan bo'lsa → 403 {code: SUBSCRIPTION_EXPIRED} (frontend maxsus ekranga o'tadi).
+    Arzon: cafe PK (indeksli) bo'yicha bitta so'rov.
+    """
+    if not settings.ENFORCE_SUBSCRIPTION:
+        return
+    if current_user.is_superuser or current_user.tenant_id is None:
+        return
+    from models import Cafe
+    from core.subscription import subscription_state
+    cafe = db.query(Cafe).filter(Cafe.id == current_user.tenant_id).first()
+    if not cafe:
+        return
+    st = subscription_state(cafe, grace_days=settings.SUBSCRIPTION_GRACE_DAYS)
+    if st["blocked"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "SUBSCRIPTION_EXPIRED",
+                "message": st["message"],
+                "state": st["state"],
+            },
+        )
+
+
+async def get_current_active_user(
+    current_user: User = Depends(get_current_active_user_no_sub),
+    db: Session = Depends(get_db),
+) -> User:
+    """Faol foydalanuvchi + OBUNA ENFORCEMENT.
+
+    227+ endpoint shu dependency'ni ishlatadi — obuna teshigi bir joyда yopiladi.
+    Enforcement KILL-SWITCH ostida (ENFORCE_SUBSCRIPTION=False → ta'sir yo'q).
+    """
+    _enforce_subscription(current_user, db)
     return current_user
 
 async def get_current_superuser(

@@ -40,9 +40,11 @@ router = APIRouter()
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
 def _get_inv(db, inv_id, current_user) -> Inventory:
+    # ROW-LOCK: qo'lda kirim/chiqim/writeoff — o'qi→hisobla→yoz atomik bo'lsin
+    # (add/remove/writeoff shu helper orqali oladi). Faqat yozuvchi endpointlar ishlatadi.
     inv = (
         apply_tenant_filter(db.query(Inventory), Inventory, current_user)
-        .filter(Inventory.id == inv_id).first()
+        .filter(Inventory.id == inv_id).with_for_update().first()
     )
     if not inv:
         raise HTTPException(status_code=404, detail="Ombor elementi topilmadi")

@@ -60,6 +60,21 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH_PER_MIN: int = 20        # login/pin-login/register/change-password
     RATE_LIMIT_GENERAL_PER_MIN: int = 600    # umumiy /api + /public ceiling
 
+    # ── Obuna enforcement (KILL-SWITCH) ─────────────────────────────────────
+    # ENFORCE_SUBSCRIPTION=False (STANDART) → enforcement UMUMAN ishlamaydi:
+    #   hech bir tenant bloklanmaydi, hozirgi xulq to'liq saqlanadi. Bu "dark deploy"
+    #   uchun — kod serverga chiqadi, lekin O'CHIQ turadi. Egasi tayyor bo'lganда
+    #   .env'da ENFORCE_SUBSCRIPTION=True qilib YOQADI (deploy'da yoqilMAYDI).
+    # True bo'lsa: obuna muddati + grace tugagan / tenant_status blocked|expired /
+    #   is_active=False tenant → 403 (SUBSCRIPTION_EXPIRED). Super-admin hech qachon
+    #   bloklanmaydi (qarang: deps._enforce_subscription).
+    ENFORCE_SUBSCRIPTION: bool = False
+    # Muddat tugagach necha kun MUHLAT (grace) beriladi — bu davrda hammasi ishlaydi,
+    # faqat qattiq ogohlantirish banneri ko'rinadi. Grace ham tugagach → to'liq blok.
+    SUBSCRIPTION_GRACE_DAYS: int = 2
+    # Bloklangan/muddati tugagan tenant ko'radigan aloqa (obunani uzaytirish uchun).
+    SUPPORT_CONTACT: str = "+998 94 997 47 70"
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors(cls, v):

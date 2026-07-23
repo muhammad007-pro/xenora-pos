@@ -42,12 +42,14 @@ async def get_customers(
 
 @router.get("/all", response_model=list[CustomerInDB])
 async def get_all_customers(
+    limit: int = Query(500, ge=1, le=2000),   # cheklovsiz .all() XAVFLI edi (50k+ → sekin/OOM)
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Barcha mijozlarni paginatsiyasiz olish"""
+    """Mijozlar ro'yxati (nom bo'yicha, cheklangan). Ko'p mijozli do'kon uchun default 500,
+    maksimum 2000. Ko'proq kerak bo'lsa — /customers/?search=... (paginatsiyalangan) ishlatilsin."""
     query = apply_tenant_filter(db.query(Customer), Customer, current_user)
-    customers = query.order_by(Customer.name).all()
+    customers = query.order_by(Customer.name).limit(limit).all()
     return [CustomerInDB.model_validate(c) for c in customers]
 
 @router.post("/", response_model=CustomerInDB)

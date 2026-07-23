@@ -27,6 +27,12 @@ def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        # Himoya qatlami: so'rov ichida ushlanmagan xato bo'lsa, ochiq tranzaksiyani
+        # rollback qilamiz (yarim yozilgan holat keyingi so'rovga sizib chiqmasin).
+        # Xulq o'zgarmaydi — xato baribir yuqoriga qayta uzatiladi (raise).
+        db.rollback()
+        raise
     finally:
         db.close()
 

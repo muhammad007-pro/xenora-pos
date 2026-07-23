@@ -6,16 +6,59 @@ from typing import Optional
 from database import get_db
 from models import Cafe, Employee, User
 from schemas import MessageResponse
-from deps import get_current_user, has_permission
+from deps import (
+    get_current_user, has_permission, get_current_superuser,
+    get_current_active_user_no_sub,
+)
 from core.feature_flags import (
     BusinessType, Feature, resolve_enabled_features,
     is_pro_feature, get_feature_tier, FeatureTier, get_default_features,
     get_business_pro_features, get_all_business_features
 )
 from pydantic import BaseModel
-from core.subscription import get_plan_info, VALID_PLANS
+from core.subscription import get_plan_info, VALID_PLANS, subscription_state
+from config import settings
 
 router = APIRouter()
+
+
+@router.get("/my/subscription")
+async def get_my_subscription(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user_no_sub),
+):
+    """Joriy do'kon obuna holati — ISTISNO endpoint (enforcement'siz).
+
+    Bloklangan tenant HAM chaqira oladi: bloklangan ekran + banner shu ma'lumotni
+    (nega bloklangan, qancha kun qoldi, aloqa) ko'rsatadi. Server enforcement bilan
+    AYNAN bir xil mantiq (core.subscription.subscription_state) — kelishmovchilik yo'q.
+    """
+    # Super-admin / platforma (tenant yo'q) — hech qachon bloklanmaydi.
+    if current_user.is_superuser or not current_user.tenant_id:
+        return {
+            "state": "active", "blocked": False, "in_grace": False,
+            "days_left": None, "grace_days_left": None, "plan": None,
+            "enforce": settings.ENFORCE_SUBSCRIPTION,
+            "contact": settings.SUPPORT_CONTACT, "message": "",
+        }
+    cafe = db.query(Cafe).filter(Cafe.id == current_user.tenant_id).first()
+    if not cafe:
+        raise HTTPException(404, "Kafe topilmadi")
+    st = subscription_state(cafe, grace_days=settings.SUBSCRIPTION_GRACE_DAYS)
+    return {
+        "state":           st["state"],
+        # enforce O'CHIQ bo'lsa hech kim amalda bloklanmaydi — UI ham blokni ko'rsatmasin.
+        "blocked":         bool(st["blocked"] and settings.ENFORCE_SUBSCRIPTION),
+        "in_grace":        st["in_grace"],
+        "days_left":       st["days_left"],
+        "grace_days_left": st["grace_days_left"],
+        "expiry":          st["expiry"],
+        "plan":            st["plan"],
+        "enforce":         settings.ENFORCE_SUBSCRIPTION,
+        "grace_days":      settings.SUBSCRIPTION_GRACE_DAYS,
+        "contact":         settings.SUPPORT_CONTACT,
+        "message":         st["message"],
+    }
 
 
 class MyCafeFeatureBody(BaseModel):
@@ -328,7 +371,26 @@ async def update_cafe(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_settings"))
 ):
-    """Kafe ma'lumotlarini yangilash"""
+    """Kafe ma'lumotlarini yangilash.
+
+    RUXSAT (whitelist):
+      • Do'kon admin (manage_settings) → FAQAT: name, address, phone, email, business_type.
+      • FAQAT superadmin → billing/status: subscription_plan, is_active.
+        (subscription_expires/tenant_status/trial_expires bu endpointда umuman yo'q.)
+    """
+    is_super = bool(current_user.is_superuser)
+
+    # ── IDOR: oddiy admin FAQAT o'z do'koniga; superadmin — har qanday cafe_id ──
+    if not is_super and cafe_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="Faqat o'z do'koningiz sozlamalarini o'zgartira olasiz")
+
+    # ── BILLING/STATUS maydonlari — FAQAT superadmin (tenant o'zini PRO/faol qila olmasin) ──
+    if not is_super and (subscription_plan is not None or is_active is not None):
+        raise HTTPException(
+            status_code=403,
+            detail="Tarif va faollik holatini faqat platforma administratori o'zgartiradi",
+        )
+
     cafe = db.query(Cafe).filter(Cafe.id == cafe_id).first()
     if not cafe:
         raise HTTPException(status_code=404, detail="Kafe topilmadi")
@@ -452,9 +514,9 @@ async def upgrade_subscription(
     cafe_id: int,
     plan: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(has_permission("manage_settings"))
+    current_user: User = Depends(get_current_superuser)   # BILLING: FAQAT superadmin (tenant o'zini bepul PRO qila olmasin)
 ):
-    """Obuna tarifini o'zgartirish (BOSQICH 2.2)"""
+    """Obuna tarifini o'zgartirish — FAQAT platforma administratori (to'lov nazorati)."""
     if plan not in VALID_PLANS:
         raise HTTPException(status_code=400, detail=f"Noto'g'ri tarif. Mumkin: {', '.join(VALID_PLANS)}")
 
@@ -481,9 +543,9 @@ async def renew_subscription(
     cafe_id: int,
     months: int = 1,
     db: Session = Depends(get_db),
-    current_user: User = Depends(has_permission("manage_settings"))
+    current_user: User = Depends(get_current_superuser)   # BILLING: FAQAT superadmin (tenant o'zi cho'za olmasin)
 ):
-    """Obunani yangilash"""
+    """Obunani yangilash — FAQAT platforma administratori (to'lov nazorati)."""
     cafe = db.query(Cafe).filter(Cafe.id == cafe_id).first()
     if not cafe:
         raise HTTPException(status_code=404, detail="Kafe topilmadi")

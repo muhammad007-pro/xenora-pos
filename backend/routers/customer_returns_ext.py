@@ -141,7 +141,7 @@ async def create_extended_return(
         # Ombor harakati — base_qty (dona) bilan
         if it.restore_to_inventory and not it.goes_to_brak:
             inv = apply_tenant_filter(db.query(Inventory), Inventory, current_user) \
-                      .filter(Inventory.product_id == it.product_id).first()
+                      .filter(Inventory.product_id == it.product_id).with_for_update().first()   # ROW-LOCK
             if inv:
                 inv.quantity += base_qty
             else:

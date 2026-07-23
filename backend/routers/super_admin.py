@@ -13,7 +13,8 @@ import string
 from database import get_db
 from models import Cafe, User, TenantPayment, Role
 from deps import get_current_superuser
-from core.subscription import VALID_PLANS, get_plan_info
+from core.subscription import VALID_PLANS, get_plan_info, subscription_state
+from config import settings
 from core.feature_flags import BusinessType, Feature, resolve_enabled_features, get_default_features
 from core.security import get_password_hash
 
@@ -97,6 +98,11 @@ def _tenant_dict(cafe: Cafe, now: datetime) -> dict:
     if cafe.subscription_expires:
         days_left = (cafe.subscription_expires - now).days
 
+    # Enforcement bilan AYNAN bir xil holat (grace/expiring ham) — panelда ko'rinsin.
+    # tenant_status (yuqorida) O'ZGARMAYDI: filtr/statistika eski so'z boyligini saqlaydi;
+    # sub_state — boyroq DISPLAY holati (active/expiring/grace/expired/blocked/inactive).
+    st = subscription_state(cafe, now, settings.SUBSCRIPTION_GRACE_DAYS)
+
     return {
         "id":                  cafe.id,
         "name":                cafe.name,
@@ -112,6 +118,10 @@ def _tenant_dict(cafe: Cafe, now: datetime) -> dict:
         "days_left":           days_left,
         "is_active":           cafe.is_active,
         "tenant_status":       status,
+        # Grace-aware DISPLAY (additive — eski maydonlar buzilmaydi):
+        "sub_state":           st["state"],
+        "in_grace":            st["in_grace"],
+        "grace_days_left":     st["grace_days_left"],
         "trial_expires":       cafe.trial_expires,
         "blocked_at":          cafe.blocked_at,
         "blocked_reason":      cafe.blocked_reason,

@@ -63,7 +63,10 @@ def deduct_recipe_ingredients(
         if tenant_id:
             inv_q = inv_q.filter(Inventory.tenant_id == tenant_id)
 
-        inventory = inv_q.first()
+        # ROW-LOCK: bir vaqtda 2 sotuv bir ingredientni ayirsa lost update bo'lmasin
+        # (SELECT ... FOR UPDATE). Qulf shu tranzaksiya commit'ida bo'shaydi. PostgreSQL'da
+        # ishlaydi; qo'llab-quvvatlamaydigan dialektda (SQLite) SQLAlchemy jimgina o'tkazadi.
+        inventory = inv_q.with_for_update().first()
 
         if not inventory:
             warnings.append({
@@ -149,7 +152,7 @@ def _deduct_product_directly(
     inv_q = db.query(Inventory).filter(Inventory.product_id == product_id)
     if tenant_id:
         inv_q = inv_q.filter(Inventory.tenant_id == tenant_id)
-    inventory = inv_q.first()
+    inventory = inv_q.with_for_update().first()   # ROW-LOCK (lost update oldини oladi)
 
     if not inventory:
         # Ombor nazorati yo'q tovar (masalan xizmat) — chiqim shart emas.
@@ -281,7 +284,7 @@ def restore_recipe_ingredients(
         )
         if tenant_id:
             inv_q = inv_q.filter(Inventory.tenant_id == tenant_id)
-        inventory = inv_q.first()
+        inventory = inv_q.with_for_update().first()   # ROW-LOCK (tiklashda ham race yo'q)
 
         if not inventory:
             # Ombor yozuvi yo'q ingredient — tiklashga joy yo'q, o'tkazib yuboriladi.
@@ -337,7 +340,7 @@ def _restore_product_directly(
     inv_q = db.query(Inventory).filter(Inventory.product_id == product_id)
     if tenant_id:
         inv_q = inv_q.filter(Inventory.tenant_id == tenant_id)
-    inventory = inv_q.first()
+    inventory = inv_q.with_for_update().first()   # ROW-LOCK (tiklashda ham race yo'q)
 
     if not inventory:
         return {"success": True, "restored": [], "warnings": []}

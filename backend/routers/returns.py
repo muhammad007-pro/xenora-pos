@@ -45,6 +45,7 @@ def _restore_inventory(db: Session, product_id: int, quantity: float, tenant_id,
             Inventory.product_id == product_id,
             Inventory.tenant_id == tenant_id,
         )
+        .with_for_update()   # ROW-LOCK: qaytarishda ombor oshirilishi atomik
         .first()
     )
     if inv:

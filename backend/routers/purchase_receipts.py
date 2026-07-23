@@ -204,7 +204,7 @@ async def confirm_receipt(
         inv = db.query(Inventory).filter(
             Inventory.product_id == it.product_id,
             Inventory.tenant_id == tid,
-        ).first()
+        ).with_for_update().first()   # ROW-LOCK: priyomka kirimi atomik
         if inv:
             inv.quantity += qty
         else:

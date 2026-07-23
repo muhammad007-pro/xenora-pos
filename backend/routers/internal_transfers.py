@@ -128,12 +128,12 @@ async def confirm_transfer(
             inv_from = db.query(Inventory).filter(
                 Inventory.product_id == item.product_id,
                 Inventory.branch_id  == tr.from_branch_id,
-            ).first()
+            ).with_for_update().first()   # ROW-LOCK
             if not inv_from:
                 inv_from = db.query(Inventory).filter(
                     Inventory.product_id == item.product_id,
                     Inventory.tenant_id  == tid,
-                ).first()
+                ).with_for_update().first()   # ROW-LOCK
             if inv_from:
                 inv_from.quantity = max(0, inv_from.quantity - item.quantity)
 
@@ -142,7 +142,7 @@ async def confirm_transfer(
             inv_to = db.query(Inventory).filter(
                 Inventory.product_id == item.product_id,
                 Inventory.branch_id  == tr.to_branch_id,
-            ).first()
+            ).with_for_update().first()   # ROW-LOCK
             if inv_to:
                 inv_to.quantity += item.quantity
             else:

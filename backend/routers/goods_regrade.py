@@ -118,13 +118,13 @@ async def confirm_regrade(
     for item in gr.items:
         # A tovardan ayir
         inv_from = apply_tenant_filter(db.query(Inventory), Inventory, current_user) \
-                       .filter(Inventory.product_id == item.from_product_id).first()
+                       .filter(Inventory.product_id == item.from_product_id).with_for_update().first()   # ROW-LOCK
         if inv_from:
             inv_from.quantity = max(0, inv_from.quantity - item.quantity)
 
         # B tovarga qo'sh
         inv_to = apply_tenant_filter(db.query(Inventory), Inventory, current_user) \
-                     .filter(Inventory.product_id == item.to_product_id).first()
+                     .filter(Inventory.product_id == item.to_product_id).with_for_update().first()   # ROW-LOCK
         if inv_to:
             inv_to.quantity += item.quantity
         else:

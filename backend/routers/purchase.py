@@ -44,7 +44,7 @@ async def create_purchase(
     # Omborni yangilash (BOSQICH 1.5: tenant bo'yicha cheklash)
     inventory = apply_tenant_filter(db.query(Inventory), Inventory, current_user).filter(
         Inventory.product_id == product_id
-    ).first()
+    ).with_for_update().first()   # ROW-LOCK: kirim atomik (o'qi→qo'sh→yoz)
     if not inventory:
         # Yangi ombor elementi yaratish
         from models import Product

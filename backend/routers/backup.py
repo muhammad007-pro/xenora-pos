@@ -13,7 +13,10 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
-from deps import get_current_superuser, get_current_active_user
+# get_current_active_user_no_sub — obuna ENFORCEMENT'siz: bloklangan do'kon ham
+# O'Z ma'lumotini eksport/tiklay olsin (tenant-scoped, xavfsiz). Egasi xohlasa
+# oddiy get_current_active_user'ga o'zgartirib yopiladi.
+from deps import get_current_superuser, get_current_active_user_no_sub
 from tasks.backup_tasks import backup_database, get_backup_list, restore_database
 from services.tenant_backup import build_tenant_backup, restore_tenant_backup
 
@@ -32,7 +35,7 @@ def _require_store_admin(current_user: User):
 @router.get("/my-tenant", summary="Do'konning o'z zaxirasi (tenant-scoped, gzip JSON)")
 async def my_tenant_backup(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_no_sub),
 ):
     """Joriy do'kon (current_user.tenant_id) ma'lumotini gzip'langan JSON qilib qaytaradi.
 
@@ -61,7 +64,7 @@ async def my_tenant_backup(
 async def my_tenant_restore(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_no_sub),
 ):
     """Do'kon o'z backup faylini (JSON.gz) yuborib, o'z ma'lumotini tiklaydi.
 

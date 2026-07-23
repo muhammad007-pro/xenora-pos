@@ -16,14 +16,19 @@ class PaymentService:
         amount: float,
         method: str,
         cashier_id: int,
-        reference: Optional[str] = None
+        reference: Optional[str] = None,
+        commit: bool = True,
     ) -> Payment:
-        """To'lovni qayta ishlash"""
-        
+        """To'lovni qayta ishlash.
+
+        commit=False → faqat flush (ID hosil bo'ladi), COMMIT chaqiruvchida bo'ladi.
+        Bu — atomik sotuv uchun: to'lov + order + ombor bitta tranzaksiyada commit qilinadi
+        (create_payment), xato bo'lsa BUTUN sotuv rollback (yarim holat qolmaydi).
+        """
         # Click/Payme integratsiyasi
         if method in ["click", "payme"]:
-            return self._process_online_payment(order, amount, method, cashier_id)
-        
+            return self._process_online_payment(order, amount, method, cashier_id, commit=commit)
+
         # Naqd yoki karta
         payment = Payment(
             order_id=order.id,
@@ -34,14 +39,17 @@ class PaymentService:
             reference=reference,
             transaction_id=self._generate_transaction_id()
         )
-        
+
         self.db.add(payment)
-        self.db.commit()
-        self.db.refresh(payment)
-        
+        if commit:
+            self.db.commit()
+            self.db.refresh(payment)
+        else:
+            self.db.flush()   # ID hosil bo'ladi; commit — chaqiruvchida (atomik sotuv)
+
         return payment
-    
-    def _process_online_payment(self, order: Order, amount: float, method: str, cashier_id: int) -> Payment:
+
+    def _process_online_payment(self, order: Order, amount: float, method: str, cashier_id: int, commit: bool = True) -> Payment:
         """Online to'lovni qayta ishlash"""
         # TODO: Click/Payme API integratsiyasi
         payment = Payment(
@@ -52,11 +60,14 @@ class PaymentService:
             status="pending",
             transaction_id=self._generate_transaction_id()
         )
-        
+
         self.db.add(payment)
-        self.db.commit()
-        self.db.refresh(payment)
-        
+        if commit:
+            self.db.commit()
+            self.db.refresh(payment)
+        else:
+            self.db.flush()
+
         return payment
     
     def _generate_transaction_id(self) -> str:
@@ -77,13 +88,18 @@ class PaymentService:
         
         return payment
     
-    def refund_payment(self, payment: Payment, amount: float, reason: Optional[str] = None) -> bool:
-        """To'lovni qaytarish"""
+    def refund_payment(self, payment: Payment, amount: float, reason: Optional[str] = None, commit: bool = True) -> bool:
+        """To'lovni qaytarish.
+
+        commit=False → flush (COMMIT chaqiruvchida) — refund + order + ombor tiklash
+        bitta tranzaksiyada atomik bo'lsin. Bu holatда xato YUQORIGA uzatiladi (raise),
+        chaqiruvchi butun tranzaksiyani rollback qiladi (yarim qaytarish qolmaydi).
+        """
         try:
             if payment.method in ["click", "payme"]:
                 # TODO: Online to'lovni qaytarish API
                 pass
-            
+
             # Qaytarish yozuvi
             refund = Payment(
                 order_id=payment.order_id,
@@ -93,21 +109,26 @@ class PaymentService:
                 status="refunded",
                 reference=f"Refund for {payment.transaction_id}: {reason}" if reason else f"Refund for {payment.transaction_id}"
             )
-            
+
             self.db.add(refund)
-            
+
             # Asl to'lov holatini yangilash
             if amount >= payment.amount:
                 payment.status = "refunded"
-            
-            self.db.commit()
-            
+
+            if commit:
+                self.db.commit()
+            else:
+                self.db.flush()
+
             return True
-            
+
         except Exception as e:
             print(f"Refund error: {e}")
-            self.db.rollback()
-            return False
+            if commit:
+                self.db.rollback()
+                return False
+            raise   # commit=False: chaqiruvchining tranzaksiya-handleri rollback qiladi
     
     def get_order_payments(self, order_id: int) -> list:
         """Buyurtma to'lovlarini olish"""

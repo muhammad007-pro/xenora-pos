@@ -201,8 +201,8 @@ backup tushib qolardi. Endi cron (restart'dan mustaqil, belgilangan soat).
 1. AVVAL cron o'rnatiladi (skript `git pull` bilan `/opt/xenora/scripts/backup.py` ga keladi):
    ```
    crontab -e
-   # har kuni 03:00 (do'kon yopiq):
-   0 3 * * * /usr/bin/python3 /opt/xenora/scripts/backup.py >> /opt/xenora/logs/backup_cron.log 2>&1
+   # har kuni Toshkent 03:00 (do'kon yopiq). DIQQAT: cron server UTC'da → 22:00 UTC = Toshkent 03:00.
+   0 22 * * * /usr/bin/python3 /opt/xenora/scripts/backup.py >> /opt/xenora/logs/backup_cron.log 2>&1
    ```
 2. Qo'lda sinov: `python3 /opt/xenora/scripts/backup.py` → `logs/backup.log` da "OK ... MB", fayl `backend/backup/auto/` da.
 3. KEYIN app scheduler'dan backup olib tashlangan kod deploy qilinadi (scheduler.py — bu commit).

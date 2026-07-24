@@ -51,3 +51,8 @@ pyusb==1.2.1
 
 # AI-Ombor (Claude API — rasmdan mahsulot o'qish). Pillow (rasm siqish) yuqorida bor.
 anthropic>=0.40,<1.0
+
+# Xato kuzatuvi (Sentry). SENTRY_DSN bo'sh bo'lsa ishga tushmaydi (dev/opt-in).
+# jinja2 — Sentry StarletteIntegration init uchun zarur (aks holda init xato beradi).
+sentry-sdk[fastapi]==2.42.0
+jinja2==3.1.6

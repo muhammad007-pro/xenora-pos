@@ -75,6 +75,19 @@ class Settings(BaseSettings):
     # Bloklangan/muddati tugagan tenant ko'radigan aloqa (obunani uzaytirish uchun).
     SUPPORT_CONTACT: str = "+998 94 997 47 70"
 
+    # ── Sentry (xato kuzatuvi) ──────────────────────────────────────────────
+    # SENTRY_DSN BO'SH (standart) → Sentry UMUMAN ishga tushmaydi (dev shovqinsiz).
+    # Serverda .env orqali beriladi (GitHub'ga tushmaydi). traces past — RAM/kvota tejash.
+    SENTRY_DSN: str = ""
+    SENTRY_ENVIRONMENT: str = ""              # bo'sh → ENVIRONMENT ishlatiladi
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0    # perf tracing o'chiq (yengil)
+
+    # ── Alert (Telegram) — monitoring skripti + Sentry jiddiy xatolari uchun UMUMIY kanal ──
+    # scripts/monitor.py bilan bir xil kalitlar. Sozlanmasa — jim (alert yo'q).
+    TELEGRAM_BOT_TOKEN: str = ""
+    ALERT_CHAT_ID: str = ""                    # superadmin chat id (alert kanali)
+    ALERT_SUPPRESS_MINUTES: int = 30          # bir xil xato takrori shu daqiqada 1 marta
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors(cls, v):
@@ -110,6 +123,9 @@ class Settings(BaseSettings):
     AI_WAREHOUSE_MAX_IMAGE_PX: int = 1500     # rasm siqish: uzun tomon max px (token tejash)
     AI_WAREHOUSE_JPEG_QUALITY: int = 80       # rasm siqish: JPEG sifati
     AI_WAREHOUSE_MAX_TOKENS: int = 2048       # javob (mahsulot ro'yxati) uchun yetarli
+    # Anthropic chaqiruvi timeout (soniya). SDK standarti 600s — so'rovni juda uzoq osiltiradi.
+    # Rasm tahlili sekinroq → 75s balans. Timeout'да tushunarli 504 xato qaytadi (osilish yo'q).
+    AI_WAREHOUSE_TIMEOUT: int = 75
 
     # ── To'lov tizimi — Click ───────────────────────────────────────────────
     CLICK_MERCHANT_ID: str = ""

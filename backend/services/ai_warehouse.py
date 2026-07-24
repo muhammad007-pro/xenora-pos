@@ -213,7 +213,11 @@ def scan_image(raw: bytes, *, tenant_id: Optional[int] = None) -> Dict[str, Any]
     b64 = compress_image(raw)
 
     try:
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        # timeout — SDK standarti 600s; rasm tahliliga 75s yetadi, aks holda so'rov osiladi.
+        client = anthropic.Anthropic(
+            api_key=settings.ANTHROPIC_API_KEY,
+            timeout=float(settings.AI_WAREHOUSE_TIMEOUT),
+        )
         resp = client.messages.create(
             model=settings.AI_WAREHOUSE_MODEL,
             max_tokens=int(settings.AI_WAREHOUSE_MAX_TOKENS),
@@ -270,6 +274,11 @@ def _map_anthropic_error(e: Exception) -> AiWarehouseError:
         return AiWarehouseError(
             "AI xizmatiga so'rov limiti oshib ketdi — birozdan keyin urinib ko'ring.",
             http_status=429, code="rate_limited")
+    # DIQQAT: APITimeoutError — APIConnectionError'ning bola sinfi, shuning uchun UNDAN OLDIN tekshiriladi.
+    if isinstance(e, anthropic.APITimeoutError):
+        return AiWarehouseError(
+            "Tahlil vaqti tugadi — rasmni qayta yuklab, urinib ko'ring (yengilroq/aniqroq rasm).",
+            http_status=504, code="timeout")
     if isinstance(e, anthropic.APIConnectionError):
         return AiWarehouseError(
             "AI xizmatiga ulanib bo'lmadi — internet yoki xizmatni tekshiring.",

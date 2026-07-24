@@ -47,6 +47,7 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 - XAVF: SVG upload → stored XSS (token localStorage bilan zanjirli)
 - XAVF: RBAC rol-tirqishi — 19 router yozuv endpointida rol tekshirilmaydi (faqat auth+tenant)
 - ZAIF: parol siyosati (6 belgi); token localStorage'da (Electron secure storage yo'q)
+- XAVF (yangi, 2026-07-24): **Electron `webSecurity:false`** — XSS/SOP himoyasi o'chiq. Sabab: frontend `file://` dan, API `http://` dan → CORS chetlab o'tilgan. To'g'ri yechim: **`app://` custom protocol + `webSecurity:true` + backend CORS allowlist** (offline saqlanadi). Shart: **HTTPS/domen OLDIN** qilinsin (yakuniy origin kerak). Xavf: **O'RTA** (`nodeIntegration:false` + `contextIsolation:true` eng yomonini bloklaydi).
 
 ### 3. Ma'lumotlar butunligi
 - KUCHLI: Backup tenant-safe, StockMovement audit-trail, idempotent deduct, manfiy stok himoyasi, bitta migratsiya head
@@ -107,19 +108,31 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 - [ ] Timezone standartlashtirish (UTC izchil)
 
 ### TIER 3 — Xavfsizlik qatlami
-- [ ] Token secure storage (Electron safeStorage + preload IPC)
-- [ ] RBAC rol cheklovlari (19 router)
-- [ ] Parol siyosati (uzunlik + murakkablik)
-- [ ] HSTS/CSP header + ufw firewall (5432 yopiq)
+- [x] RBAC rol cheklovlari — BAJARILDI (40 yozuv endpoint, 13 router, yangi ruxsatsiz) va DEPLOY QILINDI (2026-07-24, commit `877dd8e`)
+- [x] Parol siyosati — BAJARILDI (8+ belgi, harf+raqam, zaif rad, PIN 4-6), deploy KUTMOQDA (branch: feature/password-policy). **Login yo'liga tegilmagan — eski parollar ishlaydi**
+- [ ] Token secure storage — **TIER 5 GA KO'CHIRILDI** (sabab quyida)
+- [ ] HSTS/CSP header + ufw firewall (5432 yopiq) — domen kutmoqda
+
+> ⚠️ **Token secure storage nega Tier 5 ga ko'chirildi (2026-07-24):** 65 ta joyda sinxron `localStorage.getItem`, safeStorage esa async → katta refaktoring. Va Electron'da `webSecurity:false` bo'lgani uchun XSS'dan himoya bermaydi (faqat disk o'g'irligidan). HTTPS va webSecurity muhimroq — shulardan KEYIN.
 
 ### TIER 4 — Halollik / "arvoh funksiyalar" (AI smell yo'q qilish)
-- [ ] 5 promo tizimini POS'ga ulash yoki vaqtincha yashirish (happy hour, kunlik taklif, loyalty, bonus, aksiya)
-- [ ] Modifikator admin UI
-- [ ] Hotel xona/bron UI
-- [ ] Online to'lov (Click/Payme) — yakunlash yoki UI'dan olish
-- [ ] 7 o'lik routerni tozalash
+- [x] **Loyalty (ballar)** — QURILDI va POS'ga ULANDI (auto-earn netdan, redeem server-authoritative, tenant sozlamalari, chekda ko'rsatish). Deploy KUTMOQDA (branch: feature/loyalty-pos)
+- [x] **Bonus karta** — YASHIRILDI (loyalty bilan ustma-ust tushardi; kod saqlangan, keyin sovg'a-kartasi funksiyasi sifatida alohida qurilishi mumkin)
+- [x] **Happy hour, kunlik taklif** — Eco Aroma (retail) da allaqachon yashirin, restoran uchun keyin ulanadi
+- [ ] **Aksiya (promotions)** — HALI ARVOH, POS'ga ulanmagan
+- [ ] Modifikator admin UI, hotel xona/bron UI, online to'lov (Click/Payme), 7 o'lik router — o'zgarishsiz
+
+**Loyalty dizayn qarorlari (egasi tanlagan, 2026-07-24):**
+- Keshbek stavkasi: **tenant sozlaydigan** (default 1000 so'm = 1 ball)
+- Redeem: 1 ball = 10 so'm, min 100 ball, maks 30% (sozlanadigan)
+- Ball muddati: **abadiy**
+- Walk-in (mijozsiz) sotuvda ball **yig'ilmaydi**
+- Ustuvorlik: chegirmalar avval → net summa → ball **netdan** → redeem to'lovda (tender)
+- `customer.discount_percent` qoladi (doimiy VIP maqomi), ball undan **alohida**
+- Ma'lum bo'shliq: **offline sotuvda chekda ball ko'rinmaydi** (sync'dan keyin yig'iladi)
 
 ### TIER 5 — Operatsion yetuklik
+- [ ] **Token secure storage** (Electron safeStorage + 65 joyni markazlashtirish) — HTTPS va webSecurity'dan KEYIN (Tier 3 dan ko'chirildi)
 - [ ] Sentry + monitoring (disk/RAM/CPU alert)
 - [ ] AI chaqiruvida timeout
 - [ ] Deploy skript + rollback protsedura (DEPLOY.md)
@@ -157,12 +170,15 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 
 ## 6. Branch holati (2026-07-24)
 
-- **main = `3549f95`** — prod bilan bir xil (server shu commit'da). Faqat deploy qilingan backend.
-- **feature/frontend-discount-wip = `d732a43`** — frontend (obuna blok ekrani, ogohlantirish banner, backup 401 fix, premium dizayn ~30 fayl) + **#34 avto-chegirma** (`discount.py`, `order_service.py`). Deploy KUTMOQDA (frontend → .exe).
-- **feature/atomic-payment = `f448154`** — to'lov atomikligi (`payment.py`, `payment_service.py`, `recipe_inventory_service.py`). Deploy KUTMOQDA.
+- **main = `877dd8e`** — prod bilan bir xil (server shu commit'da). Deploy qilingan backend (RBAC + timezone + oldingi).
+- **feature/atomic-payment = `f448154`** — to'lov atomikligi (`payment.py` QAYTA YOZILGAN, `payment_service.py`, `recipe_inventory_service.py`).
+- **feature/loyalty-pos = `76e79e6`** — **atomic-payment USTIGA tarmoqlangan**, loyalty to'liq (auto-earn + redeem + tenant sozlama + bonus yashirish + chekda ball).
+- **feature/password-policy = `f19a557`** — parol siyosati (mustaqil).
+- **feature/frontend-discount-wip = `d732a43`** — frontend (blok ekrani, banner, backup 401 fix, premium dizayn ~30 fayl) + **#34 avto-chegirma** (`discount.py`, `order_service.py`). `.exe` build kerak.
 
-⚠️ **OGOHLANTIRISH:** ikkala branch ham SOTUV oqimiga tegadi (`order_service.py` va `payment.py`). Birlashtirishda **BIRGA emas, KETMA-KET** merge qilinsin va **har biridan keyin test** (regressiya + atomiklik + avto-chegirma hisobi). Konflikt ehtimoli: order/payment yaratish oqimi.
+⚠️ **MERGE TARTIBI:** **atomic-payment → loyalty-pos** (ketma-ket, `payment.py` kesishuvi — loyalty atomik ustiga qurilgan). **password-policy** mustaqil (istalgan vaqt). **frontend-discount-wip** OXIRIDA, `.exe` build bilan (`order_service.py`+`payment.py` sotuv oqumiga tegadi → har merge'dan keyin test).
 
 ## 7. Deploy tarixi
 
 - **2026-07-23 — commit `3549f95`:** 17 backend fayl (SVG filter, /customers/all limit, billing 1+2 faza [enforcement o'chiq], Inventory row-lock ×14, get_db rollback). Backup: `~/xenora-backups/pre_deploy_20260723_2111.sql.gz` (58K, gzip -t OK). Rollback hash: `1c8b74c`. Migratsiya YO'Q. Natija: toza deploy, /health OK, Eco Aroma ma'lumoti O'ZGARMAGAN (mahsulot 555 / buyurtma 17 / to'lov 16), telefondan tekshirildi (mahsulot/ombor OK). ⚠️ Sozlamalar sahifasi HALI TEKSHIRILMAGAN.
+- **2026-07-24 — commit `877dd8e` (Deploy 2):** RBAC (40 yozuv endpoint, 13 router) + timezone (`tenant_day_bounds` — kunlik chegara Toshkent yarim tuni). Backup: `~/xenora-backups/pre_deploy_20260724_0921.sql.gz`. Rollback hash: `3549f95`. Migratsiya YO'Q. Natija: toza, merge konfliktsiz, /health OK, Eco Aroma **555/17/16 o'zgarmagan**, admin RBAC bloklanmadi.

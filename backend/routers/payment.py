@@ -99,7 +99,7 @@ async def create_payment(
     payment_data: PaymentCreate,
     offline_sync: bool = Query(False, description="Offline navbatdan replay — smena gate'ini o'tkazib yubor"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("process_payments"))
 ):
     """Yangi to'lov yaratish"""
     payment_service = PaymentService(db)
@@ -320,7 +320,7 @@ async def add_tip(
     payment_id: int,
     tip_amount: float,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(has_permission("process_payments"))
 ):
     """
     Choy puli (tips) qo'shish (BOSQICH 9.11).

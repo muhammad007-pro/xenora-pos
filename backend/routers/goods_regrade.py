@@ -15,7 +15,7 @@ from schemas import (
     GoodsRegradeCreate, GoodsRegradeInDB, GoodsRegradeItemInDB,
     PaginatedResponse, MessageResponse,
 )
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("goods_regrade"))])
@@ -59,7 +59,7 @@ async def list_regrades(
 async def create_regrade(
     data: GoodsRegradeCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     if not data.items:
         raise HTTPException(status_code=400, detail="Kamida 1 ta qator kiritilsin")
@@ -105,7 +105,7 @@ async def get_regrade(
 async def confirm_regrade(
     regrade_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Peresortni tasdiqlash: A inventorydan ayir, B inventoryga qo'sh"""
     gr = apply_tenant_filter(db.query(GoodsRegrade), GoodsRegrade, current_user) \
@@ -147,7 +147,7 @@ async def confirm_regrade(
 async def delete_regrade(
     regrade_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     gr = apply_tenant_filter(db.query(GoodsRegrade), GoodsRegrade, current_user) \
              .filter(GoodsRegrade.id == regrade_id).first()

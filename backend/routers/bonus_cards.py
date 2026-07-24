@@ -60,7 +60,7 @@ async def list_cards(
 async def create_card(
     data: BonusCardCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     card_num = data.card_number or _gen_card_number(db)
     if db.query(BonusCard).filter(BonusCard.card_number == card_num).first():
@@ -94,7 +94,7 @@ async def update_card(
     card_id: int,
     data: BonusCardUpdate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     c = apply_tenant_filter(db.query(BonusCard), BonusCard, current_user) \
             .filter(BonusCard.id == card_id).first()
@@ -111,7 +111,7 @@ async def earn_bonus(
     card_id: int,
     data: BonusEarnRequest,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     """Xarid uchun bonus ball to'plash"""
     c = apply_tenant_filter(db.query(BonusCard), BonusCard, current_user) \
@@ -143,7 +143,7 @@ async def spend_bonus(
     card_id: int,
     data: BonusSpendRequest,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     """Bonus balini to'lov uchun sarflash"""
     c = apply_tenant_filter(db.query(BonusCard), BonusCard, current_user) \
@@ -178,7 +178,7 @@ async def manual_adjust(
     amount:  float,
     reason:  Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     """Qo'lda ball to'g'irlash (admin uchun)"""
     c = apply_tenant_filter(db.query(BonusCard), BonusCard, current_user) \

@@ -15,7 +15,7 @@ from typing import Optional, List
 from database import get_db
 from models import Return, ReturnItem, Order, OrderItem, Product, Inventory, StockMovement, User
 from schemas import MessageResponse, PaginatedResponse
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 from routers.returns import _return_base_qty  # BOSQICH B-returns: pachka → dona miqdori
 from pydantic import BaseModel
 from typing import Optional
@@ -91,7 +91,7 @@ async def search_order(
 async def create_extended_return(
     data: ExtReturnCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("process_payments")),
 ):
     """Kengaytirilgan qaytarish: brak/ombor tanlash bilan"""
     if not data.items:

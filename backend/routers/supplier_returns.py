@@ -13,7 +13,7 @@ from schemas import (
     SupplierReturnCreate, SupplierReturnInDB,
     PaginatedResponse, MessageResponse,
 )
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 router = APIRouter()
 
@@ -67,7 +67,7 @@ async def list_returns(
 async def create_return(
     data: SupplierReturnCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Firmaga vozvrat: ombor kamayadi, firma qarzidan ayriladi"""
     supplier = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
@@ -120,7 +120,7 @@ async def get_return(
 async def delete_return(
     return_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     r = apply_tenant_filter(db.query(SupplierReturn), SupplierReturn, current_user) \
           .filter(SupplierReturn.id == return_id).first()

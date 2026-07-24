@@ -12,7 +12,7 @@ from typing import Optional
 from database import get_db
 from models import WriteOff, WriteOffItem, Inventory, Product, User
 from schemas import WriteOffCreate, WriteOffInDB, WriteOffItemInDB, PaginatedResponse, MessageResponse
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("write_off"))])
@@ -62,7 +62,7 @@ async def list_write_offs(
 async def create_write_off(
     data: WriteOffCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     if not data.items:
         raise HTTPException(status_code=400, detail="Kamida 1 ta tovar kiritilsin")
@@ -111,7 +111,7 @@ async def get_write_off(
 async def confirm_write_off(
     write_off_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Aktni tasdiqlash: inventory'dan chiqarish"""
     wo = apply_tenant_filter(db.query(WriteOff), WriteOff, current_user) \
@@ -139,7 +139,7 @@ async def confirm_write_off(
 async def delete_write_off(
     write_off_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     wo = apply_tenant_filter(db.query(WriteOff), WriteOff, current_user) \
              .filter(WriteOff.id == write_off_id).first()

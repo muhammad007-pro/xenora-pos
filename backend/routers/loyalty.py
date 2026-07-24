@@ -66,7 +66,7 @@ async def earn_points(
     customer_id: int,
     order_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     """To'lov yakunida ball yig'ish"""
     customer = apply_tenant_filter(db.query(Customer), Customer, current_user) \
@@ -102,7 +102,7 @@ async def redeem_points(
     points: int = Query(..., ge=MIN_REDEEM, description=f"Minimal {MIN_REDEEM} ball"),
     order_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     """Ballarni chegirmaga aylantirish"""
     customer = apply_tenant_filter(db.query(Customer), Customer, current_user) \
@@ -145,7 +145,7 @@ async def adjust_points(
     delta: int = Query(..., description="Qo'shish (+) yoki ayirish (-) miqdori"),
     reason: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_customers")),
 ):
     """Admin tomonidan ballarni qo'lda o'zgartirish"""
     customer = apply_tenant_filter(db.query(Customer), Customer, current_user) \

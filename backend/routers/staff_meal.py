@@ -27,7 +27,7 @@ router = APIRouter()
 async def create_staff_meal(
     data: StaffMealCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Xodim ovqatini qayd etish — ombordan retsept asosida kamaytirish"""
     tenant_id = resolve_tenant_id(db, current_user)
@@ -221,7 +221,7 @@ async def staff_meal_report(
 async def delete_staff_meal(
     meal_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Xodim ovqati yozuvini o'chirish (ombor qaytarilmaydi)"""
     tenant_id = resolve_tenant_id(db, current_user)

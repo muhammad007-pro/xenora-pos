@@ -191,3 +191,23 @@ crontab -e
 ```
 Chegaralar (ixtiyoriy, env orqali): `MON_DISK_PCT=85`, `MON_RAM_MIN_MB=100`, `MON_BACKUP_MAX_H=26`, `MON_SUPPRESS_H=6`.
 Qo'lda test: `python3 /opt/xenora/scripts/monitor.py` (bir marta ishlaydi, holatni loglaydi).
+
+## 10. Backup — cron (scripts/backup.py) — app scheduler O'RNIGA
+
+App scheduler taymeri xotirada (`next_run = app_start + 24s`) → HAR deploy/restart nollanadi →
+backup tushib qolardi. Endi cron (restart'dan mustaqil, belgilangan soat).
+
+**O'rnatish tartibi (MUHIM — backup uzilmasin):**
+1. AVVAL cron o'rnatiladi (skript `git pull` bilan `/opt/xenora/scripts/backup.py` ga keladi):
+   ```
+   crontab -e
+   # har kuni 03:00 (do'kon yopiq):
+   0 3 * * * /usr/bin/python3 /opt/xenora/scripts/backup.py >> /opt/xenora/logs/backup_cron.log 2>&1
+   ```
+2. Qo'lda sinov: `python3 /opt/xenora/scripts/backup.py` → `logs/backup.log` da "OK ... MB", fayl `backend/backup/auto/` da.
+3. KEYIN app scheduler'dan backup olib tashlangan kod deploy qilinadi (scheduler.py — bu commit).
+   Shundagина ikki marta backup bo'lmaydi va oraliq uzilmaydi.
+
+**Tekshirish:** `tail /opt/xenora/logs/backup.log`; `ls -la /opt/xenora/backend/backup/auto/ | tail`.
+Monitoring (§9) backup yoshini kuzatadi — 26 soatdan eski bo'lsa Telegram alert.
+**To'xtatish:** `crontab -e` → qatorni o'chir. **Sozlash:** `BK_MIN_KEEP=7` (doim saqlanadigan), `BK_MAX_AGE_DAYS=14`.

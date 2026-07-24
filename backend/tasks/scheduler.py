@@ -152,9 +152,11 @@ async def check_expired_tenants():
 
 
 def start_scheduler():
-    from tasks.backup_tasks import backup_database as pg_backup
-
-    scheduler.add_task("backup",              pg_backup,                   interval=86400)  # 24 soatda
+    # BACKUP endi CRON'da (scripts/backup.py, har kuni 03:00) — app scheduler'дан OLIB TASHLANDI.
+    # SABAB: scheduler taymeri xotirada (next_run = app_start + interval); HAR RESTART/DEPLOY'da
+    # nollanardi → 24 soatdan tez-tez restart → backup umuman ishlamas edi (Jul 19/20/23/24 tushib
+    # qoldi). Cron restart'дan mustaqil, belgilangan soatda ishonchli. Qarang: DEPLOY.md §10.
+    # DIQQAT: bu o'zgarish faqat cron O'RNATILGANDAN KEYIN deploy qilinsin (backup uzilmasin).
     scheduler.add_task("clean_notifications", clean_old_notifications,     interval=3600)   # soatda
     # (B6) update_inventory vazifasi olib tashlandi — ombor chiqimi endi to'lov paytida
     # real vaqtda (deduct_order_ingredients) bajariladi, davriy sync yo'li kerak emas edi.

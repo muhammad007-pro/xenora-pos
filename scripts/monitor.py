@@ -22,10 +22,11 @@ import json
 import time
 import shutil
 import subprocess
-import urllib.request
-import urllib.parse
 from datetime import datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # _notify.py yonida (umumiy Telegram)
+from _notify import read_env as _env_read, send_telegram as _tg_send   # noqa: E402
 
 BASE       = Path(os.environ.get("XENORA_BASE", "/opt/xenora"))
 ENV_FILE   = BASE / "backend" / ".env"
@@ -57,32 +58,15 @@ def log(msg: str) -> None:
 
 
 def read_env(key: str):
-    try:
-        for ln in ENV_FILE.read_text(encoding="utf-8", errors="ignore").splitlines():
-            ln = ln.strip()
-            if ln.startswith(key + "="):
-                return ln.split("=", 1)[1].strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return os.environ.get(key)
+    return _env_read(key, str(ENV_FILE))
 
 
 def send_telegram(text: str) -> bool:
-    token = read_env("TELEGRAM_BOT_TOKEN")
-    chat  = read_env("ALERT_CHAT_ID")
-    if not token or not chat:
-        log("Telegram sozlanmagan (TELEGRAM_BOT_TOKEN/ALERT_CHAT_ID) — alert yuborilmadi (jim).")
-        return False
-    try:
-        data = urllib.parse.urlencode(
-            {"chat_id": chat, "text": text, "parse_mode": "HTML"}).encode()
-        req = urllib.request.Request(
-            f"https://api.telegram.org/bot{token}/sendMessage", data=data)
-        urllib.request.urlopen(req, timeout=10)
-        return True
-    except Exception as e:
-        log(f"Telegram yuborishда xato: {e}")
-        return False
+    """UMUMIY _notify orqali (backup.py bilan bir xil). Sozlanmasa/xatoda log + False."""
+    ok, why = _tg_send(text, str(ENV_FILE))
+    if not ok:
+        log(f"Telegram alert yuborilmadi ({why}).")
+    return ok
 
 
 def load_state() -> dict:

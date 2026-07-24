@@ -9,6 +9,7 @@ from database import get_db
 from models import User, Branch
 from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, user_has_permission
 from services.report_service import ReportService
+from core.timeutils import day_bounds
 
 router = APIRouter()
 
@@ -38,9 +39,10 @@ async def get_daily_report(
     current_user: User = Depends(has_permission("view_reports"))
 ):
     svc = ReportService(db)
-    target = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
-    start = target.replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=1)
+    # Kunlik chegara TENANT MAHALLIY zonasida (Toshkent) — daily_number bilan izchil.
+    # naive datetime.now() UTC yarim tunini berardi (=Toshkent 05:00), kun 5 soat siljirdi.
+    target = datetime.strptime(date, "%Y-%m-%d") if date else None
+    start, end = day_bounds(target)
     return svc.generate_sales_report(start, end, branch_id, current_user)
 
 

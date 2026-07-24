@@ -8,6 +8,7 @@ from database import get_db
 from models import Order, Payment, Product, Customer, User, OrderItem, Category, Appointment, Service, Employee, ServiceOrder, Vehicle, Room, RoomBooking
 from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, user_has_permission, resolve_tenant_id, require_feature
 from services.analytics_service import AnalyticsService
+from core.timeutils import tenant_now
 from core.tenant_config import get_tenant_config
 
 router = APIRouter()
@@ -23,7 +24,7 @@ async def get_summary(
     from sqlalchemy import func
     from deps import apply_tenant_filter
 
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -92,7 +93,7 @@ async def get_dashboard_data(
     analytics_service = AnalyticsService(db)
     
     # Vaqt oralig'ini aniqlash
-    now = datetime.now()
+    now = tenant_now()
     
     if range == "today":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -222,9 +223,9 @@ async def get_sales_report(
     analytics_service = AnalyticsService(db)
     
     if not date_from:
-        date_from = datetime.now() - timedelta(days=30)
+        date_from = tenant_now() - timedelta(days=30)
     if not date_to:
-        date_to = datetime.now()
+        date_to = tenant_now()
     
     sales_data = analytics_service.get_sales_report(date_from, date_to, group_by, current_user=current_user)
 
@@ -251,9 +252,9 @@ async def get_product_analytics(
     analytics_service = AnalyticsService(db)
     
     if not date_from:
-        date_from = datetime.now() - timedelta(days=30)
+        date_from = tenant_now() - timedelta(days=30)
     if not date_to:
-        date_to = datetime.now()
+        date_to = tenant_now()
     
     products = analytics_service.get_product_analytics(date_from, date_to, limit, current_user=current_user)
     
@@ -274,9 +275,9 @@ async def get_category_analytics(
     analytics_service = AnalyticsService(db)
     
     if not date_from:
-        date_from = datetime.now() - timedelta(days=30)
+        date_from = tenant_now() - timedelta(days=30)
     if not date_to:
-        date_to = datetime.now()
+        date_to = tenant_now()
     
     categories = analytics_service.get_category_analytics(date_from, date_to, current_user=current_user)
     
@@ -297,9 +298,9 @@ async def get_customer_analytics(
     analytics_service = AnalyticsService(db)
     
     if not date_from:
-        date_from = datetime.now() - timedelta(days=30)
+        date_from = tenant_now() - timedelta(days=30)
     if not date_to:
-        date_to = datetime.now()
+        date_to = tenant_now()
     
     return analytics_service.get_customer_analytics(date_from, date_to, current_user=current_user)
 
@@ -314,9 +315,9 @@ async def get_employee_performance(
     analytics_service = AnalyticsService(db)
     
     if not date_from:
-        date_from = datetime.now() - timedelta(days=30)
+        date_from = tenant_now() - timedelta(days=30)
     if not date_to:
-        date_to = datetime.now()
+        date_to = tenant_now()
     
     return analytics_service.get_employee_performance(date_from, date_to, current_user=current_user)
 
@@ -329,7 +330,7 @@ async def get_hourly_stats(
     """Soatlik statistika"""
     analytics_service = AnalyticsService(db)
 
-    target_date = date or datetime.now()
+    target_date = date or tenant_now()
 
     return analytics_service.get_hourly_stats(target_date, current_user=current_user)
 
@@ -346,9 +347,9 @@ async def export_analytics(
     analytics_service = AnalyticsService(db)
     
     if not date_from:
-        date_from = datetime.now() - timedelta(days=30)
+        date_from = tenant_now() - timedelta(days=30)
     if not date_to:
-        date_to = datetime.now()
+        date_to = tenant_now()
     
     file_path = analytics_service.export_report(report_type, date_from, date_to, format, current_user=current_user)
     
@@ -368,7 +369,7 @@ async def get_waiter_report(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Ofitsiant smena hisoboti вЂ” stol soni, tushum, tips (BOSQICH 14b+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -421,7 +422,7 @@ async def get_kitchen_stats(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Oshxona taom tayyorlash o'rtacha vaqti statistikasi (BOSQICH 14b+)"""
-    start = datetime.now() - timedelta(days=days)
+    start = tenant_now() - timedelta(days=days)
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.preparing_started_at.isnot(None),
         Order.completed_at.isnot(None),
@@ -496,7 +497,7 @@ async def get_store_margin(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Mahsulot foyda marjasi hisoboti вЂ” sotish vs xarid narxi (BOSQICH 14j+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -555,7 +556,7 @@ async def get_cashier_report(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Kassir smena hisoboti вЂ” to'lov usullari breakdown (BOSQICH 14j+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -611,7 +612,7 @@ async def get_pharmacy_stats(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Dorixona retsept statistikasi вЂ” kunlik/haftalik/oylik (BOSQICH 14k+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -702,7 +703,7 @@ async def get_salon_services(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Xizmat tahlili вЂ” qaysi xizmat ko'p bronlanadi, tushum (BOSQICH 14l+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -754,7 +755,7 @@ async def get_master_report(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Usta daromad hisoboti вЂ” randevu soni, tushum, o'rtacha narx (BOSQICH 14l+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -809,7 +810,7 @@ async def get_auto_stats(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Auto servis statistikasi вЂ” status counts, tushum, davomiylik (BOSQICH 14m+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -866,7 +867,7 @@ async def get_school_stats(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Maktab/Kurs statistikasi вЂ” o'quvchilar, tushum, kunlik/oylik breakdown (BOSQICH 14n+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -936,7 +937,7 @@ async def get_dry_stats(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Kimyoviy tozalash statistikasi вЂ” status counts, tushum, kunlik (BOSQICH 14o+)"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -986,8 +987,8 @@ async def get_hotel_stats(
 ):
     """Mehmonxona statistikasi вЂ” tushum, band xonalar, dolzarblik (BOSQICH 14p+)"""
     from datetime import date as ddate
-    now = datetime.now()
-    today = ddate.today()
+    now = tenant_now()
+    today = tenant_now().date()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         start_date = today
@@ -1062,7 +1063,7 @@ async def get_abc_analysis(
 ):
     """ABC tahlil — tovarlarni foyda ulushi bo'yicha A/B/C guruhiga ajratish"""
     from sqlalchemy import func as sqlfunc
-    now = datetime.now()
+    now = tenant_now()
     if period == "week":
         start = now - timedelta(days=7)
     elif period == "month":
@@ -1176,7 +1177,7 @@ async def get_turnover_analysis(
     """Oborot tahlili — tovar qancha tez sotiladi (tez/sekin/o'lik)"""
     from models import Inventory
     from sqlalchemy import func as sqlfunc
-    now = datetime.now()
+    now = tenant_now()
     days_map = {"week": 7, "month": 30, "quarter": 90}
     days = days_map[period]
     start = now - timedelta(days=days)
@@ -1237,7 +1238,7 @@ async def get_peak_hours(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Peak soatlar va kunlar — qaysi vaqtda ko'p savdo bo'ladi"""
-    now = datetime.now()
+    now = tenant_now()
     if period == "week":
         start = now - timedelta(days=7)
     elif period == "month":
@@ -1294,7 +1295,7 @@ async def get_store_dashboard(
     """Magazin egasi uchun umumiy dashboard — barcha ko'rsatkichlar bir joyda"""
     from models import Inventory, ProductReorderSetting, PurchaseReceipt
     from sqlalchemy import func as sqlfunc
-    now = datetime.now()
+    now = tenant_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     month_start = now - timedelta(days=30)
 

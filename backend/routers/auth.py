@@ -13,6 +13,7 @@ from core.security import (
     verify_refresh_token
 )
 from core.exceptions import InvalidCredentialsError, UserNotFoundError
+from core.password_policy import validate_password
 from core.feature_flags import resolve_enabled_features
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 from services.auth_service import AuthService
@@ -54,10 +55,8 @@ async def register(
     from utils.helpers import normalize_phone
     auth_service = AuthService(db)
 
-    # Parol — minimal uzunlik (change-password bilan bir xil qoida)
-    if not user_data.password or len(user_data.password) < 6:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Parol kamida 6 belgidan iborat bo'lishi kerak")
+    # Parol siyosati (8+ belgi, harf+raqam, zaif emas). FAQAT yaratishда — login'da emas.
+    validate_password(user_data.password)
 
     # Telefon — asosiy login kaliti: majburiy + unikal
     norm_phone = normalize_phone(user_data.phone)
@@ -277,12 +276,8 @@ async def change_password(
             detail="Eski parol noto'g'ri"
         )
     
-    if len(new_password) < 6:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Yangi parol kamida 6 belgidan iborat bo'lishi kerak"
-        )
-    
+    validate_password(new_password)   # parol siyosati (yangi parolga)
+
     current_user.hashed_password = get_password_hash(new_password)
     db.commit()
     

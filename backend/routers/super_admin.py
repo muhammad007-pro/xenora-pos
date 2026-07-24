@@ -17,6 +17,7 @@ from core.subscription import VALID_PLANS, get_plan_info, subscription_state
 from config import settings
 from core.feature_flags import BusinessType, Feature, resolve_enabled_features, get_default_features
 from core.security import get_password_hash
+from core.password_policy import validate_password
 
 # ── FUNKSIYA META — uzbekcha nom, ikonka, qaysi biznes turiga default ──────────
 FEATURE_META: dict[str, dict] = {
@@ -370,6 +371,8 @@ async def create_tenant(
     # redirect uni POS'ga yuboradi (tenant izolyatsiyaga ta'sir yo'q — rol global).
     admin_role = db.query(Role).filter(Role.name == "admin").first()
 
+    if admin_password:
+        validate_password(admin_password)   # superadmin kiritgan parolga siyosat (avto emas)
     password = admin_password or _random_password()
     admin_user = User(
         username=admin_username,
@@ -531,12 +534,11 @@ async def update_tenant_admin(
 
     new_pw = None
     if body.password:
+        validate_password(body.password)   # kiritilgan parolga siyosat
         new_pw = body.password
     elif body.reset_password:
-        new_pw = _random_password()
+        new_pw = _random_password()        # avto-generatsiya — kuchli, tekshiruv shart emas
     if new_pw is not None:
-        if len(new_pw) < 6:
-            raise HTTPException(400, "Parol kamida 6 belgidan iborat bo'lishi kerak")
         admin.hashed_password = get_password_hash(new_pw)
 
     admin.updated_at = datetime.now()

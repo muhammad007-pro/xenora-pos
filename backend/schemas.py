@@ -431,6 +431,8 @@ class PaymentCreate(BaseModel):
     method: str
     reference: Optional[str] = None
     cash_received: Optional[float] = None
+    # Sodiqlik: shu to'lovда ishlatiladigan ball (ixtiyoriy). SERVER qayta tekshiradi.
+    redeem_points: Optional[int] = 0
 
 class PaymentInDB(BaseModel):
     id: int
@@ -442,6 +444,10 @@ class PaymentInDB(BaseModel):
     transaction_id: Optional[str] = None
     reference: Optional[str] = None
     created_at: datetime
+    # Sodiqlik natijasi (chek uchun) — transient, faqat javobда to'ldiriladi
+    earned_points: Optional[int] = None
+    redeemed_points: Optional[int] = None
+    customer_points: Optional[int] = None
 
     class Config:
         from_attributes = True

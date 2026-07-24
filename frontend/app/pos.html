@@ -909,6 +909,15 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
         <span>Qaytim:</span>
         <span id="changeAmt">0 UZS</span>
       </div>
+      <!-- Sodiqlik ballari (loyalty redeem) — faqat mijoz tanlangan + yoqilgan bo'lsa -->
+      <div id="loyaltyPaySection" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.08)">
+        <div class="cash-label">Sodiqlik ballari — <span id="loyBal" style="color:var(--gold)">0</span> ball mavjud</div>
+        <div style="display:flex;align-items:center;gap:.5rem;margin-top:.375rem">
+          <input type="text" inputmode="numeric" id="redeemInput" placeholder="0 ball ishlatish" autocomplete="off" style="flex:1;background:var(--bg3);border:1px solid rgba(255,255,255,.08);border-radius:.5rem;padding:.4rem .75rem;color:var(--text);outline:none;font-family:inherit">
+          <button class="cash-preset" id="redeemMaxBtn" type="button">Max</button>
+        </div>
+        <div style="font-size:.75rem;color:var(--text3);margin-top:.3rem">Ball chegirmasi: <span id="redeemAmtDisp" style="color:var(--gold)">0 UZS</span></div>
+      </div>
       <!-- Tips (choy puli) -->
       <div id="tipsSection" style="margin-top:.875rem;padding-top:.875rem;border-top:1px solid rgba(255,255,255,.08)">
         <div class="cash-label">Choy puli (tips)</div>

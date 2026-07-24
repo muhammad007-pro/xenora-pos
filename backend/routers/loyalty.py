@@ -12,11 +12,48 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime
 
+from pydantic import BaseModel
+
 from database import get_db
 from models import Customer, Order, Payment, User
-from deps import get_current_active_user, apply_tenant_filter, has_permission
+from deps import get_current_active_user, apply_tenant_filter, has_permission, resolve_tenant_id
+from core.loyalty_config import get_loyalty_config, DEFAULTS, CONFIG_NAME
+from core.tenant_config import set_tenant_config
 
 router = APIRouter()
+
+
+class LoyaltySettingsBody(BaseModel):
+    enabled:            Optional[bool]  = None
+    earn_rate:          Optional[int]   = None
+    redeem_value:       Optional[float] = None
+    min_redeem_points:  Optional[int]   = None
+    max_redeem_percent: Optional[float] = None
+
+
+@router.get("/settings")
+async def get_loyalty_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Joriy tenant sodiqlik sozlamalari (default bilan). POS ham shundan o'qiydi."""
+    return get_loyalty_config(db, resolve_tenant_id(db, current_user))
+
+
+@router.patch("/settings")
+async def update_loyalty_settings(
+    body: LoyaltySettingsBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_settings")),
+):
+    """Sodiqlik sozlamalarini yangilash (tenant-scoped, TenantSettings). Faqat sozlama huquqli."""
+    tid = current_user.tenant_id
+    if not tid:
+        raise HTTPException(status_code=400, detail="Bu amal uchun tenant kerak")
+    cfg = get_loyalty_config(db, tid)
+    cfg.update(body.model_dump(exclude_none=True))
+    set_tenant_config(db, tid, CONFIG_NAME, {k: cfg[k] for k in DEFAULTS})
+    return get_loyalty_config(db, tid)   # normallashtirilgan qiymatlarni qaytaradi
 
 POINTS_PER_AMOUNT = 1000    # har shu UZS da 1 ball
 POINT_VALUE       = 10      # 1 ball necha UZS

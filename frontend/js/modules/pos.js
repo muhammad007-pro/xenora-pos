@@ -7,7 +7,7 @@ import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
-import { printReceiptHTML, buildReceipt58 } from '../core/receipt-print.js';
+import { printReceiptHTML, buildReceipt58, loyaltyRows } from '../core/receipt-print.js';
 
 const api = new API();
 
@@ -1647,6 +1647,7 @@ function renderReceiptData(rec) {
       ${(rec.service_amount||t.service)>0?`<div class="rt-row"><span>Xizmat (10%):</span><span>${fmtNum(rec.service_amount||t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(rec.final_amount||t.total)} UZS</span></div>
       <div class="rt-row"><span>To'lov:</span><span>${payMethod === 'room_charge' ? `🏨 Xona #${state.table?.number||'?'}` : payMethod.toUpperCase()}</span></div>
+      ${loyaltyRows(rec)}
       ${MODE.isHotel    && state.table   ? `<div class="rt-row" style="margin-top:.375rem"><span>Xona:</span><span>#${state.table.number}</span></div>` : ''}
       ${MODE.isHotel    && state.customer ? `<div class="rt-row"><span>Mehmon:</span><span>${state.customer.name}</span></div>` : ''}
       ${MODE.isPharmacy && state.rxInfo ? `<div class="rt-row" style="margin-top:.375rem"><span>Bemor:</span><span>${state.rxInfo.patient_name}</span></div>` : ''}

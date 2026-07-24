@@ -331,6 +331,27 @@ async def get_order_receipt(
     rs = db.query(ReceiptSettings).filter(ReceiptSettings.tenant_id == tid).first()
     qr_on = bool(rs and rs.qr_enabled)
 
+    # ── Sodiqlik (loyalty) bloki — FAQAT mijoz tanlangan + shu order'da ball harakati bo'lsa.
+    # Manba: LoyaltyTransaction (reprint'да ham to'g'ri). Walk-in / ballsiz → None (chekda chiqmaydi).
+    loyalty = None
+    if order.customer_id:
+        from models import LoyaltyTransaction, Customer
+        ltx = db.query(LoyaltyTransaction).filter(
+            LoyaltyTransaction.order_id == order.id,
+            LoyaltyTransaction.type.in_(("earn", "redeem"))).all()
+        earned   = sum(t.points for t in ltx if t.type == "earn")
+        redeemed = sum(-t.points for t in ltx if t.type == "redeem")
+        if earned or redeemed:
+            from core.loyalty_config import get_loyalty_config
+            _lc = get_loyalty_config(db, tid)
+            cust = db.query(Customer).filter(Customer.id == order.customer_id).first()
+            loyalty = {
+                "earned":          earned,
+                "redeemed":        redeemed,
+                "redeemed_amount": round(redeemed * _lc["redeem_value"], 2),
+                "balance":         (cust.points if cust else None),
+            }
+
     return {
         "receipt_number": order.order_number,
         "date": order.created_at.strftime("%d.%m.%Y %H:%M"),
@@ -377,6 +398,7 @@ async def get_order_receipt(
         "tax_amount":      order.tax_amount,
         "service_amount":  order.service_charge or 0,
         "final_amount":    order.final_amount,
+        "loyalty":         loyalty,
     }
 
 

@@ -45,7 +45,7 @@ async def list_suppliers(
 async def create_supplier(
     data: SupplierCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     s = Supplier(tenant_id=resolve_tenant_id(db, current_user), **data.model_dump())
     db.add(s)
@@ -124,7 +124,7 @@ async def update_supplier(
     supplier_id: int,
     data: SupplierUpdate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     s = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
           .filter(Supplier.id == supplier_id).first()
@@ -141,7 +141,7 @@ async def update_supplier(
 async def delete_supplier(
     supplier_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     s = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
           .filter(Supplier.id == supplier_id).first()

@@ -15,7 +15,7 @@ from schemas import (
     ProductMarkCreate, ProductMarkInDB, MarkScanRequest,
     PaginatedResponse, MessageResponse,
 )
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("markirovka"))])
@@ -54,7 +54,7 @@ async def list_marks(
 async def create_mark(
     data: ProductMarkCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Yangi markirovka kodi ro'yxatdan o'tkazish"""
     existing = db.query(ProductMark).filter(ProductMark.mark_code == data.mark_code).first()
@@ -85,7 +85,7 @@ async def bulk_create(
     mark_type:  str = "datamatrix",
     batch_id:   Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Ko'p kod bir vaqtda ro'yxatdan o'tkazish"""
     tid = resolve_tenant_id(db, current_user)
@@ -138,7 +138,7 @@ async def verify_mark(
 async def scan_mark(
     data: MarkScanRequest,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("process_payments")),
 ):
     """POS'da sotish paytida kod skanerlash — status=sold bo'ladi"""
     m = apply_tenant_filter(db.query(ProductMark), ProductMark, current_user) \
@@ -167,7 +167,7 @@ async def scan_mark(
 async def return_mark(
     mark_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Mahsulot qaytarilganda kod statusini returned ga o'tkazish"""
     m = apply_tenant_filter(db.query(ProductMark), ProductMark, current_user) \
@@ -184,7 +184,7 @@ async def return_mark(
 async def delete_mark(
     mark_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     m = apply_tenant_filter(db.query(ProductMark), ProductMark, current_user) \
             .filter(ProductMark.id == mark_id).first()

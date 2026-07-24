@@ -16,7 +16,7 @@ from schemas import (
     PaginatedResponse, MessageResponse, ExpiryReportItem,
 )
 from deps import (
-    get_current_active_user, apply_tenant_filter, resolve_tenant_id,
+    get_current_active_user, apply_tenant_filter, resolve_tenant_id, has_permission,
 )
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
@@ -65,7 +65,7 @@ async def list_batches(
 async def create_batch(
     data: ProductBatchCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     tenant_id = resolve_tenant_id(db, current_user)
 
@@ -155,7 +155,7 @@ async def update_batch(
     batch_id: int,
     data: ProductBatchUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     batch = _get_batch(db, batch_id, current_user)
     for field, value in data.model_dump(exclude_unset=True).items():
@@ -169,7 +169,7 @@ async def update_batch(
 async def delete_batch(
     batch_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     batch = _get_batch(db, batch_id, current_user)
     batch.is_active = False
@@ -180,7 +180,7 @@ async def delete_batch(
 @router.post("/check-and-disable-expired")
 async def disable_expired_batches(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Muddati tugagan partiyalarni avtomatik o'chiradi (cron yoki qo'lda)"""
     today = date.today()

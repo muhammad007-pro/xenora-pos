@@ -14,7 +14,7 @@ from schemas import (
     MarkupPolicyCreate, MarkupPolicyUpdate, MarkupPolicyInDB,
     MarkupApplyRequest, PaginatedResponse, MessageResponse,
 )
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("markup_policy"))])
@@ -50,7 +50,7 @@ async def list_policies(
 async def create_policy(
     data: MarkupPolicyCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_products")),
 ):
     mp = MarkupPolicy(
         tenant_id   = resolve_tenant_id(db, current_user),
@@ -72,7 +72,7 @@ async def update_policy(
     policy_id: int,
     data: MarkupPolicyUpdate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_products")),
 ):
     mp = apply_tenant_filter(db.query(MarkupPolicy), MarkupPolicy, current_user) \
              .filter(MarkupPolicy.id == policy_id).first()
@@ -88,7 +88,7 @@ async def update_policy(
 async def delete_policy(
     policy_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_products")),
 ):
     mp = apply_tenant_filter(db.query(MarkupPolicy), MarkupPolicy, current_user) \
              .filter(MarkupPolicy.id == policy_id).first()
@@ -102,7 +102,7 @@ async def delete_policy(
 async def apply_markup(
     data: MarkupApplyRequest,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_products")),
 ):
     """
     Naценka siyosatini mahsulotlarga qo'llash:

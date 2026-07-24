@@ -15,7 +15,7 @@ from schemas import (
     InternalTransferCreate, InternalTransferInDB, InternalTransferItemInDB,
     PaginatedResponse, MessageResponse,
 )
-from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
+from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("internal_transfer"))])
@@ -64,7 +64,7 @@ async def list_transfers(
 async def create_transfer(
     data: InternalTransferCreate,
     db:   Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     if not data.items:
         raise HTTPException(status_code=400, detail="Kamida 1 ta tovar kiritilsin")
@@ -110,7 +110,7 @@ async def get_transfer(
 async def confirm_transfer(
     transfer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Ko'chirmani tasdiqlash: from_branch → to_branch inventory yangilanadi"""
     tr = apply_tenant_filter(db.query(InternalTransfer), InternalTransfer, current_user) \
@@ -165,7 +165,7 @@ async def confirm_transfer(
 async def delete_transfer(
     transfer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(has_permission("manage_inventory")),
 ):
     tr = apply_tenant_filter(db.query(InternalTransfer), InternalTransfer, current_user) \
              .filter(InternalTransfer.id == transfer_id).first()

@@ -138,6 +138,11 @@ def resolve_tenant_id(db: Session, current_user: User) -> Optional[int]:
       (aks holda NULL qoladi, chunki qaysi kafega tegishli ekani noma'lum —
       multi-kafe platformada yozuvlarni kafe admini yaratishi kerak).
     """
+    # ILDIZ HIMOYA: current_user None bo'lsa (autentifikatsiyasiz/muddati o'tgan token —
+    # get_current_user None qaytaradi) crash bo'lmasin. Tenant yo'q → None. Endpointlar
+    # baribir auth talab qilishi kerak (401), bu — ikkinchi qatlam himoya.
+    if current_user is None:
+        return None
     if current_user.tenant_id is not None:
         return current_user.tenant_id
     from models import Cafe

@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from database import get_db
 from models import User
-from deps import get_current_user, has_permission, resolve_tenant_id
+from deps import get_current_user, has_permission, resolve_tenant_id, get_current_active_user
 from schemas import MessageResponse
 from core.tenant_config import get_tenant_config, set_tenant_config
 
@@ -50,7 +50,7 @@ async def test_printer(
 @router.get("/printer/status")
 async def printer_status(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),   # auth majburiy → token'siz toza 401 (500 emas)
 ):
     """POS uchun yengil printer holati (kassir ham o'qiy oladi — to'liq sozlama emas).
 

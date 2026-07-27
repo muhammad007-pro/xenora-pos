@@ -8,7 +8,7 @@ from models import Cafe, Employee, User
 from schemas import MessageResponse
 from deps import (
     get_current_user, has_permission, get_current_superuser,
-    get_current_active_user_no_sub,
+    get_current_active_user_no_sub, get_current_active_user,
 )
 from core.feature_flags import (
     BusinessType, Feature, resolve_enabled_features,
@@ -249,7 +249,7 @@ async def get_cafes(
 @router.get("/all")
 async def get_all_cafes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)   # auth majburiy → None-crash yo'q, 401
 ):
     """Kafelar ro'yxati. Super-admin — barchasi; oddiy tenant — faqat o'z kafesi
     (tenant izolyatsiya: boshqa tenantlar ko'rinmaydi)."""
@@ -316,7 +316,7 @@ async def create_cafe(
 async def get_cafe(
     cafe_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)   # auth majburiy → None-crash yo'q, 401
 ):
     """Kafe ma'lumotlarini olish. Tenant izolyatsiya: oddiy user faqat o'z kafesini
     ko'ra oladi; boshqa tenant so'ralsa 403 (super-admin bypass)."""

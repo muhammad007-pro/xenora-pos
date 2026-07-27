@@ -7,6 +7,7 @@ from models import User, Role, Cafe
 from schemas import UserCreate, UserUpdate, UserInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, has_permission, get_current_active_user, apply_tenant_filter
 from core.security import get_password_hash, hash_pin
+from core.password_policy import validate_password, validate_pin
 from core.subscription import get_plan_limits, is_within_user_limit
 
 router = APIRouter()
@@ -119,12 +120,17 @@ async def create_user(
                            f"Tarifni yangilang: /api/v1/cafes/{cafe.id}/subscription/upgrade"
                 )
 
-    if user_data.pin and (not user_data.pin.isdigit() or len(user_data.pin) != 4):
-        raise HTTPException(status_code=400, detail="PIN 4 xonali raqam bo'lishi kerak")
+    if user_data.pin:
+        validate_pin(user_data.pin)   # PIN siyosati (4–6, takroriy/ketma-ket emas)
 
     # ISM + PIN yetarli: telefon/parol berilmasa — kamida bittasi (parol yoki PIN) bo'lishi shart.
     if not user_data.password and not user_data.pin:
         raise HTTPException(status_code=400, detail="Parol yoki PIN kod kiritilishi shart")
+
+    # Parol berilgan bo'lsa — siyosat (8+, harf+raqam, zaif emas). Berilmasa (faqat PIN
+    # bilan kiruvchi xodim) — pastda tasodifiy kuchli parol qo'yiladi, tekshiruv shart emas.
+    if user_data.password:
+        validate_password(user_data.password)
 
     # Telefon berilmagan bo'lsa — sintetik unikal placeholder (phone NOT NULL + unique cheklovi uchun).
     # Bu login kaliti EMAS; xodim access_code + PIN bilan kiradi. Ko'rinishда "-" sifatida chiqadi.
@@ -198,9 +204,11 @@ async def update_user(
         if clash:
             raise HTTPException(status_code=400, detail="Bu username shu do'konda band")
 
-    # Parol alohida yangilanadi
+    # Parol alohida yangilanadi (siyosat bilan)
     if "password" in update_data:
-        user.hashed_password = get_password_hash(update_data.pop("password"))
+        new_pw = update_data.pop("password")
+        validate_password(new_pw)
+        user.hashed_password = get_password_hash(new_pw)
 
     # PIN alohida yangilanadi
     if "pin" in update_data:
@@ -208,8 +216,7 @@ async def update_user(
         if pin is None or pin == "":
             user.hashed_pin = None
         else:
-            if not pin.isdigit() or len(pin) != 4:
-                raise HTTPException(status_code=400, detail="PIN 4 xonali raqam bo'lishi kerak")
+            validate_pin(pin)   # PIN siyosati (4–6, takroriy/ketma-ket emas)
             user.hashed_pin = hash_pin(pin)
 
     # Telefon o'zgarsa — normalize + unikallik (BOSQICH 38)
@@ -321,7 +328,8 @@ async def reset_user_password(
     user = apply_tenant_filter(db.query(User), User, current_user).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
-    
+
+    validate_password(new_password)   # tiklangan parol ham siyosatga bo'ysunadi
     user.hashed_password = get_password_hash(new_password)
     db.commit()
     

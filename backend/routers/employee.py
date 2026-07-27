@@ -8,6 +8,7 @@ from models import User, Shift, Employee, Cafe
 from schemas import UserInDB, ShiftInDB, PaginatedResponse, MessageResponse
 from deps import get_current_user, has_permission, apply_tenant_filter, resolve_tenant_id
 from core.security import hash_pin, verify_pin
+from core.password_policy import validate_pin
 
 router = APIRouter()
 
@@ -208,6 +209,7 @@ async def create_employee(
     # PIN kod band emasligini tekshirish (shu tenant ichida) — hash bilan
     hashed = None
     if pin_code:
+        validate_pin(pin_code)   # davomat PIN siyosati (4–6, takroriy/ketma-ket emas)
         hashed = hash_pin(pin_code)
         existing = db.query(Employee).filter(
             Employee.hashed_pin == hashed,
@@ -270,6 +272,7 @@ async def update_employee(
     if salary_rate is not None:
         employee.salary_rate = salary_rate
     if pin_code:
+        validate_pin(pin_code)   # davomat PIN siyosati (4–6, takroriy/ketma-ket emas)
         # PIN kod band emasligini tekshirish (shu tenant ichida) — hash bilan
         hashed = hash_pin(pin_code)
         existing = db.query(Employee).filter(

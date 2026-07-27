@@ -24,7 +24,10 @@ class AuthService:
         magazin kassiri boshqa magazin PIN bazasiga tushib qolmaydi. Tenant
         ko'rsatilmasa (None) — qidiruv rad etiladi (global qidiruv yo'q).
         """
-        if not pin or len(pin) != 4 or not pin.isdigit():
+        # PIN-LOGIN: 4–6 xonali qabul qilinadi (yangi siyosat). Bu — LOGIN yo'li,
+        # shuning uchun murakkablik (ketma-ket/takroriy) tekshirilmaydi — faqat format.
+        # Eski 4-xonali PIN'lar shu oraliqda → kirishда davom etadi.
+        if not pin or not (4 <= len(pin) <= 6) or not pin.isdigit():
             return None
         if tenant_id is None:
             # Tenant izolyatsiyasi majburiy — tenantsiz global qidiruvga yo'l yo'q
@@ -67,8 +70,9 @@ class AuthService:
         """Yangi foydalanuvchi yaratish"""
         pin_hash = None
         if user_data.pin:
-            if len(user_data.pin) == 4 and user_data.pin.isdigit():
-                pin_hash = hash_pin(user_data.pin)
+            from core.password_policy import validate_pin
+            validate_pin(user_data.pin)   # yangi PIN siyosati (4–6, takroriy/ketma-ket emas)
+            pin_hash = hash_pin(user_data.pin)
         user = User(
             username=user_data.username,
             email=user_data.email,

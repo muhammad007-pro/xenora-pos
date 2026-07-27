@@ -17,6 +17,35 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _lock_order_inventory(db: Session, order, tenant_id: Optional[int]) -> None:
+    """DEADLOCK OLDINI OLISH — buyurtma tegadigan BARCHA Inventory qatorlarini
+    OLDINDAN va BARQAROR tartibda (Inventory.id o'sish bo'yicha) qulflaydi.
+
+    NEGA: endi bitta sotuv bitta tranzaksiyada bir nechta Inventory qatorini qulflaydi.
+    Agar ikki parallel sotuv umumiy mahsulotlarni HAR XIL tartibda qulflasa — deadlock.
+    Hamma tranzaksiya qatorlarni bir xil tartibda (id) qulflasa — deadlock IMKONSIZ.
+    Retseptli mahsulot → ingredient qatorlari; retseptsiz → mahsulotning o'zi.
+    Bu yerda faqat QULF olinadi; miqdor per-item funksiyalarda ayiriladi (qator allaqachon
+    shu tranzaksiyada ushlangani uchun ulardagi with_for_update no-op bo'ladi)."""
+    from models import Recipe, Inventory
+    prod_ids = set()
+    for item in order.items:
+        recipe = db.query(Recipe).filter(Recipe.product_id == item.product_id).first()
+        if recipe:
+            for ri in recipe.items:
+                if ri.ingredient_id:
+                    prod_ids.add(ri.ingredient_id)
+        else:
+            prod_ids.add(item.product_id)
+    if not prod_ids:
+        return
+    q = db.query(Inventory).filter(Inventory.product_id.in_(prod_ids))
+    if tenant_id:
+        q = q.filter(Inventory.tenant_id == tenant_id)
+    # BARQAROR TARTIB: id o'sish bo'yicha FOR UPDATE — qulflar shu tartibda olinadi.
+    q.order_by(Inventory.id).with_for_update().all()
+
+
 def deduct_recipe_ingredients(
     db: Session,
     product_id: int,
@@ -24,10 +53,12 @@ def deduct_recipe_ingredients(
     tenant_id: Optional[int] = None,
     order_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    commit: bool = True,
 ) -> dict:
     """
     Bitta order item uchun retsept ingredientlarini inventardan kamaytirish.
     yield_pct bo'lsa — xom miqdor (raw_qty) ishlatiladi, farq WasteLog ga yoziladi.
+    commit=False → COMMIT chaqiruvchida (atomik sotuv); xato yuqoriga uzatiladi.
     Qaytaradi: { "success": bool, "deducted": [...], "warnings": [...] }
     """
     from models import Recipe, RecipeItem, Inventory, WasteLog
@@ -39,7 +70,7 @@ def deduct_recipe_ingredients(
     if not recipe:
         # Retsept yo'q → mahsulotning O'ZI ombor birligi (magazin/dorixona/chakana).
         # Sotilgan miqdor to'g'ridan mahsulot omboridan ayiriladi (sotuv = chiqim).
-        return _deduct_product_directly(db, product_id, quantity, tenant_id, order_id, user_id)
+        return _deduct_product_directly(db, product_id, quantity, tenant_id, order_id, user_id, commit=commit)
 
     deducted = []
     warnings = []
@@ -118,12 +149,13 @@ def deduct_recipe_ingredients(
                 "reason": f"Kam qoldi: {inventory.quantity} {inventory.unit}",
             })
 
-    try:
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Recipe deduction commit error: {e}")
-        return {"success": False, "deducted": [], "warnings": [str(e)]}
+    if commit:
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Recipe deduction commit error: {e}")
+            return {"success": False, "deducted": [], "warnings": [str(e)]}
 
     return {
         "success": True,
@@ -139,6 +171,7 @@ def _deduct_product_directly(
     tenant_id: Optional[int] = None,
     order_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    commit: bool = True,
 ) -> dict:
     """Retseptsiz mahsulot (chakana tovar) omboridan to'g'ridan chiqim.
 
@@ -193,12 +226,13 @@ def _deduct_product_directly(
             "reason": f"Kam qoldi: {inventory.quantity} {inventory.unit}",
         })
 
-    try:
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Direct product deduction commit error: {e}")
-        return {"success": False, "deducted": [], "warnings": [str(e)]}
+    if commit:
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Direct product deduction commit error: {e}")
+            return {"success": False, "deducted": [], "warnings": [str(e)]}
 
     return {
         "success": True,
@@ -212,13 +246,23 @@ def deduct_order_ingredients(
     order_id: int,
     tenant_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    commit: bool = True,
 ) -> list:
-    """Butun buyurtma uchun barcha retsept ingredientlarini kamaytirish"""
+    """Butun buyurtma uchun barcha retsept ingredientlarini kamaytirish.
+
+    commit=True (default) — bir marta yakunda commit (kitchen/eski chaqiruvchilar).
+    commit=False — COMMIT chaqiruvchida (payment.py atomik sotuv: to'lov+order+ombor
+    bitta tranzaksiya). Per-item funksiyalar HAM commit=False bilan chaqiriladi.
+    """
     from models import Order
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return []
+
+    # DEADLOCK OLDINI OLISH: barcha kerakli Inventory qatorlarини oldindan, barqaror
+    # tartibda (id) qulflaymiz (bir tranzaksiyada ko'p qator qulflansa ham xavfsiz).
+    _lock_order_inventory(db, order, tenant_id)
 
     results = []
     for item in order.items:
@@ -232,10 +276,14 @@ def deduct_order_ingredients(
             tenant_id=tenant_id,
             order_id=order_id,
             user_id=user_id,
+            commit=False,           # commit — pastda bir marta (yoki chaqiruvchida)
         )
         result["product_id"] = item.product_id
         result["quantity"]   = item.quantity
         results.append(result)
+
+    if commit:
+        db.commit()
 
     return results
 
@@ -254,11 +302,13 @@ def restore_recipe_ingredients(
     tenant_id: Optional[int] = None,
     order_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    commit: bool = True,
 ) -> dict:
     """Bitta order item uchun retsept ingredientlarini omborga QAYTARISH.
 
     deduct_recipe_ingredients bilan bir xil miqdor hisobi (yield_pct → raw_qty),
     lekin quantity ni ayirmasdan qo'shadi. Retseptsiz mahsulot bo'lsa — o'zini tiklaydi.
+    commit=False → COMMIT chaqiruvchida (atomik refund).
     """
     from models import Recipe, Inventory, StockMovement
 
@@ -267,7 +317,7 @@ def restore_recipe_ingredients(
     ).first()
 
     if not recipe:
-        return _restore_product_directly(db, product_id, quantity, tenant_id, order_id, user_id)
+        return _restore_product_directly(db, product_id, quantity, tenant_id, order_id, user_id, commit=commit)
 
     restored = []
     for item in recipe.items:
@@ -312,12 +362,13 @@ def restore_recipe_ingredients(
             "remaining": inventory.quantity,
         })
 
-    try:
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Recipe restore commit error: {e}")
-        return {"success": False, "restored": [], "warnings": [str(e)]}
+    if commit:
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Recipe restore commit error: {e}")
+            return {"success": False, "restored": [], "warnings": [str(e)]}
 
     return {"success": True, "restored": restored, "warnings": []}
 
@@ -329,6 +380,7 @@ def _restore_product_directly(
     tenant_id: Optional[int] = None,
     order_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    commit: bool = True,
 ) -> dict:
     """Retseptsiz mahsulot (chakana tovar) omboriga to'g'ridan QAYTARISH.
 
@@ -363,12 +415,13 @@ def _restore_product_directly(
         user_id=user_id,
     ))
 
-    try:
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Direct product restore commit error: {e}")
-        return {"success": False, "restored": [], "warnings": [str(e)]}
+    if commit:
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Direct product restore commit error: {e}")
+            return {"success": False, "restored": [], "warnings": [str(e)]}
 
     return {
         "success": True,
@@ -382,18 +435,25 @@ def restore_order_ingredients(
     order_id: int,
     tenant_id: Optional[int] = None,
     user_id: Optional[int] = None,
+    commit: bool = True,
 ) -> list:
     """Butun buyurtma uchun sotuvda kamaygan omborni QAYTARISH (refund).
 
     deduct_order_ingredients ning teskarisi. Idempotentlik chaqiruvchida
     (Order.ingredients_restored flag) nazorat qilinishi SHART — bu funksiya
     o'zi ikki marta chaqirilsa ombor ikki marta oshadi.
+    commit=False → COMMIT chaqiruvchida (atomik refund). Deadlock uchun deduct bilan
+    AYNAN bir xil barqaror tartibда (Inventory.id) qulflaydi.
     """
     from models import Order
 
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return []
+
+    # DEADLOCK OLDINI OLISH: deduct bilan bir xil barqaror tartib (id) — refund ham
+    # sotuv bilan bir xil qulf tartibini ishlatadi.
+    _lock_order_inventory(db, order, tenant_id)
 
     results = []
     for item in order.items:
@@ -406,9 +466,13 @@ def restore_order_ingredients(
             tenant_id=tenant_id,
             order_id=order_id,
             user_id=user_id,
+            commit=False,
         )
         result["product_id"] = item.product_id
         result["quantity"]   = item.quantity
         results.append(result)
+
+    if commit:
+        db.commit()
 
     return results

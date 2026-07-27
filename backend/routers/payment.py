@@ -1,5 +1,6 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import Optional
 from datetime import datetime
 import logging
@@ -115,47 +116,63 @@ async def create_payment(
     if not order:
         raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
 
-    # To'lovni qayta ishlash
-    payment = payment_service.process_payment(
-        order=order,
-        amount=payment_data.amount,
-        method=payment_data.method,
-        cashier_id=current_user.id,
-        reference=payment_data.reference
-    )
-    # BOSQICH 1.5: to'lov yaratuvchi tenant'iga biriktiriladi
-    payment.tenant_id = resolve_tenant_id(db, current_user)
-    db.commit()
-    db.refresh(payment)
-
-    # Agar to'liq to'langan bo'lsa, buyurtmani yakunlash
-    total_paid = sum(p.amount for p in order.payments if p.status == "paid")
+    tenant_id = resolve_tenant_id(db, current_user)
     order_completed = False
-    if total_paid >= order.final_amount:
-        order.status = "completed"
-        order.completed_at = datetime.now()
-        if order.table:
-            order.table.status = "free"
-        db.commit()
-        order_completed = True
 
-        # ── Ombor chiqimi (sotuv = chiqim) — idempotent ──────────────────────────
-        # Retseptli mahsulot → ingredientlar; retseptsiz (chakana tovar) → o'zi kamayadi.
-        # `ingredients_deducted` guard: restoran kitchen-ready'da allaqachon chiqargan
-        # bo'lsa qayta ayirmaydi; magazin sotuvida shu yerda birinchi marta ayiriladi.
-        if not order.ingredients_deducted:
-            try:
+    # ── ATOMIK SOTUV ─────────────────────────────────────────────────────────
+    # To'lov + order.status + ombor chiqimi + StockMovement + ingredients_deducted —
+    # HAMMASI BITTA TRANZAKSIYA, BITTA commit. Xato bo'lsa BUTUN sotuv rollback
+    # (to'lov ham yozilmaydi) → yarim holat / ombor drifti bo'lmaydi.
+    try:
+        payment = payment_service.process_payment(
+            order=order,
+            amount=payment_data.amount,
+            method=payment_data.method,
+            cashier_id=current_user.id,
+            reference=payment_data.reference,
+            commit=False,                       # commit — pastda, bir marta
+        )
+        # BOSQICH 1.5: to'lov yaratuvchi tenant'iga biriktiriladi
+        payment.tenant_id = tenant_id
+        db.flush()                              # payment INSERT → total_paid so'rovi ko'radi
+
+        # To'liq to'langanmi? (flush qilingan joriy to'lovni ham hisoblaydi — order.payments
+        # relationship keshiga bog'liq emas, DB'dan aniq sum).
+        total_paid = db.query(func.coalesce(func.sum(Payment.amount), 0.0)).filter(
+            Payment.order_id == order.id, Payment.status == "paid"
+        ).scalar() or 0.0
+
+        if total_paid >= order.final_amount:
+            order_completed = True
+            # TOCTOU: Order qatorini QULFLAB, ingredients_deducted ni DB'dan YANGI o'qiymiz.
+            # Ikki qurilma bir vaqtda split-payment yakunlasa — biri qulfda kutadi, ombor
+            # FAQAT BIR MARTA ayiriladi (flag qulf ostida tekshiriladi).
+            db.refresh(order, with_for_update=True)
+            if order.status != "completed":
+                order.status = "completed"
+                order.completed_at = datetime.now()
+                if order.table:
+                    order.table.status = "free"
+            # Ombor chiqimi (sotuv = chiqim). Retseptli → ingredientlar; retseptsiz → o'zi.
+            # kitchen-ready'da allaqachon chiqargan bo'lsa (ingredients_deducted) — qayta ayirmaydi.
+            if not order.ingredients_deducted:
                 from services.recipe_inventory_service import deduct_order_ingredients
                 deduct_order_ingredients(
-                    db, order.id,
-                    tenant_id=resolve_tenant_id(db, current_user),
-                    user_id=current_user.id,
+                    db, order.id, tenant_id=tenant_id, user_id=current_user.id, commit=False,
                 )
                 order.ingredients_deducted = True
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                log.warning("[INVENTORY] order=%s chiqim xatosi: %s", order.id, exc)
+
+        db.commit()                             # ← YAGONA commit (butun sotuv atomik)
+        db.refresh(payment)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        log.error("[SALE] order=%s sotuv rollback (hech narsa yozilmadi): %s",
+                  payment_data.order_id, exc)
+        raise HTTPException(status_code=500,
+                            detail="Sotuvni saqlashda xatolik — hech narsa yozilmadi, qayta urinib ko'ring")
 
     # ── OFD Fiskal integratsiya ───────────────────────────────────────────────
     if order_completed:
@@ -241,43 +258,51 @@ async def refund_payment(
     if refund_amount > payment.amount:
         raise HTTPException(status_code=400, detail="Qaytarish summasi to'lov summasidan ko'p bo'lishi mumkin emas")
     
-    success = payment_service.refund_payment(payment, refund_amount, reason)
+    # ── ATOMIK REFUND ────────────────────────────────────────────────────────
+    # Refund yozuvi + order.status + ombor TIKLASH — bitta tranzaksiya, bitta commit.
+    # Xato bo'lsa BUTUN qaytarish rollback (pul ham tiklanmaydi) → yarim holat yo'q.
+    try:
+        # commit=False → xato yuqoriga uzatiladi, quyidagi except rollback qiladi.
+        payment_service.refund_payment(payment, refund_amount, reason, commit=False)
 
-    if success:
-        # Buyurtma holatini yangilash
         order = payment.order
         if refund_amount == payment.amount:
             payment.status = "refunded"
+        db.flush()
 
-        # Agar barcha to'lovlar qaytarilgan bo'lsa
-        all_refunded = all(p.status == "refunded" for p in order.payments)
+        # Barcha to'lovlar qaytarilganmi? (flush qilingan yozuvlarni ham ko'radi)
+        paids = db.query(Payment).filter(Payment.order_id == order.id).all()
+        all_refunded = bool(paids) and all(p.status == "refunded" for p in paids)
+
+        do_restore = False
+        if all_refunded and order.ingredients_deducted:
+            # TOCTOU: order qatorini QULFLAB ingredients_restored ni DB'dan yangi o'qiymiz.
+            # Ikki marta (parallel) refund bir xil zaxirani IKKI MARTA qaytarib qo'ymaydi.
+            db.refresh(order, with_for_update=True)
+            if not order.ingredients_restored:
+                do_restore = True
         if all_refunded and order.status == "completed":
             order.status = "cancelled"
+        if do_restore:
+            from services.recipe_inventory_service import restore_order_ingredients
+            # deduct bilan bir xil barqaror qulf tartibi (Inventory.id) — deadlock yo'q.
+            restore_order_ingredients(
+                db, order.id, tenant_id=order.tenant_id, user_id=current_user.id, commit=False,
+            )
+            order.ingredients_restored = True
 
-        db.commit()
+        db.commit()                             # ← YAGONA commit (butun refund atomik)
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        log.error("[REFUND] payment=%s qaytarish rollback (hech narsa yozilmadi): %s",
+                  payment_id, exc)
+        raise HTTPException(status_code=500,
+                            detail="Qaytarishda xatolik — hech narsa yozilmadi, qayta urinib ko'ring")
 
-        # ── Ombor tiklash (refund = sotuv chiqimining teskarisi) ──────────────
-        # Buyurtma to'liq qaytarilganda (barcha to'lov refund) va sotuvda ombor
-        # chiqim qilingan bo'lsa (ingredients_deducted) — omborni bir marta tiklaymiz.
-        # ingredients_restored guard: ikki marta refund bir xil zaxirani ikki marta
-        # qaytarib qo'ymaydi (idempotent). StockMovement(type=return, reason=refund) izi.
-        if all_refunded and order.ingredients_deducted and not order.ingredients_restored:
-            try:
-                from services.recipe_inventory_service import restore_order_ingredients
-                restore_order_ingredients(
-                    db, order.id,
-                    tenant_id=order.tenant_id,
-                    user_id=current_user.id,
-                )
-                order.ingredients_restored = True
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                log.warning("[INVENTORY] order=%s refund tiklash xatosi: %s", order.id, exc)
-
-        return MessageResponse(message="To'lov qaytarildi")
-
-    raise HTTPException(status_code=500, detail="To'lovni qaytarishda xatolik")
+    return MessageResponse(message="To'lov qaytarildi")
 
 @router.get("/methods/summary")
 async def get_payment_methods_summary(

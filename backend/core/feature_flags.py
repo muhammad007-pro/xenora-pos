@@ -208,7 +208,10 @@ BUSINESS_FEATURE_MATRIX: dict[BusinessType, frozenset[Feature]] = {
 # Universal PRO — analitika/loyallik, HAR BIR biznesga foydali
 _UNIVERSAL_PRO: frozenset[Feature] = frozenset({
     Feature.PEAK_HOURS,       # peak soat/kun grafik
-    Feature.BONUS_CARD,       # mijoz bonus kartasi
+    # Feature.BONUS_CARD — YASHIRILDI (Tier 4): loyalty (Customer.points) POS'ga ulandi;
+    #   bonus_card alohida/dublikat tizim. Kod saqlanadi, lekin standart matritsadan
+    #   olib tashlandi → hech qaysi tenantда default ko'rinmaydi. Super-admin xohlasa
+    #   enabled_features orqali qo'lda yoqishi mumkin (keyin qurilса).
     Feature.ABC_ANALYSIS,     # ABC foyda tahlili
 })
 # Ombor/ta'minot PRO — ombori/yetkazuvchisi bor bizneslar

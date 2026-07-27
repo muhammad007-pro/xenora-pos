@@ -386,6 +386,28 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
           <button class="btn btn-gold" id="savePaymentBtn">✓ Saqlash</button>
         </div>
       </div>
+
+      <!-- SODIQLIK (loyalty) -->
+      <div class="setting-card">
+        <div class="setting-card-title">⭐ Sodiqlik dasturi (ballar)</div>
+        <div class="toggle-row">
+          <div><div class="toggle-label">Yoqilgan</div><div class="toggle-desc" style="font-size:.75rem;color:var(--text3)">Mijozlar xariddan ball yig'adi va chegirmaга ishlatadi</div></div>
+          <label class="toggle-switch"><input type="checkbox" id="loyEnabled"><span class="toggle-slider"></span></label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem">
+          <label style="font-size:.8125rem;color:var(--text2)">Har necha so'mga 1 ball
+            <input type="number" id="loyEarnRate" min="1" style="width:100%;margin-top:.25rem;padding:.45rem .6rem;background:var(--bg3,#1a1a24);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;color:inherit;font-family:inherit"></label>
+          <label style="font-size:.8125rem;color:var(--text2)">1 ball = necha so'm
+            <input type="number" id="loyRedeemValue" min="0" style="width:100%;margin-top:.25rem;padding:.45rem .6rem;background:var(--bg3,#1a1a24);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;color:inherit;font-family:inherit"></label>
+          <label style="font-size:.8125rem;color:var(--text2)">Minimal ishlatish (ball)
+            <input type="number" id="loyMinRedeem" min="0" style="width:100%;margin-top:.25rem;padding:.45rem .6rem;background:var(--bg3,#1a1a24);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;color:inherit;font-family:inherit"></label>
+          <label style="font-size:.8125rem;color:var(--text2)">Maks chegirma (%)
+            <input type="number" id="loyMaxPct" min="0" max="100" style="width:100%;margin-top:.25rem;padding:.45rem .6rem;background:var(--bg3,#1a1a24);border:1px solid rgba(255,255,255,.1);border-radius:.5rem;color:inherit;font-family:inherit"></label>
+        </div>
+        <div class="save-row" style="margin-top:.75rem">
+          <button class="btn btn-gold" id="saveLoyaltyBtn">✓ Saqlash</button>
+        </div>
+      </div>
     </div>
 
     <!-- SOLIQ / FISKAL -->
@@ -1055,6 +1077,28 @@ document.getElementById('savePaymentBtn').onclick = async () => {
   else toast(res.detail||'Xatolik','error');
 };
 
+// ── Sodiqlik (loyalty) sozlamalari ───────────────────────────────────────────
+async function loadLoyaltySettings() {
+  const d = await api.get('/loyalty/settings').catch(()=>({}));
+  document.getElementById('loyEnabled').checked   = d.enabled !== false;
+  document.getElementById('loyEarnRate').value    = d.earn_rate ?? 1000;
+  document.getElementById('loyRedeemValue').value = d.redeem_value ?? 10;
+  document.getElementById('loyMinRedeem').value   = d.min_redeem_points ?? 100;
+  document.getElementById('loyMaxPct').value      = d.max_redeem_percent ?? 30;
+}
+document.getElementById('saveLoyaltyBtn').onclick = async () => {
+  const body = {
+    enabled:            document.getElementById('loyEnabled').checked,
+    earn_rate:          parseInt(document.getElementById('loyEarnRate').value, 10) || 1000,
+    redeem_value:       parseFloat(document.getElementById('loyRedeemValue').value) || 0,
+    min_redeem_points:  parseInt(document.getElementById('loyMinRedeem').value, 10) || 0,
+    max_redeem_percent: parseFloat(document.getElementById('loyMaxPct').value) || 0,
+  };
+  const res = await api.patch('/loyalty/settings', body);
+  if (res && res.enabled !== undefined) toast('Sodiqlik sozlamalari saqlandi','success');
+  else toast((res && res.detail) || 'Xatolik','error');
+};
+
 // ── Zaxira nusxa (tenant backup/restore) — UI va mantiq: js/core/tenant-backup.js
 //    "Zaxira nusxa" tab'idagi #xenoraBackupPanel'ни o'sha modul to'ldiradi.
 //    Eski server backup (/settings/backup/*) UI olib tashlandi — tenant-scoped'га ko'chdi.
@@ -1180,7 +1224,7 @@ document.getElementById('savePharmacyFlags')?.addEventListener('click', () =>
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 renderBtypes();
-Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings()]);
+Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings(), loadLoyaltySettings()]);
 loadPharmacyFlags();
 loadSalonFlags();
 loadB2bFlags();

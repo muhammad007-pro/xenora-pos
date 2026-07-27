@@ -118,6 +118,17 @@ async def create_payment(
 
     tenant_id = resolve_tenant_id(db, current_user)
     order_completed = False
+    _loyalty = {"earned": 0, "redeemed": 0}
+
+    # ── SODIQLIK (loyalty) — redeem OLDINDAN, SERVER tomonда tekshiriladi ──
+    # (client yuborgan redeem_points'ga ishonmaymiz). Yaroqsiz bo'lsa 400 (rollback'siz —
+    # hali hech narsa yozilmagan). redeem = to'lov tenderi (final_amount o'zgarmaydi).
+    from core.loyalty_config import (
+        get_loyalty_config, validate_redeem, apply_redeem, apply_earn,
+    )
+    _loy_cfg = get_loyalty_config(db, tenant_id)
+    _redeem_points = int(getattr(payment_data, "redeem_points", 0) or 0)
+    _redeem_amount = validate_redeem(db, order, _loy_cfg, _redeem_points) if _redeem_points > 0 else 0.0
 
     # ── ATOMIK SOTUV ─────────────────────────────────────────────────────────
     # To'lov + order.status + ombor chiqimi + StockMovement + ingredients_deducted —
@@ -142,7 +153,8 @@ async def create_payment(
             Payment.order_id == order.id, Payment.status == "paid"
         ).scalar() or 0.0
 
-        if total_paid >= order.final_amount:
+        # Redeem = to'lov tenderi: naqd + ball qoplagan summa >= final bo'lsa yakunlanadi.
+        if total_paid + _redeem_amount >= order.final_amount:
             order_completed = True
             # TOCTOU: Order qatorini QULFLAB, ingredients_deducted ni DB'dan YANGI o'qiymiz.
             # Ikki qurilma bir vaqtda split-payment yakunlasa — biri qulfda kutadi, ombor
@@ -153,6 +165,14 @@ async def create_payment(
                 order.completed_at = datetime.now()
                 if order.table:
                     order.table.status = "free"
+                # ── SODIQLIK: redeem (tender) + earn (netdan) — YAKUNДА BIR MARTA ──
+                # `status != completed` gate → split-payment'да faqat yakunlovchi to'lovда
+                # bir marta ishlaydi (idempotent). Mijozsiz (walk-in) → ball yo'q.
+                if order.customer_id and _loy_cfg["enabled"]:
+                    if _redeem_points > 0 and _redeem_amount > 0:
+                        apply_redeem(db, order, _redeem_points, _redeem_amount, tenant_id)
+                        _loyalty["redeemed"] = _redeem_points
+                    _loyalty["earned"] = apply_earn(db, order, _loy_cfg, tenant_id)
             # Ombor chiqimi (sotuv = chiqim). Retseptli → ingredientlar; retseptsiz → o'zi.
             # kitchen-ready'da allaqachon chiqargan bo'lsa (ingredients_deducted) — qayta ayirmaydi.
             if not order.ingredients_deducted:
@@ -220,6 +240,13 @@ async def create_payment(
             "order_number": order.order_number,
         }, tenant_id=resolve_tenant_id(db, current_user))
 
+    # Sodiqlik natijasini javobga qo'shamiz (chek: yig'ilgan/ishlatilgan/qolgan balans)
+    payment.earned_points   = _loyalty["earned"] or None
+    payment.redeemed_points = _loyalty["redeemed"] or None
+    if order_completed and order.customer_id and (_loyalty["earned"] or _loyalty["redeemed"]):
+        from models import Customer
+        _c = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        payment.customer_points = (_c.points if _c else None)
     return PaymentInDB.model_validate(payment)
 
 @router.get("/{payment_id}", response_model=PaymentInDB)
@@ -290,6 +317,12 @@ async def refund_payment(
                 db, order.id, tenant_id=order.tenant_id, user_id=current_user.id, commit=False,
             )
             order.ingredients_restored = True
+
+        # ── SODIQLIK teskari: to'liq refund'да yig'ilgan ball olinadi, ishlatilgan qaytadi.
+        # Ombordan mustaqil (xizmat/retseptsiz uchun ham) — idempotent (adjust yozuvi bilan).
+        if all_refunded:
+            from core.loyalty_config import reverse_on_refund
+            reverse_on_refund(db, order, order.tenant_id)
 
         db.commit()                             # ← YAGONA commit (butun refund atomik)
     except HTTPException:

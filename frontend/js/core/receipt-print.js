@@ -157,6 +157,21 @@ const _PAY = { cash: 'Naqd', card: 'Karta', click: 'Click', payme: 'Payme', cred
  * `/orders/{id}/receipt` server ma'lumotidan 58mm chek innerHTML yasash (REPRINT uchun).
  * Chek mazmuni POS chekiga mos: pachka yorlig'i, chegirma, jami, to'lov, fiskal QR.
  */
+/**
+ * Sodiqlik (loyalty) chek qatorlari — UMUMIY manba (buildReceipt58 + pos.js renderReceiptData).
+ * rec.loyalty {earned, redeemed, redeemed_amount, balance} bo'lsa qatorlar; aks holda ''.
+ * Walk-in / ballsiz sotuvда rec.loyalty=null → hech narsa chiqmaydi. 58mm'ga mos (qisqa yorliq).
+ */
+export function loyaltyRows(rec) {
+  const L = rec && rec.loyalty;
+  if (!L) return '';
+  let h = '';
+  if (L.redeemed)          h += `<div class="rt-row"><span>Ball chegirma:</span><span>-${_money(L.redeemed_amount)} (${L.redeemed} ball)</span></div>`;
+  if (L.earned)            h += `<div class="rt-row"><span>Yig'ilgan ball:</span><span>+${L.earned}</span></div>`;
+  if (L.balance != null)   h += `<div class="rt-row"><span>Ballar balansi:</span><span>${L.balance}</span></div>`;
+  return h;
+}
+
 export function buildReceipt58(rec) {
   rec = rec || {};
   const items = rec.items || [];
@@ -203,6 +218,7 @@ export function buildReceipt58(rec) {
       ${(service > 0) ? `<div class="rt-row"><span>Xizmat (10%):</span><span>${_money(service)}</span></div>` : ''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${_money(total)} UZS</span></div>
       <div class="rt-row"><span>To'lov:</span><span>${_esc(payTxt)}</span></div>
+      ${loyaltyRows(rec)}
     </div>
     <div class="receipt-footer">Xarid uchun rahmat!</div>`;
 

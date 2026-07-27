@@ -7,7 +7,7 @@ import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
-import { printReceiptHTML, buildReceipt58 } from '../core/receipt-print.js';
+import { printReceiptHTML, buildReceipt58, loyaltyRows } from '../core/receipt-print.js';
 
 const api = new API();
 
@@ -1182,7 +1182,7 @@ document.querySelectorAll('.pay-method').forEach(btn => {
 attachMoneyInput(document.getElementById('cashInput'));
 document.getElementById('cashInput').addEventListener('input', () => {
   const given  = parseMoney(document.getElementById('cashInput').value);
-  const total  = computeTotals().total;
+  const total  = payableTotal();   // redeem'dan keyingi naqd summasi
   const change = given - total;
   const row    = document.getElementById('changeRow');
   if (given > 0) {
@@ -1195,7 +1195,7 @@ document.getElementById('cashInput').addEventListener('input', () => {
 document.querySelectorAll('.cash-preset').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btn.id === 'exactBtn') {
-      document.getElementById('cashInput').value = Math.ceil(computeTotals().total / 1000) * 1000;
+      document.getElementById('cashInput').value = Math.ceil(payableTotal() / 1000) * 1000;
     } else {
       document.getElementById('cashInput').value = btn.dataset.amt;
     }
@@ -1205,6 +1205,55 @@ document.querySelectorAll('.cash-preset').forEach(btn => {
 
 document.getElementById('checkoutBtn').addEventListener('click', startCheckout);
 document.getElementById('doPayBtn').addEventListener('click', doPayment);
+
+// ─── Sodiqlik (loyalty) — POS redeem ───────────────────────────────────────────
+// Backend: /loyalty/settings (sozlama) + /loyalty/summary/{id} (balans). Redeem = to'lov
+// tenderi: naqd summa = jami − redeem_amount. SERVER qayta tekshiradi (client'ga ishonilmaydi).
+let loyaltyCfg = null, loyBalance = 0, redeemPts = 0, redeemAmt = 0, lastLoyalty = null;
+
+async function ensureLoyaltyCfg() {
+  if (loyaltyCfg) return loyaltyCfg;
+  const r = await api.get('/loyalty/settings').catch(() => null);
+  loyaltyCfg = (r && r.success && r.data) ? r.data : { enabled: false };
+  return loyaltyCfg;
+}
+function loyaltyMaxRedeem() {
+  if (!loyaltyCfg || !loyaltyCfg.enabled || !loyBalance) return 0;
+  const total = computeTotals().total;
+  const byPct = Math.floor((total * (loyaltyCfg.max_redeem_percent / 100)) / (loyaltyCfg.redeem_value || 1));
+  return Math.max(0, Math.min(loyBalance, byPct));
+}
+function applyRedeem(pts) {
+  const maxR = loyaltyMaxRedeem();
+  redeemPts = Math.max(0, Math.min(parseInt(pts, 10) || 0, maxR));
+  redeemAmt = redeemPts * (loyaltyCfg?.redeem_value || 0);
+  const inp = document.getElementById('redeemInput');
+  if (inp && (parseInt(inp.value, 10) || 0) !== redeemPts) inp.value = redeemPts || '';
+  const disp = document.getElementById('redeemAmtDisp'); if (disp) disp.textContent = fmt(redeemAmt);
+  document.getElementById('cashInput').dispatchEvent(new Event('input'));   // naqd summasini yangilaydi
+}
+// Redeem'ni hisobga olgan haqiqiy to'lov summasi (naqd/karta shu summani qoplaydi)
+function payableTotal() { return Math.max(0, computeTotals().total - (redeemAmt || 0)); }
+
+// Payment modal ochilganda chaqiriladi: sozlama + mijoz balansini yuklaydi, bo'limni ko'rsatadi.
+async function posLoyaltyOnOpen() {
+  redeemPts = 0; redeemAmt = 0; lastLoyalty = null;
+  const sec = document.getElementById('loyaltyPaySection');
+  const inp = document.getElementById('redeemInput'); if (inp) inp.value = '';
+  const disp = document.getElementById('redeemAmtDisp'); if (disp) disp.textContent = '0 UZS';
+  if (!sec) return;
+  sec.style.display = 'none'; loyBalance = 0;
+  // Offline'da redeem yo'q (server tekshiruvi kerak)
+  if (!navigator.onLine || !state.customer?.id) return;
+  await ensureLoyaltyCfg();
+  if (!loyaltyCfg.enabled) return;
+  const s = await api.get(`/loyalty/summary/${state.customer.id}`).catch(() => null);
+  loyBalance = (s && s.success && s.data) ? (s.data.points ?? s.data.balance ?? 0) : 0;
+  const bal = document.getElementById('loyBal'); if (bal) bal.textContent = loyBalance;
+  if (loyBalance >= (loyaltyCfg.min_redeem_points || 1)) sec.style.display = '';
+}
+document.getElementById('redeemInput')?.addEventListener('input', e => applyRedeem(e.target.value));
+document.getElementById('redeemMaxBtn')?.addEventListener('click', () => applyRedeem(loyaltyMaxRedeem()));
 
 let offlineCheckout = false;
 
@@ -1242,6 +1291,7 @@ async function startCheckout() {
     document.getElementById('cashSection').style.display = '';
     document.getElementById('cashInput').value = '';
     document.getElementById('changeRow').style.display = 'none';
+    posLoyaltyOnOpen();   // sodiqlik: balans + redeem bo'limi (mijoz tanlangan bo'lsa)
     openModal('paymentModal');
     return;
   }
@@ -1267,6 +1317,7 @@ function beginOfflineCheckout() {
   const badge = document.getElementById('offlinePayBadge');
   if (badge) badge.style.display = '';
   toast('Offline rejim: to\'lov saqlanadi, internet kelganda yuboriladi', 'warning', 4000);
+  posLoyaltyOnOpen();   // offline'da redeem yashiriladi (server tekshiruvi kerak)
   openModal('paymentModal');
 }
 
@@ -1330,8 +1381,9 @@ function buildOrderPayload() {
 
 async function doPayment() {
   const t     = computeTotals();
-  const given = parseMoney(document.getElementById('cashInput').value) || t.total;
-  if (payMethod === 'cash' && given < t.total) { toast('Qabul qilingan summa yetarli emas', 'error'); return; }
+  const due   = payableTotal();   // redeem'dan keyingi to'lanadigan summa (naqd/karta)
+  const given = parseMoney(document.getElementById('cashInput').value) || due;
+  if (payMethod === 'cash' && given < due) { toast('Qabul qilingan summa yetarli emas', 'error'); return; }
   // BOSQICH 19: Nasiya uchun mijoz tanlanganligini tekshirish
   if (payMethod === 'credit' && !state.customer?.id) {
     toast('Nasiya uchun mijozni tanlang', 'error'); return;
@@ -1341,11 +1393,12 @@ async function doPayment() {
 
   const paymentPayload = {
     method      : payMethod,
-    amount      : t.total,
+    amount      : due,                          // ball chegirmasidan keyingi summa
     tip_amount  : tipAmount || 0,
-    given_amount: payMethod === 'cash' ? given : t.total,
-    change      : payMethod === 'cash' ? Math.max(0, given - t.total) : 0,
+    given_amount: payMethod === 'cash' ? given : due,
+    change      : payMethod === 'cash' ? Math.max(0, given - due) : 0,
     room_id     : payMethod === 'room_charge' ? (state.table?.id || null) : null,
+    redeem_points: redeemPts || 0,              // SERVER qayta tekshiradi
   };
 
   // ── Offline rejim ──
@@ -1381,6 +1434,19 @@ async function doPayment() {
     // (aks holda to'lov o'tmasa ham zakaz tozalanib, chek chiqib ketardi).
     const payRes = await api.post('/payments/', { order_id: orderId, ...paymentPayload });
     if (!payRes || !payRes.success) throw new Error((payRes && payRes.error) || 'To\'lov amalga oshmadi');
+
+    // Sodiqlik natijasi (chek + toast uchun): yig'ilgan/ishlatilgan ball, qolgan balans
+    const _pd = payRes.data || {};
+    lastLoyalty = (_pd.earned_points || _pd.redeemed_points) ? {
+      earned: _pd.earned_points || 0, redeemed: _pd.redeemed_points || 0,
+      balance: (_pd.customer_points != null ? _pd.customer_points : null),
+    } : null;
+    if (lastLoyalty) {
+      const parts = [];
+      if (lastLoyalty.redeemed) parts.push(`${lastLoyalty.redeemed} ball ishlatildi`);
+      if (lastLoyalty.earned)   parts.push(`+${lastLoyalty.earned} ball yig'ildi`);
+      if (parts.length) toast(parts.join(', ') + (lastLoyalty.balance != null ? ` (balans: ${lastLoyalty.balance})` : ''), 'success', 4000);
+    }
 
     // BOSQICH 19: Nasiya bo'lsa qarz yozuvini yaratish
     if (payMethod === 'credit' && state.customer?.id) {
@@ -1581,6 +1647,7 @@ function renderReceiptData(rec) {
       ${(rec.service_amount||t.service)>0?`<div class="rt-row"><span>Xizmat (10%):</span><span>${fmtNum(rec.service_amount||t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(rec.final_amount||t.total)} UZS</span></div>
       <div class="rt-row"><span>To'lov:</span><span>${payMethod === 'room_charge' ? `🏨 Xona #${state.table?.number||'?'}` : payMethod.toUpperCase()}</span></div>
+      ${loyaltyRows(rec)}
       ${MODE.isHotel    && state.table   ? `<div class="rt-row" style="margin-top:.375rem"><span>Xona:</span><span>#${state.table.number}</span></div>` : ''}
       ${MODE.isHotel    && state.customer ? `<div class="rt-row"><span>Mehmon:</span><span>${state.customer.name}</span></div>` : ''}
       ${MODE.isPharmacy && state.rxInfo ? `<div class="rt-row" style="margin-top:.375rem"><span>Bemor:</span><span>${state.rxInfo.patient_name}</span></div>` : ''}

@@ -170,3 +170,44 @@ npm run build          # electron-builder → dist/ (Setup + Portable)
 - **v1.1.0** (2026-07-13, `bdc86f9`): KATTA reliz — yangi XENORA dizayn + admin refaktoring (14 modul) + AI-ombor (rasmdan mahsulot o'qish, 3 bosqich). Uch branch main'ga merge (design + ai-ombor, yagona konflikt inventory.html avto-hal). Migration YO'Q (AI-ombor mavjud ustunlardan foydalanadi — `f6a7b8c9d0e1` head o'zgarmadi, upgrade no-op). `anthropic 0.116.0` venv'ga o'rnatildi. `.env`: `ANTHROPIC_API_KEY=CHANGE_ME` (placeholder — AI 503 "sozlanmagan", crash EMAS; Muhammad haqiqiy kalit qo'yadi) + `AI_WAREHOUSE_MODEL/ENABLED`. SW `v1.26.0`. Health `version:1.1.0`. Backup: `~/xenora-backups/pre_1.1.0_2026-07-12_2346.sql`. **Eslatma:** production super-admin paroli dev'nikidan (`admin4770`) farq qiladi — jonli funksiya testi Muhammad kredi bilan.
 - **v1.0.3** (2026-07-11, `8800a6d`): to'liq audit tozalash (14 muammo). Migration `e5f6a7b9c0d1` → `f6a7b8c9d0e1` (ingredients_restored ustun + 3 composite indeks). SW `v1.24.0`. Health `version:1.0.3`. Backup: `~/xenora-backups/pre_1.0.3_2026-07-11_0541.sql`.
 - **v1.0.1** (2026-07-10, `557404a`): magazin 10 tuzatish. Migration `e5f6a7b9c0d1`. SW `v1.22.0`.
+
+## 9. Server monitoring (scripts/monitor.py) — cron
+
+Disk/RAM/xizmat/backup kuzatuvi + Telegram alert (spam himoyasi bilan). Stdlib, ortiqcha o'rnatishsiz.
+
+**Sozlash (`/opt/xenora/backend/.env`):**
+```
+TELEGRAM_BOT_TOKEN=123456:ABC...   # BotFather (telegram.py bilan bir xil bo'lishi mumkin)
+ALERT_CHAT_ID=123456789            # superadmin chat id (@userinfobot dan olinadi)
+```
+Sozlanmasa — monitoring JIM ishlaydi (alert yo'q, faqat `/opt/xenora/logs/monitor.log`).
+
+**O'rnatish (MEN AYTGANDA — hozir emas):**
+```
+# skript repo'da: /opt/xenora/scripts/monitor.py  (git pull bilan keladi)
+crontab -e
+# quyidagini qo'sh (har 15 daqiqada):
+*/15 * * * * /usr/bin/python3 /opt/xenora/scripts/monitor.py >> /opt/xenora/logs/monitor_cron.log 2>&1
+```
+Chegaralar (ixtiyoriy, env orqali): `MON_DISK_PCT=85`, `MON_RAM_MIN_MB=100`, `MON_BACKUP_MAX_H=26`, `MON_SUPPRESS_H=6`.
+Qo'lda test: `python3 /opt/xenora/scripts/monitor.py` (bir marta ishlaydi, holatni loglaydi).
+
+## 10. Backup — cron (scripts/backup.py) — app scheduler O'RNIGA
+
+App scheduler taymeri xotirada (`next_run = app_start + 24s`) → HAR deploy/restart nollanadi →
+backup tushib qolardi. Endi cron (restart'dan mustaqil, belgilangan soat).
+
+**O'rnatish tartibi (MUHIM — backup uzilmasin):**
+1. AVVAL cron o'rnatiladi (skript `git pull` bilan `/opt/xenora/scripts/backup.py` ga keladi):
+   ```
+   crontab -e
+   # har kuni Toshkent 03:00 (do'kon yopiq). DIQQAT: cron server UTC'da → 22:00 UTC = Toshkent 03:00.
+   0 22 * * * /usr/bin/python3 /opt/xenora/scripts/backup.py >> /opt/xenora/logs/backup_cron.log 2>&1
+   ```
+2. Qo'lda sinov: `python3 /opt/xenora/scripts/backup.py` → `logs/backup.log` da "OK ... MB", fayl `backend/backup/auto/` da.
+3. KEYIN app scheduler'dan backup olib tashlangan kod deploy qilinadi (scheduler.py — bu commit).
+   Shundagина ikki marta backup bo'lmaydi va oraliq uzilmaydi.
+
+**Tekshirish:** `tail /opt/xenora/logs/backup.log`; `ls -la /opt/xenora/backend/backup/auto/ | tail`.
+Monitoring (§9) backup yoshini kuzatadi — 26 soatdan eski bo'lsa Telegram alert.
+**To'xtatish:** `crontab -e` → qatorni o'chir. **Sozlash:** `BK_MIN_KEEP=7` (doim saqlanadigan), `BK_MAX_AGE_DAYS=14`.

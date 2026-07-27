@@ -89,6 +89,10 @@ async def lifespan(app: FastAPI):
     logger.info("👋 Tizim to'xtatilmoqda...")
     stop_scheduler()
 
+# Sentry (xato kuzatuvi) — app'dan OLDIN init. SENTRY_DSN bo'sh → hech narsa qilmaydi.
+from core.observability import init_sentry
+init_sentry()
+
 # FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,

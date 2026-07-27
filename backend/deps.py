@@ -41,6 +41,10 @@ async def get_current_user(
     # (DB ga yozmaydi — faqat request davomida ishlatiladi)
     user._active_branch_id = payload.get("branch_id")
 
+    # Sentry: joriy so'rovga tenant/user tag (Sentry o'chiq bo'lsa nol xarajat)
+    from core.observability import set_request_context
+    set_request_context(user)
+
     return user
 
 async def get_current_active_user_no_sub(

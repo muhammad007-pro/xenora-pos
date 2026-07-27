@@ -209,19 +209,83 @@ const state = {
 };
 
 // ─── Totals ───────────────────────────────────────────────────────────────────
+// ── #34 1-bosqich: AVTOMATIK chegirma (POS'da qo'llash) ──────────────────────────
+// Faol chegirmalar (loadData'da /discounts/active dan; offline IndexedDB'dan).
+// SERVER buyurtma qabul qilganда QAYTA hisoblaydi (bu — faqat ko'rsatish uchun).
+let _activeDiscounts = [];
+
+function _activeDiscountsNow() {
+  const now = Date.now();
+  return (_activeDiscounts || []).filter(d => {
+    if (!d || d.is_active === false) return false;
+    if (d.valid_from && new Date(d.valid_from).getTime() > now) return false;
+    if (d.valid_to   && new Date(d.valid_to).getTime()   < now) return false;
+    if (d.usage_limit != null && (d.used_count || 0) >= d.usage_limit) return false;
+    return true;
+  });
+}
+function _discAmount(d, base) {
+  if (base <= 0) return 0;
+  return d.type === 'percentage' ? base * (d.value || 0) / 100 : Math.min(d.value || 0, base);
+}
+// Har savat qatoriga eng mos chegirma (mahsulot > kategoriya) + butun savat chegirmasi.
+// Backend mantig'i bilan BIR XIL. Qaytaradi: { perItem:[amt], labels:[txt], cartDisc, total, ids }.
+function computeAutoDiscounts() {
+  const cart = state.cart;
+  const active = _activeDiscountsNow();
+  const perItem = cart.map(() => 0), labels = cart.map(() => null);
+  if (!active.length) return { perItem, labels, cartDisc: 0, total: 0, ids: [] };
+  const prod = {}, cat = {}, cartD = [];
+  active.forEach(d => {
+    if (d.product_id)      (prod[d.product_id] = prod[d.product_id] || []).push(d);
+    else if (d.category_id)(cat[d.category_id] = cat[d.category_id] || []).push(d);
+    else                    cartD.push(d);
+  });
+  const ids = new Set();
+  let itemTotal = 0;
+  cart.forEach((it, idx) => {
+    const line = it.price * it.qty;
+    const p = state.products.find(x => x.id === it.id);
+    const catId = p ? p.category_id : null;
+    const cands = prod[it.id] || (catId != null ? cat[catId] : null) || [];
+    if (cands.length) {
+      const best = cands.reduce((a, b) => _discAmount(b, line) > _discAmount(a, line) ? b : a);
+      const amt = Math.min(_discAmount(best, line), line);
+      if (amt > 0) {
+        perItem[idx] = amt; itemTotal += amt; ids.add(best.id);
+        labels[idx] = best.type === 'percentage' ? `-${best.value}%` : `-${fmtNum(best.value)}`;
+      }
+    }
+  });
+  const subAfter = cart.reduce((s, it) => s + it.price * it.qty, 0) - itemTotal;
+  let cartDisc = 0;
+  if (cartD.length && subAfter > 0) {
+    const elig = cartD.filter(d => (d.min_order_amount || 0) <= subAfter);
+    if (elig.length) {
+      const best = elig.reduce((a, b) => _discAmount(b, subAfter) > _discAmount(a, subAfter) ? b : a);
+      cartDisc = Math.min(_discAmount(best, subAfter), subAfter);
+      if (cartDisc > 0) ids.add(best.id);
+    }
+  }
+  return { perItem, labels, cartDisc, total: itemTotal + cartDisc, ids: [...ids] };
+}
+
 function computeTotals() {
   const sub = state.cart.reduce((s, i) => s + i.price * i.qty, 0);
-  let disc = 0;
+  const auto = computeAutoDiscounts();        // #34: avtomatik (aksiya) chegirma
+  let disc = 0;                               // qo'lda / mijoz % (mavjud, alohida)
   if (state.discount.value > 0) {
     disc = state.discount.type === 'pct'
       ? sub * (state.discount.value / 100)
       : Math.min(state.discount.value, sub);
   }
-  const afterDisc = sub - disc;
+  const autoDisc  = auto.total;
+  const totalDisc = Math.min(disc + autoDisc, sub);   // jami chegirma subtotaldan oshmaydi
+  const afterDisc = sub - totalDisc;
   const tax       = afterDisc * MODE.taxRate;
   const service   = afterDisc * MODE.serviceRate;
   const total     = afterDisc + tax + service;
-  return { sub, disc, tax, service, total };
+  return { sub, disc, autoDisc, auto, totalDisc, tax, service, total };
 }
 
 // ─── Cart render ─────────────────────────────────────────────────────────────
@@ -243,6 +307,7 @@ function renderCart() {
     return;
   }
   if (empty) empty.style.display = 'none';
+  const _auto = computeAutoDiscounts();   // #34: per-item aksiya chegirma (ko'rsatish)
   list.innerHTML = state.cart.map((item, idx) => `
     <div class="cart-item" data-idx="${idx}">
       <div class="ci-info">
@@ -274,7 +339,9 @@ function renderCart() {
         <span class="qty-val">${item.qty}</span>
         <button class="qty-btn" data-action="inc" data-idx="${idx}">+</button>
       </div>
-      <div class="ci-total">${fmt(item.price * item.qty)}</div>
+      <div class="ci-total">${_auto.perItem[idx] > 0
+        ? `<span style="text-decoration:line-through;color:var(--text3);font-size:.72rem;display:block">${fmt(item.price * item.qty)}</span><span style="color:var(--success)">${fmt(item.price * item.qty - _auto.perItem[idx])}</span><span style="display:block;font-size:.62rem;color:var(--gold)">${_auto.labels[idx]}</span>`
+        : fmt(item.price * item.qty)}</div>
       <button class="ci-del" data-action="del" data-idx="${idx}" title="O'chirish">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
@@ -295,6 +362,12 @@ function renderTotals() {
   document.getElementById('totService').textContent  = fmt(t.service);
   document.getElementById('totTotal').textContent    = fmt(t.total);
   document.getElementById('discRow').style.display   = t.disc > 0 ? '' : 'none';
+  // #34: avtomatik (aksiya) chegirma alohida qator
+  const autoRow = document.getElementById('autoDiscRow');
+  if (autoRow) {
+    autoRow.style.display = t.autoDisc > 0 ? '' : 'none';
+    if (t.autoDisc > 0) document.getElementById('totAutoDiscount').textContent = '-' + fmt(t.autoDisc);
+  }
   broadcastToDisplay();
 }
 
@@ -1168,6 +1241,17 @@ document.getElementById('doMergeBtn').addEventListener('click', async () => {
 
 // ─── Payment ──────────────────────────────────────────────────────────────────
 let payMethod = 'cash';
+
+// #30: Naqd tanlanganda "Qabul qilingan summa" AVTOMATIK to'liq summaga teng bo'ladi
+// (default) — kassir qo'lda kiritmay darrov to'lay oladi. Qaytim uchun ko'proq
+// kiritmoqchi bo'lsa qo'lda o'zgartiradi (majburiy emas).
+function _setCashDefault() {
+  const inp = document.getElementById('cashInput');
+  if (!inp) return;
+  inp.value = Math.round(computeTotals().total);   // to'liq summa (aniq)
+  inp.dispatchEvent(new Event('input'));            // format + qaytim (0) yangilansin
+}
+
 document.querySelectorAll('.pay-method').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.pay-method').forEach(b => b.classList.remove('active'));
@@ -1175,7 +1259,8 @@ document.querySelectorAll('.pay-method').forEach(btn => {
     payMethod = btn.dataset.method;
     document.getElementById('cashSection').style.display = payMethod === 'cash' ? '' : 'none';
     document.getElementById('changeRow').style.display   = 'none';
-    document.getElementById('cashInput').value           = '';
+    if (payMethod === 'cash') _setCashDefault();                       // #30: avto to'liq summa
+    else document.getElementById('cashInput').value = '';
   });
 });
 
@@ -1201,6 +1286,82 @@ document.querySelectorAll('.cash-preset').forEach(btn => {
     }
     document.getElementById('cashInput').dispatchEvent(new Event('input'));
   });
+});
+
+// ─── #32: Aralash to'lov (split) — bir necha usul, order jamiga teng ─────────────
+// Backend allaqachon ko'p Payment'ni sum qiladi (migratsiya yo'q). FAQAT ONLINE.
+// Karta/Click/Payme = ANIQ ulush (ortiqcha bo'lmaydi); Naqd qolganini qoplaydi
+// (ko'proq berilsa qaytim). Jami >= order summa bo'lganda "Amalga oshirish" faol.
+let _splitMode = false;
+const _SPLIT_METHODS = ['cash', 'card', 'click', 'payme'];
+function _splitInput(m) { return document.getElementById('split_' + m); }
+function _splitVal(m) { const el = _splitInput(m); return el ? (parseMoney(el.value) || 0) : 0; }
+
+function buildSplitPayments() {
+  const total     = Math.round(computeTotals().total);
+  const other     = _splitVal('card') + _splitVal('click') + _splitVal('payme');  // ANIQ ulushlar
+  const cash      = _splitVal('cash');
+  const remainder = total - other;              // naqd qoplashi kerak bo'lgan qism
+  const enteredRaw = other + cash;
+  // valid: karta/online ortiqcha emas + jami qoplangan + (naqd kerak bo'lmasa naqd 0)
+  const valid = (other <= total) && (enteredRaw >= total) && !(remainder <= 0 && cash > 0);
+  const payments = [];
+  ['card', 'click', 'payme'].forEach(m => {
+    const a = _splitVal(m);
+    if (a > 0) payments.push({ method: m, amount: a, given_amount: a, change: 0 });
+  });
+  if (remainder > 0) {
+    payments.push({ method: 'cash', amount: remainder, given_amount: cash, change: Math.max(0, cash - remainder) });
+  }
+  return { valid, payments, total, other, cash, remainder, enteredRaw };
+}
+
+function updateSplit() {
+  if (!_splitMode) return;
+  const s = buildSplitPayments();
+  const remaining = Math.max(0, s.total - s.enteredRaw);
+  const change    = (s.remainder > 0 && s.cash > s.remainder) ? (s.cash - s.remainder) : 0;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('splitTotal',     fmt(s.total));
+  set('splitEntered',   fmt(s.enteredRaw));
+  set('splitRemaining', fmt(remaining));
+  const status = document.getElementById('splitStatus');
+  if (status) {
+    if (s.other > s.total)          { status.textContent = 'Ortiqcha (karta):'; status.style.color = 'var(--danger)'; }
+    else if (s.enteredRaw < s.total){ status.textContent = 'Qolgan:';            status.style.color = 'var(--danger)'; }
+    else                            { status.textContent = 'To\'liq ✓';          status.style.color = 'var(--success)'; }
+  }
+  const chRow = document.getElementById('splitChangeRow');
+  if (chRow) { if (change > 0) { chRow.style.display = 'flex'; set('splitChange', fmt(change)); } else chRow.style.display = 'none'; }
+  const payBtn = document.getElementById('doPayBtn');
+  if (payBtn) payBtn.disabled = !s.valid;
+}
+
+// Split UI ni boshlang'ich holatga (oyna ochilganda). isOffline=true → toggle yashirin
+// (offline'da aralash yo'q — queueOrder bitta payment kutadi).
+function resetSplitUI(isOffline) {
+  _splitMode = false;
+  const t = document.getElementById('splitToggle'); if (t) t.checked = false;
+  const sec = document.getElementById('splitSection'); if (sec) sec.style.display = 'none';
+  const row = document.getElementById('splitToggleRow'); if (row) row.style.display = isOffline ? 'none' : '';
+  const pm = document.querySelector('.pay-methods'); if (pm) pm.style.display = '';
+  _SPLIT_METHODS.forEach(m => { const el = _splitInput(m); if (el) el.value = ''; });
+  const payBtn = document.getElementById('doPayBtn'); if (payBtn) payBtn.disabled = false;
+}
+
+document.getElementById('splitToggle')?.addEventListener('change', function () {
+  _splitMode = this.checked;
+  document.getElementById('splitSection').style.display = _splitMode ? '' : 'none';
+  const pm = document.querySelector('.pay-methods'); if (pm) pm.style.display = _splitMode ? 'none' : '';
+  document.getElementById('cashSection').style.display = _splitMode ? 'none' : (payMethod === 'cash' ? '' : 'none');
+  document.getElementById('changeRow').style.display = 'none';
+  if (_splitMode) { updateSplit(); }                                  // tugma bloklanadi (jami teng emas)
+  else { const b = document.getElementById('doPayBtn'); if (b) b.disabled = false; if (payMethod === 'cash') _setCashDefault(); }
+});
+
+_SPLIT_METHODS.forEach(m => {
+  const el = _splitInput(m);
+  if (el) { attachMoneyInput(el); el.addEventListener('input', updateSplit); }
 });
 
 document.getElementById('checkoutBtn').addEventListener('click', startCheckout);
@@ -1289,9 +1450,10 @@ async function startCheckout() {
     payMethod = 'cash';
     document.querySelectorAll('.pay-method').forEach(b => b.classList.toggle('active', b.dataset.method === 'cash'));
     document.getElementById('cashSection').style.display = '';
-    document.getElementById('cashInput').value = '';
     document.getElementById('changeRow').style.display = 'none';
     posLoyaltyOnOpen();   // sodiqlik: balans + redeem bo'limi (mijoz tanlangan bo'lsa)
+    resetSplitUI(false);   // #32: aralash toggle ko'rinadi (online), boshlang'ich holat
+    _setCashDefault();   // #30: naqd — to'liq summa avtomatik
     openModal('paymentModal');
     return;
   }
@@ -1311,8 +1473,9 @@ function beginOfflineCheckout() {
   payMethod = 'cash';
   document.querySelectorAll('.pay-method').forEach(b => b.classList.toggle('active', b.dataset.method === 'cash'));
   document.getElementById('cashSection').style.display = '';
-  document.getElementById('cashInput').value = '';
   document.getElementById('changeRow').style.display = 'none';
+  resetSplitUI(true);   // #32: offline'da aralash toggle YASHIRIN (bitta usul)
+  _setCashDefault();   // #30: naqd — to'liq summa avtomatik
   // Offline badge ko'rsatish
   const badge = document.getElementById('offlinePayBadge');
   if (badge) badge.style.display = '';
@@ -1379,7 +1542,48 @@ function buildOrderPayload() {
   };
 }
 
+// #32: Aralash to'lov — har usul uchun ketma-ket POST /payments/ (order bir xil).
+// Backend sum >= final_amount bo'lganda order "completed". FAQAT ONLINE.
+async function doSplitPayment() {
+  const s = buildSplitPayments();
+  if (!s.valid || !s.payments.length) { toast('Aralash: summa order jamiga teng emas', 'error'); return; }
+  const btn = document.getElementById('doPayBtn');
+  btn.disabled = true; btn.textContent = 'Amalga oshirilmoqda...';
+
+  const _shiftOk = await ensureShiftGate();
+  if (!_shiftOk) { toast('Avval smena oching', 'warning'); btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish'; return; }
+  const orderId = state.pendingOrderId;
+  if (!orderId) { toast('Buyurtma topilmadi', 'error'); btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish'; return; }
+
+  try {
+    // Har ulush alohida Payment (birinchisiga tip biriktiriladi). Biri fail bo'lsa throw.
+    for (let i = 0; i < s.payments.length; i++) {
+      const p = s.payments[i];
+      const payRes = await api.post('/payments/', {
+        order_id: orderId, method: p.method, amount: p.amount,
+        given_amount: p.given_amount, change: p.change,
+        tip_amount: i === 0 ? (tipAmount || 0) : 0,
+      });
+      if (!payRes || !payRes.success) throw new Error((payRes && payRes.error) || 'To\'lov qismi amalga oshmadi');
+    }
+    closeModal('paymentModal');
+    broadcastToDisplay('payment_complete');
+    beep('success');
+    await showReceipt(orderId);   // chek payment_methods breakdown (Naqd/Karta) ko'rsatadi
+    toast('Aralash to\'lov qabul qilindi!', 'success');
+    clearOrderState();
+    loadHeldOrders();
+  } catch (err) {
+    // Diqqat: bir qism o'tib, keyingisi fail bo'lishi mumkin → order qisman to'langan.
+    toast((err?.message || err?.detail || 'To\'lovda xatolik') + ' (qisman to\'langan bo\'lishi mumkin)', 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish';
+  }
+}
+
 async function doPayment() {
+  // #32: aralash rejim (faqat online) → alohida oqim
+  if (_splitMode && !offlineCheckout) { return doSplitPayment(); }
   const t     = computeTotals();
   const due   = payableTotal();   // redeem'dan keyingi to'lanadigan summa (naqd/karta)
   const given = parseMoney(document.getElementById('cashInput').value) || due;
@@ -1410,6 +1614,7 @@ async function doPayment() {
     offlineCheckout = false;
     renderOfflineReceipt(paymentPayload);
     openModal('receiptModal');
+    scheduleReceiptAutoClose();   // #31: oyna avtomatik yopiladi
     sendEscposPrint(null);   // AVTOMATIK chek (offline ham) — HTML GDI print
     toast('Offline: buyurtma+to\'lov saqlandi', 'warning');
     clearOrderState();
@@ -1567,6 +1772,16 @@ async function sendEscposPrint(_orderId) {
   return false;
 }
 
+// #31: to'lovdan keyin chek oynasi AVTOMATIK yopiladi — kassir darrov keyingi sotuvga.
+// Chek fizik printerdan chiqadi; ekran oynasi qisqa ko'rsatilib o'zi yopiladi.
+// Kassir "Chop etish"/yopish tugmasini bossa ham — closeModal idempotent (zararsiz).
+const RECEIPT_AUTOCLOSE_MS = 4000;
+let _receiptCloseTimer = null;
+function scheduleReceiptAutoClose() {
+  clearTimeout(_receiptCloseTimer);
+  _receiptCloseTimer = setTimeout(() => closeModal('receiptModal'), RECEIPT_AUTOCLOSE_MS);
+}
+
 async function showReceipt(orderId) {
   _lastReceiptOrderId = orderId || null;
   try {
@@ -1575,6 +1790,7 @@ async function showReceipt(orderId) {
     else renderReceiptFallback(orderId);
   } catch { renderReceiptFallback(orderId); }
   openModal('receiptModal');
+  scheduleReceiptAutoClose();   // #31: oyna avtomatik yopiladi
   // AVTOMATIK CHEK — to'lovdan so'ng HAR DOIM bir marta chiqadi (kassir bosmaydi).
   // Chek mazmuni #receiptBody da render bo'lgandan keyin (yuqorida) HTML GDI silent
   // print (backend RAW ESC/POS emas — krakozyabra bo'lmasin). did-finish-load
@@ -1646,7 +1862,9 @@ function renderReceiptData(rec) {
       ${(rec.tax_amount||t.tax)>0?`<div class="rt-row"><span>Soliq (12%):</span><span>${fmtNum(rec.tax_amount||t.tax)}</span></div>`:''}
       ${(rec.service_amount||t.service)>0?`<div class="rt-row"><span>Xizmat (10%):</span><span>${fmtNum(rec.service_amount||t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(rec.final_amount||t.total)} UZS</span></div>
-      <div class="rt-row"><span>To'lov:</span><span>${payMethod === 'room_charge' ? `🏨 Xona #${state.table?.number||'?'}` : payMethod.toUpperCase()}</span></div>
+      ${((rec.payment_methods || []).length > 1)
+        ? (rec.payment_methods || []).map(p => `<div class="rt-row"><span>${_shPay[p.method]||p.method}:</span><span>${fmtNum(p.amount)}</span></div>`).join('')
+        : `<div class="rt-row"><span>To'lov:</span><span>${payMethod === 'room_charge' ? `🏨 Xona #${state.table?.number||'?'}` : payMethod.toUpperCase()}</span></div>`}
       ${loyaltyRows(rec)}
       ${MODE.isHotel    && state.table   ? `<div class="rt-row" style="margin-top:.375rem"><span>Xona:</span><span>#${state.table.number}</span></div>` : ''}
       ${MODE.isHotel    && state.customer ? `<div class="rt-row"><span>Mehmon:</span><span>${state.customer.name}</span></div>` : ''}
@@ -2670,6 +2888,12 @@ async function loadData() {
   state.tables = tbls ?? await localDB.getAll(STORES.TABLES);
   if (tbls) await localDB.saveAll(STORES.TABLES, state.tables);
   document.getElementById('ldBar').style.width = '85%';
+
+  // #34: faol chegirmalar (avtomatik qo'llash) — online'da serverdan, offline IndexedDB'dan
+  const dscRes = await api.get('/discounts/active').catch(() => null);
+  const dscs = Array.isArray(dscRes?.data) ? dscRes.data : (Array.isArray(dscRes) ? dscRes : null);
+  _activeDiscounts = dscs ?? await localDB.getAll(STORES.DISCOUNTS);
+  if (dscs) await localDB.saveAll(STORES.DISCOUNTS, dscs);   // saveAll avval clear qiladi
 
   const saved = await localDB.getAll(STORES.CART);
   if (saved?.length) state.cart = saved;

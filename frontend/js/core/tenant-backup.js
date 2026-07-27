@@ -9,7 +9,13 @@
  *  - "Oxirgi zaxira" ko'rsatkич + "Hozir zaxira olish" tugma (admin uchun).
  *
  *  Mijoz aralashmaydi — fonда avtomatik. Token localStorage'дан (o'z tenant avtomatik).
+ *
+ *  #401-FIX: so'rovlar endi api.fetchBinary orqali (401→refresh→retry, binary). To'g'ridan
+ *  fetch YO'Q — token muddati tugasa avtomatik yangilanadi (jim to'xtamaydi).
  */
+
+import { API as ApiClient } from './api.js';
+const apiClient = new ApiClient();   // refresh single-flight api.js modul darajasida — umumiy
 
 const IS_ELECTRON = !!(window.electronAPI && window.electronAPI.isElectron && window.electronAPI.saveBackup);
 
@@ -18,7 +24,9 @@ const _dev  = ['5500', '5501', '3000', '4200', '8080'].includes(_lp) && ['localh
 const API   = _dev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
 
 const SLOTS = [14 * 60, 22 * 60];   // 14:00 va 22:00 (daqiqада)
-const LS_LAST = 'xenora_last_backup';   // {at, status, rows, filename, mode}
+const LS_LAST = 'xenora_last_backup';        // oxirgi URINISH {at, status, rows, filename, mode}
+const LS_LAST_OK = 'xenora_last_backup_ok';  // oxirgi MUVAFFAQIYATLI {at, rows, filename, path}
+const STALE_HOURS = 48;                      // shundan eski bo'lsa ogohlantirish
 
 let _busy = false;
 let _cooldownUntil = 0;
@@ -47,6 +55,8 @@ function markSlotDone(slotMin) { localStorage.setItem(slotKey(slotMin), '1'); }
 
 function getLast() { try { return JSON.parse(localStorage.getItem(LS_LAST) || 'null'); } catch { return null; } }
 function setLast(info) { localStorage.setItem(LS_LAST, JSON.stringify(info)); renderPanel(); }
+function getLastOk() { try { return JSON.parse(localStorage.getItem(LS_LAST_OK) || 'null'); } catch { return null; } }
+function setLastOk(info) { localStorage.setItem(LS_LAST_OK, JSON.stringify(info)); }
 
 // ── Asosiy: zaxira olish ─────────────────────────────────────────────────────
 async function runBackup(mode = 'auto') {
@@ -59,18 +69,23 @@ async function runBackup(mode = 'auto') {
   _busy = true;
   setStatus('⏳ Zaxira olinmoqda...');
   try {
-    const res = await fetch(API + '/backups/my-tenant', {
-      headers: { 'Authorization': 'Bearer ' + token() },
-    });
-    if (!res.ok) {
-      const detail = await res.json().catch(() => ({}));
-      throw new Error(detail.detail || ('HTTP ' + res.status));
+    // api.fetchBinary — 401→refresh→retry (binary). Refresh o'lса login'ga uloqtirmaydi,
+    // sessionExpired qaytaradi (jim to'xtamaydi — pastda ko'rsatiladi).
+    const res = await apiClient.fetchBinary('/backups/my-tenant');
+    if (!res.success) {
+      const msg = res.sessionExpired ? 'Sessiya tugagan, qayta kiring' : (res.error || 'Zaxira olinmadi');
+      setLast({ at: new Date().toISOString(), status: 'error', error: msg, sessionExpired: !!res.sessionExpired, mode });
+      setStatus('');
+      // #401-FIX: sessionExpired'ni AUTO rejimда ham ko'rsatamiz — jim to'xtamasin.
+      if (mode === 'manual' || res.sessionExpired) notify('Zaxira: ' + msg, 'err');
+      console.warn('[tenant-backup]', msg);
+      return false;
     }
-    const buf  = new Uint8Array(await res.arrayBuffer());
-    const cd   = res.headers.get('content-disposition') || '';
+    const buf  = res.data;   // Uint8Array
+    const cd   = (res.headers && res.headers.get('content-disposition')) || '';
     const m    = cd.match(/filename="?([^"]+)"?/);
     const name = (m && m[1]) || `backup_${Date.now()}.json.gz`;
-    const rows = res.headers.get('x-backup-rows') || '?';
+    const rows = (res.headers && res.headers.get('x-backup-rows')) || '?';
 
     let savedTo = null;
     if (IS_ELECTRON) {
@@ -87,11 +102,14 @@ async function runBackup(mode = 'auto') {
       savedTo = 'Yuklamalar (Downloads)';
     }
 
-    setLast({ at: new Date().toISOString(), status: 'ok', rows, filename: name, path: savedTo, mode });
+    const nowIso = new Date().toISOString();
+    setLastOk({ at: nowIso, rows, filename: name, path: savedTo });   // oxirgi MUVAFFAQIYATLI
+    setLast({ at: nowIso, status: 'ok', rows, filename: name, path: savedTo, mode });
     setStatus('');
     if (mode === 'manual') notify(`Zaxira saqlandi ✓ (${rows} qator)`, 'ok');
     return true;
   } catch (err) {
+    // saveBackup (disk) yoki kutilmagan xato
     setLast({ at: new Date().toISOString(), status: 'error', error: err.message, mode });
     setStatus('');
     if (mode === 'manual') notify('Zaxira xatosi: ' + err.message, 'err');
@@ -148,14 +166,39 @@ function mountPanel() {
 function renderPanel() {
   const el = document.querySelector('#xbkWhen .xbk-when-txt');
   if (!el) return;
-  const last = getLast();
-  if (last && last.at) {
-    const d = new Date(last.at);
-    const s = d.toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    el.textContent = last.status === 'ok' ? `Oxirgi zaxira: ${s}` : `Oxirgi urinish (xato): ${s}`;
-    el.style.color = last.status === 'ok' ? 'var(--text2,#9fcbb9)' : 'var(--danger,#f87171)';
+  const ok    = getLastOk();     // oxirgi MUVAFFAQIYATLI
+  const last  = getLast();       // oxirgi urinish (xato bo'lishi mumkin)
+  const now   = Date.now();
+  const fmt   = (iso) => new Date(iso).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const DANGER = 'var(--danger,#f87171)';
+  const OKCLR  = 'var(--text2,#9fcbb9)';
+
+  if (ok && ok.at) {
+    const ageH = (now - new Date(ok.at).getTime()) / 3600000;
+    let txt, color;
+    if (ageH > STALE_HOURS) {
+      // 48 soatdan eski — jonli do'kon uchun ogohlantirish
+      txt = `⚠️ Zaxira ${Math.floor(ageH / 24)} kundan beri olinmadi (oxirgi: ${fmt(ok.at)})`;
+      color = DANGER;
+    } else {
+      txt = `Oxirgi zaxira: ${fmt(ok.at)}`;
+      color = OKCLR;
+    }
+    // So'nggi urinish xato bo'lsa — qo'shimcha eslatma (masalan sessiya tugagan)
+    if (last && last.status === 'error') {
+      txt += last.sessionExpired ? ' · so\'nggi urinish: qayta kiring' : ' · so\'nggi urinish xato';
+      color = DANGER;
+    }
+    el.textContent = txt;
+    el.style.color = color;
   } else {
-    el.textContent = 'Zaxira hali olinmagan';
+    // Hech qачон muvaffaqiyatli zaxira bo'lmagan — ogohlantirish
+    el.textContent = (last && last.sessionExpired)
+      ? '⚠️ Zaxira olinmadi — sessiya tugagan, qayta kiring'
+      : (last && last.status === 'error')
+        ? `⚠️ Zaxira olinmadi: ${last.error || 'xato'}`
+        : '⚠️ Zaxira hali olinmagan';
+    el.style.color = DANGER;
   }
 }
 
@@ -243,13 +286,13 @@ async function restoreNow() {
   try {
     const fd = new FormData();
     fd.append('file', picked.blob, picked.name);
-    const res = await fetch(API + '/backups/my-tenant/restore', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token() },   // Content-Type YO'Q (brauzer boundary qo'yadi)
-      body: fd,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+    // api.fetchBinary — multipart POST (Content-Type qo'ymaydi) + 401→refresh. Javob JSON.
+    const res = await apiClient.fetchBinary('/backups/my-tenant/restore', { method: 'POST', body: fd });
+    if (!res.success) {
+      throw new Error(res.sessionExpired ? 'Sessiya tugagan, qayta kiring' : (res.error || ('HTTP ' + res.status)));
+    }
+    let data = {};
+    try { data = JSON.parse(new TextDecoder().decode(res.data)); } catch { /* bo'sh/JSON emas */ }
     const rows = (data.restored && data.restored.inserted_rows) || 0;
     notify(`Tiklandi ✓ (${rows} qator). Sahifa yangilanadi...`, 'ok');
     setTimeout(() => location.reload(), 2200);

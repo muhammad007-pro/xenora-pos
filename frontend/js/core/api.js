@@ -4,6 +4,18 @@ import { API_BASE } from './config.js';
 // refresh faqat BIR MARTA bajarilsin — barcha so'rovlar shu bitta natijani kutadi.
 let _refreshInFlight = null;
 
+// Obuna bloklanганда bir marta yo'naltirish (ko'p parallel so'rov → bitta redirect).
+let _subBlockHandled = false;
+function _handleSubscriptionBlock(message) {
+    if (_subBlockHandled) return;
+    const path = (typeof location !== 'undefined' && location.pathname) || '';
+    // Blok ekrani va login sahifasining o'zi qayta yo'naltirilmasin (loop bo'lmasin).
+    if (/subscription-blocked\.html$/.test(path) || /login\.html$/.test(path)) return;
+    _subBlockHandled = true;
+    try { sessionStorage.setItem('sub_block_msg', message || ''); } catch {}
+    try { window.location.href = '/shared/subscription-blocked.html'; } catch {}
+}
+
 // API Service - Backend bilan aloqa uchun
 class API {
     constructor() {
@@ -63,7 +75,9 @@ class API {
     }
     
     // Token muddati tugagan bo'lsa yangilash (refresh token bilan — qayta login shart emas)
-    async refreshAccessToken() {
+    // redirectOnFail: refresh muvaffaqiyatsiz bo'lsa login'ga yo'naltirish (default: ha).
+    // Fon vazifalari (backup) buni false qiladi — app'ni login'ga uloqtirmaslik uchun.
+    async refreshAccessToken(redirectOnFail = true) {
         // Boshqa so'rov allaqachon refresh qilyapti — o'shani kutamiz (stampede oldini olish)
         if (_refreshInFlight) return _refreshInFlight;
 
@@ -98,7 +112,7 @@ class API {
                 return data.access_token;
             } catch (error) {
                 this.clearTokens();
-                window.location.href = '/shared/login.html';
+                if (redirectOnFail) window.location.href = '/shared/login.html';
                 throw error;
             } finally {
                 _refreshInFlight = null;
@@ -108,10 +122,29 @@ class API {
         return _refreshInFlight;
     }
     
+    // Umumiy fetch + 401→refresh→retry (single-flight). Xom Response qaytaradi —
+    // JSON (request) ham, binary (fetchBinary) ham shu bitta refresh mantig'idan foydalanadi.
+    // redirectOnFail: refresh o'lса login'ga yo'naltirish (request=ha, backup=yo'q).
+    async _fetchWithRefresh(url, config, redirectOnFail = true) {
+        let response = await fetch(url, config);
+        // Token muddati tugagan bo'lsa — refresh token bilan avtomatik yangilash
+        if (response.status === 401 && localStorage.getItem('refresh_token')) {
+            // refreshAccessToken YANGI access tokenni qaytaradi (boshqa instansiya
+            // yangilagan bo'lsa ham to'g'ri token ishlatilsin). Muvaffaqiyatsiz → throw.
+            const newToken = await this.refreshAccessToken(redirectOnFail);
+            config = {
+                ...config,
+                headers: { ...config.headers, 'Authorization': `Bearer ${newToken}` }
+            };
+            response = await fetch(url, config);
+        }
+        return response;
+    }
+
     // Asosiy request metodi
     async request(endpoint, options = {}) {
         const url = `${this.baseURL}${endpoint}`;
-        
+
         const config = {
             ...options,
             headers: {
@@ -119,7 +152,7 @@ class API {
                 ...options.headers
             }
         };
-        
+
         // Body bo'lsa JSON stringify qilish
         if (config.body && typeof config.body === 'object') {
             config.body = JSON.stringify(config.body);
@@ -129,30 +162,9 @@ class API {
         // status 0 → fetch umuman javob olmadi (tarmoq yo'q); 503 → Service Worker offline fallback.
         let status = 0;
         try {
-            let response = await fetch(url, config);
+            // 401 → refresh → retry (umumiy _fetchWithRefresh; refresh o'lса login'ga yo'naltiradi).
+            const response = await this._fetchWithRefresh(url, config, true);
             status = response.status;
-
-            // Token muddati tugagan bo'lsa — refresh token bilan avtomatik yangilash
-            if (response.status === 401 && localStorage.getItem('refresh_token')) {
-                try {
-                    // refreshAccessToken YANGI access tokenni qaytaradi (this.token emas —
-                    // boshqa instansiya yangilagan bo'lsa ham to'g'ri token ishlatilsin)
-                    const newToken = await this.refreshAccessToken();
-
-                    // Qaytadan so'rov yuborish
-                    config.headers = {
-                        ...config.headers,
-                        'Authorization': `Bearer ${newToken}`
-                    };
-
-                    response = await fetch(url, config);
-                    status = response.status;
-                } catch (refreshError) {
-                    this.clearTokens();
-                    window.location.href = '/shared/login.html';
-                    throw refreshError;
-                }
-            }
 
             // Javobni qayta ishlash
             const contentType = response.headers.get('content-type');
@@ -160,12 +172,27 @@ class API {
             const body = isJson ? await response.json() : await response.text();
 
             // Xato javob — MUVAFFAQIYAT SHAKLI O'ZGARMAYDI ({success:false,error,data}),
-            // faqat status/offline QO'SHILADI (mavjud iste'molchilar buzilmaydi — additive).
+            // faqat status/offline/code QO'SHILADI (mavjud iste'molchilar buzilmaydi — additive).
             if (!response.ok) {
-                const msg = isJson ? (body.detail || body.message || 'Xatolik yuz berdi') : 'Xatolik yuz berdi';
+                // detail dict bo'lishi mumkin ({code,message}) — obuna enforcement shunday yuboradi.
+                const rawDetail = isJson ? body.detail : null;
+                const isObjDetail = rawDetail && typeof rawDetail === 'object';
+                const code = isObjDetail ? (rawDetail.code || null) : null;
+                const msg = isObjDetail
+                    ? (rawDetail.message || 'Xatolik yuz berdi')
+                    : (isJson ? (body.detail || body.message || 'Xatolik yuz berdi') : 'Xatolik yuz berdi');
+
+                // OBUNA BLOK (403 + SUBSCRIPTION_EXPIRED): jim blok BO'LMASIN — butun app
+                // o'rniga bitta ekran. Barcha sahifalar shu api.js orqali ishlaydi, shuning
+                // uchun bu YAGONA joyda ushlanadi (kassa/hisobot/sozlama — hammasi to'xtaydi).
+                if (status === 403 && code === 'SUBSCRIPTION_EXPIRED') {
+                    _handleSubscriptionBlock(msg);
+                }
+
                 return {
                     success: false,
                     error: msg,
+                    code,
                     data: null,
                     status,
                     offline: (status === 503 || status === 0),  // 503 = SW offline; 0 = javob yo'q
@@ -269,19 +296,56 @@ class API {
         });
     }
     
-    // Download file
-    async download(endpoint, filename) {
-        try {
-            const response = await fetch(`${this.baseURL}${endpoint}`, {
-                method: 'GET',
-                headers: this.getHeaders()
-            });
-            
-            if (!response.ok) {
-                throw new Error('Faylni yuklab bo\'lmadi');
+    // Binary (blob/gzip/arrayBuffer) GET/POST — 401→refresh→retry BILAN (request() faqat JSON).
+    // Fon vazifasi bo'lgani uchun refresh o'lса login'ga YO'NALTIRMAYDI — sessionExpired qaytaradi
+    // (chaqiruvchi toza xabar ko'rsatadi). Qaytaradi:
+    //   { success:true, data:Uint8Array, headers, status }
+    //   { success:false, error, status, sessionExpired? }
+    async fetchBinary(endpoint, options = {}) {
+        const url = `${this.baseURL}${endpoint}`;
+        // Eng yangi tokenni localStorage'dan (boshqa instansiya yangilagan bo'lishi mumkin).
+        const tok = localStorage.getItem('access_token');
+        const config = {
+            method: 'GET',
+            ...options,
+            headers: {
+                ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
+                ...(options.headers || {}),
+                // DIQQAT: Content-Type QO'YILMAYDI — GET (kerak emas) va multipart (browser
+                // boundary qo'yadi) uchun. FormData body'da to'g'ri ishlashi shart.
             }
-            
-            const blob = await response.blob();
+        };
+        try {
+            // redirectOnFail:false — backup app'ni login'ga uloqtirmasin.
+            const response = await this._fetchWithRefresh(url, config, false);
+            if (!response.ok) {
+                let detail = 'HTTP ' + response.status;
+                try { const j = await response.json(); detail = j.detail || j.message || detail; } catch {}
+                return { success: false, error: detail, status: response.status };
+            }
+            const data = new Uint8Array(await response.arrayBuffer());
+            return { success: true, data, headers: response.headers, status: response.status };
+        } catch (error) {
+            // refreshAccessToken(false) throw qildi → refresh_token ham tugagan (30 kun) YOKI tarmoq.
+            const expired = !navigator.onLine ? false : true;
+            return {
+                success: false,
+                status: 401,
+                sessionExpired: expired,
+                error: expired ? 'Sessiya tugagan, qayta kiring' : (error.message || 'Tarmoq xatosi'),
+            };
+        }
+    }
+
+    // Download file — endi fetchBinary orqali (401→refresh bilan). Brauzerda <a download>.
+    async download(endpoint, filename) {
+        const res = await this.fetchBinary(endpoint);
+        if (!res.success) {
+            console.error('Download error:', res.error);
+            return { success: false, error: res.error, sessionExpired: res.sessionExpired };
+        }
+        try {
+            const blob = new Blob([res.data]);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -290,7 +354,6 @@ class API {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-            
             return { success: true };
         } catch (error) {
             console.error('Download error:', error);

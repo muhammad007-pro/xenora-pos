@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Obuna tugadi — XENORA</title>
+  <style>
+    :root{--bg:#07070f;--card:#12121c;--line:rgba(255,255,255,.08);--gold:#e2c97a;--gold2:#c9a84c;--text:#f0f0f8;--text2:#9a9ab8;--red:#ef4444}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;overflow:hidden}
+    .wrap{position:relative;width:100%;max-width:440px;z-index:2}
+    .glow{position:fixed;inset:0;z-index:1;pointer-events:none;
+      background:radial-gradient(600px 400px at 50% 30%,rgba(201,168,76,.10),transparent 70%)}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,0));
+      border:1px solid var(--line);border-radius:20px;padding:2.25rem 1.75rem;text-align:center;
+      box-shadow:0 24px 60px rgba(0,0,0,.5);backdrop-filter:blur(8px)}
+    .icon{font-size:3.25rem;margin-bottom:.75rem}
+    h1{font-size:1.4rem;font-weight:800;letter-spacing:-.01em;margin-bottom:.5rem}
+    .msg{color:var(--text2);font-size:.95rem;line-height:1.55;margin-bottom:1.25rem}
+    .meta{border:1px solid var(--line);border-radius:14px;padding:1rem;margin-bottom:1.25rem;text-align:left;display:none}
+    .meta.show{display:block}
+    .row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.4rem 0;font-size:.875rem}
+    .row+.row{border-top:1px dashed var(--line)}
+    .row .k{color:var(--text2)}
+    .row .v{font-weight:600}
+    .contact{background:rgba(201,168,76,.10);border:1px solid rgba(201,168,76,.28);border-radius:14px;
+      padding:1rem;margin-bottom:1.25rem}
+    .contact .lbl{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem}
+    .contact .val{font-size:1.25rem;font-weight:800;color:var(--gold)}
+    .btns{display:flex;flex-direction:column;gap:.6rem}
+    button{font-family:inherit;font-size:.95rem;font-weight:700;padding:.85rem 1rem;border-radius:12px;border:0;cursor:pointer;transition:filter .15s,transform .05s}
+    button:active{transform:translateY(1px)}
+    .primary{background:linear-gradient(135deg,var(--gold2),var(--gold));color:#07070f}
+    .primary:hover{filter:brightness(1.06)}
+    .ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--line)}
+    .ghost:hover{background:rgba(255,255,255,.1)}
+    .brand{margin-top:1.5rem;text-align:center;color:var(--text2);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase}
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="wrap">
+    <div class="card">
+      <div class="icon">🔒</div>
+      <h1>Obunangiz tugadi</h1>
+      <p class="msg" id="msg">Do'kon hisobingiz vaqtincha to'xtatildi. Xizmatni davom ettirish uchun obunani yangilang.</p>
+
+      <div class="meta" id="meta">
+        <div class="row"><span class="k">Tarif</span><span class="v" id="m-plan">—</span></div>
+        <div class="row"><span class="k">Holat</span><span class="v" id="m-state">—</span></div>
+        <div class="row" id="m-exp-row"><span class="k">Tugagan sana</span><span class="v" id="m-exp">—</span></div>
+      </div>
+
+      <div class="contact" id="contact-box">
+        <div class="lbl">Obunani yangilash uchun bog'laning</div>
+        <div class="val" id="contact">—</div>
+      </div>
+
+      <div class="btns">
+        <button class="primary" id="btn-retry">🔄 Qayta tekshirish</button>
+        <button class="ghost" id="btn-logout">Chiqish</button>
+      </div>
+    </div>
+    <div class="brand">XENORA POS</div>
+  </div>
+
+  <script type="module">
+    import { API_BASE } from '../js/core/config.js';
+
+    // api.js bloklanганда sessionStorage'ga sababni yozadi.
+    const savedMsg = (() => { try { return sessionStorage.getItem('sub_block_msg'); } catch { return null; } })();
+    if (savedMsg) document.getElementById('msg').textContent = savedMsg;
+
+    const STATE_LABEL = {
+      active:'Faol', expiring:'Tugayapti', grace:'Muhlatda',
+      expired:'Muddati tugagan', blocked:'Bloklangan', inactive:"O'chirilgan",
+    };
+    function fmtDate(iso){
+      if(!iso) return '—';
+      try { const d=new Date(iso); return d.toLocaleDateString('uz-UZ',{year:'numeric',month:'2-digit',day:'2-digit'}); }
+      catch { return '—'; }
+    }
+
+    async function loadStatus(){
+      const tok = localStorage.getItem('access_token');
+      if(!tok){ location.href='login.html'; return; }
+      try {
+        const r = await fetch(`${API_BASE}/cafes/my/subscription`, {
+          headers:{ 'Authorization':`Bearer ${tok}`, 'Accept':'application/json' }
+        });
+        if(r.status===401){ location.href='login.html'; return; }
+        if(!r.ok) return;
+        const d = await r.json();
+
+        // Obuna tiklangan bo'lsa (blok yo'q) — darhol ilovaga qaytamiz.
+        if(d && d.blocked === false){
+          try { sessionStorage.removeItem('sub_block_msg'); } catch {}
+          location.href = '/app/admin.html';
+          return;
+        }
+
+        if(d.message) document.getElementById('msg').textContent = d.message;
+        if(d.contact){ document.getElementById('contact').textContent = d.contact; }
+        // Meta
+        document.getElementById('m-plan').textContent  = (d.plan||'—').toUpperCase();
+        document.getElementById('m-state').textContent = STATE_LABEL[d.state]||d.state||'—';
+        if(d.expiry){ document.getElementById('m-exp').textContent = fmtDate(d.expiry); }
+        else { document.getElementById('m-exp-row').style.display='none'; }
+        document.getElementById('meta').classList.add('show');
+      } catch(e){ /* tarmoq — jim; foydalanuvchi Qayta tekshirish bosadi */ }
+    }
+
+    document.getElementById('btn-retry').addEventListener('click', ()=>location.reload());
+    document.getElementById('btn-logout').addEventListener('click', ()=>{
+      try {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('sub_block_msg');
+      } catch {}
+      location.href='login.html';
+    });
+
+    loadStatus();
+  </script>
+</body>
+</html>

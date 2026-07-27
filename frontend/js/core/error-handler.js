@@ -6,6 +6,8 @@
  *   initErrorHandler();
  */
 
+import { initSubscriptionBanner } from './subscription-banner.js';
+
 // ── Offline banner ─────────────────────────────────────────────────────────────
 
 function _createBanner() {
@@ -169,6 +171,8 @@ export function initErrorHandler() {
     _initOfflineBanner();
     window.addEventListener('error',               _onGlobalError);
     window.addEventListener('unhandledrejection',  _onUnhandledRejection);
+    // Obuna ogohlantirish / muhlat banneri (KILL-SWITCH o'chiq bo'lsa ko'rinmaydi).
+    initSubscriptionBanner();
 }
 
 /** Dastur ichidan toast ko'rsatish uchun */

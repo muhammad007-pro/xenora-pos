@@ -44,6 +44,9 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
 .badge.trial{background:rgba(59,130,246,.15);color:#60a5fa}
 .badge.blocked{background:rgba(239,68,68,.15);color:#ef4444}
 .badge.expired{background:rgba(107,114,128,.12);color:#9ca3af}
+.badge.inactive{background:rgba(107,114,128,.12);color:#9ca3af}
+.badge.expiring{background:rgba(245,158,11,.15);color:#f59e0b}
+.badge.grace{background:rgba(249,115,22,.18);color:#fb923c}
 .plan-badge{padding:.15rem .5rem;border-radius:99px;font-size:.6875rem;font-weight:700}
 .plan-badge.free{background:rgba(107,114,128,.15);color:#9ca3af}
 .plan-badge.pro{background:rgba(34,197,94,.15);color:var(--gold)}
@@ -393,9 +396,9 @@ function renderTable(items){
   const tbody=document.getElementById('tbody');
   if(!items.length){tbody.innerHTML=`<tr><td colspan="7" class="empty">Mijozlar topilmadi</td></tr>`;return;}
   tbody.innerHTML=items.map(t=>{
-    const st=statusBadge(t.tenant_status);
+    const st=statusBadge(t.sub_state||t.tenant_status);
     const plan=planBadge(t.subscription_plan);
-    const daysHtml=daysLeftHtml(t.days_left,t.tenant_status);
+    const daysHtml=daysLeftHtml(t);
     const actions=actionBtns(t);
     return `<tr>
       <td>
@@ -417,15 +420,19 @@ function renderTable(items){
 }
 
 function statusBadge(s){
-  const map={active:'Faol',trial:'Sinov',blocked:'Bloklangan',expired:'Tugagan'};
+  const map={active:'Faol',trial:'Sinov',blocked:'Bloklangan',expired:'Tugagan',
+             expiring:'Tugayapti',grace:'Muhlatda',inactive:'O‘chiq'};
   return `<span class="badge ${s}">${map[s]||s}</span>`;
 }
 function planBadge(p){
   const names={free:'LITE',pro:'PRO'};
   return `<span class="plan-badge ${p}">${names[p]||p}</span>`;
 }
-function daysLeftHtml(days,status){
-  if(status==='blocked') return `<span style="color:var(--text3);font-size:.75rem">—</span>`;
+function daysLeftHtml(t){
+  const status=t.sub_state||t.tenant_status;
+  const days=t.days_left;
+  if(status==='blocked'||status==='inactive') return `<span style="color:var(--text3);font-size:.75rem">—</span>`;
+  if(status==='grace') return `<span class="days-expired" style="color:#fb923c">Muhlat: ${t.grace_days_left} kun</span>`;
   if(status==='expired') return `<span class="days-expired">Tugagan</span>`;
   if(status==='trial') return `<span style="color:#60a5fa;font-size:.75rem">Sinov</span>`;
   if(days===null||days===undefined) return `<span style="color:var(--text3);font-size:.75rem">Muddatsiz</span>`;

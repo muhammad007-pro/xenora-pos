@@ -80,7 +80,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <body>
 <div class="xa-atmos" aria-hidden="true"></div>
 <div class="ph">
-  <a class="bk" href="/app/admin.html">←</a>
+  <a class="bk" href="pos.html">←</a>
   <div class="ph-title">↩ Qaytarish Jurnali</div>
   <button class="btn btn-gold" onclick="openCreateModal()">+ Yangi qaytarish</button>
 </div>
@@ -215,9 +215,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </div>
 
 <script type="module">
-import { API_BASE } from '/js/core/config.js';
-import { getToken } from '/js/core/auth.js';
-import { initErrorHandler, showToast } from '/js/core/error-handler.js';
+import { API_BASE } from '../js/core/config.js';
+import { getToken } from '../js/core/auth.js';
+import { initErrorHandler, showToast } from '../js/core/error-handler.js';
 initErrorHandler();
 
 const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js API_BASE eksport qiladi)

@@ -10,7 +10,7 @@
  */
 
 const DB_NAME = 'restopos_db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;   // #34: DISCOUNTS store qo'shildi (v2→v3)
 
 export const STORES = {
     PRODUCTS:      'products',
@@ -19,6 +19,7 @@ export const STORES = {
     CART:          'cart',
     ORDERS_QUEUE:  'orders_queue',
     AUTH_META:     'auth_meta',   // SW background sync uchun token saqlash
+    DISCOUNTS:     'discounts',   // #34: faol chegirmalar (offline avtomatik qo'llash)
 };
 
 class LocalDB {
@@ -44,6 +45,7 @@ class LocalDB {
                     [STORES.CART]:         { keyPath: 'product_id' },
                     [STORES.ORDERS_QUEUE]: { keyPath: 'local_id', autoIncrement: true },
                     [STORES.AUTH_META]:    { keyPath: 'key' },
+                    [STORES.DISCOUNTS]:    { keyPath: 'id' },
                 };
 
                 Object.entries(storeConfigs).forEach(([name, opts]) => {

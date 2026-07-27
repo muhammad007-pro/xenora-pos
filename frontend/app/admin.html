@@ -1340,6 +1340,7 @@
             <button class="tb-btn" id="discShowInactive" onclick="discSetFilter(false)">Nofaol</button>
           </div>
           <button class="tb-btn" onclick="loadStoreDiscounts()">Yangilash</button>
+          <button class="tb-btn tb-btn-primary" style="margin-left:auto" onclick="openDiscountModal()">+ Yangi chegirma</button>
         </div>
         <div class="mini-stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:1rem">
           <div class="mini-stat"><div class="ms-icon ms-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 14l6-4" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="10" stroke="#22c55e" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="discActive" style="color:var(--success)">—</div><div class="ms-lbl">Faol chegirmalar</div></div></div>
@@ -1357,6 +1358,49 @@
               <button class="pg-btn" id="discPrevBtn" onclick="discPage(-1)">←</button>
               <button class="pg-btn" id="discNextBtn" onclick="discPage(1)">→</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── #34: Yangi chegirma yaratish modal (POST /discounts/) ── -->
+      <div class="modal-overlay" id="discountModal" onclick="if(event.target===this)closeModal('discountModal')">
+        <div class="modal-card" style="max-width:520px">
+          <div class="modal-header"><span class="modal-title" id="dscModalTitle">Yangi chegirma</span><button class="modal-close" onclick="closeModal('discountModal')">✕</button></div>
+          <div class="modal-body">
+            <div class="form-group"><label>Nomi *</label><input class="form-control" id="dscName" placeholder="Yozgi aksiya" autocomplete="off"></div>
+            <div class="form-group"><label>Qamrov *</label>
+              <select class="form-control" id="dscTarget" onchange="discTargetChange()">
+                <option value="all">Butun savat (hammasiga)</option>
+                <option value="category">Kategoriyaga</option>
+                <option value="product">Mahsulotga</option>
+              </select>
+            </div>
+            <div class="form-group" id="dscCategoryGroup" style="display:none"><label>Kategoriya *</label>
+              <select class="form-control" id="dscCategory"><option value="">— Tanlang —</option></select>
+            </div>
+            <div class="form-group" id="dscProductGroup" style="display:none"><label>Mahsulot *</label>
+              <input class="form-control" id="dscProductSearch" list="dscProductList" placeholder="Mahsulot nomini yozing / tanlang" autocomplete="off">
+              <datalist id="dscProductList"></datalist>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Chegirma turi *</label>
+                <select class="form-control" id="dscType"><option value="percentage">Foiz (%)</option><option value="fixed">Belgilangan (so'm)</option></select>
+              </div>
+              <div class="form-group"><label>Qiymat *</label><input class="form-control" type="number" id="dscValue" min="0" step="0.5" placeholder="20"></div>
+            </div>
+            <div class="form-group"><label>Minimal xarid summasi (ixtiyoriy)</label><input class="form-control" type="number" id="dscMinAmount" min="0" placeholder="0"></div>
+            <div class="form-row">
+              <div class="form-group"><label>Boshlanish (ixtiyoriy)</label><input class="form-control" type="date" id="dscFrom"></div>
+              <div class="form-group"><label>Tugash (ixtiyoriy)</label><input class="form-control" type="date" id="dscTo"></div>
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:.5rem;margin-top:.25rem">
+              <input type="checkbox" id="dscActive" checked style="width:16px;height:16px;accent-color:var(--gold)">
+              <label for="dscActive" style="margin:0">Faol (darhol yoqilsin)</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('discountModal')">Bekor</button>
+            <button class="tb-btn tb-btn-primary" onclick="saveDiscount()">Saqlash</button>
           </div>
         </div>
       </div>

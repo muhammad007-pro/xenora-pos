@@ -35,7 +35,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#070f1e;color:#e8eef5;m
     <div class="edesc" id="eDesc">Siz qidirayotgan sahifa mavjud emas yoki ko'chirilgan bo'lishi mumkin.</div>
     <div class="eact">
       <button class="btn bg" onclick="history.back()">← Orqaga</button>
-      <a class="btn bo" href="/app/pos.html">🏠 Bosh sahifa</a>
+      <a class="btn bo" href="../app/pos.html">🏠 Bosh sahifa</a>
     </div>
     <div class="epath" id="ePath"></div>
   </div>
@@ -58,7 +58,7 @@ document.getElementById('eMsg').textContent=p.get('msg')||conf.msg;
 document.getElementById('eDesc').textContent=p.get('desc')||conf.desc;
 const ref=p.get('ref');
 if(ref) document.getElementById('ePath').textContent='Manzil: '+ref;
-if(code===401) document.querySelector('.eact').insertAdjacentHTML('afterbegin','<a class="btn bg" href="/shared/login.html">Kirish</a>');
+if(code===401) document.querySelector('.eact').insertAdjacentHTML('afterbegin','<a class="btn bg" href="login.html">Kirish</a>');
 </script>
 </body>
 </html>

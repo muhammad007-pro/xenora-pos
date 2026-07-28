@@ -213,6 +213,8 @@ const state = {
 // Faol chegirmalar (loadData'da /discounts/active dan; offline IndexedDB'dan).
 // SERVER buyurtma qabul qilganда QAYTA hisoblaydi (bu — faqat ko'rsatish uchun).
 let _activeDiscounts = [];
+// FAZA 3b: kassir tasdiqlagan "boshqa mahsulot bepul" aksiya id'lari (checkout'да to'ldiriladi).
+let giftAccepted = [];
 
 function _activeDiscountsNow() {
   const now = Date.now();
@@ -840,6 +842,7 @@ document.getElementById('clearCartBtn').addEventListener('click', () => {
   state.discountSource = null;   // BOSQICH S2
   state.customer = null;
   state.table    = null;
+  giftAccepted   = [];           // FAZA 3b: yangi sotuv → aksiya tanlovlari tozalanadi
   updateCustBtn();
   updateTableBtn();
   renderCart();
@@ -1424,11 +1427,35 @@ function isOfflineResult(res) {
   return !navigator.onLine || !!(res && res.offline);
 }
 
+// FAZA 3b: server-authoritative "boshqa mahsulot bepul" takliflari — kassirдан tasdiq oladi.
+// giftAccepted ni to'ldiradi (server order yaratishда X yetarli+Y ombor+promo haqiqiyligini QAYTA tekshiradi).
+async function checkGiftPromos() {
+  giftAccepted = [];
+  try {
+    const cart = state.cart.map(i => ({ product_id: i.id, quantity: i._weight != null ? i._weight : i.qty }));
+    const res  = await api.post('/promotions/gift-suggestions', cart);
+    const data = res && res.data;
+    if (!data) return;
+    for (const w of (data.unavailable || [])) {
+      toast(`${w.name}: ${w.reason || "bepul mahsulot omborда yo'q"}`, 'warning');
+    }
+    for (const g of (data.available || [])) {
+      const nm = g.free_product_name || 'bepul mahsulot';
+      if (confirm(`Aksiya: "${g.name}" → ${nm} ${g.quantity} dona BEPUL. Qo'shilsinmi?`)) {
+        giftAccepted.push(g.promo_id);
+      }
+    }
+  } catch (e) { /* tarmoq/xato — aksiyasiz davom etadi (server baribir qayta tekshiradi) */ }
+}
+
 async function startCheckout() {
   if (!state.cart.length) return;
 
   // Tarmoq aniq yo'q → serverni chaqirmasdan to'g'ridan-to'g'ri offline navbat oqimи
   if (!navigator.onLine) { beginOfflineCheckout(); return; }
+
+  // FAZA 3b: "boshqa mahsulot bepul" aksiyalari — kassirдан TASDIQ so'raladi (order'дан OLDIN).
+  await checkGiftPromos();
 
   // BUG 7: reopen qilingan "kutilayotgan" buyurtma — sotuvda YANGI order yaratiladi,
   // shuning uchun eskisini cancel qilamiz (aks holda held ro'yxatida dublikat qoladi).
@@ -1491,6 +1518,7 @@ function buildOrderPayload() {
     customer_id    : state.customer?.id || null,
     order_type     : state.orderType,
     source         : 'pos',
+    accepted_gift_promotions: giftAccepted,   // FAZA 3b: bo'sh → gated (server qayta tekshiradi)
     courses_enabled: MODE.hasCourses && state.cart.some(i => i.course_number > 1),
     items          : state.cart.map(i => ({
       product_id    : i.id,

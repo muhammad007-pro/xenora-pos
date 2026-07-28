@@ -342,6 +342,8 @@ class OrderCreate(BaseModel):
     items: List[OrderItemCreate] = []
     notes: Optional[str] = None
     order_type: str = "dine-in"
+    # FAZA 3b: kassir tasdiqlagan "boshqa mahsulot bepul" aksiyalar (server qayta tekshiradi). Bo'sh → gated.
+    accepted_gift_promotions: List[int] = []
     source: Optional[str] = "pos"
     # Yetkazib berish
     delivery_address: Optional[str] = None

@@ -169,6 +169,35 @@ class OrderService:
             gifts.append({"product_id": yid, "quantity": free_qty, "promo_id": p.id, "name": p.name})
         return gifts
 
+    def _gift_stock_map(self, y_ids, tenant_id):
+        """Bepul Y uchun MAVJUD ombor (dona). To'g'ridan mahsulot → Inventory.quantity[Y].
+        Retseptli → ingredientlardan nechа Y tayyorlanadi (min; yield_pct hisobga olinadi —
+        deduct_recipe_ingredients bilan bir xil raw_qty mantiqi)."""
+        from models import Recipe, Inventory
+
+        def _inv(pid):
+            q = self.db.query(Inventory).filter(Inventory.product_id == pid)
+            if tenant_id is not None:
+                q = q.filter(Inventory.tenant_id == tenant_id)
+            inv = q.first()
+            return inv.quantity if inv else 0.0
+
+        stock = {}
+        for yid in set(y_ids):
+            recipe = self.db.query(Recipe).filter(Recipe.product_id == yid).first()
+            if not recipe:
+                stock[yid] = _inv(yid)   # to'g'ridan mahsulot (magazin/dorixona/chakana)
+                continue
+            makeable = None                # retseptli: ingredientlardan nechа Y
+            for item in recipe.items:
+                per1 = item.quantity or 0
+                yld = getattr(getattr(item, "ingredient", None), "yield_pct", None)
+                raw1 = per1 / (yld / 100.0) if (yld and 0 < yld < 100) else per1
+                m = int(_inv(item.ingredient_id) // raw1) if raw1 > 0 else 0
+                makeable = m if makeable is None else min(makeable, m)
+            stock[yid] = makeable or 0
+        return stock
+
     def _resolve_pricing(self, active_discounts, promotions, items_data, subtotal, cat_of):
         """PURE narx-yechish — item: Discount (product>category) VA Promotion (flash/min_qty/min_amount)
         orasidan ENG YAXSHI BITTASI (best-only, STACKING YO'Q). Cart: Discount (min_order_amount) best-only.
@@ -280,6 +309,40 @@ class OrderService:
 
         # #34: AVTOMATIK chegirma — SERVER tomonda qayta hisoblanadi (client'ga ishonilmaydi).
         auto_disc, applied_discount_ids, applied_promotion_ids = self._compute_auto_discount(tenant_id, items_data, server_subtotal)
+
+        # FAZA 3b: kassir TASDIQLAGAN "boshqa mahsulot bepul" aksiyalari → bepul Y OrderItem injeksiya.
+        # GATED: accepted_gift_promotions BO'SH → bu blok umuman ishlamaydi (mavjud sotuv AYNAN hozirgidek).
+        # SERVER-AUTHORITATIVE: X qty HAQIQIY savatdan, Y ombor DB'dan, promo haqiqiy — client'ga ishonilmaydi.
+        accepted_gifts = getattr(order_data, "accepted_gift_promotions", None) or []
+        if accepted_gifts:
+            gift_promos = self.db.query(Promotion).filter(
+                Promotion.id.in_(accepted_gifts),
+                Promotion.tenant_id == tenant_id,
+                Promotion.is_active == True,   # noqa: E712
+                Promotion.promo_type == "buy_x_get_y",
+                Promotion.free_product_id.isnot(None),
+            ).all()
+            if gift_promos:
+                cart_qty_map = {}
+                for it in items_data:
+                    cart_qty_map[it["product_id"]] = cart_qty_map.get(it["product_id"], 0) + it["quantity"]
+                stock_map = self._gift_stock_map([p.free_product_id for p in gift_promos], tenant_id)
+                for g in self._compute_gift_items(gift_promos, cart_qty_map, stock_map):
+                    yprod = self.db.query(Product).filter(Product.id == g["product_id"]).first()
+                    if not yprod:
+                        continue
+                    # Y — narx=0 OrderItem. Ombor ayirish/refund/chek/loyalty MAVJUD atomik yo'llar orqali.
+                    items_data.append({
+                        "product_id":  g["product_id"],
+                        "quantity":    g["quantity"],
+                        "unit_price":  0.0,
+                        "unit_cost":   self._product_cost(yprod),
+                        "total_price": 0.0,
+                        "base_qty":    g["quantity"],   # ombordan ayiriladigan dona
+                        "unit_sold":   None,
+                        "notes":       f"Aksiya (bepul): {g['name']}",
+                    })
+                    applied_promotion_ids.append(g["promo_id"])   # used_count + biz_meta izи
         # Qo'lda/mijoz % chegirma — discount_type/value dan QAYTA hisoblanadi (client'ning
         # tayyor discount_amount summasiga ISHONILMAYDI): foiz 0–100, fixed subtotaldan oshmaydi.
         dv = order_data.discount_value or 0

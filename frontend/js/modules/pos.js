@@ -3273,17 +3273,37 @@ function openSellerLock(mode = 'manual') {
 }
 function closeSellerLock() { document.getElementById('sellerLock')?.classList.remove('show'); _slReset(); }
 
-// Manual almashtirish tugmasi: savat guard (savatда tovar bo'lsa ogohlantir)
-function requestSellerSwitch() {
+// Manual almashtirish tugmasi: savat guard + offline navbat ogohlantirishi
+async function requestSellerSwitch() {
   const n = state.cart.length;
   if (n > 0 && !confirm(`Savatda ${n} mahsulot bor, tozalab davom etilsinmi?`)) return;
+  // GAP #2: offline navbat bo'sh emas → yuborilmagan sotuvlar SYNC vaqtidagi (hozirgi)
+  // sotuvchiga yoziladi (server waiter_id ni token'dan oladi, payload'ni EMAS). Ogohlantir.
+  try {
+    const pend = await syncEngine.getPendingCount();
+    if (pend > 0 && !confirm(`Yuborilmagan ${pend} ta sotuv bor. Ular hozirgi sotuvchiga yoziladi. Davom etilsinmi?`)) return;
+  } catch {}
   openSellerLock('manual');
 }
 
+// GAP #1: TO'LIQ tozalash (clearCartBtn naqshi) — oldingi sotuvchi mijozи/chegirma/ball
+// yangi sotuvchiga SIZMASIN. Xizmat konteksti (retsept/salon/auto/maktab/kimyoviy) ham.
 function _clearCartForSwitch() {
   state.cart = [];
   state.discount = { type: 'pct', value: 0 };
   state.discountSource = null;
+  state.customer = null;
+  state.table = null;
+  state.rxInfo = null;
+  state.staffMember = null;
+  state.carInfo = null;
+  state.studentInfo = null;
+  state.cleaningInfo = null;
+  // Loyalty/ball modul-holati (posLoyaltyOnOpen bilan bir xil reset)
+  redeemPts = 0; redeemAmt = 0; lastLoyalty = null; loyBalance = 0;
+  const _ri = document.getElementById('redeemInput'); if (_ri) _ri.value = '';
+  try { updateCustBtn(); } catch {}
+  try { updateTableBtn(); } catch {}
   try { persistCart(); } catch {}
   try { renderCart(); } catch {}
 }
@@ -3350,11 +3370,15 @@ function _autolockSeconds() {
 function _resetIdleTimer() {
   if (SL.idleTimer) { clearTimeout(SL.idleTimer); SL.idleTimer = null; }
   const sec = _autolockSeconds();
-  if (sec > 0) {
-    SL.idleTimer = setTimeout(() => {
-      if (!document.getElementById('sellerLock')?.classList.contains('show')) openSellerLock('auto');
-    }, sec * 1000);
-  }
+  if (sec <= 0) return;
+  const tick = () => {
+    if (document.getElementById('sellerLock')?.classList.contains('show')) return;   // allaqachon qulfda
+    // GAP #3: to'lov yoki boshqa modal ochiq bo'lsa — AVTO-qulf bostiriladi (pul jarayoni
+    // buzilmasin). Keyinroq qayta tekshiramiz; modal yopilib harakatsizlik davom etsa qulflanadi.
+    if (document.querySelector('.modal-wrap.open')) { SL.idleTimer = setTimeout(tick, sec * 1000); return; }
+    openSellerLock('auto');
+  };
+  SL.idleTimer = setTimeout(tick, sec * 1000);
 }
 // Har harakat (bosish/klaviatura/tegish) taymerni nollaydi → savat to'ldirilayotganda qulflanmaydi
 ['pointerdown', 'keydown', 'touchstart'].forEach(ev => {

@@ -127,46 +127,84 @@
       <label class="form-label">Aksiya nomi *</label>
       <input class="inp" id="fName" placeholder="Yoz chegirmalari">
     </div>
-    <div class="form-grid">
+    <div class="form-row">
+      <label class="form-label">Aksiya turi *</label>
+      <select class="inp" id="fType" onchange="onTypeChange()">
+        <option value="flash_price">⚡ Flash narx (vaqtinchalik narx)</option>
+        <option value="min_amount">💰 Summa chegirmasi (X so'mdan ortiq)</option>
+        <option value="min_qty_discount">📦 Miqdor chegirmasi (X donadan ortiq)</option>
+        <option value="buy_x_get_y">🎁 2 ol 1 ol (bepul mahsulot)</option>
+      </select>
+    </div>
+
+    <datalist id="promoProductList"></datalist>
+    <div class="form-row" id="rowProduct">
+      <label class="form-label" id="lblProduct">Mahsulot *</label>
+      <input class="inp" id="fProduct" list="promoProductList" placeholder="Mahsulot nomini yozing / tanlang" autocomplete="off">
+    </div>
+
+    <div class="form-row" id="rowFlash" style="display:none">
+      <label class="form-label">Yangi (flash) narx *</label>
+      <input class="inp" type="number" id="fFlashPrice" min="0" placeholder="9900">
+    </div>
+
+    <div class="form-grid" id="rowDisc" style="display:none">
       <div class="form-row">
-        <label class="form-label">Turi *</label>
-        <select class="inp" id="fType" onchange="onTypeChange()">
-          <option value="percentage">Foiz chegirma</option>
-          <option value="fixed">Belgilangan sum</option>
-          <option value="bogo">1+1 Bepul</option>
-          <option value="bundle">Komplekt</option>
-          <option value="happy_hour">Happy Hour</option>
+        <label class="form-label">Chegirma turi</label>
+        <select class="inp" id="fDiscType"><option value="percentage">Foiz (%)</option><option value="fixed">Belgilangan (so'm)</option></select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Chegirma qiymati *</label>
+        <input class="inp" type="number" id="fValue" min="0" placeholder="10">
+      </div>
+    </div>
+
+    <div class="form-row" id="rowMinAmount" style="display:none">
+      <label class="form-label">Minimal xarid summasi (so'm) *</label>
+      <input class="inp" type="number" id="fMinAmount" min="0" placeholder="100000">
+    </div>
+    <div class="form-row" id="rowMinQty" style="display:none">
+      <label class="form-label">Minimal miqdor (dona) *</label>
+      <input class="inp" type="number" id="fMinQty" min="1" placeholder="3">
+    </div>
+
+    <div class="form-grid" id="rowBuy" style="display:none">
+      <div class="form-row">
+        <label class="form-label">Nechta olsa (X) *</label>
+        <input class="inp" type="number" id="fBuyQty" min="1" placeholder="2">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Bepul nima?</label>
+        <select class="inp" id="fFreeType" onchange="onTypeChange()">
+          <option value="same">Shu mahsulot bepul</option>
+          <option value="other">Boshqa mahsulot bepul</option>
         </select>
       </div>
-      <div class="form-row" id="valueRow">
-        <label class="form-label" id="valueLabel">Chegirma miqdori *</label>
-        <input class="inp" type="number" id="fValue" placeholder="10" min="0">
-      </div>
+    </div>
+    <div class="form-row" id="rowGetQty" style="display:none">
+      <label class="form-label">Nechta bepul (shu mahsulot) *</label>
+      <input class="inp" type="number" id="fGetQty" min="1" placeholder="1">
+    </div>
+    <div class="form-row" id="rowFreeProduct" style="display:none">
+      <label class="form-label">Bepul mahsulot (Y) *</label>
+      <input class="inp" id="fFreeProduct" list="promoProductList" placeholder="Bepul mahsulot nomi" autocomplete="off">
+    </div>
+    <div class="form-row" id="rowFreeQty" style="display:none">
+      <label class="form-label">Har to'plamга nechta bepul</label>
+      <input class="inp" type="number" id="fFreeQty" min="1" value="1">
+    </div>
+
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Boshlanish sanasi</label><input class="inp" type="date" id="fStart"></div>
+      <div class="form-row"><label class="form-label">Tugash sanasi</label><input class="inp" type="date" id="fEnd"></div>
     </div>
     <div class="form-grid">
-      <div class="form-row">
-        <label class="form-label">Boshlanish sanasi</label>
-        <input class="inp" type="date" id="fStart">
-      </div>
-      <div class="form-row">
-        <label class="form-label">Tugash sanasi</label>
-        <input class="inp" type="date" id="fEnd">
-      </div>
-    </div>
-    <div class="form-row" id="happyHourRow" style="display:none">
-      <label class="form-label">Happy Hour vaqti</label>
-      <div class="form-grid">
-        <input class="inp" type="time" id="fHhStart" value="14:00">
-        <input class="inp" type="time" id="fHhEnd" value="18:00">
-      </div>
+      <div class="form-row"><label class="form-label">Vaqt (dan, ixtiyoriy)</label><input class="inp" type="time" id="fHhStart"></div>
+      <div class="form-row"><label class="form-label">Vaqt (gача, ixtiyoriy)</label><input class="inp" type="time" id="fHhEnd"></div>
     </div>
     <div class="form-row">
-      <label class="form-label">Tavsif</label>
-      <textarea class="inp" id="fDesc" rows="2" placeholder="Aksiya haqida qisqacha ma'lumot"></textarea>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Min buyurtma summasi</label>
-      <input class="inp" type="number" id="fMinOrder" placeholder="0">
+      <label class="form-label">Foydalanish limiti (ixtiyoriy)</label>
+      <input class="inp" type="number" id="fUsageLimit" min="0" placeholder="∞">
     </div>
     <div class="form-row" style="display:flex;align-items:center;gap:.5rem">
       <label style="display:flex;align-items:center;gap:.5rem;font-size:.875rem;cursor:pointer">
@@ -198,14 +236,33 @@ window.setTab = function(el, filter) {
   renderGrid();
 };
 
+let PRODUCTS = {};   // nom(lower) → id (mahsulot picker uchun)
+async function loadProductsForPicker() {
+  try {
+    const res   = await api.get('/products/?page_size=1000&is_active=true');
+    const items = res?.items || res?.data?.items || (Array.isArray(res?.data)?res.data:null) || (Array.isArray(res)?res:[]);
+    let opts = '';
+    (items||[]).forEach(p => { if (p && p.name) { PRODUCTS[p.name.trim().toLowerCase()] = p.id; opts += `<option value="${p.name}"></option>`; } });
+    const dl = document.getElementById('promoProductList'); if (dl) dl.innerHTML = opts;
+  } catch (e) { /* jim */ }
+}
+loadProductsForPicker();
+
 window.onTypeChange = function() {
   const type = document.getElementById('fType').value;
-  const vRow  = document.getElementById('valueRow');
-  const hhRow = document.getElementById('happyHourRow');
-  const lbl   = document.getElementById('valueLabel');
-  hhRow.style.display = type === 'happy_hour' ? '' : 'none';
-  vRow.style.display  = (type === 'bogo' || type === 'bundle') ? 'none' : '';
-  lbl.textContent = type === 'percentage' ? 'Chegirma foizi (%)' : type === 'fixed' ? 'Chegirma summasi (so\'m)' : 'Miqdor';
+  const show = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v ? '' : 'none'; };
+  const isFlash = type==='flash_price', isMinA = type==='min_amount', isMinQ = type==='min_qty_discount', isBuy = type==='buy_x_get_y';
+  show('rowFlash', isFlash);
+  show('rowDisc', isMinA || isMinQ);
+  show('rowMinAmount', isMinA);
+  show('rowMinQty', isMinQ);
+  show('rowBuy', isBuy);
+  const lblP = document.getElementById('lblProduct');
+  if (lblP) lblP.textContent = isMinA ? "Mahsulot (ixtiyoriy — bo'sh: butun savat)" : 'Mahsulot *';
+  const freeType = document.getElementById('fFreeType') ? document.getElementById('fFreeType').value : 'same';
+  show('rowGetQty', isBuy && freeType === 'same');
+  show('rowFreeProduct', isBuy && freeType === 'other');
+  show('rowFreeQty', isBuy);
 };
 
 window.load = async function() {
@@ -230,7 +287,8 @@ function renderGrid() {
   if (activeFilter === 'active')   list = promos.filter(p=>p.is_active);
   if (activeFilter === 'inactive') list = promos.filter(p=>!p.is_active);
 
-  const typeLabels = { percentage:'Foiz %', fixed:'Belgilangan', bogo:'1+1', bundle:'Komplekt', happy_hour:'Happy Hour' };
+  const typeLabels = { flash_price:'⚡ Flash', min_amount:'💰 Summa', min_qty_discount:'📦 Miqdor', buy_x_get_y:'🎁 2 ol 1 ol',
+                       percentage:'Foiz %', fixed:'Belgilangan', bogo:'1+1', bundle:'Komplekt', happy_hour:'Happy Hour' };
 
   if (!list.length) {
     document.getElementById('promoGrid').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text2)">Aksiya yo\'q</div>';
@@ -273,18 +331,28 @@ function escHtml(s) { return String(s).replace(/[<>"'&]/g, c=>({'<':'&lt;','>':'
 
 window.editPromo = function(id) {
   const p = promos.find(x=>x.id===id); if (!p) return;
+  const set = (elid, v) => { const el = document.getElementById(elid); if (el) el.value = v; };
   document.getElementById('modalTitle').textContent = 'Aksiyani tahrirlash';
-  document.getElementById('editId').value    = p.id;
-  document.getElementById('fName').value     = p.name;
-  document.getElementById('fType').value     = p.promo_type || p.promotion_type || 'percentage';
-  document.getElementById('fValue').value    = p.discount_value || '';
-  document.getElementById('fStart').value    = p.start_date || '';
-  document.getElementById('fEnd').value      = p.end_date   || '';
-  document.getElementById('fDesc').value     = '';
-  document.getElementById('fMinOrder').value = p.min_purchase_amount || '';
+  set('editId', p.id);
+  set('fName', p.name || '');
+  set('fType', p.promo_type || 'flash_price');
+  set('fProduct', p.product_name || '');
+  set('fFlashPrice', p.flash_price || '');
+  set('fDiscType', p.discount_type || 'percentage');
+  set('fValue', p.discount_value || '');
+  set('fMinAmount', p.min_purchase_amount || '');
+  set('fMinQty', p.min_purchase_qty || '');
+  set('fBuyQty', p.buy_qty || '');
+  set('fFreeType', p.free_product_id ? 'other' : 'same');
+  set('fGetQty', p.get_qty || '');
+  set('fFreeProduct', p.free_product_name || '');
+  set('fFreeQty', p.free_qty_per_set || 1);
+  set('fStart', (p.start_date||'').slice(0,10));
+  set('fEnd', (p.end_date||'').slice(0,10));
+  set('fHhStart', p.time_from || '');
+  set('fHhEnd', p.time_to || '');
+  set('fUsageLimit', p.usage_limit || '');
   document.getElementById('fActive').checked = p.is_active;
-  document.getElementById('fHhStart').value  = p.time_from || '14:00';
-  document.getElementById('fHhEnd').value    = p.time_to   || '18:00';
   onTypeChange();
   document.getElementById('modalCreate').classList.add('active');
 };
@@ -294,25 +362,54 @@ window.savePromo = async function() {
   const name = document.getElementById('fName').value.trim();
   const type = document.getElementById('fType').value;
   if (!name) { toast('Nom kiritilmadi', 'error'); return; }
+  const num    = (elid) => { const v = parseFloat(document.getElementById(elid).value); return isNaN(v) ? null : v; };
+  const prodId = (elid) => PRODUCTS[(document.getElementById(elid).value||'').trim().toLowerCase()] || null;
 
   const body = {
-    name,
-    promo_type:           type,
-    discount_type:        'percentage',
-    discount_value:       parseFloat(document.getElementById('fValue').value) || null,
-    start_date:           document.getElementById('fStart').value || null,
-    end_date:             document.getElementById('fEnd').value   || null,
-    min_purchase_amount:  parseFloat(document.getElementById('fMinOrder').value) || null,
-    is_active:            document.getElementById('fActive').checked,
-    time_from:            type === 'happy_hour' ? document.getElementById('fHhStart').value : null,
-    time_to:              type === 'happy_hour' ? document.getElementById('fHhEnd').value   : null,
+    name, promo_type: type,
+    is_active:   document.getElementById('fActive').checked,
+    start_date:  document.getElementById('fStart').value || null,
+    end_date:    document.getElementById('fEnd').value   || null,
+    time_from:   document.getElementById('fHhStart').value || null,
+    time_to:     document.getElementById('fHhEnd').value   || null,
+    usage_limit: num('fUsageLimit'),
+    product_id: null, category_id: null, discount_type: null, discount_value: null,
+    flash_price: null, min_purchase_amount: null, min_purchase_qty: null,
+    buy_qty: null, get_qty: null, free_product_id: null, free_qty_per_set: null,
   };
 
-  if (id) await api.put(`/promotions/${id}`, body);
-  else     await api.post('/promotions/', body);
-  toast('Saqlandi', 'success');
-  closeModal();
-  load();
+  if (type === 'flash_price') {
+    body.product_id = prodId('fProduct'); body.flash_price = num('fFlashPrice');
+    if (!body.product_id || body.flash_price == null) { toast('Mahsulot + flash narx kiriting', 'error'); return; }
+  } else if (type === 'min_amount') {
+    body.product_id = prodId('fProduct');   // ixtiyoriy → bo'sh: butun savat
+    body.discount_type = document.getElementById('fDiscType').value; body.discount_value = num('fValue');
+    body.min_purchase_amount = num('fMinAmount');
+    if (body.discount_value == null || body.min_purchase_amount == null) { toast('Chegirma + min summa kiriting', 'error'); return; }
+  } else if (type === 'min_qty_discount') {
+    body.product_id = prodId('fProduct');
+    body.discount_type = document.getElementById('fDiscType').value; body.discount_value = num('fValue');
+    body.min_purchase_qty = num('fMinQty');
+    if (!body.product_id || body.discount_value == null || body.min_purchase_qty == null) { toast('Mahsulot + chegirma + min miqdor kiriting', 'error'); return; }
+  } else if (type === 'buy_x_get_y') {
+    body.product_id = prodId('fProduct'); body.buy_qty = num('fBuyQty'); body.free_qty_per_set = num('fFreeQty') || 1;
+    if (document.getElementById('fFreeType').value === 'other') {
+      body.free_product_id = prodId('fFreeProduct');
+      if (!body.free_product_id) { toast('Bepul mahsulot (Y) tanlanmadi', 'error'); return; }
+    } else {
+      body.get_qty = num('fGetQty');
+      if (!body.get_qty) { toast('Nechta bepul kiriting', 'error'); return; }
+    }
+    if (!body.product_id || !body.buy_qty) { toast('Mahsulot (X) + nechta olsa kiriting', 'error'); return; }
+  }
+
+  try {
+    if (id) await api.put(`/promotions/${id}`, body);
+    else     await api.post('/promotions/', body);
+    toast('Saqlandi', 'success');
+    closeModal();
+    load();
+  } catch (e) { toast(e.message || 'Xatolik', 'error'); }
 };
 
 window.togglePromo = async function(id, active) {

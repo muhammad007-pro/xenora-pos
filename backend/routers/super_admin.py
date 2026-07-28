@@ -733,17 +733,22 @@ async def renew_subscription(
     tenant_id: int,
     months:    int = Body(1),
     plan:      Optional[str] = Body(None),
+    amount:    float = Body(0),
+    note:      Optional[str] = Body(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
-    """To'lovsiz obunani uzaytirish (test/manual)."""
+    """Obunani qo'lda uzaytirish. HAR uzaytirish TenantPayment IZI qoldiradi (TIER 1) —
+    amount=0 → to'lovsiz/qo'lda; amount>0 → to'lov summasi. Obuna tarixi bo'sh qolmasin."""
     cafe = db.query(Cafe).filter(Cafe.id == tenant_id).first()
     if not cafe:
         raise HTTPException(404, "Tenant topilmadi")
 
     now = datetime.now()
     base = cafe.subscription_expires if (cafe.subscription_expires and cafe.subscription_expires > now) else now
-    cafe.subscription_expires = base + timedelta(days=30 * months)
+    period_start = base
+    period_end   = base + timedelta(days=30 * months)
+    cafe.subscription_expires = period_end
 
     if plan and plan in VALID_PLANS:
         cafe.subscription_plan = plan
@@ -751,6 +756,19 @@ async def renew_subscription(
         cafe.tenant_status = "active"
     cafe.is_active  = True
     cafe.updated_at = now
+
+    # TIER 1: har uzaytirish iz qoldiradi (ilgari /renew tarix qoldirmasdi)
+    db.add(TenantPayment(
+        tenant_id      = tenant_id,
+        amount         = amount or 0,
+        months         = months,
+        payment_method = "manual",
+        period_start   = period_start,
+        period_end     = period_end,
+        note           = note or "Qo'lda uzaytirish (superadmin)",
+        created_by_id  = current_user.id,
+    ))
+
     db.commit()
     return {
         "success":              True,

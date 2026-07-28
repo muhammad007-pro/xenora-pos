@@ -497,8 +497,15 @@ const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVE
 // theme, kitchenSound saqlanadi). IndexedDB offline kesh (products/tables/cart/
 // orders_queue/auth_meta) butunlay o'chiriladi — A kafe ma'lumoti B'ga sizmasin.
 function clearStaleTenantOnLogin() {
-  ['user','refresh_token','restopos_features','business_type','last_sync','saved_username']
-    .forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
+  // TO'LIQ tozalash (logout bilan bir xil): eski tenant qoldig'i — feature, business_type,
+  // offline kesh va BOSHQA barcha kalitlar — yangi sessiyaga sizmasin. theme/ovoz saqlanadi.
+  try {
+    const theme = localStorage.getItem('theme');
+    const sound = localStorage.getItem('kitchenSound');
+    localStorage.clear();
+    if (theme) localStorage.setItem('theme', theme);
+    if (sound) localStorage.setItem('kitchenSound', sound);
+  } catch(e){}
   try { indexedDB.deleteDatabase('restopos_db'); } catch(e){}
 }
 
@@ -507,8 +514,9 @@ function clearStaleTenantOnLogin() {
 // panelga (oshxona) sakramaydi.
 if (localStorage.getItem('access_token')) {
   const _u = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
-  const _role = _u.role?.name || _u.role || '';
-  location.replace(_role === 'kitchen' ? '../app/kitchen.html' : '../app/pos.html');
+  // roleHomePage: admin→admin.html, oshxona→kitchen.html, kassir/ofitsiant→pos.html (to'g'ri tenant).
+  // Sahifa afzalligi — tenant/xavfsizlik server tomonda JWT sub→DB user.tenant_id bilan aniqlanadi.
+  location.replace(roleHomePage(_u));
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────

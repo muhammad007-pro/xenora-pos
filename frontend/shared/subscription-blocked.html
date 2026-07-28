@@ -66,6 +66,7 @@
 
   <script type="module">
     import { API_BASE } from '../js/core/config.js';
+    import { clearTenantSession } from '../js/core/auth.js';
 
     // api.js bloklanганда sessionStorage'ga sababni yozadi.
     const savedMsg = (() => { try { return sessionStorage.getItem('sub_block_msg'); } catch { return null; } })();
@@ -112,12 +113,9 @@
 
     document.getElementById('btn-retry').addEventListener('click', ()=>location.reload());
     document.getElementById('btn-logout').addEventListener('click', ()=>{
-      try {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        sessionStorage.removeItem('sub_block_msg');
-      } catch {}
+      // TO'LIQ tozalash (oddiy logout bilan bir xil): token + user + offline kesh + IndexedDB.
+      try { clearTenantSession(); } catch {}
+      try { sessionStorage.removeItem('sub_block_msg'); } catch {}
       location.href='login.html';
     });
 

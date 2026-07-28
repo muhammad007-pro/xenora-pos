@@ -97,7 +97,7 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 - [x] Per-request obuna enforcement — BAJARILDI va DEPLOY QILINDI, lekin **ENFORCE_SUBSCRIPTION=False (kill-switch o'chiq)**. Yoqishdan OLDIN: (1) yangi .exe do'konga tarqatilsin (blok ekrani/banner frontend), (2) tenant muddatlari uzaytirilsin (8–15 avgust)
 - [x] To'liq blok + 2 kun grace — egasi qarori (enforcement shu tarzda quriladi)
 - [ ] Blokni kuchga kiritish (cafe.is_active pipeline'da tekshirish + token bekor)
-- [~] Obuna to'lov/invoice jadvali — **ASOSAN TAYYOR ekan (2026-07-28 status-check):** `TenantPayment` model (tenant/amount/months/payment_method/period_start-end/note/created_by) + to'lov qo'shish endpoint (obunani avto-uzaytiradi) + tarix endpoint + superadmin UI (`owner/subscriptions.html`) mavjud; jonli DB'da `tenant_payments` jadvali bor (0 yozuv — hech ishlatilmagan). **QOLGAN (kichik):** (a) idempotent migratsiya qo'shish — jadval `create_all`'dan yaratilgan (database.py:48 o'chirilgan), toza migrate-only deploy'da yo'qolmasin; (b) `/renew` endpoint hozir **to'lovsiz** uzaytiradi (tarix qoldirmaydi) → unga `TenantPayment` yozdirish yoki UI'ni to'lov oynasiga yo'naltirish.
+- [x] Obuna to'lov/invoice jadvali — **BAJARILDI va DEPLOY QILINDI (2026-07-28 batch, `251c6e6`):** `TenantPayment` model + to'lov qo'shish/tarix endpoint + superadmin UI (`owner/subscriptions.html`) mavjud edi; **idempotent migratsiya** (`tenant_payments` IF NOT EXISTS — jonli jadvalда no-op) qo'shildi + `/renew` endi **TenantPayment izi** qoldiradi (ilgari to'lovsiz uzaytirardi). Oylik daromad stats'да allaqachon bor.
 
 ### TIER 2 — Pul/ma'lumot to'g'riligi
 - [ ] Offline idempotency kaliti (dublikat order/to'lov oldini oladi)
@@ -118,12 +118,12 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 ### TIER 4 — Halollik / "arvoh funksiyalar" (AI smell yo'q qilish)
 - [x] **Loyalty (ballar)** — QURILDI va POS'ga ULANDI (auto-earn netdan, redeem server-authoritative, tenant sozlamalari, chekda ko'rsatish). Deploy KUTMOQDA (branch: feature/loyalty-pos)
 - [x] **Bonus karta** — YASHIRILDI (loyalty bilan ustma-ust tushardi; kod saqlangan, keyin sovg'a-kartasi funksiyasi sifatida alohida qurilishi mumkin)
-- [x] **Aksiya (promotions) POS'ga ulash** — BAJARILDI (chegirma birlashtirish loyihasi, 2026-07-28). Discount + Promotion **bitta narx-yechish pipeline**ga (`_resolve_pricing`) birlashtirildi. **4 aksiya turi ishlaydi:** flash narx, summa chegirmasi, miqdor chegirmasi, 2 ol 1 ol (bir xil + boshqa mahsulot bepul). **Arvoh muammosi yopildi** (eski forma `bogo/bundle/happy_hour` backend `buy_x_get_y/flash_price/min_amount/min_qty_discount` bilan mos emas edi → forma qayta yozildi). Deploy KUTMOQDA (branch: `feature/pricing-resolver`, **MIGRATSIYALI** — `free_product_id`). Golden test **27/27** — Eco Aroma #34 **byte-identical**.
+- [x] **Aksiya (promotions) POS'ga ulash** — **BACKEND DEPLOY QILINDI (2026-07-28 batch, `251c6e6`).** Discount + Promotion **bitta narx-yechish pipeline** (`_resolve_pricing`); **4 aksiya turi:** flash narx, summa, miqdor, 2 ol 1 ol (bir xil + boshqa mahsulot Y bepul). Arvoh muammosi yopildi (forma qayta yozildi). Migratsiya (`free_product_id`) qo'llandi. Golden **27/27** (Eco Aroma #34 byte-identical). ⚠️ **POS qismi (kassir aksiya taklifi) `.exe` v1.6.0 kutadi** — gated, oddiy sotuv buzilmaydi (§10).
 - [x] **Happy hour, kunlik taklif** — `flash_price`/`min_amount` turlariga + vaqt/kun filtriga qamrab olindi (aksiya har turga time_from/to + days_of_week).
 - [ ] Modifikator admin UI — qoldi
 - [ ] Hotel xona/bron UI — qoldi
 - [ ] Online to'lov (Click/Payme) — domen/bank API kutmoqda
-- [ ] 7 o'lik routerni tozalash — qoldi
+- [x] O'lik router tozalash — `promos` router **uzildi va DEPLOY QILINDI** (`/discounts` dublikat; fayl+`Discount` jadval saqlandi, faqat endpoint uzildi → /promos 404). ⚠️ Qolganlari **o'lik EMAS ekan** (status-check): `returns` (returns.html ishlatadi), `purchase` (frontend ishlatadi), `waste`/`staff_meal` (dublikat emas — poteriya vs xodim ovqati), `order_item`/`notification`/`device`/`customer_returns_ext` — **hammasi SAQLANDI**.
 
 **Chegirma+Aksiya birlashtirish dizayn qarorlari (egasi, 2026-07-28):**
 - **Ikки tizim → bitta pipeline:** `Discount` (jonli) + `Promotion` (arvoh) resolver'да **ikки manba** sifatida o'qiladi; modellar birlashtirilmadi → **ma'lumot yo'qolmadi**.
@@ -182,14 +182,12 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 
 ## 6. Branch holati (2026-07-28)
 
-- **main = `3346256`** (v1.5.0 + docs) — barcha katta-deploy branchlari birlashtirilgan. (Bu hujjat commit'i ustiga qo'shiladi.)
-- **prod (server) = `444b85b`** — deploy qilingan backend (main undan faqat docs/versiya bilan oldinda).
-- **DEPLOY KUTAYOTGAN 3 branch (hali merge EMAS — §9 ketma-ket reja):**
-  - `feature/subscription-invoice = 98f93c3` — obuna to'lov/invoice (**MIGRATSIYALI** — tenant_payments idempotent + /renew tarix).
-  - `feature/pricing-resolver = 84a2cdb` — chegirma+aksiya birlashtirish (**MIGRATSIYALI** — free_product_id; katta, runtime sinovi shart).
-  - `feature/seller-switch = 4dc7bf8` — tez sotuvchi almashish (sof frontend, **.exe build** kerak).
+- **main = `251c6e6`** — barcha branchlar birlashtirilgan (batch deploy). (Bu hujjat commit'i ustiga qo'shiladi.)
+- **prod (server) = `251c6e6`** — deploy qilingan backend (main = prod).
+- **DEPLOY KUTAYOTGAN backend: YO'Q ✅** — hammasi deploy qilindi.
+- **FRONTEND `.exe` v1.6.0 kutmoqda:** sotuvchi almashish UI + aksiya taklifi POS (runtime sinovi — §10). Backend tayyor, frontend gated (buzmaydi).
 
-**Arxiv (main'ga birlashtirilgan, 2026-07-28 katta deploy):** `feature/atomic-payment` (f448154), `feature/loyalty-pos` (76e79e6), `feature/password-policy` (f19a557), `feature/observability` (cf105b1), `feature/frontend-discount-wip` (d732a43), `feature/printer-hotfix` (9ffca27) — hammasi endi main'da (2257061→444b85b). Bu branchlar ARXIV sifatida belgilanadi (kelajakda o'chirilishi mumkin).
+**Arxiv (main'ga birlashtirilgan, deploy qilingan):** `feature/atomic-payment`, `feature/loyalty-pos`, `feature/password-policy`, `feature/observability`, `feature/frontend-discount-wip`, `feature/printer-hotfix` (2026-07-28 katta deploy → `444b85b`) + `feature/cleanup-deadrouter`, `feature/subscription-invoice`, `feature/pricing-resolver`, `feature/seller-switch` (2026-07-28 batch → `251c6e6`) + alembic merge revision `b9c8d7e6f5a4`. Hammasi main'да — ARXIV.
 
 ## 7. Deploy tarixi
 
@@ -199,16 +197,21 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 - **2026-07-28 — Sentry YOQILDI:** server `.env`'ga `SENTRY_DSN`+`SENTRY_ENVIRONMENT=production` qo'shildi, `sentry-sdk`+`jinja2` venv'ga o'rnatildi. Xatolar sentry.io panelida ko'rinadi. **Telegram alert HALI ulanmagan** (bot to'liq sozlanmagan). Test 500 (auth/me) panelga yetdi.
 - **2026-07-28 — commit `444b85b` (opsional-auth hotfix):** 13 endpoint `get_current_user`(opsional, token'siz None→500/crash) → `get_current_active_user` (majburiy auth → toza 401): /me, change_password, employee×4, upload×5, attendance×2. Deploy qilindi. Runtime tekshirildi (token'siz 401, valid token 200, upload rasm 200). Migratsiya YO'Q.
 - **2026-07-28 — v1.5.0 `.exe` BUILD:** `dist_artifacts/` (Setup + Portable, 80MB har biri; SumatraPDF+frontend bundle). Kamoldinga (Eco Aroma) Telegram orqali yuborildi, o'rnatish yo'riqnomasi bilan. **HALI o'rnatilmagan/tasdiqlanmagan.**
+- **2026-07-28 — `444b85b` → `251c6e6` (BATCH deploy — 4 branch + alembic merge):** cleanup-deadrouter (promos router uzildi), subscription-invoice, pricing-resolver, seller-switch main'ga birlashtirildi + **alembic merge revision `b9c8d7e6f5a4`** (2 parallel head → yagona). test/integration2'да avval sinaldi (merge toza, golden 27/27). **3 migratsiya:** `tenant_payments` (IF NOT EXISTS — jonli no-op), `free_product_id`+`free_qty_per_set` (ADD COLUMN IF NOT EXISTS), merge (no-op) — **idempotent, xatosiz**. Backup: `pre_deploy_batch_20260728_1916.sql.gz`. Rollback: `444b85b` + alembic downgrade. Natija: toza, /health OK, startup xato 0, Eco Aroma **555/17/16 o'zgarmagan**, golden 27/27, /promos 404 (uzildi), /discounts+/promotions 200, alembic current `b9c8d7e6f5a4`. **Eski .exe ishlaydi** (backend additiv/gated).
 
 ## 8. Tayyor, build kutayotgan ishlar
 
-- **feature/seller-switch (`4dc7bf8`)** — Tez sotuvchi almashish (iiko naqshi: POS header qulf → PIN pad → `/auth/pin-login` → faol sotuvchi) + sotuvchi hisoboti (store admin `cashier-report` jadvali, kun/hafta/oy). **REAL MIJOZ uchun** — xo'jalik mollari do'koni (2 monoblok, 1 akkaunt, 4 sotuvchi almashadi; sotuv/premiya aniq sotuvchiga). Egasi qarorlari: savat guard (ogohlantirish+tozalash), avto-qulf (sozlamada, default o'chiq), sotuvchi to'liq ruxsat (audit kuzatadi). 3 chala joy tuzatildi (mijoz/loyalty sizishi, offline navbat ogohlantirishi, avto-qulf modal ochiqда bostirilishi). **Backend O'ZGARMAGAN — faqat frontend** (pin-login + hisobot allaqachon bor, migratsiya YO'Q). **RUNTIME sinovi kutmoqda** — xo'jalik do'koni jihozi (monoblok/printer/skaner) olgach: main'ga merge → v1.6.0 `.exe` build → qurilmada sinov.
+**BACKEND HAMMASI DEPLOY QILINDI (2026-07-28 batch → `251c6e6`).** Faqat **FRONTEND qismlari `.exe` v1.6.0** kutmoqda (backend tayyor + gated → jonli sotuv buzilmaydi):
 
-- **feature/pricing-resolver (`84a2cdb`)** — Chegirma + Aksiya birlashtirish (Faza 0-4b). `Discount` + `Promotion` bitta narx-yechish pipeline; 4 aksiya turi (flash/summa/miqdor/2 ol 1 ol — bir xil + boshqa mahsulot Y bepul); admin UI birlashgan + forma backend'ga mos (arvoh yopildi). **MIGRATSIYALI** (`free_product_id`) → deploy'да backup + `alembic upgrade head` majburiy. Golden **27/27** (Eco Aroma #34 byte-identical). **RUNTIME sinovi kutmoqda** — POS aksiya taklifi (kassir tasdiqi), bepul mahsulot ombor ayirish, chek yorlig'i. POS qismi **.exe build** talab qiladi.
+- **Sotuvchi almashish UI** (seller-switch) — POS header qulf → PIN pad → faol sotuvchi + savat guard + avto-qulf; sotuvchi hisoboti backend'да tayyor. Runtime sinovi kerak (§10).
+- **Aksiya taklifi POS** (pricing POS qismi) — kassir aksiya taklifi (buy X get Y bepul mahsulot), chek yorlig'i "🎁 BEPUL (aksiya)". Backend + endpoint tayyor, POS UI runtime sinovi kerak (§10).
+- **Premium dizayn** — allaqachon v1.5.0 `.exe`da (frontend-discount-wip).
 
-- **feature/subscription-invoice (`98f93c3`)** — Obuna to'lov/invoice (Tier 1). `tenant_payments` idempotent migratsiya (jonli jadval bor → no-op) + `/renew` endi TenantPayment izi qoldiradi. **MIGRATSIYALI** → deploy'да backup + `alembic upgrade head`. Faqat backend, .exe kerak emas.
+**v1.6.0 build:** seller-switch UI + pricing POS qismi (+ kelasi frontend ishlari) — bitta build'ga. Do'kon jihozi/vaqti bilan.
 
-## 9. Keyingi deploy rejasi
+## 9. Deploy rejasi (BAJARILDI — 2026-07-28 batch)
+
+> ✅ **BAJARILDI:** quyidagi reja o'rniga — 4 branch bitta **batch deploy**да birlashtirildi (test/integration2'да avval sinaldi, 2 alembic head merge revision bilan hал qilindi). Natija `251c6e6` (§7). Quyi — tarixiy reja.
 
 **Deploy kutayotgan branchlar KO'P yig'ildi (3 ta).** Ular ARALASHTIRILMASIN — har biri **alohida, ketma-ket** deploy qilinadi. Har biri: **backup → deploy → runtime test → keyingisi**.
 
@@ -222,3 +225,13 @@ Tavsiya etilgan tartib (kichikdan kattaga, xavfni kamaytirish):
 - Har migratsiyали deploy'да **backup MAJBURIY** (`pg_dump` + gzip -t).
 - Har deploy'dan keyin **Eco Aroma 555/17/16** (mahsulot/buyurtma/to'lov) o'zgarmaganini tasdiqla.
 - Rollback: `git checkout <oldingi> + alembic downgrade + restart` (migratsiyали branchlar uchun downgrade tayyor).
+
+## 10. Runtime sinovi kutayotgan (v1.6.0 build'da tekshiriladi)
+
+Backend deploy qilingan + golden/unit testlardan o'tgan, LEKIN **jonli POS'da hali sinalmagan** — v1.6.0 `.exe` build'да haqiqiy qurilma + 2 sotuvchi + aksiya bilan sinaladi:
+
+- **Sotuvchi almashish:** qulf → PIN → faol sotuvchi almashishi; savat guard (tovar bo'lsa ogohlantirish+tozalash); avto-qulf (harakatsizlik, sozlamada); sotuv/premiya aniq sotuvchiga yozilishi; sotuvchi hisoboti (kim qancha sotdi).
+- **Aksiya POS:** kassir aksiya taklifi ("X oldingiz → Y bepul, qo'shilsinmi?"); bepul mahsulot ombordan ayrilishi (atomik); Y ombor yo'q → ogohlantirish; chekда "🎁 BEPUL (aksiya)" yorlig'i; refundда bepul Y qaytishi.
+- **Chegirma+aksiya birga:** oddiy #34 chegirma + yangi aksiyalar jonli savatда to'g'ri hisoblanishi (best-only, stacking yo'q) — golden 27/27 kafolat, lekin jonli tasdiq kerak.
+
+**Muhim:** bular **gated/additiv** — eski `.exe` (v1.5.0) yangi backend bilan oddiy sotuvni buzmaydi; yangi funksiyalar faqat v1.6.0 frontend bilan faollashadi.

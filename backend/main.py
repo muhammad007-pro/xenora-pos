@@ -165,7 +165,9 @@ app.include_router(telegram.router, prefix="/telegram",                 tags=["T
 
 # Universal biznes routerlari (BOSQICH 4)
 app.include_router(purchase.router,    prefix=f"{api_prefix}/purchases",    tags=["Purchases"])
-app.include_router(promo.router,       prefix=f"{api_prefix}/promos",       tags=["Promos"])
+# O'LIK (2026-07-28 uzildi): /promos — Discount model ustида dublikat, /discounts ishlatiladi
+# (frontend 4 fayl). Fayl (routers/promo.py) + Discount jadval SAQLANADI; faqat endpoint uzildi.
+# app.include_router(promo.router,       prefix=f"{api_prefix}/promos",       tags=["Promos"])
 app.include_router(qr.router,          prefix=f"{api_prefix}/qr",           tags=["QR"])
 app.include_router(device.router,      prefix=f"{api_prefix}/devices",      tags=["Devices"])
 app.include_router(appointment.router, prefix=f"{api_prefix}/appointments", tags=["Appointments"])

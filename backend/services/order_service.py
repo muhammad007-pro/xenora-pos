@@ -91,7 +91,7 @@ class OrderService:
         promos = self.db.query(Promotion).filter(
             Promotion.tenant_id == tenant_id,
             Promotion.is_active == True,   # noqa: E712
-            Promotion.promo_type.in_(("flash_price", "min_amount", "min_qty_discount")),
+            Promotion.promo_type.in_(("flash_price", "min_amount", "min_qty_discount", "buy_x_get_y")),
             (Promotion.usage_limit.is_(None) | (Promotion.used_count < Promotion.usage_limit)),
         ).all()
         out = []
@@ -131,6 +131,14 @@ class OrderService:
             elif p.promo_type == "min_amount":
                 if total_amount >= (p.min_purchase_amount or 0):
                     amt = self._promo_line_disc(p, line, qty)
+            elif p.promo_type == "buy_x_get_y":
+                # FAZA 3a: BIR XIL mahsulot — har (buy+get) to'plamда get_qty dona bepul.
+                # Benefit = bepul_qty × birlik narx → final kamayadi; ORDER QTY o'zgarmaydi
+                # (3 dona qoladi) → ombor 3 donani ayiradi (maxsus kod shart emas).
+                unit = (p.buy_qty or 0) + (p.get_qty or 0)
+                if unit > 0:
+                    free = (qty // unit) * (p.get_qty or 0)
+                    amt = free * unit_price
             amt = min(amt, line)
             if amt > best_amt:
                 best, best_amt = p, amt

@@ -34,11 +34,12 @@ def _d(id, type, value, product_id=None, category_id=None, min_order_amount=0.0)
 
 def _p(id, promo_type, product_id=None, category_id=None, discount_type="percentage",
        discount_value=0.0, min_purchase_amount=0.0, min_purchase_qty=0, flash_price=None,
-       start_date=None, end_date=None, days_of_week=None, time_from=None, time_to=None):
+       buy_qty=2, get_qty=1, start_date=None, end_date=None, days_of_week=None, time_from=None, time_to=None):
     return Promotion(id=id, name=f"p{id}", promo_type=promo_type, product_id=product_id,
                      category_id=category_id, discount_type=discount_type, discount_value=discount_value,
                      min_purchase_amount=min_purchase_amount, min_purchase_qty=min_purchase_qty,
-                     flash_price=flash_price, start_date=start_date, end_date=end_date,
+                     flash_price=flash_price, buy_qty=buy_qty, get_qty=get_qty,
+                     start_date=start_date, end_date=end_date,
                      days_of_week=days_of_week, time_from=time_from, time_to=time_to,
                      is_active=True, usage_limit=None, used_count=0)
 
@@ -79,6 +80,12 @@ SCENARIOS = {
     "P6_stacking_best_only":(_run([_d(1,"percentage",10,product_id=100)], [_p(50,"flash_price",product_id=100,flash_price=4000)], I1, 10000, PC), (2000.0, [], [50])),
     "P7_tie_discount_wins": (_run([_d(1,"percentage",20,product_id=100)], [_p(51,"flash_price",product_id=100,flash_price=4000)], I1, 10000, PC), (2000.0, [1], [])),
     "P8_expired_promo":     (_run([], [_p(52,"flash_price",product_id=100,flash_price=4000,end_date=_past)], I1, 10000, PC), (0.0, [], [])),
+
+    # ── FAZA 3a: buy_x_get_y BIR XIL mahsulot (benefit = bepul_qty × narx) ──
+    "B1_3ol1bepul":         (_run([], [_p(60,"buy_x_get_y",product_id=100,buy_qty=2,get_qty=1)], [_it(100,3,5000)], 15000, PC), (5000.0, [], [60])),
+    "B2_yetmaydi":          (_run([], [_p(61,"buy_x_get_y",product_id=100,buy_qty=2,get_qty=1)], [_it(100,2,5000)], 10000, PC), (0.0, [], [])),
+    "B3_2to'plam":          (_run([], [_p(62,"buy_x_get_y",product_id=100,buy_qty=1,get_qty=1)], [_it(100,4,5000)], 20000, PC), (10000.0, [], [62])),
+    "B4_best_only_vs_disc": (_run([_d(1,"percentage",10,product_id=100)], [_p(63,"buy_x_get_y",product_id=100,buy_qty=2,get_qty=1)], [_it(100,3,5000)], 15000, PC), (5000.0, [], [63])),
 }
 
 

@@ -7,7 +7,7 @@ import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
-import { printReceiptHTML, buildReceipt58, loyaltyRows } from '../core/receipt-print.js';
+import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow } from '../core/receipt-print.js';
 
 const api = new API();
 
@@ -1722,7 +1722,7 @@ function renderOfflineReceipt(payment) {
     </div>
     <table class="receipt-table">
       <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
-      <tbody>${state.cart.map(i=>`<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
+      <tbody>${state.cart.map(i=> isGiftItem(i) ? giftRow(i.name, i.qty) : `<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>
@@ -1868,6 +1868,7 @@ function renderReceiptData(rec) {
       <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
       <tbody>
         ${(rec.items || state.cart).map(i => {
+          if (isGiftItem(i)) return giftRow(i.name || i.product_name || '', i.quantity || i.qty);   // FAZA 3b
           const d   = MODE.isPharmacy ? (i._dosage || i.dosage || '') : '';
           const m   = MODE.isService  ? (i._master?.name || '') : '';
           const dur = MODE.isService  && i._duration ? fmtDuration(i._duration) : '';
@@ -1922,7 +1923,7 @@ function renderReceiptFallback(orderId) {
     <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem">Buyurtma #${orderId}</div>
     <table class="receipt-table">
       <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
-      <tbody>${state.cart.map(i=>`<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
+      <tbody>${state.cart.map(i=> isGiftItem(i) ? giftRow(i.name, i.qty) : `<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>

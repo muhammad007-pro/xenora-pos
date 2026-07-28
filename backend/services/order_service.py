@@ -131,10 +131,11 @@ class OrderService:
             elif p.promo_type == "min_amount":
                 if total_amount >= (p.min_purchase_amount or 0):
                     amt = self._promo_line_disc(p, line, qty)
-            elif p.promo_type == "buy_x_get_y":
-                # FAZA 3a: BIR XIL mahsulot — har (buy+get) to'plamда get_qty dona bepul.
-                # Benefit = bepul_qty × birlik narx → final kamayadi; ORDER QTY o'zgarmaydi
-                # (3 dona qoladi) → ombor 3 donani ayiradi (maxsus kod shart emas).
+            elif p.promo_type == "buy_x_get_y" and getattr(p, "free_product_id", None) is None:
+                # FAZA 3a: BIR XIL mahsulot (free_product_id NULL) — har (buy+get) to'plamда
+                # get_qty dona bepul. Benefit = bepul_qty × birlik narx → final kamayadi; ORDER
+                # QTY o'zgarmaydi → ombor to'g'ri ayiradi. 3b (free_product_id bор) — INJEKSIYA
+                # (create_order Y ni alohida OrderItem qiladi), bu yerда HISOBLANMAYDI.
                 unit = (p.buy_qty or 0) + (p.get_qty or 0)
                 if unit > 0:
                     free = (qty // unit) * (p.get_qty or 0)
@@ -143,6 +144,30 @@ class OrderService:
             if amt > best_amt:
                 best, best_amt = p, amt
         return best, best_amt
+
+    def _compute_gift_items(self, gift_promos, cart_qty_map, stock_map):
+        """FAZA 3b PURE (server-authoritative) — qaysi bepul Y qo'shilishini hisoblaydi.
+        gift_promos: buy_x_get_y + free_product_id bор (kassir TASDIQLAGAN). cart_qty_map: {pid: qty}
+        (to'langan X). stock_map: {pid: mavjud_ombor}. Qaytadi: [{product_id, quantity, promo_id, name}].
+        SHART: X yetarli (qty >= buy_qty) VA Y ombor yetarli — aks holda SKIP (aksiya qo'llanmaydi).
+        Ko'p to'plam: sets = x_qty // buy_qty (4 X, buy=2 → 2 to'plam). Client soxta yubora olmaydi —
+        server X'ni HAQIQIY savatdan, Y ombor'ni DB'dan tekshiradi."""
+        gifts = []
+        for p in gift_promos:
+            yid = getattr(p, "free_product_id", None)
+            if not yid:
+                continue
+            buy = p.buy_qty or 0
+            x_qty = cart_qty_map.get(p.product_id, 0)
+            if buy <= 0 or x_qty < buy:
+                continue
+            free_qty = (x_qty // buy) * (p.free_qty_per_set or 1)
+            if free_qty <= 0:
+                continue
+            if stock_map.get(yid, 0) < free_qty:
+                continue   # Y ombor yetmaydi → aksiya qo'llanmaydi (kassir ogohlantirilgan)
+            gifts.append({"product_id": yid, "quantity": free_qty, "promo_id": p.id, "name": p.name})
+        return gifts
 
     def _resolve_pricing(self, active_discounts, promotions, items_data, subtotal, cat_of):
         """PURE narx-yechish — item: Discount (product>category) VA Promotion (flash/min_qty/min_amount)

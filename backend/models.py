@@ -1373,6 +1373,8 @@ class Promotion(Base):
     category_id         = Column(Integer, ForeignKey("categories.id"), nullable=True)
     buy_qty             = Column(Integer, default=2)
     get_qty             = Column(Integer, default=1)
+    free_product_id     = Column(Integer, ForeignKey("products.id"), nullable=True)  # Faza 3b: bepul Y (NULL → 3a bir xil)
+    free_qty_per_set    = Column(Integer, default=1)                                  # har to'plamга nechа Y bepul
     discount_type       = Column(String(20), default="percentage")  # percentage|fixed
     discount_value      = Column(Float, default=0.0)
     min_purchase_amount = Column(Float, default=0.0)
@@ -1388,8 +1390,9 @@ class Promotion(Base):
     used_count          = Column(Integer, default=0)
     created_at          = Column(DateTime(timezone=True), server_default=func.now())
 
-    product  = relationship("Product")
-    category = relationship("Category")
+    product      = relationship("Product", foreign_keys=[product_id])
+    free_product = relationship("Product", foreign_keys=[free_product_id])   # Faza 3b: bepul Y
+    category     = relationship("Category")
 
 
 class QuickSellItem(Base):

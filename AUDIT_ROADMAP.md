@@ -1,6 +1,6 @@
 # XENORA — Audit va Tuzatish Rejasi
 
-**Oxirgi yangilanish:** 2026-07-24
+**Oxirgi yangilanish:** 2026-07-28
 **Sana:** 2026-07-22
 **Qamrov:** To'liq loyiha (~90 000 qator, 68 funksiya, 499 endpoint, 68 router)
 **Usul:** Read-only audit (grep/kod tekshiruvi) — kod o'zgartirilmadi
@@ -97,7 +97,7 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 - [x] Per-request obuna enforcement — BAJARILDI va DEPLOY QILINDI, lekin **ENFORCE_SUBSCRIPTION=False (kill-switch o'chiq)**. Yoqishdan OLDIN: (1) yangi .exe do'konga tarqatilsin (blok ekrani/banner frontend), (2) tenant muddatlari uzaytirilsin (8–15 avgust)
 - [x] To'liq blok + 2 kun grace — egasi qarori (enforcement shu tarzda quriladi)
 - [ ] Blokni kuchga kiritish (cafe.is_active pipeline'da tekshirish + token bekor)
-- [ ] Obuna to'lov/invoice jadvali
+- [~] Obuna to'lov/invoice jadvali — **ASOSAN TAYYOR ekan (2026-07-28 status-check):** `TenantPayment` model (tenant/amount/months/payment_method/period_start-end/note/created_by) + to'lov qo'shish endpoint (obunani avto-uzaytiradi) + tarix endpoint + superadmin UI (`owner/subscriptions.html`) mavjud; jonli DB'da `tenant_payments` jadvali bor (0 yozuv — hech ishlatilmagan). **QOLGAN (kichik):** (a) idempotent migratsiya qo'shish — jadval `create_all`'dan yaratilgan (database.py:48 o'chirilgan), toza migrate-only deploy'da yo'qolmasin; (b) `/renew` endpoint hozir **to'lovsiz** uzaytiradi (tarix qoldirmaydi) → unga `TenantPayment` yozdirish yoki UI'ni to'lov oynasiga yo'naltirish.
 
 ### TIER 2 — Pul/ma'lumot to'g'riligi
 - [ ] Offline idempotency kaliti (dublikat order/to'lov oldini oladi)
@@ -133,11 +133,12 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 
 ### TIER 5 — Operatsion yetuklik
 - [ ] **Token secure storage** (Electron safeStorage + 65 joyni markazlashtirish) — HTTPS va webSecurity'dan KEYIN (Tier 3 dan ko'chirildi)
-- [ ] Sentry + monitoring (disk/RAM/CPU alert)
-- [ ] AI chaqiruvida timeout
+- [x] **Sentry** — YOQILDI (2026-07-28, server `.env` DSN; xatolar sentry.io panelida). Telegram alert HALI ulanmagan (bot to'liq sozlanmagan).
+- [x] **Monitoring skript + backup cron** — o'rnatildi, ishlayapti (kunlik 22:00 UTC backup, monitor */15).
+- [x] **AI chaqiruvida timeout** — bajarildi, deploy qilindi.
 - [ ] Deploy skript + rollback protsedura (DEPLOY.md)
-- [ ] Request-id middleware
-- [ ] Dependency yangilash (CVE tekshiruvi)
+- [x] **Request-id middleware** — allaqachon bor edi.
+- [ ] Dependency yangilash (CVE tekshiruvi) — qoldi.
 
 ### TIER 6 — Masshtab (500+ tenant / xalqaro — kelajak)
 - [ ] Redis: WebSocket pub/sub + umumiy rate-limit store — ko'p worker/ko'p serverga chiqish uchun MAJBURIY shart
@@ -168,17 +169,23 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 - Jonli do'kon (Eco Aroma) ma'lumoti — har amalda birinchi o'rinda
 - Har taklif serverga tegsa — avval O'LCHA (CPU/RAM/ulanish/arxitektura), keyin qaror. Taxminga asoslangan "arzon yutuq" jonli tizimni buzishi mumkin (worker misoli, 2026-07-22).
 
-## 6. Branch holati (2026-07-24)
+## 6. Branch holati (2026-07-28)
 
-- **main = `877dd8e`** — prod bilan bir xil (server shu commit'da). Deploy qilingan backend (RBAC + timezone + oldingi).
-- **feature/atomic-payment = `f448154`** — to'lov atomikligi (`payment.py` QAYTA YOZILGAN, `payment_service.py`, `recipe_inventory_service.py`).
-- **feature/loyalty-pos = `76e79e6`** — **atomic-payment USTIGA tarmoqlangan**, loyalty to'liq (auto-earn + redeem + tenant sozlama + bonus yashirish + chekda ball).
-- **feature/password-policy = `f19a557`** — parol siyosati (mustaqil).
-- **feature/frontend-discount-wip = `d732a43`** — frontend (blok ekrani, banner, backup 401 fix, premium dizayn ~30 fayl) + **#34 avto-chegirma** (`discount.py`, `order_service.py`). `.exe` build kerak.
+- **main = `9e7818b`** (release: v1.5.0) — barcha feature branch BIRLASHTIRILGAN + opsional-auth hotfix + versiya-bump. (Bu hujjat commit'i ustiga qo'shiladi.)
+- **prod (server) = `444b85b`** — deploy qilingan backend. main `9e7818b` main'da faqat versiya-bump (v1.5.0 doc/tag) bilan oldinda; backend jihatidan prod = main.
+- **feature/seller-switch = `4dc7bf8`** — QO'SHIMCHA, hali merge EMAS. Tez sotuvchi almashish (iiko: qulf→PIN→almashish) + sotuvchi hisoboti. Sof frontend. Runtime sinovi (build) kutmoqda — §8 ga qarang.
 
-⚠️ **MERGE TARTIBI:** **atomic-payment → loyalty-pos** (ketma-ket, `payment.py` kesishuvi — loyalty atomik ustiga qurilgan). **password-policy** mustaqil (istalgan vaqt). **frontend-discount-wip** OXIRIDA, `.exe` build bilan (`order_service.py`+`payment.py` sotuv oqumiga tegadi → har merge'dan keyin test).
+**Arxiv (main'ga birlashtirilgan, 2026-07-28 katta deploy):** `feature/atomic-payment` (f448154), `feature/loyalty-pos` (76e79e6), `feature/password-policy` (f19a557), `feature/observability` (cf105b1), `feature/frontend-discount-wip` (d732a43), `feature/printer-hotfix` (9ffca27) — hammasi endi main'da (2257061→444b85b). Bu branchlar ARXIV sifatida belgilanadi (kelajakda o'chirilishi mumkin).
 
 ## 7. Deploy tarixi
 
 - **2026-07-23 — commit `3549f95`:** 17 backend fayl (SVG filter, /customers/all limit, billing 1+2 faza [enforcement o'chiq], Inventory row-lock ×14, get_db rollback). Backup: `~/xenora-backups/pre_deploy_20260723_2111.sql.gz` (58K, gzip -t OK). Rollback hash: `1c8b74c`. Migratsiya YO'Q. Natija: toza deploy, /health OK, Eco Aroma ma'lumoti O'ZGARMAGAN (mahsulot 555 / buyurtma 17 / to'lov 16), telefondan tekshirildi (mahsulot/ombor OK). ⚠️ Sozlamalar sahifasi HALI TEKSHIRILMAGAN.
 - **2026-07-24 — commit `877dd8e` (Deploy 2):** RBAC (40 yozuv endpoint, 13 router) + timezone (`tenant_day_bounds` — kunlik chegara Toshkent yarim tuni). Backup: `~/xenora-backups/pre_deploy_20260724_0921.sql.gz`. Rollback hash: `3549f95`. Migratsiya YO'Q. Natija: toza, merge konfliktsiz, /health OK, Eco Aroma **555/17/16 o'zgarmagan**, admin RBAC bloklanmadi.
+- **2026-07-28 — `2257061` → `444b85b` (Katta deploy — v1.5.0):** Barcha feature branch main'ga BIRLASHTIRILDI (atomic-payment, loyalty-pos, password-policy, observability, frontend-discount-wip, printer-hotfix + 3 sessiya-izolyatsiya tuzatiш). Backend deploy qilindi. Backuplar: `pre_bigdeploy_20260728_0802.sql.gz` + `pre_hotfix_20260728_0850.sql.gz` (58K, gzip OK). Rollback: `877dd8e`→`2257061`. Migratsiya YO'Q. Natija: toza, /health OK, Eco Aroma **555/17/16 o'zgarmagan**.
+- **2026-07-28 — Sentry YOQILDI:** server `.env`'ga `SENTRY_DSN`+`SENTRY_ENVIRONMENT=production` qo'shildi, `sentry-sdk`+`jinja2` venv'ga o'rnatildi. Xatolar sentry.io panelida ko'rinadi. **Telegram alert HALI ulanmagan** (bot to'liq sozlanmagan). Test 500 (auth/me) panelga yetdi.
+- **2026-07-28 — commit `444b85b` (opsional-auth hotfix):** 13 endpoint `get_current_user`(opsional, token'siz None→500/crash) → `get_current_active_user` (majburiy auth → toza 401): /me, change_password, employee×4, upload×5, attendance×2. Deploy qilindi. Runtime tekshirildi (token'siz 401, valid token 200, upload rasm 200). Migratsiya YO'Q.
+- **2026-07-28 — v1.5.0 `.exe` BUILD:** `dist_artifacts/` (Setup + Portable, 80MB har biri; SumatraPDF+frontend bundle). Kamoldinga (Eco Aroma) Telegram orqali yuborildi, o'rnatish yo'riqnomasi bilan. **HALI o'rnatilmagan/tasdiqlanmagan.**
+
+## 8. Tayyor, build kutayotgan ishlar
+
+- **feature/seller-switch (`4dc7bf8`)** — Tez sotuvchi almashish (iiko naqshi: POS header qulf → PIN pad → `/auth/pin-login` → faol sotuvchi) + sotuvchi hisoboti (store admin `cashier-report` jadvali, kun/hafta/oy). **REAL MIJOZ uchun** — xo'jalik mollari do'koni (2 monoblok, 1 akkaunt, 4 sotuvchi almashadi; sotuv/premiya aniq sotuvchiga). Egasi qarorlari: savat guard (ogohlantirish+tozalash), avto-qulf (sozlamada, default o'chiq), sotuvchi to'liq ruxsat (audit kuzatadi). 3 chala joy tuzatildi (mijoz/loyalty sizishi, offline navbat ogohlantirishi, avto-qulf modal ochiqда bostirilishi). **Backend O'ZGARMAGAN — faqat frontend** (pin-login + hisobot allaqachon bor, migratsiya YO'Q). **RUNTIME sinovi kutmoqda** — xo'jalik do'koni jihozi (monoblok/printer/skaner) olgach: main'ga merge → v1.6.0 `.exe` build → qurilmada sinov.

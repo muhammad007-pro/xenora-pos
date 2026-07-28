@@ -1932,8 +1932,8 @@ document.getElementById('addBtn').addEventListener('click', () => {
   if (currentPage === 'students')      toast("O'quvchi POS orqali qo'shiladi",'info');
   if (currentPage === 'groups')        toast("Guruhlar POS buyurtmalardan avtomatik to'planadi",'info');
   if (currentPage === 'cleaning')      toast('Buyurtma POS orqali qabul qilinadi','info');
-  if (currentPage === 'hotelRooms')    toast("Xona qo'shish tez orada",'info');
-  if (currentPage === 'hotelBookings') toast("Bron qo'shish tez orada",'info');
+  if (currentPage === 'hotelRooms')    openRoomModal();
+  if (currentPage === 'hotelBookings') openBookingModal();
   if (currentPage === 'customers')    openCustomerAdd();
   if (currentPage === 'staff')        openStaffModal();
   if (currentPage === 'stations')     openStationModal();

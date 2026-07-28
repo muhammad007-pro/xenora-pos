@@ -183,8 +183,8 @@ async function loadStoreDiscounts() {
     const badge = document.getElementById('activeDiscountsBadge');
     if (badge) { const ac = items.filter(d=>d.is_active).length; badge.textContent=ac; badge.style.display=ac>0?'':'none'; }
     const body = document.getElementById('discBody');
-    if (!items.length) { body.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Chegirma topilmadi</td></tr>'; return; }
-    body.innerHTML = items.map(d => {
+    // FAZA 4: bo'sh bo'lsa ham aksiyalar (promotions) qo'shiladi — bitta birlashgan ro'yxat.
+    let _rows = items.map(d => {
       const typeMap = { percentage:'%', fixed:"so'm" };
       const val = d.type==='percentage' ? d.value+'%' : fmtMoney(d.value)+' UZS';
       const from = d.valid_from ? d.valid_from.slice(0,10) : '∞';
@@ -211,10 +211,81 @@ async function loadStoreDiscounts() {
         </td>
       </tr>`;
     }).join('');
+    // FAZA 4: aksiyalarni (flash/happy-hour/2 ol 1 ol/miqdor/summa) shu ro'yxatga qo'shamiz.
+    _rows += await _promotionRows();
+    body.innerHTML = _rows || '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Chegirma/aksiya topilmadi</td></tr>';
     document.getElementById('discPrevBtn').disabled = discCurrentPage <= 1;
     document.getElementById('discNextBtn').disabled = items.length < 20;
   } catch(err) { toast(err.message,'error'); }
 }
+
+// FAZA 4: aksiyalar (Promotion) — birlashgan hub ro'yxati uchun qatorlar. Tur belgisi + CRUD /promotions/.
+const _PROMO_LABEL = { flash_price:'⚡ Flash', min_amount:'💰 Summa', min_qty_discount:'📦 Miqdor', buy_x_get_y:'🎁 2 ol 1 ol' };
+async function _promotionRows() {
+  try {
+    const data = await apiFetch('/promotions/?page_size=200');
+    const promos = (data && data.items) || (Array.isArray(data) ? data : []);
+    if (!promos.length) return '';
+    return promos.map(p => {
+      let val = '—';
+      if (p.promo_type === 'flash_price') val = fmtMoney(p.flash_price||0) + ' UZS';
+      else if (p.promo_type === 'buy_x_get_y') val = `${p.buy_qty} ol ${p.free_product_id ? ((p.free_qty_per_set||1)+'× '+(p.free_product_name||'boshqa')) : (p.get_qty||1)+' bepul'}`;
+      else val = (p.discount_type==='percentage' ? (p.discount_value||0)+'%' : fmtMoney(p.discount_value||0)+' UZS')
+               + (p.promo_type==='min_amount' ? ` (≥${fmtMoney(p.min_purchase_amount||0)})` : p.promo_type==='min_qty_discount' ? ` (≥${p.min_purchase_qty||0} dona)` : '');
+      const from = p.start_date ? p.start_date.slice(0,10) : '∞';
+      const to   = p.end_date   ? p.end_date.slice(0,10)   : '∞';
+      const hh   = (p.time_from && p.time_to) ? ` ${p.time_from}-${p.time_to}` : '';
+      return `<tr>
+        <td class="td-bold">${p.name||'—'}</td>
+        <td><span class="badge badge-gold">${_PROMO_LABEL[p.promo_type]||p.promo_type}</span></td>
+        <td style="font-weight:700;color:var(--gold)">${val}</td>
+        <td class="td-sub">${from} → ${to}${hh}</td>
+        <td class="td-sub">${p.used_count||0} / ${p.usage_limit||'∞'}</td>
+        <td>${p.is_active?'<span class="badge badge-green">Faol</span>':'<span class="badge badge-gray">Nofaol</span>'}</td>
+        <td class="td-actions">
+          <button class="act-btn" title="Tahrirlash (aksiya)" onclick="location.href='promotions.html?edit=${p.id}'" style="margin-right:.25rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="act-btn" title="${p.is_active?'O\'chirish (nofaol)':'Yoqish'}" onclick="promoToggle(${p.id},${!p.is_active})">
+            ${p.is_active
+              ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+              : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+          </button>
+          <button class="act-btn" title="Butunlay o'chirish" onclick="promoDelete(${p.id})" style="color:var(--danger);margin-left:.25rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H6a1 1 0 01-1-1V6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) { return ''; }
+}
+
+async function promoToggle(id, newActive) {
+  try {
+    const res = await fetch(`${API_BASE}/promotions/${id}`, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer '+token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: newActive }),
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    toast(newActive ? 'Aksiya yoqildi' : "Aksiya o'chirildi", 'success');
+    loadStoreDiscounts();
+  } catch(err) { toast(err.message,'error'); }
+}
+
+async function promoDelete(id) {
+  if (!confirm("Aksiya butunlay o'chirilsinmi?")) return;
+  try {
+    const res = await fetch(`${API_BASE}/promotions/${id}`, {
+      method: 'DELETE', headers: { 'Authorization': 'Bearer '+token },
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    toast("Aksiya o'chirildi", 'success');
+    loadStoreDiscounts();
+  } catch(err) { toast(err.message,'error'); }
+}
+window.promoToggle = promoToggle;
+window.promoDelete = promoDelete;
 
 async function discToggle(discId, newActive) {
   try {

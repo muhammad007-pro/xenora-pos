@@ -175,6 +175,23 @@ export function loyaltyRows(rec) {
   return h;
 }
 
+// FAZA 3b: bepul aksiya mahsuloti (narx=0 + "Aksiya (bepul)" belgisi). 3 renderer BIR XIL ishlatadi.
+export function isGiftItem(it) {
+  if (!it) return false;
+  if (typeof it.notes === 'string' && it.notes.indexOf('Aksiya (bepul)') === 0) return true;
+  const q = it.quantity != null ? it.quantity : (it.qty || 0);
+  const line = it.total != null ? it.total
+             : (it.total_price != null ? it.total_price
+             : (it.price != null && q ? it.price * q : null));
+  return q > 0 && line === 0;
+}
+
+// Bepul Y qatori — 58mm sig'adi (yorliq nom ostида, narx ustuni "BEPUL").
+export function giftRow(name, qty) {
+  return `<tr><td>${_esc(name)}<br><small style="font-size:.62rem;color:#16a34a">🎁 BEPUL (aksiya)</small></td>`
+       + `<td>${_esc(qty)}</td><td style="text-align:right">BEPUL</td></tr>`;
+}
+
 export function buildReceipt58(rec) {
   rec = rec || {};
   const items = rec.items || [];
@@ -189,8 +206,9 @@ export function buildReceipt58(rec) {
     : '—';
 
   const rowsHtml = items.map(it => {
-    const name = _esc(it.name || it.product_name || '');
     const qty = it.quantity != null ? it.quantity : (it.qty || 1);
+    if (isGiftItem(it)) return giftRow(it.name || it.product_name || '', qty);   // FAZA 3b
+    const name = _esc(it.name || it.product_name || '');
     const line = it.total != null ? it.total : (it.total_price || 0);
     // Pachka yorlig'i (1 pachka = base_qty/quantity dona) — POS bilan bir xil
     let sub2 = '';

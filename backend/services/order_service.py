@@ -65,6 +65,7 @@ class OrderService:
         Butun savat chegirmasi item-chegirmalardan keyingi summaga (min_order_amount).
         Client yuborgan chegirmaga ISHONILMAYDI — shu hisob asosiy.
         """
+        # FAZA 1: DB fetch (filtr O'ZGARMAGAN) + product→category xaritasi, keyin PURE resolver.
         now = datetime.now()
         active = self.db.query(Discount).filter(
             Discount.tenant_id == tenant_id,
@@ -75,20 +76,27 @@ class OrderService:
         ).all()
         if not active:
             return 0.0, []
-        prod_disc, cat_disc, cart_disc = {}, {}, []
-        for d in active:
-            if d.product_id:
-                prod_disc.setdefault(d.product_id, []).append(d)
-            elif d.category_id:
-                cat_disc.setdefault(d.category_id, []).append(d)
-            else:
-                cart_disc.append(d)
         # product → category xaritasi
         pids = [it["product_id"] for it in items_data]
         cat_of = {}
         if pids:
             for pid, cid in self.db.query(Product.id, Product.category_id).filter(Product.id.in_(pids)).all():
                 cat_of[pid] = cid
+        return self._resolve_pricing(active, items_data, subtotal, cat_of)
+
+    def _resolve_pricing(self, active_discounts, items_data, subtotal, cat_of):
+        """PURE narx-yechish (DB'siz, sinovga oson) — item (product>category, best-only) →
+        cart (min_order_amount, best-only). Natija #34 bilan AYNAN bir xil (behavior-preserving).
+        KELAJAK: Promotion offerlari (flash/buy_x_get_y) shu funksiyaga qo'shiladi (Faza 2-3).
+        """
+        prod_disc, cat_disc, cart_disc = {}, {}, []
+        for d in active_discounts:
+            if d.product_id:
+                prod_disc.setdefault(d.product_id, []).append(d)
+            elif d.category_id:
+                cat_disc.setdefault(d.category_id, []).append(d)
+            else:
+                cart_disc.append(d)
         applied = {}
         item_total = 0.0
         for it in items_data:

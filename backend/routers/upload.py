@@ -8,7 +8,7 @@ from typing import Optional
 
 from database import get_db
 from models import User
-from deps import get_current_user, resolve_tenant_id
+from deps import get_current_user, get_current_active_user, resolve_tenant_id
 from schemas import MessageResponse
 from config import settings
 
@@ -60,7 +60,7 @@ async def upload_image(
     file: UploadFile = File(...),
     folder: str = "general",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Rasm yuklash"""
     return await save_uploaded_file(db, current_user, file, folder, 'image')
@@ -70,7 +70,7 @@ async def upload_document(
     file: UploadFile = File(...),
     folder: str = "documents",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Hujjat yuklash"""
     return await save_uploaded_file(db, current_user, file, folder, 'document')
@@ -80,7 +80,7 @@ async def upload_multiple(
     files: list[UploadFile] = File(...),
     folder: str = "general",
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Bir nechta fayl yuklash"""
     results = []
@@ -173,7 +173,7 @@ async def delete_file(
     folder: str,
     filename: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Faylni o'chirish (faqat o'z tenant bucket'idan)"""
     bucket = _tenant_bucket(db, current_user)
@@ -197,7 +197,7 @@ async def delete_file(
 async def list_files(
     folder: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Papkadagi fayllar ro'yxati (faqat o'z tenant bucket'idan)"""
     bucket = _tenant_bucket(db, current_user)

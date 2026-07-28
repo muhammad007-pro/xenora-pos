@@ -6,7 +6,7 @@ from typing import Optional
 from database import get_db
 from models import User, Shift, Employee, Cafe
 from schemas import UserInDB, ShiftInDB, PaginatedResponse, MessageResponse
-from deps import get_current_user, has_permission, apply_tenant_filter, resolve_tenant_id
+from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, resolve_tenant_id
 from core.security import hash_pin, verify_pin
 from core.password_policy import validate_pin
 
@@ -109,7 +109,7 @@ async def list_employees(
     is_active: Optional[bool] = True,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Xodimlar ro'yxati (Employee modeli) — faqat joriy tenant"""
     _assert_cafe_access(current_user, cafe_id)
@@ -160,7 +160,7 @@ async def list_employees(
 async def get_employee(
     emp_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Bitta xodim ma'lumotlarini olish — faqat joriy tenant"""
     employee = apply_tenant_filter(db.query(Employee), Employee, current_user).filter(Employee.id == emp_id).first()
@@ -320,7 +320,7 @@ async def delete_employee(
 async def get_employee_by_pin(
     pin_code: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """PIN-kod bo'yicha xodimni topish (hash bo'yicha) — faqat joriy tenant ichida"""
     employee = apply_tenant_filter(db.query(Employee), Employee, current_user).filter(
@@ -346,7 +346,7 @@ async def get_employee_by_pin(
 async def get_cafe_staff(
     cafe_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Kafe xodimlari ro'yxati — faqat joriy tenant (yoki super-admin)"""
     _assert_cafe_access(current_user, cafe_id)

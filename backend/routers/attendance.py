@@ -69,7 +69,7 @@ async def check_in(
     pin_code: Optional[str] = None,
     notes: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Ishga kelish (PIN orqali autentifikatsiya, JWT ixtiyoriy)"""
     employee = db.query(Employee).filter(Employee.id == employee_id).first()
@@ -114,7 +114,7 @@ async def check_out(
     pin_code: Optional[str] = None,
     notes: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """Ishdan ketish (PIN orqali autentifikatsiya, JWT ixtiyoriy)"""
     employee = db.query(Employee).filter(Employee.id == employee_id).first()

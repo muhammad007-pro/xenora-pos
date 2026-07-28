@@ -162,9 +162,10 @@ async def logout(
 
 @router.get("/me", response_model=UserInDB)
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_active_user)
 ):
-    """Joriy foydalanuvchi ma'lumotlari"""
+    """Joriy foydalanuvchi ma'lumotlari. Auth TALAB qilinadi — token'siz/muddati
+    o'tgan → get_current_active_user toza 401 beradi (ilgari None→500 edi)."""
     return current_user
 
 @router.post("/switch-branch/{branch_id}", response_model=Token)
@@ -266,10 +267,10 @@ async def pin_login(
 async def change_password(
     old_password: str,
     new_password: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Parolni o'zgartirish"""
+    """Parolni o'zgartirish. Auth TALAB — token'siz → 401 (ilgari None→500)."""
     if not verify_password(old_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

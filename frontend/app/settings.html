@@ -291,6 +291,35 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
           <button class="btn btn-gold" id="saveAppBtn">✓ Saqlash</button>
         </div>
       </div>
+
+      <!-- POS terminal: sotuvchi avto-qulf (qurilma sozlamasi — localStorage) -->
+      <div class="setting-card">
+        <div class="setting-card-title">🔒 Sotuvchi avto-qulf (POS terminal)</div>
+        <div class="form-group">
+          <label>Harakatsizlikda avtomatik qulflash</label>
+          <select id="cfgAutolock">
+            <option value="0">O'chiq</option>
+            <option value="30">30 soniya</option>
+            <option value="60">60 soniya</option>
+            <option value="90">90 soniya</option>
+            <option value="120">120 soniya</option>
+          </select>
+          <div class="toggle-hint" style="margin-top:.45rem">Belgilangan vaqt harakatsizlikdan keyin POS qulflanadi — davom etish uchun sotuvchi PIN kiritadi. Bu <b>shu qurilma</b> (monoblok) sozlamasi; darhol saqlanadi.</div>
+        </div>
+      </div>
+      <script>
+        (function () {
+          var sel = document.getElementById('cfgAutolock');
+          if (!sel) return;
+          try { sel.value = localStorage.getItem('pos_autolock_seconds') || '0'; } catch (e) {}
+          sel.addEventListener('change', function () {
+            try {
+              localStorage.setItem('pos_autolock_seconds', sel.value);
+              if (window.toast) window.toast('Avto-qulf saqlandi', 'success');
+            } catch (e) {}
+          });
+        })();
+      </script>
     </div>
 
     <!-- PRINTER (ESC/POS — universal) -->

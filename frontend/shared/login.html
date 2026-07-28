@@ -502,9 +502,15 @@ function clearStaleTenantOnLogin() {
   try {
     const theme = localStorage.getItem('theme');
     const sound = localStorage.getItem('kitchenSound');
+    // store_access_code — qurilma darajasида (do'kon kodi): native auto-fill + POS ichi
+    // sotuvchi almashtirish (PIN pad) uchun saqlanadi. Bir tenant → tenant izolyatsiya buzilmaydi.
+    const storeCode = localStorage.getItem('store_access_code');
+    const autolock  = localStorage.getItem('pos_autolock_seconds');
     localStorage.clear();
     if (theme) localStorage.setItem('theme', theme);
     if (sound) localStorage.setItem('kitchenSound', sound);
+    if (storeCode) localStorage.setItem('store_access_code', storeCode);
+    if (autolock) localStorage.setItem('pos_autolock_seconds', autolock);
   } catch(e){}
   try { indexedDB.deleteDatabase('restopos_db'); } catch(e){}
 }

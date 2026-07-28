@@ -3238,3 +3238,131 @@ function filterByDept(deptId, color) {
   renderProducts();
 }
 
+
+// ═══ Sotuvchi almashtirish + avto-qulf (iiko naqshi) ═══════════════════════════
+// Qulf → PIN pad → /auth/pin-login → yangi sotuvchi tokeni. Sotuv shu sotuvchiga
+// (waiter_id=current_user.id). Backend O'ZGARMAYDI. Tenant izolyatsiya: pin-login
+// do'kon kodi (store_access_code) bilan — faqat shu do'kon xodimlari.
+const SL = { pin: '', busy: false, mode: 'manual', idleTimer: null };
+
+function _slCurrentSeller() {
+  try { const u = JSON.parse(localStorage.getItem('user') || '{}'); return u.full_name || u.username || ''; }
+  catch { return ''; }
+}
+function _updateSellerBadge() {
+  const el = document.getElementById('sellerName');
+  if (el) el.textContent = _slCurrentSeller() || 'Sotuvchi';
+}
+function _slRenderDots() {
+  const box = document.getElementById('slDots');
+  if (!box) return;
+  box.innerHTML = Array.from({ length: 4 }).map((_, i) =>
+    `<div class="sl-dot${i < SL.pin.length ? ' filled' : ''}"></div>`).join('');
+}
+function _slReset() { SL.pin = ''; _slRenderDots(); const e = document.getElementById('slErr'); if (e) e.textContent = ''; }
+
+// mode: 'manual' (bekor qilsa bo'ladi) | 'auto' (avto-qulf, majburiy)
+function openSellerLock(mode = 'manual') {
+  SL.mode = mode;
+  _slReset();
+  const sub = document.getElementById('slSub');
+  const cancel = document.getElementById('slCancel');
+  if (sub) sub.textContent = mode === 'auto' ? 'Terminal qulflandi — PIN kiriting' : 'Yangi sotuvchi PIN kodini kiriting';
+  if (cancel) cancel.style.display = mode === 'auto' ? 'none' : '';
+  document.getElementById('sellerLock')?.classList.add('show');
+}
+function closeSellerLock() { document.getElementById('sellerLock')?.classList.remove('show'); _slReset(); }
+
+// Manual almashtirish tugmasi: savat guard (savatда tovar bo'lsa ogohlantir)
+function requestSellerSwitch() {
+  const n = state.cart.length;
+  if (n > 0 && !confirm(`Savatda ${n} mahsulot bor, tozalab davom etilsinmi?`)) return;
+  openSellerLock('manual');
+}
+
+function _clearCartForSwitch() {
+  state.cart = [];
+  state.discount = { type: 'pct', value: 0 };
+  state.discountSource = null;
+  try { persistCart(); } catch {}
+  try { renderCart(); } catch {}
+}
+
+async function _slSubmit() {
+  if (SL.busy || SL.pin.length < 4) return;
+  const accessCode = localStorage.getItem('store_access_code');
+  const errEl = document.getElementById('slErr');
+  if (!accessCode) { if (errEl) errEl.textContent = "Do'kon kodi topilmadi — qayta kiring"; return; }
+  SL.busy = true;
+  try {
+    const res = await fetch(API_BASE + '/auth/pin-login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: SL.pin, access_code: accessCode }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "PIN noto'g'ri");
+
+    const prevUserId = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}').id; } catch { return null; } })();
+    // Yangi sotuvchi tokeni — api instansiga ham (in-memory), IndexedDB auth_meta ga ham
+    api.setToken(data.access_token);
+    if (data.refresh_token) api.setRefreshToken(data.refresh_token);
+    localDB.put(STORES.AUTH_META, { key: 'access_token', value: data.access_token }).catch(() => {});
+
+    const me = await fetch(API_BASE + '/auth/me', { headers: { 'Authorization': 'Bearer ' + data.access_token } });
+    const user = me.ok ? await me.json() : null;
+    if (user) localStorage.setItem('user', JSON.stringify(user));
+
+    // Savat: BOSHQA sotuvchiga o'tsa tozalanadi; bir xil sotuvchi (avto-qulfdan qaytish) saqlanadi
+    const sameSeller = user && prevUserId && user.id === prevUserId;
+    if (!sameSeller) _clearCartForSwitch();
+
+    renderUser();
+    _updateSellerBadge();
+    closeSellerLock();
+    _resetIdleTimer();
+    toast(`Sotuvchi: ${user?.full_name || user?.username || ''}`, 'success');
+  } catch (e) {
+    const card = document.getElementById('slCard');
+    if (card) { card.classList.add('shake'); setTimeout(() => card.classList.remove('shake'), 350); }
+    if (errEl) errEl.textContent = e.message || "PIN noto'g'ri";
+    SL.pin = ''; _slRenderDots();
+  } finally { SL.busy = false; }
+}
+
+// PIN pad hodisalari (4 xonali — login PIN bilan bir xil UX, 4 da avto-yuboradi)
+document.querySelectorAll('#sellerLock .sl-key[data-d]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (SL.pin.length >= 4) return;
+    SL.pin += btn.dataset.d;
+    _slRenderDots();
+    if (SL.pin.length === 4) setTimeout(_slSubmit, 120);
+  });
+});
+document.getElementById('slDel')?.addEventListener('click', () => { SL.pin = SL.pin.slice(0, -1); _slRenderDots(); });
+document.getElementById('slCancel')?.addEventListener('click', () => { if (SL.mode !== 'auto') closeSellerLock(); });
+document.getElementById('sellerSwitchBtn')?.addEventListener('click', requestSellerSwitch);
+
+// ── Avto-qulf: harakatsizlik (sozlamada: o'chiq/30/60/90/120s) ──
+function _autolockSeconds() {
+  const v = parseInt(localStorage.getItem('pos_autolock_seconds') || '0', 10);
+  return isNaN(v) ? 0 : v;
+}
+function _resetIdleTimer() {
+  if (SL.idleTimer) { clearTimeout(SL.idleTimer); SL.idleTimer = null; }
+  const sec = _autolockSeconds();
+  if (sec > 0) {
+    SL.idleTimer = setTimeout(() => {
+      if (!document.getElementById('sellerLock')?.classList.contains('show')) openSellerLock('auto');
+    }, sec * 1000);
+  }
+}
+// Har harakat (bosish/klaviatura/tegish) taymerni nollaydi → savat to'ldirilayotganda qulflanmaydi
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => {
+  window.addEventListener(ev, () => {
+    if (!document.getElementById('sellerLock')?.classList.contains('show')) _resetIdleTimer();
+  }, { passive: true });
+});
+
+// Sahifa yuklanganda: sotuvchi nomi + avto-qulf taymeri
+_updateSellerBadge();
+_resetIdleTimer();

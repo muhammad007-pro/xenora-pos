@@ -42,7 +42,8 @@ async def create_promotion(
     allowed = {"name", "promo_type", "product_id", "category_id", "buy_qty",
                "get_qty", "discount_type", "discount_value", "min_purchase_amount",
                "min_purchase_qty", "flash_price", "start_date", "end_date",
-               "days_of_week", "time_from", "time_to", "is_active", "usage_limit"}
+               "days_of_week", "time_from", "time_to", "is_active", "usage_limit",
+               "free_product_id", "free_qty_per_set"}   # FAZA 3b
     clean = {k: v for k, v in data.items() if k in allowed}
 
     for field in ("start_date", "end_date"):
@@ -73,7 +74,8 @@ async def update_promotion(
 
     allowed = {"name", "is_active", "discount_value", "flash_price", "start_date",
                "end_date", "days_of_week", "time_from", "time_to", "usage_limit",
-               "buy_qty", "get_qty", "discount_type", "min_purchase_amount", "min_purchase_qty"}
+               "buy_qty", "get_qty", "discount_type", "min_purchase_amount", "min_purchase_qty",
+               "free_product_id", "free_qty_per_set"}   # FAZA 3b
     for k, v in data.items():
         if k in allowed:
             if k in ("start_date", "end_date") and isinstance(v, str):
@@ -277,4 +279,7 @@ def _promo_dict(p: Promotion) -> dict:
         "usage_limit": p.usage_limit,
         "used_count": p.used_count,
         "product_name": p.product.name if p.product else None,
+        "free_product_id": getattr(p, "free_product_id", None),           # FAZA 3b
+        "free_qty_per_set": getattr(p, "free_qty_per_set", None),
+        "free_product_name": p.free_product.name if getattr(p, "free_product", None) else None,
     }

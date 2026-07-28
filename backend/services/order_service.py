@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime, time
 from typing import Optional, List
 
-from models import Order, OrderItem, Product, Table, User, Shift, Discount, order_discounts
+from models import Order, OrderItem, Product, Table, User, Shift, Discount, order_discounts, Promotion
 from schemas import OrderCreate, OrderUpdate
 
 class OrderService:
@@ -65,7 +65,7 @@ class OrderService:
         Butun savat chegirmasi item-chegirmalardan keyingi summaga (min_order_amount).
         Client yuborgan chegirmaga ISHONILMAYDI — shu hisob asosiy.
         """
-        # FAZA 1: DB fetch (filtr O'ZGARMAGAN) + product→category xaritasi, keyin PURE resolver.
+        # FAZA 1+2: DB fetch (Discount filtri O'ZGARMAGAN + Promotion) + cat xaritasi, keyin PURE resolver.
         now = datetime.now()
         active = self.db.query(Discount).filter(
             Discount.tenant_id == tenant_id,
@@ -74,21 +74,73 @@ class OrderService:
             (Discount.valid_to.is_(None) | (Discount.valid_to >= now)),
             (Discount.usage_limit.is_(None) | (Discount.used_count < Discount.usage_limit)),
         ).all()
-        if not active:
-            return 0.0, []
+        promos = self._fetch_active_promotions(tenant_id, now)
+        if not active and not promos:
+            return 0.0, [], []
         # product → category xaritasi
         pids = [it["product_id"] for it in items_data]
         cat_of = {}
         if pids:
             for pid, cid in self.db.query(Product.id, Product.category_id).filter(Product.id.in_(pids)).all():
                 cat_of[pid] = cid
-        return self._resolve_pricing(active, items_data, subtotal, cat_of)
+        return self._resolve_pricing(active, promos, items_data, subtotal, cat_of)
 
-    def _resolve_pricing(self, active_discounts, items_data, subtotal, cat_of):
-        """PURE narx-yechish (DB'siz, sinovga oson) — item (product>category, best-only) →
-        cart (min_order_amount, best-only). Natija #34 bilan AYNAN bir xil (behavior-preserving).
-        KELAJAK: Promotion offerlari (flash/buy_x_get_y) shu funksiyaga qo'shiladi (Faza 2-3).
-        """
+    def _fetch_active_promotions(self, tenant_id, now):
+        """FAZA 2 Promotion turlari: flash_price, min_amount, min_qty_discount (buy_x_get_y — Faza 3).
+        Vaqt/kun/usage filtri promotions.py `_is_valid` bilan AYNAN bir xil (happy-hour)."""
+        promos = self.db.query(Promotion).filter(
+            Promotion.tenant_id == tenant_id,
+            Promotion.is_active == True,   # noqa: E712
+            Promotion.promo_type.in_(("flash_price", "min_amount", "min_qty_discount")),
+            (Promotion.usage_limit.is_(None) | (Promotion.used_count < Promotion.usage_limit)),
+        ).all()
+        out = []
+        for p in promos:
+            if p.start_date and now < p.start_date:
+                continue
+            if p.end_date and now > p.end_date:
+                continue
+            if p.time_from and p.time_to:
+                cur = now.strftime("%H:%M")
+                if not (p.time_from <= cur <= p.time_to):
+                    continue
+            if p.days_of_week and str(now.isoweekday()) not in p.days_of_week.split(","):
+                continue
+            out.append(p)
+        return out
+
+    def _promo_line_disc(self, p, line, qty):
+        """Promotion foiz/fiks (promotions.py /validate bilan bir xil): pct → line×%; fixed → value×qty."""
+        if p.discount_type == "percentage":
+            return line * (p.discount_value or 0) / 100.0
+        return (p.discount_value or 0) * qty
+
+    def _best_item_promo(self, promotions, pid, qty, unit_price, line, total_amount):
+        """Shu item uchun ENG foydali Promotion offeri (capped, /validate scoping). Qaytadi (promo, benefit)."""
+        best, best_amt = None, 0.0
+        for p in promotions:
+            if p.product_id and p.product_id != pid:
+                continue
+            amt = 0.0
+            if p.promo_type == "flash_price" and p.flash_price is not None:
+                if unit_price > p.flash_price:
+                    amt = (unit_price - p.flash_price) * qty
+            elif p.promo_type == "min_qty_discount":
+                if qty >= (p.min_purchase_qty or 0):
+                    amt = self._promo_line_disc(p, line, qty)
+            elif p.promo_type == "min_amount":
+                if total_amount >= (p.min_purchase_amount or 0):
+                    amt = self._promo_line_disc(p, line, qty)
+            amt = min(amt, line)
+            if amt > best_amt:
+                best, best_amt = p, amt
+        return best, best_amt
+
+    def _resolve_pricing(self, active_discounts, promotions, items_data, subtotal, cat_of):
+        """PURE narx-yechish — item: Discount (product>category) VA Promotion (flash/min_qty/min_amount)
+        orasidan ENG YAXSHI BITTASI (best-only, STACKING YO'Q). Cart: Discount (min_order_amount) best-only.
+        Promotion YO'Q bo'lsa → #34 bilan AYNAN bir xil (byte-identical). Qaytadi:
+        (total_discount, applied_discount_ids, applied_promotion_ids)."""
         prod_disc, cat_disc, cart_disc = {}, {}, []
         for d in active_discounts:
             if d.product_id:
@@ -97,17 +149,28 @@ class OrderService:
                 cat_disc.setdefault(d.category_id, []).append(d)
             else:
                 cart_disc.append(d)
-        applied = {}
+        applied_disc, applied_promo = {}, {}
         item_total = 0.0
         for it in items_data:
             pid, line = it["product_id"], it["total_price"]
+            qty = it.get("quantity", 1)
+            unit_price = it.get("unit_price", line)
+            # #34 Discount eng yaxshisi (MAVJUD MANTIQ — o'zgarmagan)
             cands = prod_disc.get(pid) or cat_disc.get(cat_of.get(pid)) or []
+            disc_best, disc_amt = None, 0.0
             if cands:
-                best = max(cands, key=lambda d: self._disc_amount(d, line))
-                amt = min(self._disc_amount(best, line), line)
-                if amt > 0:
-                    item_total += amt
-                    applied[best.id] = best
+                disc_best = max(cands, key=lambda d: self._disc_amount(d, line))
+                disc_amt = min(self._disc_amount(disc_best, line), line)
+            # Promotion eng yaxshisi (FAZA 2)
+            promo_best, promo_amt = self._best_item_promo(promotions, pid, qty, unit_price, line, subtotal)
+            # BEST-ONLY: kattaroq benefit; TENG bo'lsa Discount ustun (byte-identical #34 kafolati)
+            if promo_amt > disc_amt:
+                if promo_amt > 0:
+                    item_total += promo_amt
+                    applied_promo[promo_best.id] = promo_best
+            elif disc_amt > 0:
+                item_total += disc_amt
+                applied_disc[disc_best.id] = disc_best
         sub_after = subtotal - item_total
         cart_total = 0.0
         if cart_disc and sub_after > 0:
@@ -117,8 +180,8 @@ class OrderService:
                 amt = min(self._disc_amount(best, sub_after), sub_after)
                 if amt > 0:
                     cart_total += amt
-                    applied[best.id] = best
-        return round(item_total + cart_total, 2), list(applied.keys())
+                    applied_disc[best.id] = best
+        return round(item_total + cart_total, 2), list(applied_disc.keys()), list(applied_promo.keys())
 
     def create_order(self, order_data: OrderCreate, waiter_id: int, tenant_id: Optional[int] = None) -> Order:
         """Yangi buyurtma yaratish.
@@ -183,7 +246,7 @@ class OrderService:
             total_amount = order_data.total_amount
 
         # #34: AVTOMATIK chegirma — SERVER tomonda qayta hisoblanadi (client'ga ishonilmaydi).
-        auto_disc, applied_discount_ids = self._compute_auto_discount(tenant_id, items_data, server_subtotal)
+        auto_disc, applied_discount_ids, applied_promotion_ids = self._compute_auto_discount(tenant_id, items_data, server_subtotal)
         # Qo'lda/mijoz % chegirma — discount_type/value dan QAYTA hisoblanadi (client'ning
         # tayyor discount_amount summasiga ISHONILMAYDI): foiz 0–100, fixed subtotaldan oshmaydi.
         dv = order_data.discount_value or 0
@@ -199,6 +262,9 @@ class OrderService:
 
         # Biznes-turi xususiy meta (pharmacy rx, auto_service car, school student, dry_cleaning)
         biz_meta = {}
+        # FAZA 2: qo'llangan aksiya izi (migratsiyasiz — biz_meta JSON). used_count pastda oshadi.
+        if applied_promotion_ids:
+            biz_meta['applied_promotions'] = applied_promotion_ids
         if getattr(order_data, 'rx_patient_name', None):
             biz_meta['rx_patient_name']  = order_data.rx_patient_name
             biz_meta['rx_patient_phone'] = order_data.rx_patient_phone
@@ -275,6 +341,11 @@ class OrderService:
                 order.applied_discounts = applied
                 for d in applied:
                     d.used_count = (d.used_count or 0) + 1
+            # FAZA 2: qo'llangan aksiya used_count (Discount kabi; order-link biz_meta'da).
+            # Eslatma: refundда used_count teskarisi Discount'da ham YO'Q → parity uchun bu ham yo'q.
+            if applied_promotion_ids:
+                for p in self.db.query(Promotion).filter(Promotion.id.in_(applied_promotion_ids)).all():
+                    p.used_count = (p.used_count or 0) + 1
             try:
                 self.db.commit()
             except IntegrityError:

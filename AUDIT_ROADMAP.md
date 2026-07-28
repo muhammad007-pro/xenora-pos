@@ -118,9 +118,20 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 ### TIER 4 — Halollik / "arvoh funksiyalar" (AI smell yo'q qilish)
 - [x] **Loyalty (ballar)** — QURILDI va POS'ga ULANDI (auto-earn netdan, redeem server-authoritative, tenant sozlamalari, chekda ko'rsatish). Deploy KUTMOQDA (branch: feature/loyalty-pos)
 - [x] **Bonus karta** — YASHIRILDI (loyalty bilan ustma-ust tushardi; kod saqlangan, keyin sovg'a-kartasi funksiyasi sifatida alohida qurilishi mumkin)
-- [x] **Happy hour, kunlik taklif** — Eco Aroma (retail) da allaqachon yashirin, restoran uchun keyin ulanadi
-- [ ] **Aksiya (promotions)** — HALI ARVOH, POS'ga ulanmagan
-- [ ] Modifikator admin UI, hotel xona/bron UI, online to'lov (Click/Payme), 7 o'lik router — o'zgarishsiz
+- [x] **Aksiya (promotions) POS'ga ulash** — BAJARILDI (chegirma birlashtirish loyihasi, 2026-07-28). Discount + Promotion **bitta narx-yechish pipeline**ga (`_resolve_pricing`) birlashtirildi. **4 aksiya turi ishlaydi:** flash narx, summa chegirmasi, miqdor chegirmasi, 2 ol 1 ol (bir xil + boshqa mahsulot bepul). **Arvoh muammosi yopildi** (eski forma `bogo/bundle/happy_hour` backend `buy_x_get_y/flash_price/min_amount/min_qty_discount` bilan mos emas edi → forma qayta yozildi). Deploy KUTMOQDA (branch: `feature/pricing-resolver`, **MIGRATSIYALI** — `free_product_id`). Golden test **27/27** — Eco Aroma #34 **byte-identical**.
+- [x] **Happy hour, kunlik taklif** — `flash_price`/`min_amount` turlariga + vaqt/kun filtriga qamrab olindi (aksiya har turga time_from/to + days_of_week).
+- [ ] Modifikator admin UI — qoldi
+- [ ] Hotel xona/bron UI — qoldi
+- [ ] Online to'lov (Click/Payme) — domen/bank API kutmoqda
+- [ ] 7 o'lik routerni tozalash — qoldi
+
+**Chegirma+Aksiya birlashtirish dizayn qarorlari (egasi, 2026-07-28):**
+- **Ikки tizim → bitta pipeline:** `Discount` (jonli) + `Promotion` (arvoh) resolver'да **ikки manba** sifatida o'qiladi; modellar birlashtirilmadi → **ma'lumot yo'qolmadi**.
+- **Best-only (stacking YO'Q):** bir mahsulotга bir necha aksiya/chegirma tushsa — **eng yaxshi bittasi** (mijozга foydali); teng bo'lsa Discount ustun.
+- **buy_x_get_y bepul mahsulot** → ombordan ayriladi (payment.py atomik) + chekда "🎁 BEPUL (aksiya)".
+- **"2 ol 1 ol" ikки tur:** bir xil mahsulot (get_qty) + boshqa mahsulot Y bepul (`free_product_id` + `free_qty_per_set`).
+- Y omборда yo'q → **kassir ogohlantiriladi** (aksiya qo'llanmaydi, sotuv davom etadi); Y **avtomatik EMAS** → kassir tasdiqlaydi; ko'p to'plam (4X→2Y).
+- **Server-authoritative:** client soxta aksiya/bepul Y yubora olmaydi (server X'ni savatdan, Y ombor'ni DB'dan, promo haqiqiyligini qayta tekshiradi).
 
 **Loyalty dizayn qarorlari (egasi tanlagan, 2026-07-24):**
 - Keshbek stavkasi: **tenant sozlaydigan** (default 1000 so'm = 1 ball)
@@ -171,9 +182,12 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 
 ## 6. Branch holati (2026-07-28)
 
-- **main = `9e7818b`** (release: v1.5.0) — barcha feature branch BIRLASHTIRILGAN + opsional-auth hotfix + versiya-bump. (Bu hujjat commit'i ustiga qo'shiladi.)
-- **prod (server) = `444b85b`** — deploy qilingan backend. main `9e7818b` main'da faqat versiya-bump (v1.5.0 doc/tag) bilan oldinda; backend jihatidan prod = main.
-- **feature/seller-switch = `4dc7bf8`** — QO'SHIMCHA, hali merge EMAS. Tez sotuvchi almashish (iiko: qulf→PIN→almashish) + sotuvchi hisoboti. Sof frontend. Runtime sinovi (build) kutmoqda — §8 ga qarang.
+- **main = `3346256`** (v1.5.0 + docs) — barcha katta-deploy branchlari birlashtirilgan. (Bu hujjat commit'i ustiga qo'shiladi.)
+- **prod (server) = `444b85b`** — deploy qilingan backend (main undan faqat docs/versiya bilan oldinda).
+- **DEPLOY KUTAYOTGAN 3 branch (hali merge EMAS — §9 ketma-ket reja):**
+  - `feature/subscription-invoice = 98f93c3` — obuna to'lov/invoice (**MIGRATSIYALI** — tenant_payments idempotent + /renew tarix).
+  - `feature/pricing-resolver = 84a2cdb` — chegirma+aksiya birlashtirish (**MIGRATSIYALI** — free_product_id; katta, runtime sinovi shart).
+  - `feature/seller-switch = 4dc7bf8` — tez sotuvchi almashish (sof frontend, **.exe build** kerak).
 
 **Arxiv (main'ga birlashtirilgan, 2026-07-28 katta deploy):** `feature/atomic-payment` (f448154), `feature/loyalty-pos` (76e79e6), `feature/password-policy` (f19a557), `feature/observability` (cf105b1), `feature/frontend-discount-wip` (d732a43), `feature/printer-hotfix` (9ffca27) — hammasi endi main'da (2257061→444b85b). Bu branchlar ARXIV sifatida belgilanadi (kelajakda o'chirilishi mumkin).
 
@@ -189,3 +203,22 @@ Poydevor professional darajada: 78% funksiya to'liq, tenant izolyatsiya mustahka
 ## 8. Tayyor, build kutayotgan ishlar
 
 - **feature/seller-switch (`4dc7bf8`)** — Tez sotuvchi almashish (iiko naqshi: POS header qulf → PIN pad → `/auth/pin-login` → faol sotuvchi) + sotuvchi hisoboti (store admin `cashier-report` jadvali, kun/hafta/oy). **REAL MIJOZ uchun** — xo'jalik mollari do'koni (2 monoblok, 1 akkaunt, 4 sotuvchi almashadi; sotuv/premiya aniq sotuvchiga). Egasi qarorlari: savat guard (ogohlantirish+tozalash), avto-qulf (sozlamada, default o'chiq), sotuvchi to'liq ruxsat (audit kuzatadi). 3 chala joy tuzatildi (mijoz/loyalty sizishi, offline navbat ogohlantirishi, avto-qulf modal ochiqда bostirilishi). **Backend O'ZGARMAGAN — faqat frontend** (pin-login + hisobot allaqachon bor, migratsiya YO'Q). **RUNTIME sinovi kutmoqda** — xo'jalik do'koni jihozi (monoblok/printer/skaner) olgach: main'ga merge → v1.6.0 `.exe` build → qurilmada sinov.
+
+- **feature/pricing-resolver (`84a2cdb`)** — Chegirma + Aksiya birlashtirish (Faza 0-4b). `Discount` + `Promotion` bitta narx-yechish pipeline; 4 aksiya turi (flash/summa/miqdor/2 ol 1 ol — bir xil + boshqa mahsulot Y bepul); admin UI birlashgan + forma backend'ga mos (arvoh yopildi). **MIGRATSIYALI** (`free_product_id`) → deploy'да backup + `alembic upgrade head` majburiy. Golden **27/27** (Eco Aroma #34 byte-identical). **RUNTIME sinovi kutmoqda** — POS aksiya taklifi (kassir tasdiqi), bepul mahsulot ombor ayirish, chek yorlig'i. POS qismi **.exe build** talab qiladi.
+
+- **feature/subscription-invoice (`98f93c3`)** — Obuna to'lov/invoice (Tier 1). `tenant_payments` idempotent migratsiya (jonli jadval bor → no-op) + `/renew` endi TenantPayment izi qoldiradi. **MIGRATSIYALI** → deploy'да backup + `alembic upgrade head`. Faqat backend, .exe kerak emas.
+
+## 9. Keyingi deploy rejasi
+
+**Deploy kutayotgan branchlar KO'P yig'ildi (3 ta).** Ular ARALASHTIRILMASIN — har biri **alohida, ketma-ket** deploy qilinadi. Har biri: **backup → deploy → runtime test → keyingisi**.
+
+Tavsiya etilgan tartib (kichikdan kattaga, xavfni kamaytirish):
+1. **`feature/subscription-invoice`** — eng kichik, faqat backend. Backup → merge → `git pull` → `alembic upgrade head` (tenant_payments idempotent, jonli no-op) → restart → /renew tarix yozishini tekshir.
+2. **`feature/pricing-resolver`** — katta, MIGRATSIYALI. Backup → merge → pull → `alembic upgrade head` (free_product_id) → restart → **runtime sinov:** har 4 aksiya turini admin'da yaratish, POS'da chegirma+aksiya to'g'ri hisoblanishini, #34 buzilmaganini (golden 27/27 kafolat), bepul Y ombor/chek/refund'ni tekshir.
+3. **`feature/seller-switch`** — frontend, migratsiyasiz. Merge → **v1.6.0 `.exe` build** (pricing POS qismi ham shu build'ga tushsin) → qurilmada sinov.
+
+**Muhim eslatmalar:**
+- **.exe build kerak** bo'lganlar (seller-switch + pricing POS qismi) do'kon jihozi/vaqti bilan bog'liq — bitta v1.6.0 build'ga birlashtirilishi mumkin (2+3 birga).
+- Har migratsiyали deploy'да **backup MAJBURIY** (`pg_dump` + gzip -t).
+- Har deploy'dan keyin **Eco Aroma 555/17/16** (mahsulot/buyurtma/to'lov) o'zgarmaganini tasdiqla.
+- Rollback: `git checkout <oldingi> + alembic downgrade + restart` (migratsiyали branchlar uchun downgrade tayyor).

@@ -539,7 +539,15 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
   .pa-glow{filter:blur(50px);opacity:.15}
   .product-card,.cart-panel{backdrop-filter:none;-webkit-backdrop-filter:none}
 }
+
+/* ── Savat tugmasi/foni: DESKTOPDA YO'Q ──────────────────────────────────────
+   Bu ikki klass YANGI (desktopda ularni ishlatadigan element yo'q edi), shu
+   sabab hech qanday mavjud monoblok ko'rinishiga tegmaydi. Ko'rinadigan
+   holati faqat styles/mobile.css dagi @media (max-width:900px) ichida. */
+.pos-cart-fab,.pos-cart-backdrop{display:none}
 </style>
+<!-- Mobil qatlam — ENG OXIRGI stil (faqat @media max-width ichida ishlaydi) -->
+<link rel="stylesheet" href="../styles/mobile.css">
 </head>
 <body>
 
@@ -819,6 +827,16 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
     </div><!-- /pos-body -->
   </div><!-- /pos-main -->
 </div><!-- /pos-wrap -->
+
+<!-- ═══ Savat (mobil) — faqat ≤900px da ko'rinadi ═══════════════════════════
+     Desktopda `.pos-cart-fab`/`.pos-cart-backdrop` = display:none (yuqorida),
+     ya'ni monoblok ko'rinishiga umuman qo'shilmaydi. -->
+<div class="pos-cart-backdrop" id="cartBackdrop"></div>
+<button class="pos-cart-fab" id="cartFab" type="button" aria-controls="cartPanel" aria-expanded="false">
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M6 6h15l-1.5 9h-12z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M6 6L5 3H2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="9" cy="20" r="1.4" fill="currentColor"/><circle cx="18" cy="20" r="1.4" fill="currentColor"/></svg>
+  <span id="cartFabLabel">Savat</span>
+  <span class="fab-count" id="cartFabCount">0</span>
+</button>
 
 <!-- ═══ MODALS ═══ -->
 
@@ -1513,6 +1531,63 @@ initErrorHandler();
     void el.offsetWidth;            // reflow → animatsiyani qayta ishga tushiradi
     el.classList.add('tot-flash');
   }).observe(el, { childList:true, characterData:true, subtree:true });
+})();
+</script>
+
+<!-- ═══ Savat panelini ochish/yopish (FAQAT MOBIL) ══════════════════════════════
+     pos.html:399-404 dagi ≤900px qoidasi savatni chiquvchi panelga aylantiradi,
+     lekin uni ochadigan element/mantiq yo'q edi → telefonda savat ko'rinmasdi.
+     Bu skript SOTUV MANTIQIGA TEGMAYDI: faqat `.open`/`.show` klasslarini
+     almashtiradi va savatdagi mahsulot sonini ko'rsatadi. Desktopda (>900px)
+     tugma display:none, hech qanday hodisa ishlamaydi. ══════════════════════ -->
+<script>
+(function(){
+  var MOBILE = '(max-width:900px)';
+  var fab      = document.getElementById('cartFab');
+  var backdrop = document.getElementById('cartBackdrop');
+  var panel    = document.getElementById('cartPanel');
+  var items    = document.getElementById('cartItems');
+  var label    = document.getElementById('cartFabLabel');
+  var countEl  = document.getElementById('cartFabCount');
+  if (!fab || !backdrop || !panel || !items) return;
+
+  function isMobile(){ return window.matchMedia(MOBILE).matches; }
+
+  function setOpen(open){
+    panel.classList.toggle('open', open);
+    backdrop.classList.toggle('show', open);
+    document.body.classList.toggle('cart-open', open);
+    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (label)   label.textContent = open ? 'Yopish' : 'Savat';
+    if (countEl) countEl.style.display = open ? 'none' : '';
+  }
+
+  fab.addEventListener('click', function(){
+    setOpen(!panel.classList.contains('open'));
+  });
+  backdrop.addEventListener('click', function(){ setOpen(false); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && panel.classList.contains('open')) setOpen(false);
+  });
+
+  // Savatdagi qatorlar soni — pos.js ichki holatiga bog'lanmaydi (DOM'dan o'qiydi)
+  function refreshCount(){
+    var n = items.querySelectorAll('.cart-item').length;
+    if (countEl) countEl.textContent = n;
+    fab.classList.toggle('has-items', n > 0);
+  }
+  new MutationObserver(refreshCount).observe(items, { childList:true, subtree:true });
+  refreshCount();
+
+  // Ekran desktop kengligiga qaytsa — holat tozalanadi (regressiya bo'lmasin)
+  window.matchMedia(MOBILE).addEventListener('change', function(ev){
+    if (!ev.matches) setOpen(false);
+  });
+
+  // To'lov/boshqa modal ochilganda savat paneli ustiga chiqmasin
+  document.addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('#checkoutBtn') && isMobile()) setOpen(false);
+  }, true);
 })();
 </script>
 

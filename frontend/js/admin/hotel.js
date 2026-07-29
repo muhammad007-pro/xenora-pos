@@ -288,6 +288,10 @@ async function loadHotelRooms() {
                 <div style="font-size:.75rem;color:var(--text2)">${bk.check_in} → ${bk.check_out}</div>` :
                 `<div style="font-size:.75rem;color:var(--text3)">${r.floor}-qavat ${r.name ? '· '+r.name : ''}</div>`}
         ${r.status !== 'available' ? `<button class="act-btn" style="margin-top:.5rem;font-size:.75rem;padding:.2rem .5rem" onclick="event.stopPropagation();hrSetStatus(${r.id},'available')">Bo'shat</button>` : ''}
+        <div style="margin-top:.5rem;display:flex;gap:.35rem">
+          <button class="act-btn" style="font-size:.75rem;padding:.2rem .5rem" onclick="event.stopPropagation();openRoomModal(${r.id})">Tahrir</button>
+          <button class="act-btn" style="font-size:.75rem;padding:.2rem .5rem;color:var(--danger)" onclick="event.stopPropagation();deleteRoom(${r.id})">O'chir</button>
+        </div>
       </div>`;
     }).join('');
   } catch(err) { toast(err.message, 'error'); }
@@ -354,6 +358,8 @@ async function loadHotelBookings() {
           <td class="td-actions">
             ${nextSt ? `<button class="act-btn" title="${HB_NEXT_LBL[b.status]}" onclick="hbNextStatus(${b.id},'${nextSt}')">›</button>` : ''}
             ${b.status !== 'cancelled' && b.status !== 'checked_out' ? `<button class="act-btn" title="Bekor qilish" onclick="hbCancel(${b.id})" style="color:var(--danger)">✕</button>` : ''}
+            <button class="act-btn" title="Tahrir (holat)" onclick="openBookingModal(${b.id})">✎</button>
+            <button class="act-btn" title="O'chirish" onclick="deleteBooking(${b.id})" style="color:var(--danger)">🗑</button>
           </td>
         </tr>`;
       }).join('');
@@ -401,3 +407,117 @@ async function updateHotelBadge() {
   } catch {}
 }
 
+
+// ═══ Hotel: Xona + Bron qo'shish/tahrirlash formalari (stub yopish) ═══════════════
+// Backend /rooms + /rooms/bookings CRUD tayyor. nights/total backend hisoblaMAYDI → forma JS'да.
+let _hotelRoomsCache = [];
+
+async function openRoomModal(id) {
+  let r = null;
+  if (id) {
+    try { const d = await apiFetch('/rooms/?page_size=500'); r = (d.items||d||[]).find(x=>x.id===id) || null; } catch {}
+  }
+  document.getElementById('roomModalTitle').textContent = r ? 'Xonani tahrirlash' : 'Yangi xona';
+  document.getElementById('rmId').value = r ? r.id : '';
+  document.getElementById('rmNumber').value = r ? r.number : '';
+  document.getElementById('rmName').value = r ? (r.name||'') : '';
+  document.getElementById('rmFloor').value = r ? r.floor : 1;
+  document.getElementById('rmType').value = r ? r.room_type : 'standard';
+  document.getElementById('rmCapacity').value = r ? r.capacity : 2;
+  document.getElementById('rmPrice').value = r ? r.price_per_night : '';
+  document.getElementById('rmStatusGroup').style.display = r ? '' : 'none';   // status faqat tahrirда
+  if (r) document.getElementById('rmStatus').value = r.status || 'available';
+  openModal('roomModal');
+}
+
+async function saveRoom() {
+  const id = document.getElementById('rmId').value;
+  const number = document.getElementById('rmNumber').value.trim();
+  const price = parseFloat(document.getElementById('rmPrice').value);
+  if (!number) { toast('Xona raqamini kiriting', 'error'); return; }
+  if (isNaN(price) || price < 0) { toast("Narx to'g'ri kiritilsin (0 dan kam emas)", 'error'); return; }
+  const base = {
+    number, name: document.getElementById('rmName').value.trim() || null,
+    floor: parseInt(document.getElementById('rmFloor').value,10) || 1,
+    room_type: document.getElementById('rmType').value,
+    capacity: parseInt(document.getElementById('rmCapacity').value,10) || 1,
+    price_per_night: price,
+  };
+  try {
+    if (id) await apiFetchPost(`/rooms/${id}`, { ...base, status: document.getElementById('rmStatus').value }, 'PATCH');
+    else    await apiFetchPost('/rooms/', base);
+    toast('Saqlandi', 'success'); closeModal('roomModal');
+    if (typeof loadHotelRooms === 'function') loadHotelRooms();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteRoom(id) {
+  if (!confirm("Xona o'chirilsinmi?")) return;
+  try { await apiFetchPost(`/rooms/${id}`, {}, 'DELETE'); toast("O'chirildi", 'success'); loadHotelRooms(); }
+  catch (e) { toast(e.message, 'error'); }
+}
+
+async function openBookingModal(id) {
+  // Xonalar ro'yxati (picker) — narx bilan
+  try { const d = await apiFetch('/rooms/?page_size=500'); _hotelRoomsCache = d.items || d || []; } catch { _hotelRoomsCache = []; }
+  const sel = document.getElementById('bkRoom');
+  sel.innerHTML = _hotelRoomsCache.map(r =>
+    `<option value="${r.id}" data-price="${r.price_per_night}">${r.number}${r.name?' — '+r.name:''} (${fmtMoney(r.price_per_night)}/tun${r.status!=='available'?' · '+(ROOM_STATUS[r.status]?.lbl||r.status):''})</option>`).join('');
+  let b = null;
+  if (id) { try { const d = await apiFetch('/rooms/bookings/?page_size=500'); b = (d.items||d||[]).find(x=>x.id===id) || null; } catch {} }
+  document.getElementById('bookingModalTitle').textContent = b ? 'Bronni tahrirlash' : 'Yangi bron';
+  document.getElementById('bkId').value = b ? b.id : '';
+  document.getElementById('bkGuest').value = b ? b.guest_name : '';
+  document.getElementById('bkPhone').value = b ? (b.guest_phone||'') : '';
+  if (b) document.getElementById('bkRoom').value = b.room_id;
+  document.getElementById('bkCount').value = b ? b.guest_count : 1;
+  document.getElementById('bkCheckin').value = b ? b.check_in : '';
+  document.getElementById('bkCheckout').value = b ? b.check_out : '';
+  document.getElementById('bkStatusGroup').style.display = b ? '' : 'none';
+  if (b) document.getElementById('bkStatus').value = b.status || 'pending';
+  _bkRecalc();
+  openModal('bookingModal');
+}
+
+function _bkNightsTotal() {
+  const ci = document.getElementById('bkCheckin').value, co = document.getElementById('bkCheckout').value;
+  let nights = 0;
+  if (ci && co) { const d = (new Date(co) - new Date(ci)) / 86400000; nights = d > 0 ? Math.round(d) : 0; }
+  const opt = document.getElementById('bkRoom').selectedOptions[0];
+  const price = opt ? parseFloat(opt.dataset.price) || 0 : 0;
+  return { nights, total: nights * price };
+}
+function _bkRecalc() {
+  const { nights, total } = _bkNightsTotal();
+  document.getElementById('bkNights').textContent = nights;
+  document.getElementById('bkTotal').textContent = fmtMoney(total);
+}
+
+async function saveBooking() {
+  const id = document.getElementById('bkId').value;
+  const guest = document.getElementById('bkGuest').value.trim();
+  const roomId = parseInt(document.getElementById('bkRoom').value, 10);
+  const ci = document.getElementById('bkCheckin').value, co = document.getElementById('bkCheckout').value;
+  if (!guest) { toast('Mehmon ismini kiriting', 'error'); return; }
+  if (!roomId) { toast('Xona tanlang', 'error'); return; }
+  if (!ci || !co) { toast('Kelish va ketish sanasini kiriting', 'error'); return; }
+  const { nights, total } = _bkNightsTotal();
+  if (nights < 1) { toast('Ketish sanasi kelishdan keyin bo\'lsin (kamida 1 tun)', 'error'); return; }
+  const base = {
+    room_id: roomId, guest_name: guest, guest_phone: document.getElementById('bkPhone').value.trim() || null,
+    guest_count: parseInt(document.getElementById('bkCount').value,10) || 1,
+    check_in: ci, check_out: co, nights, total_amount: total,
+  };
+  try {
+    if (id) await apiFetchPost(`/rooms/bookings/${id}`, { status: document.getElementById('bkStatus').value }, 'PATCH');
+    else    await apiFetchPost('/rooms/bookings/', base);
+    toast('Saqlandi', 'success'); closeModal('bookingModal');
+    if (typeof loadHotelBookings === 'function') loadHotelBookings();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteBooking(id) {
+  if (!confirm("Bron o'chirilsinmi?")) return;
+  try { await apiFetchPost(`/rooms/bookings/${id}`, {}, 'DELETE'); toast("O'chirildi", 'success'); loadHotelBookings(); }
+  catch (e) { toast(e.message, 'error'); }
+}

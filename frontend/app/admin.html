@@ -3393,6 +3393,68 @@
         </div>
       </div>
 
+      <!-- ── Hotel: Xona modal ── -->
+      <div class="modal-overlay" id="roomModal" onclick="if(event.target===this)closeModal('roomModal')">
+        <div class="modal-card" style="max-width:480px">
+          <div class="modal-header"><span class="modal-title" id="roomModalTitle">Yangi xona</span><button class="modal-close" onclick="closeModal('roomModal')">✕</button></div>
+          <div class="modal-body">
+            <input type="hidden" id="rmId">
+            <div class="form-row" style="display:flex;gap:.75rem">
+              <div class="form-group" style="flex:1"><label>Xona raqami *</label><input class="form-control" id="rmNumber" placeholder="101" autocomplete="off"></div>
+              <div class="form-group" style="flex:1"><label>Qavat</label><input class="form-control" type="number" id="rmFloor" min="1" value="1"></div>
+            </div>
+            <div class="form-group"><label>Nomi (ixtiyoriy)</label><input class="form-control" id="rmName" placeholder="Lyuks 101" autocomplete="off"></div>
+            <div class="form-row" style="display:flex;gap:.75rem">
+              <div class="form-group" style="flex:1"><label>Turi</label>
+                <select class="form-control" id="rmType"><option value="standard">Standart</option><option value="deluxe">Lyuks (deluxe)</option><option value="suite">Suite</option><option value="family">Oilaviy</option></select>
+              </div>
+              <div class="form-group" style="flex:1"><label>Sig'im (kishi)</label><input class="form-control" type="number" id="rmCapacity" min="1" value="2"></div>
+            </div>
+            <div class="form-group"><label>Narx / tun (so'm) *</label><input class="form-control" type="number" id="rmPrice" min="0" step="1000" placeholder="300000"></div>
+            <div class="form-group" id="rmStatusGroup" style="display:none"><label>Holat</label>
+              <select class="form-control" id="rmStatus"><option value="available">Bo'sh</option><option value="occupied">Band</option><option value="cleaning">Tozalash</option><option value="maintenance">Ta'mir</option></select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('roomModal')">Bekor</button>
+            <button class="tb-btn tb-btn-primary" onclick="saveRoom()">Saqlash</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Hotel: Bron modal ── -->
+      <div class="modal-overlay" id="bookingModal" onclick="if(event.target===this)closeModal('bookingModal')">
+        <div class="modal-card" style="max-width:500px">
+          <div class="modal-header"><span class="modal-title" id="bookingModalTitle">Yangi bron</span><button class="modal-close" onclick="closeModal('bookingModal')">✕</button></div>
+          <div class="modal-body">
+            <input type="hidden" id="bkId">
+            <div class="form-row" style="display:flex;gap:.75rem">
+              <div class="form-group" style="flex:1"><label>Mehmon ismi *</label><input class="form-control" id="bkGuest" placeholder="Ism Familiya" autocomplete="off"></div>
+              <div class="form-group" style="flex:1"><label>Telefon</label><input class="form-control" id="bkPhone" placeholder="+998..." autocomplete="off"></div>
+            </div>
+            <div class="form-row" style="display:flex;gap:.75rem">
+              <div class="form-group" style="flex:2"><label>Xona *</label><select class="form-control" id="bkRoom" onchange="_bkRecalc()"></select></div>
+              <div class="form-group" style="flex:1"><label>Kishi</label><input class="form-control" type="number" id="bkCount" min="1" value="1"></div>
+            </div>
+            <div class="form-row" style="display:flex;gap:.75rem">
+              <div class="form-group" style="flex:1"><label>Kelish (check-in) *</label><input class="form-control" type="date" id="bkCheckin" onchange="_bkRecalc()"></div>
+              <div class="form-group" style="flex:1"><label>Ketish (check-out) *</label><input class="form-control" type="date" id="bkCheckout" onchange="_bkRecalc()"></div>
+            </div>
+            <div style="display:flex;gap:.75rem;background:var(--bg3);border-radius:8px;padding:.6rem .8rem;margin-bottom:.75rem">
+              <div style="flex:1">Tunlar: <b id="bkNights">0</b></div>
+              <div style="flex:1;text-align:right">Jami: <b id="bkTotal" style="color:var(--gold)">0</b> so'm</div>
+            </div>
+            <div class="form-group" id="bkStatusGroup" style="display:none"><label>Holat</label>
+              <select class="form-control" id="bkStatus"><option value="pending">Kutilmoqda</option><option value="confirmed">Tasdiqlangan</option><option value="checked_in">Joylashdi</option><option value="checked_out">Chiqdi</option><option value="cancelled">Bekor</option></select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('bookingModal')">Bekor</button>
+            <button class="tb-btn tb-btn-primary" onclick="saveBooking()">Saqlash</button>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /admin-content -->
   </div><!-- /admin-main -->
 </div><!-- /admin-wrap -->

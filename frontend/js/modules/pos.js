@@ -8,6 +8,7 @@ import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
 import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow } from '../core/receipt-print.js';
+import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
 
 const api = new API();
 
@@ -2456,6 +2457,24 @@ barcodeInput?.addEventListener('keydown', e => {
     handleBarcodeScan(code);
   }
 });
+
+// Kamera skaner (Capacitor ML Kit / BarcodeDetector) shu yerdan chaqiradi —
+// USB/qo'lda oqum (yuqorida) TEGILMAYDI, faqat funksiyaga tashqi kirish ochiladi.
+window.handleBarcodeScan = handleBarcodeScan;
+
+// ── Kamera skaner tugmasi (magazin rejimi qatorida) ──────────────────────────
+// Faqat kamera bor muhitda ko'rinadi: Capacitor APK yoki BarcodeDetector
+// qo'llab-quvvatlagan brauzer. Electron (.exe monoblok) — yashirin, USB
+// skaner + qo'lda kiritish (yuqoridagi #barcodeInput) hozirgidek ishlaydi.
+const cameraScanBtn = document.getElementById('cameraScanBtn');
+if (cameraScanBtn) {
+  if (isCameraScanAvailable()) {
+    cameraScanBtn.style.display = 'flex';
+    cameraScanBtn.addEventListener('click', () => openCameraScanner());
+  } else {
+    cameraScanBtn.style.display = 'none';
+  }
+}
 
 // ─── Search + keyboard ────────────────────────────────────────────────────────
 let srchTimer;

@@ -32,6 +32,7 @@ from deps import (
 )
 from models import Category, Inventory, Product, StockMovement, User
 from services import ai_warehouse as ai
+from utils.helpers import calculate_ean13_checksum
 
 router = APIRouter()
 
@@ -204,11 +205,26 @@ class ConfirmResponse(BaseModel):
     message: str
 
 
-# EAN-13 ko'rinishidagi ichki (do'kon) kod: "20" prefiks + 11 raqam.
+# HAQIQIY EAN-13 ichki (do'kon) kod: "20" prefiks + 10 tasodifiy raqam + nazorat
+# raqami = 13 belgi. Prefiks 20-29 GS1 da "do'kon ichki (restricted circulation)"
+# uchun ajratilgan — ichki kod uchun to'g'ri tanlov.
+#
+# TUZATISH: avval "20" + 11 tasodifiy raqam yozilardi, ya'ni 13-chi belgi
+# NAZORAT RAQAMI emas, oddiy tasodifiy raqam edi. Bunday kod EAN-13 sifatida
+# yaroqsiz: kamera skaner (ML Kit / BarcodeDetector / ZXing) va lazer skaner
+# nazorat raqamini tekshiradi va noto'g'ri bo'lsa kodni QAYTARMAYDI.
+# DIQQAT: mavjud (allaqachon yaratilgan) barkodlarga TEGILMAYDI — bu faqat
+# yangi generatsiya. Eski kodlar `products.barcode` aniq mosligi bilan
+# (barcodes.py lookup 2-qadam) va CODE128 yorliq bilan ishlashda davom etadi.
+#
 # Tenant ichida (va shu partiya ichida) UNIKAL — mahsulot bilan bir vaqtda saqlanadi.
 def _gen_internal_barcode(db: Session, tenant_id: Optional[int], used: set) -> str:
+    def _ean13(base12: str) -> str:
+        """12 raqamli bazaga nazorat raqamini qo'shadi → to'g'ri EAN-13."""
+        return base12 + str(calculate_ean13_checksum(base12))
+
     for _ in range(30):
-        code = "20" + f"{random.randint(0, 10**11 - 1):011d}"
+        code = _ean13("20" + f"{random.randint(0, 10**10 - 1):010d}")
         if code in used:
             continue
         exists = (
@@ -219,8 +235,8 @@ def _gen_internal_barcode(db: Session, tenant_id: Optional[int], used: set) -> s
         if not exists:
             used.add(code)
             return code
-    # Juda kam ehtimol — vaqt asosida zaxira kod
-    code = "29" + f"{int(datetime.now().timestamp() * 1000) % 10**11:011d}"
+    # Juda kam ehtimol — vaqt asosida zaxira kod (u ham to'g'ri EAN-13)
+    code = _ean13("29" + f"{int(datetime.now().timestamp() * 1000) % 10**10:010d}")
     used.add(code)
     return code
 

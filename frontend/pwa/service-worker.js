@@ -12,7 +12,7 @@
  *   'sync-orders' tegi bo'lganda navbatdagi buyurtmalarni yuboradi
  */
 
-const APP_VERSION   = 'v1.40.0';
+const APP_VERSION   = 'v1.41.0';
 const STATIC_CACHE  = `restopos-static-${APP_VERSION}`;
 const API_CACHE     = `restopos-api-${APP_VERSION}`;
 const API_BASE      = '/api';
@@ -56,6 +56,8 @@ const STATIC_ASSETS = [
     '/js/modules/pos.js',
     '/js/modules/kitchen.js',
     '/js/modules/admin.js',
+    '/js/modules/barcode.js',
+    '/js/modules/camera-scanner.js',
     '/js/ui/toast.js',
     '/js/ui/modal.js',
     '/js/utils/formatter.js',

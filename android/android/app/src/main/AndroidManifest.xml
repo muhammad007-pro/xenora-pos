@@ -39,4 +39,16 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Kamera shtrix-kod skaner (@capacitor-mlkit/barcode-scanning, ML Kit).
+         Plagin o'z manifestida ham shu ruxsatni e'lon qiladi (Gradle manifest
+         merger ikkalasini bittaga birlashtiradi) — bu yerda ANIQ yozish
+         plaginning aynan qaysi versiyada sync bo'lishidan qat'iy nazar
+         ruxsatni kafolatlaydi. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- required="false": kamerasiz qurilmada ham o'rnatilishi mumkin (POS
+         monoblok/planshet ba'zan kamerasiz) — ilova Play Store filtridan
+         chiqib qolmasin. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>

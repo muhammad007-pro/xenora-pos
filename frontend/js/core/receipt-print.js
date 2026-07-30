@@ -130,6 +130,11 @@ export async function printReceiptHTML(innerHTML, opts = {}) {
         printType: opts.printType || 'usb',
         printerIp: opts.printerIp || null,
         printerPort: opts.printerPort || null,
+        // LAN 2-bosqich: qog'oz kengligi (58/80mm — ESC/POS qator belgilar soni
+        // uchun) va pul qutisi (cash drawer) signali. USB (SumatraPDF) yo'liga
+        // ta'sir qilmaydi — faqat lanTransport shu ikkalasini o'qiydi.
+        paperWidth: opts.paperWidth || null,
+        openDrawer: !!opts.openDrawer,
       };
       // printDocument mavjud bo'lsa markaziy yo'l; bo'lmasa (eski preload) — printReceipt.
       const res = api.printDocument

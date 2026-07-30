@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { execFile } = require('child_process');
+const { buildReceiptBytes, buildTestReceiptBytes, DRAWER_KICK } = require('./escpos-builder');
+const { sendRawTcp } = require('./lan-socket');
 
 // ── XENORA SaaS server manzili ──
 // Backend SERVERDA ishlaydi (http://146.190.225.168). Electron o'z backendini
@@ -187,50 +189,106 @@ const usbTransport = {
     },
 };
 
-// ── LAN/API transport — SKELETON (B2). Struktura to'liq, ichi STUB. ────────────
-// Tarmoq (LAN/Wi-Fi) termal printerlari uchun. USB'dan FARQI: LAN termal printer
-// odatda RAW ESC/POS baytlarni TCP 9100 (RAW/JetDirect) portida kutadi — PDF EMAS.
-// Shu sabab kelajakda html'ni to'g'ridan yubormaymiz, balki ESC/POS'ga o'giramiz.
+// ── LAN transport (B2 — TO'LIQ) ────────────────────────────────────────────────
+// Tarmoq (LAN/Wi-Fi) termal printerlari — RAW ESC/POS baytlarni TCP 9100
+// (RAW/JetDirect) portida kutadi, PDF EMAS. USB (SumatraPDF/printToPDF) yo'liga
+// UMUMAN TEGILMAYDI — bu ALOHIDA transport, faqat printType:'lan' tanlanganda
+// chaqiriladi.
 //
-// KELAJAKDA (stub o'rniga) — send() ichi shunday to'ldiriladi, interfeys O'ZGARMAYDI:
-//
-//   1) RAW TCP 9100 (eng keng tarqalgan — Epson/Xprinter LAN):
-//        const net = require('net');
-//        const bytes = htmlToEscpos(html, opts);   // matn/qator/QR → ESC/POS buffer
-//        await new Promise((resolve, reject) => {
-//          const sock = net.connect(port, ip, () => sock.write(bytes, () => sock.end()));
-//          sock.on('error', reject);
-//          sock.on('close', () => resolve());
-//          sock.setTimeout(5000, () => { sock.destroy(); reject(new Error('LAN timeout')); });
-//        });
-//        return { ok: true, engine: 'lan-tcp', device: `${ip}:${port}` };
-//
-//   2) HTTP/JSON API (bulut yoki print-server bridge):
-//        const res = await fetch(`http://${ip}:${port}/print`, {
-//          method:'POST', headers:{'Content-Type':'application/json'},
-//          body: JSON.stringify({ escpos: Buffer.from(bytes).toString('base64') }),
-//        });
-//        return { ok: res.ok, engine: 'lan-http', ... };
-//
-//   htmlToEscpos(): alohida modul (kelajak) — chek HTML/struktura → ESC/POS
-//   (init, encoding CP864/UTF, qator, QR GS, kesish). USB (SumatraPDF/PDF) bu
-//   bosqichni talab qilmaydi; faqat LAN raw uchun kerak.
-//
-// Hozir: ulanish qo'llab-quvvatlanmaydi → aniq xato (crash EMAS). Sozlama
-// (IP/port) allaqachon saqlanadi; do'kon LAN printer olsa — shu send() to'ldiriladi.
+// Oqim: chek HTML (yashirin BrowserWindow'da) -> DOM'dan structured ma'lumot
+// (do'kon nomi, qatorlar, jami/soliq/umumiy) o'qiladi -> escpos-builder.js
+// (backend/services/escpos_service.py namunasi, JS'ga ko'chirilgan) ESC/POS
+// baytga aylantiradi -> net.connect orqali RAW TCP yuboriladi.
+
+// Chek HTML'dagi BARQAROR klasslar (.receipt-center/.receipt-table/.rt-row/
+// .receipt-footer) — pos.js:renderReceiptData, receipt-print.js:buildReceipt58
+// va admin.html reprint UCHALASI HAM shu bir xil klasslarni ishlatadi (chek
+// dizayn tizimi). Shu sabab bu ekstraktsiya HTML matnini emas, DOM tuzilishini
+// o'qiydi — chek HTML'i o'zgarsa ham (matn/rang) klasslar saqlansa ishlayveradi.
+const _RECEIPT_EXTRACT_JS = `(function(){
+  // <br> ni bo'shliqqa aylantiradi (aks holda "Croissant<br>pachka" ->
+  // "Croissantpachka" bo'lib qo'shilib ketardi — mahsulot nomi + pachka/og'irlik
+  // yorlig'i bir xil <td> ichida bo'lishi mumkin).
+  function txt(el){
+    if (!el) return '';
+    var clone = el.cloneNode(true);
+    clone.querySelectorAll('br').forEach(function(br){ br.replaceWith(' - '); });
+    return clone.textContent.replace(/\\s+/g,' ').trim();
+  }
+  var center = document.querySelector('.receipt-center');
+  var storeName = txt(center && center.querySelector('h4'));
+  var addressLines = [];
+  var addrP = center ? center.querySelector('p') : null;
+  if (addrP) {
+    addrP.innerHTML.split(/<br\\s*\\/?>/i).forEach(function(chunk){
+      var d = document.createElement('div'); d.innerHTML = chunk;
+      var t = (d.textContent||'').trim();
+      if (t) addressLines.push(t);
+    });
+  }
+  var meta = txt(center ? center.nextElementSibling : null);
+  var rows = [];
+  document.querySelectorAll('.receipt-table tbody tr').forEach(function(tr){
+    var tds = tr.querySelectorAll('td');
+    if (tds.length >= 3) rows.push({ name: txt(tds[0]), qty: txt(tds[1]), price: txt(tds[tds.length-1]) });
+    else if (tds.length) rows.push({ name: txt(tds[0]), qty: '', price: '' });
+  });
+  var totals = [];
+  document.querySelectorAll('.receipt-totals .rt-row').forEach(function(r){
+    var spans = r.querySelectorAll('span');
+    if (spans.length >= 2) totals.push({ label: txt(spans[0]), value: txt(spans[1]), bold: r.classList.contains('bold') });
+  });
+  var fiscalNumber = null;
+  var fiscalMatch = document.body.textContent.match(/№\\s*([\\w-]+)/);
+  if (document.body.textContent.indexOf('FISKAL') !== -1 && fiscalMatch) fiscalNumber = fiscalMatch[1];
+  var footer = txt(document.querySelector('.receipt-footer'));
+  return { storeName: storeName, addressLines: addressLines, meta: meta, rows: rows, totals: totals, footer: footer, fiscalNumber: fiscalNumber };
+})()`;
+
+// Chek HTML'ni yashirin oynada yuklab, structured ma'lumotni DOM'dan o'qiydi.
+// USB yo'lidagi BILAN BIR XIL yashirin-oyna texnikasi (usbTransport) — faqat
+// printToPDF o'rniga executeJavaScript bilan matn o'qiladi.
+async function _extractReceiptStructure(html) {
+    let win = null;
+    try {
+        win = new BrowserWindow({
+            show: false, width: 400, height: 800,
+            webPreferences: { offscreen: false, sandbox: false, backgroundThrottling: false },
+        });
+        await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+        await _delay(150);
+        const structured = await win.webContents.executeJavaScript(_RECEIPT_EXTRACT_JS);
+        return structured || {};
+    } finally {
+        if (win && !win.isDestroyed()) win.close();
+    }
+}
+
 const lanTransport = {
-    async send(_html, opts) {
-        const ip = opts && opts.printerIp ? String(opts.printerIp).trim() : '';
-        const port = Number((opts && opts.printerPort) || 0) || 9100;
-        // IP bo'sh bo'lsa — aniq yo'naltiruvchi xato.
+    async send(html, opts) {
+        const o = opts || {};
+        const ip = o.printerIp ? String(o.printerIp).trim() : '';
+        const port = Number(o.printerPort || 0) || 9100;
         if (!ip) {
-            return { ok: false, engine: 'lan-stub',
+            return { ok: false, engine: 'lan-tcp',
                 error: 'LAN IP kiritilmagan — sozlamalarda "Printer IP" ni to\'ldiring' };
         }
-        // IP kiritilgan, lekin ulanish hali yo'q (skeleton).
-        return { ok: false, engine: 'lan-stub',
-            error: `LAN printer tez orada — sozlamalarda IP kiritilgan (${ip}:${port}), `
-                 + 'lekin tarmoq ulanishi hali qo\'llab-quvvatlanmaydi' };
+        let structured;
+        try {
+            structured = await _extractReceiptStructure(html);
+        } catch (err) {
+            console.error('lanTransport extract error', err);
+            return { ok: false, engine: 'lan-tcp', error: "Chek ma'lumotini o'qib bo'lmadi: " + err.message };
+        }
+        const widthMm = Number(o.paperWidth) === 80 ? 80 : 58;
+        let bytes;
+        try {
+            bytes = buildReceiptBytes(structured, widthMm, { openDrawer: !!o.openDrawer });
+        } catch (err) {
+            console.error('lanTransport build error', err);
+            return { ok: false, engine: 'lan-tcp', error: 'Chek formatlashda xato: ' + err.message };
+        }
+        return sendRawTcp(ip, port, bytes, 5000);
     },
 };
 
@@ -263,6 +321,46 @@ ipcMain.handle('print-document', (_e, payload) => printDocument(payload));
 // (printType bo'sh → 'usb' → AYNI SumatraPDF yo'li). Chek natijasi o'zgarmaydi.
 ipcMain.handle('print-receipt', (_e, payload) =>
     printDocument({ ...(payload || {}), printType: (payload && payload.printType) || 'usb' }));
+
+// ── Pul qutisi (cash drawer) — USB, printType'dan MUSTAQIL, ALOHIDA yo'l ──────
+// LAN: drawer-kick bayti bevosita chek bayt oqimiga qo'shiladi (lanTransport
+// ichida, yuqorida) — alohida chaqiruv shart emas.
+// USB: chek SumatraPDF orqali PDF sifatida chop etiladi (usbTransport) — PDF
+// ESC/POS buyruqlarini olib o'ta olmaydi (rasterlanadi), shuning uchun drawer
+// signalini USB PRINTER NAVBATIGA (Windows spooler) RAW datatype bilan
+// TO'G'RIDAN yuborish kerak — bu usbTransport'ga (SumatraPDF/chek chop etish
+// yo'liga) UMUMAN TEGMAYDI, mutlaqo ALOHIDA, additive IPC.
+//
+// ⚠️ `printer` npm moduli (Windows RAW spooler yozish uchun — Node'ning o'zida
+// bunday imkoniyat yo'q) ATAYIN package.json ga QO'SHILMADI — bu native C++
+// addon (node-gyp/build tools kerak) va uni asosiy dependencies'ga qo'shish
+// `npm install`/`postinstall` (electron-builder install-app-deps) ni BUTUN
+// LOYIHA uchun buzishi mumkin (Eco Aroma build jarayoni xavf ostida qolmasin).
+// Kerak bo'lsa QO'LDA: `cd electron && npm install printer` (ixtiyoriy, faqat
+// USB pul qutisi uchun — LAN pul qutisi va USB/LAN chek chop etish bunga
+// muhtoj EMAS). O'rnatilmagan bo'lsa tushunarli xato qaytaradi, CRASH EMAS.
+async function openCashDrawerUsb(deviceName) {
+    let printerLib;
+    try {
+        printerLib = require('printer');
+    } catch (err) {
+        return { ok: false, error: "Pul qutisi (USB) uchun 'printer' moduli o'rnatilmagan (npm install kerak)" };
+    }
+    return new Promise((resolve) => {
+        try {
+            printerLib.printDirect({
+                data: DRAWER_KICK,
+                printer: deviceName || undefined,
+                type: 'RAW',
+                success: () => resolve({ ok: true }),
+                error: (err) => resolve({ ok: false, error: String((err && err.message) || err) }),
+            });
+        } catch (err) {
+            resolve({ ok: false, error: err.message });
+        }
+    });
+}
+ipcMain.handle('open-cash-drawer', (_e, payload) => openCashDrawerUsb(payload && payload.deviceName));
 
 // Mavjud printerlar ro'yxati (sozlamada tanlash uchun)
 ipcMain.handle('list-printers', async () => {

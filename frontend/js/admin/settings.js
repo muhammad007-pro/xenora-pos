@@ -236,6 +236,11 @@ async function loadReceiptSettings() {
     const p = await apiFetch(`/settings/printer`);
     const rp = document.getElementById('rsPrinter');
     if (rp && p && typeof p.printer_name === 'string') rp.value = p.printer_name;
+    // Pul qutisi (cash drawer, LAN 2-bosqich) — shu bir xil /settings/printer config'da.
+    const drawerOn = !!(p && p.open_drawer_enabled);
+    document.getElementById('rsDrawerEnabled').checked = drawerOn;
+    document.getElementById('rsDrawerModeGroup').style.display = drawerOn ? '' : 'none';
+    document.getElementById('rsDrawerMode').value = (p && p.open_drawer_mode) || 'cash_only';
   } catch { /* printer config yo'q — bo'sh (OS default) */ }
   // Electron'da mavjud printerlar ro'yxati (datalist)
   try {
@@ -265,13 +270,54 @@ async function saveReceiptSettings() {
     printer_port: parseInt(document.getElementById('rsPrinterPort').value, 10) || null,
   };
   await apiFetchPost(`/receipt-settings/`, body, 'PUT');
-  // Chek printerini (silent print deviceName) tenant printer config'ga saqlash
+  // Chek printerini (silent print deviceName) + pul qutisi sozlamasini tenant
+  // printer config'ga saqlash (bitta JSON blob, migratsiya YO'Q).
   try {
     const rp = document.getElementById('rsPrinter');
-    if (rp) await apiFetchPost(`/settings/printer`, { printer_name: rp.value.trim() }, 'PATCH');
+    await apiFetchPost(`/settings/printer`, {
+      printer_name: rp ? rp.value.trim() : '',
+      open_drawer_enabled: document.getElementById('rsDrawerEnabled').checked,
+      open_drawer_mode: document.getElementById('rsDrawerMode').value || 'cash_only',
+    }, 'PATCH');
   } catch { /* printer saqlanmasa chek sozlamasi baribir saqlandi */ }
   toast('Chek sozlamalari saqlandi!');
   previewReceipt();
+}
+
+// ── LAN "Test chek" — saqlashdan OLDIN, shu yerdagi (hali saqlanmagan) IP/port
+// bilan haqiqiy TCP orqali sinov cheki yuboradi. Real printDocument(printType:
+// 'lan') yo'lidan o'tadi — extraction+ESC/POS+TCP hammasi sinaladi. ──────────
+async function testLanPrint() {
+  const ip   = document.getElementById('rsPrinterIp').value.trim();
+  const port = parseInt(document.getElementById('rsPrinterPort').value, 10) || 9100;
+  const paperWidth = +document.getElementById('rsPaper').value || 58;
+  if (!ip) { toast('Avval Printer IP kiritilsin', 'error'); return; }
+  if (!(window.electronAPI && window.electronAPI.printDocument)) {
+    toast('Test chek faqat XENORA desktop (.exe) ilovasida ishlaydi', 'warning');
+    return;
+  }
+  const html = `
+    <div class="receipt-center"><h4>XENORA TEST</h4><p>LAN sinov cheki<br>${new Date().toLocaleString('uz-UZ')}</p></div>
+    <div style="font-size:10px;margin-bottom:4px">Chek #TEST</div>
+    <table class="receipt-table"><thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
+    <tbody><tr><td>Test mahsulot</td><td>1</td><td style="text-align:right">10 000</td></tr></tbody></table>
+    <div class="receipt-totals">
+      <div class="rt-row bold"><span>UMUMIY:</span><span>10 000 UZS</span></div>
+    </div>
+    <div class="receipt-footer">Bu — LAN printer test cheki</div>`;
+  const btn = document.getElementById('rsTestLanBtn');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Yuborilmoqda...';
+  try {
+    const res = await window.electronAPI.printDocument({
+      html, printType: 'lan', printerIp: ip, printerPort: port, paperWidth, openDrawer: false,
+    });
+    if (res && res.ok) toast(`Test chek yuborildi (${ip}:${port})`, 'success');
+    else toast('Test chek xato: ' + ((res && res.error) || "noma'lum"), 'error');
+  } catch (e) {
+    toast('Test chek xato: ' + (e?.message || e), 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
 }
 async function previewReceipt() {
   const data = await apiFetch(`/receipt-settings/preview`);

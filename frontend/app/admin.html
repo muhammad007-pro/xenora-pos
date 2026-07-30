@@ -1918,20 +1918,35 @@
               <label>Print turi</label>
               <select class="form-control" id="rsPrintType" onchange="document.getElementById('rsLanGroup').style.display=this.value==='lan'?'grid':'none'">
                 <option value="usb">USB — SumatraPDF (do'kon)</option>
-                <option value="lan">LAN — tarmoq printer (tez orada)</option>
+                <option value="lan">LAN — tarmoq printer (IP orqali)</option>
                 <option value="qr">QR — ekran (kelajak)</option>
               </select>
-              <small style="color:var(--text3);display:block;margin-top:.35rem">USB — SumatraPDF orqali (do'kon). LAN — tarmoq printer (restoran, tez orada). Bo'sh = USB.</small>
+              <small style="color:var(--text3);display:block;margin-top:.35rem">USB — SumatraPDF orqali (do'kon). LAN — tarmoq printer (IP:port, XP-Q80AS kabi). Bo'sh = USB.</small>
             </div>
             <div id="rsLanGroup" style="display:none;grid-template-columns:2fr 1fr;gap:.5rem">
               <div class="form-group"><label>Printer IP</label><input class="form-control" id="rsPrinterIp" placeholder="192.168.1.50"></div>
               <div class="form-group"><label>Port</label><input class="form-control" id="rsPrinterPort" type="number" placeholder="9100"></div>
+              <div class="form-group" style="grid-column:1/-1">
+                <button type="button" class="tb-btn" id="rsTestLanBtn" onclick="testLanPrint()">🖨 Test chek (LAN)</button>
+                <small style="color:var(--text3);display:block;margin-top:.35rem">Saqlashdan oldin — shu yerdagi IP/portga sinov cheki yuboradi (haqiqiy TCP ulanish).</small>
+              </div>
             </div>
             <div class="form-group">
               <label>Chek printeri (silent print)</label>
               <input class="form-control" id="rsPrinter" list="rsPrinterList" placeholder="Bo'sh = Windows standart printeri (XP-58C)">
               <datalist id="rsPrinterList"></datalist>
               <small style="color:var(--text3);display:block;margin-top:.35rem">Chek shu printerga chiqadi (USB). Bo'sh qolsa — Windows standart printeri ishlatiladi.</small>
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:.75rem">
+              <input type="checkbox" id="rsDrawerEnabled" onchange="document.getElementById('rsDrawerModeGroup').style.display=this.checked?'block':'none'">
+              <label for="rsDrawerEnabled" style="margin:0">Chek chiqqanda pul qutisini och (cash drawer)</label>
+            </div>
+            <div class="form-group" id="rsDrawerModeGroup" style="display:none">
+              <select class="form-control" id="rsDrawerMode">
+                <option value="cash_only">Faqat naqd to'lovda</option>
+                <option value="always">Har chekda (to'lov turidan qat'i nazar)</option>
+              </select>
+              <small style="color:var(--text3);display:block;margin-top:.35rem">USB va LAN ikkalasida ham ishlaydi (ESC/POS "drawer kick" signali).</small>
             </div>
             <div class="form-group" style="display:flex;align-items:center;gap:.75rem">
               <input type="checkbox" id="rsQrEnabled" onchange="document.getElementById('rsQrUrlGroup').style.display=this.checked?'block':'none'">

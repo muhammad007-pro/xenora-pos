@@ -66,6 +66,10 @@ async def printer_status(
         "width":      int(cfg.get("width") or 80),
         # LOKAL silent print uchun Windows printer nomi (bo'sh → OS default printer)
         "printer_name": cfg.get("printer_name") or "",
+        # Pul qutisi (cash drawer, LAN 2-bosqich) — TenantSettings JSON'ga qo'shildi,
+        # migratsiya YO'Q (printer_name bilan bir xil config_name="printer" blob).
+        "open_drawer_enabled": bool(cfg.get("open_drawer_enabled", False)),
+        "open_drawer_mode":    cfg.get("open_drawer_mode", "cash_only"),   # 'always' | 'cash_only'
     }
 
 

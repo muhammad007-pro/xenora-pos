@@ -202,6 +202,7 @@ const state = {
   table      : null,
   orderType  : 'dine-in',
   pendingOrderId: null,
+  pendingOrderMeta: null,   // {id, order_number, daily_number} — LOKAL CHEK uchun (B1)
   rxInfo      : null,   // pharmacy: { patient_name, patient_phone, rx_number }
   staffMember : null,   // service: { id, name, specialty }
   carInfo     : null,   // auto_service: { plate, make, model, year }
@@ -1469,6 +1470,10 @@ async function startCheckout() {
   if (res && res.success && order && order.id) {
     // ── Online muvaffaqiyat ──
     state.pendingOrderId = order.id;
+    // LOKAL CHEK (B1): server order yaratish javobida daily_number/order_number
+    // ALLAQACHON keladi (OrderInDB) — reprint uchun /receipt ga bormasdan shu
+    // yerda saqlab qo'yamiz (showReceiptLocal shundan foydalanadi).
+    state.pendingOrderMeta = { id: order.id, order_number: order.order_number, daily_number: order.daily_number };
     if (reopenedId && reopenedId !== order.id) {
       try { await api.post(`/orders/${reopenedId}/cancel?reason=${encodeURIComponent('Qayta sotildi')}`); } catch {}
     }
@@ -1586,6 +1591,9 @@ async function doSplitPayment() {
 
   try {
     // Har ulush alohida Payment (birinchisiga tip biriktiriladi). Biri fail bo'lsa throw.
+    // Sodiqlik: order faqat OXIRGI ulush bilan yakunlanadi (backend order_completed
+    // gate'i) — shu javobda earned/redeemed/customer_points keladi, qolganlarida yo'q.
+    let _splitLoyalty = null;
     for (let i = 0; i < s.payments.length; i++) {
       const p = s.payments[i];
       const payRes = await api.post('/payments/', {
@@ -1594,11 +1602,21 @@ async function doSplitPayment() {
         tip_amount: i === 0 ? (tipAmount || 0) : 0,
       });
       if (!payRes || !payRes.success) throw new Error((payRes && payRes.error) || 'To\'lov qismi amalga oshmadi');
+      const _pd = payRes.data || {};
+      if (_pd.earned_points || _pd.redeemed_points) {
+        _splitLoyalty = { earned: _pd.earned_points || 0, redeemed: _pd.redeemed_points || 0,
+          redeemed_amount: redeemAmt || 0, balance: (_pd.customer_points != null ? _pd.customer_points : null) };
+      }
     }
     closeModal('paymentModal');
     broadcastToDisplay('payment_complete');
     beep('success');
-    await showReceipt(orderId);   // chek payment_methods breakdown (Naqd/Karta) ko'rsatadi
+    // LOKAL CHEK (B1): payment_methods breakdown ALLAQACHON shu yerda ma'lum
+    // (s.payments) — server /receipt ga bormaymiz.
+    showReceiptLocal(orderId, {
+      payment_methods: s.payments.map(p => ({ method: p.method, amount: p.amount })),
+      loyalty: _splitLoyalty,
+    });
     toast('Aralash to\'lov qabul qilindi!', 'success');
     clearOrderState();
     loadHeldOrders();
@@ -1641,10 +1659,10 @@ async function doPayment() {
     const badge = document.getElementById('offlinePayBadge');
     if (badge) badge.style.display = 'none';
     offlineCheckout = false;
-    renderOfflineReceipt(paymentPayload);
-    openModal('receiptModal');
-    scheduleReceiptAutoClose();   // #31: oyna avtomatik yopiladi
-    sendEscposPrint(null);   // AVTOMATIK chek (offline ham) — HTML GDI print
+    // Offline sotuv — order_number hali yo'q (server ko'rmagan); modalda ko'rsatilgan
+    // vaqtinchalik "OFF-xxxxxx" belgi ishlatiladi. Onlayn bilan BIR XIL renderer
+    // (showReceiptLocal → renderReceiptData) — ikkalasi ham 100% lokal.
+    showReceiptLocal(null, { order_number: document.getElementById('payOrderNum').textContent });
     toast('Offline: buyurtma+to\'lov saqlandi', 'warning');
     clearOrderState();
     btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish';
@@ -1669,10 +1687,13 @@ async function doPayment() {
     const payRes = await api.post('/payments/', { order_id: orderId, ...paymentPayload });
     if (!payRes || !payRes.success) throw new Error((payRes && payRes.error) || 'To\'lov amalga oshmadi');
 
-    // Sodiqlik natijasi (chek + toast uchun): yig'ilgan/ishlatilgan ball, qolgan balans
+    // Sodiqlik natijasi (chek + toast uchun): yig'ilgan/ishlatilgan ball, qolgan balans.
+    // redeemed_amount server bilan BIR XIL formula (redeemPts*redeem_value) — POS buni
+    // redeem tugmasi bosilganda ALLAQACHON hisoblagan (applyRedeem), qayta so'ramaymiz.
     const _pd = payRes.data || {};
     lastLoyalty = (_pd.earned_points || _pd.redeemed_points) ? {
       earned: _pd.earned_points || 0, redeemed: _pd.redeemed_points || 0,
+      redeemed_amount: redeemAmt || 0,
       balance: (_pd.customer_points != null ? _pd.customer_points : null),
     } : null;
     if (lastLoyalty) {
@@ -1697,7 +1718,9 @@ async function doPayment() {
     closeModal('paymentModal');
     broadcastToDisplay('payment_complete');
     beep('success');
-    await showReceipt(orderId);
+    // LOKAL CHEK (B1): order yaratishda saqlangan meta (daily_number/order_number)
+    // + shu yerdagi lastLoyalty — server /receipt ga BORMAYMIZ.
+    showReceiptLocal(orderId, { loyalty: lastLoyalty });
     toast(payMethod === 'credit' ? 'Nasiya yozildi!' : 'To\'lov qabul qilindi!', 'success');
     clearOrderState();
     loadHeldOrders();   // to'langan buyurtma held ro'yxatidan tushadi
@@ -1708,46 +1731,18 @@ async function doPayment() {
   }
 }
 
-function renderOfflineReceipt(payment) {
-  const t    = computeTotals();
-  const body = document.getElementById('receiptBody');
-  body.innerHTML = `
-    <div class="receipt-center">
-      <h4>XENORA</h4>
-      <p>${new Date().toLocaleString('uz-UZ')}</p>
-      <div style="background:rgba(245,158,11,.15);color:#f59e0b;border-radius:4px;padding:.25rem .5rem;font-size:.6875rem;margin-top:.375rem">OFFLINE CHEK</div>
-    </div>
-    <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem">
-      ${state.table ? 'Stol: #'+state.table.number+' | ' : ''}Internet tiklanganda serverga yuboriladi
-      ${MODE.isAutoService && state.carInfo?.plate ? `<br>🚗 ${[state.carInfo.plate, state.carInfo.make, state.carInfo.model, state.carInfo.year].filter(Boolean).join(' ')}` : ''}
-    </div>
-    <table class="receipt-table">
-      <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
-      <tbody>${state.cart.map(i=> isGiftItem(i) ? giftRow(i.name, i.qty) : `<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
-    </table>
-    <div class="receipt-totals">
-      <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>
-      ${t.disc>0?`<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(t.disc)}</span></div>`:''}
-      ${t.tax>0?`<div class="rt-row"><span>Soliq:</span><span>${fmtNum(t.tax)}</span></div>`:''}
-      ${t.service>0?`<div class="rt-row"><span>Xizmat:</span><span>${fmtNum(t.service)}</span></div>`:''}
-      ${payment.tip_amount>0?`<div class="rt-row"><span>Choy puli:</span><span>${fmtNum(payment.tip_amount)}</span></div>`:''}
-      <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(t.total)} UZS</span></div>
-      ${payment.method==='cash'?`<div class="rt-row"><span>Qabul qilindi:</span><span>${fmtNum(payment.given_amount)}</span></div><div class="rt-row"><span>Qaytim:</span><span>${fmtNum(payment.change)}</span></div>`:''}
-      ${MODE.isPharmacy && state.rxInfo ? `<div class="rt-row" style="margin-top:.375rem"><span>Bemor:</span><span>${state.rxInfo.patient_name}</span></div>` : ''}
-      ${MODE.isPharmacy && state.rxInfo?.rx_number ? `<div class="rt-row"><span>Retsept #:</span><span>${state.rxInfo.rx_number}</span></div>` : ''}
-      ${MODE.isService  && state.staffMember ? `<div class="rt-row" style="margin-top:.375rem"><span>Xodim:</span><span>${state.staffMember.name}</span></div>` : ''}
-    </div>
-    <div class="receipt-footer">${MODE.isPharmacy ? "Sog'lig'ingizga shifa!<br>Farmatsevt: _________________" : MODE.isBeauty ? "Go'zallik uchun rahmat!<br>Yana kutib qolamiz 💅" : MODE.isFitness ? "Muvaffaqiyatli mashg'ulotlar! 💪" : MODE.isAutoService ? "Xizmat uchun rahmat! 🔧" : MODE.isSchool ? "O'qishda muvaffaqiyatlar! 📚" : MODE.isDryCleaning ? "Buyurtmangiz tayyor bo'lganda xabar beramiz! 👔" : MODE.isHotel ? "Xush kelibsiz! Yana kutib qolamiz 🏨" : 'Xarid uchun rahmat!'}</div>
-  `;
-}
-
 // ─── Receipt + ESC/POS chop etish ─────────────────────────────────────────────
 let _printerStatus = { enabled: false, auto_print: false, mode: 'mock' };
 let _lastReceiptOrderId = null;
 // Chek sozlamalari — chek print CSS'iga + markaziy print servisga uzatiladi.
 // font_size: Kichik/Normal/Katta ('small'/'normal'/'large') → 11/13/15px (receipt-print.js).
 // print_type (B1): 'usb' (SumatraPDF, default) | 'lan' (IP:port, stub) | 'qr'.
-let _receiptCfg = { font_size: 'normal', print_type: 'usb', printer_ip: null, printer_port: null };
+// store_name/address/phone/tax_id/header_text/footer_text — LOKAL CHEK (B1-bosqich)
+// uchun: bir marta (sessiya boshida) yuklanadi, har sotuvda serverga qayta so'ralmaydi.
+let _receiptCfg = {
+  font_size: 'normal', print_type: 'usb', printer_ip: null, printer_port: null,
+  store_name: null, address: null, phone: null, tax_id: null, header_text: null, footer_text: null,
+};
 
 async function loadPrinterStatus() {
   try {
@@ -1765,8 +1760,15 @@ async function loadReceiptSettings() {
       if (d.print_type) _receiptCfg.print_type = d.print_type;   // B1: usb/lan/qr
       _receiptCfg.printer_ip   = d.printer_ip   || null;
       _receiptCfg.printer_port = d.printer_port || null;
+      // Do'kon rekvizitlari — LOKAL CHEK uchun keshlanadi (server /receipt SHART EMAS).
+      _receiptCfg.store_name   = d.store_name   || null;
+      _receiptCfg.address      = d.address      || null;
+      _receiptCfg.phone        = d.phone        || null;
+      _receiptCfg.tax_id       = d.tax_id       || null;
+      _receiptCfg.header_text  = d.header_text  || null;
+      _receiptCfg.footer_text  = d.footer_text  || null;
     }
-  } catch { /* sozlama olinmasa — 'normal' shrift + 'usb' print ishlatiladi */ }
+  } catch { /* sozlama olinmasa — 'normal' shrift + 'usb' print ishlatiladi, chekda "XENORA" chiqadi */ }
 }
 
 // Markaziy print servisga uzatiladigan print sozlamalari (bir joyda).
@@ -1811,19 +1813,40 @@ function scheduleReceiptAutoClose() {
   _receiptCloseTimer = setTimeout(() => closeModal('receiptModal'), RECEIPT_AUTOCLOSE_MS);
 }
 
-async function showReceipt(orderId) {
+// ─── LOKAL CHEK (B1-bosqich) ──────────────────────────────────────────────────
+// Onlayn VA offline sotuv BIR XIL yo'ldan o'tadi: mahsulot/narx/jami (state.cart +
+// computeTotals — renderReceiptData ichida), order raqami (order yaratilganda
+// saqlangan state.pendingOrderMeta) va do'kon rekvizitlari (_receiptCfg, sessiya
+// boshida bir marta yuklangan) — HAMMASI POS'da ALLAQACHON bor. Server
+// /orders/{id}/receipt ga UMUMAN BORILMAYDI — internet kerak emas, kechikish yo'q.
+//
+// Server /receipt endpoint O'ZI QOLADI (reprintSale() va admin.html reprint hali
+// shundan foydalanadi) — faqat ODDIY SOTUVDA chaqirilmaydi.
+//
+// DIQQAT: fiscal_number/fiscal_qr_url (soliq QR) faqat serverda, to'lov javobida
+// qaytmaydi (OFD tenant sozlamasi yoqilgan bo'lsa ham) — shu sabab birinchi
+// chekda ko'rinmaydi; kerak bo'lsa reprint (server /receipt) orqali chiqadi.
+function showReceiptLocal(orderId, extra) {
   _lastReceiptOrderId = orderId || null;
-  try {
-    const rec = await api.get(`/orders/${orderId}/receipt`);
-    if (rec && rec.success && rec.data) renderReceiptData(rec.data);   // api.js wrapped
-    else renderReceiptFallback(orderId);
-  } catch { renderReceiptFallback(orderId); }
+  const meta = (orderId && state.pendingOrderMeta && state.pendingOrderMeta.id === orderId)
+    ? state.pendingOrderMeta : {};
+  const addrParts = [_receiptCfg.address, _receiptCfg.phone].filter(Boolean);
+  renderReceiptData(Object.assign({
+    order_id:     orderId,
+    order_number: meta.order_number || (orderId ? String(orderId) : null),
+    daily_number: meta.daily_number,
+    cafe_name:    _receiptCfg.store_name,
+    cafe_address: addrParts.length ? addrParts.join(' · ') : null,
+    fiscal_number: null, fiscal_qr_url: null,   // faqat reprint (server) orqali keladi
+  }, extra || {}));
   openModal('receiptModal');
   scheduleReceiptAutoClose();   // #31: oyna avtomatik yopiladi
   // AVTOMATIK CHEK — to'lovdan so'ng HAR DOIM bir marta chiqadi (kassir bosmaydi).
   // Chek mazmuni #receiptBody da render bo'lgandan keyin (yuqorida) HTML GDI silent
   // print (backend RAW ESC/POS emas — krakozyabra bo'lmasin). did-finish-load
   // main.js da kutiladi. "Chop etish" tugmasi qayta bosish (reprint) uchun qoladi.
+  // ⚠️ SumatraPDF/USB/58mm chop etish yo'li BU YERDA TEGILMAYDI — sendEscposPrint
+  // avvalgidek receipt-print.js → electronAPI.printDocument ga uzatadi.
   sendEscposPrint(orderId);
 }
 
@@ -1861,7 +1884,7 @@ function renderReceiptData(rec) {
       <p>${rec.cafe_address || ''}<br>${new Date().toLocaleString('uz-UZ')}</p>
     </div>
     <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem">
-      Chek #${rec.order_number || rec.order_id}
+      Chek ${rec.daily_number != null ? '#' + rec.daily_number : (rec.order_number || rec.order_id)}
       ${state.table ? ' | Stol: #' + state.table.number : ''}
       ${MODE.isAutoService && state.carInfo?.plate ? `<br>🚗 ${[state.carInfo.plate, state.carInfo.make, state.carInfo.model, state.carInfo.year].filter(Boolean).join(' ')}` : ''}
     </div>
@@ -1916,26 +1939,6 @@ function renderReceiptData(rec) {
   `;
 }
 
-function renderReceiptFallback(orderId) {
-  const t    = computeTotals();
-  const body = document.getElementById('receiptBody');
-  body.innerHTML = `
-    <div class="receipt-center"><h4>XENORA</h4><p>${new Date().toLocaleString('uz-UZ')}</p></div>
-    <div style="font-size:.7rem;color:var(--text3);margin-bottom:.5rem">Buyurtma #${orderId}</div>
-    <table class="receipt-table">
-      <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
-      <tbody>${state.cart.map(i=> isGiftItem(i) ? giftRow(i.name, i.qty) : `<tr><td>${i.name}${i._packLabel?`<br><small style="font-size:.65rem;color:#d4b46c">📦 ${i._packLabel}</small>`:''}</td><td>${i.qty}</td><td style="text-align:right">${fmtNum(i.price*i.qty)}</td></tr>`).join('')}</tbody>
-    </table>
-    <div class="receipt-totals">
-      <div class="rt-row"><span>Jami:</span><span>${fmtNum(t.sub)}</span></div>
-      ${t.disc>0?`<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(t.disc)}</span></div>`:''}
-      ${t.tax>0?`<div class="rt-row"><span>Soliq:</span><span>${fmtNum(t.tax)}</span></div>`:''}
-      ${t.service>0?`<div class="rt-row"><span>Xizmat:</span><span>${fmtNum(t.service)}</span></div>`:''}
-      <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(t.total)} UZS</span></div>
-    </div>
-    <div class="receipt-footer">Xarid uchun rahmat!</div>
-  `;
-}
 document.getElementById('printReceiptBtn').addEventListener('click', () => {
   // Chekni LOKAL printerga (Electron silent / brauzer dialog) — reprint ham shu.
   sendEscposPrint(_lastReceiptOrderId);
@@ -2158,7 +2161,7 @@ document.getElementById('holdBtn').addEventListener('click', async () => {
 
 function clearOrderState() {
   state.cart = []; state.discount = { type: 'pct', value: 0 }; state.discountSource = null;   // BOSQICH S2
-  state.customer = null; state.table = null; state.pendingOrderId = null;
+  state.customer = null; state.table = null; state.pendingOrderId = null; state.pendingOrderMeta = null;
   state.rxInfo       = null;
   state.staffMember  = null;
   state.carInfo      = null;

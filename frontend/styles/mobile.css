@@ -1,0 +1,325 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   XENORA — MOBIL QATLAM (FAZA 1: POS + asosiy panellar)
+   ───────────────────────────────────────────────────────────────────────────
+   MAQSAD: bitta HTML/CSS ikki platformada —
+     • monoblok (.exe / Electron, ≥769px)  → AYNAN HOZIRGIDEK
+     • telefon (.apk / Capacitor WebView)  → ekranga moslashadi
+
+   ★ TEMIR QOIDA ★
+   Bu fayldagi HAR BIR qoida `@media (max-width:…)` ichida turadi.
+   ≥901px da fayl BUTUNLAY BEFARQ — birorta ham qoida qo'llanmaydi.
+   Mavjud desktop CSS o'chirilmaydi/tahrirlanmaydi, faqat mobil ustiga qo'shiladi.
+
+   Dizayn tizimi TEGILMAYDI: bu yerda faqat o'lcham/joylashuv/skroll.
+   Rang, gradient, koshin, glass o'zgaruvchilari — sahifalarning o'zida qoladi.
+
+   ULANISH: sahifaning ENG OXIRGI <link> i bo'lsin (inline <style> dan keyin),
+   shunda mobil qoidalar teng spetsifiklikda ustun turadi.
+
+   Breakpointlar:
+     ≤900px — POS savat paneli (mavjud pos.html chegarasi bilan bir xil)
+     ≤768px — planshet + telefon (asosiy qatlam)
+     ≤430px — telefon (360 / 375 / 390 / 414 / 430)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+
+/* ╔═══════════════════════════════════════════════════════════════════════════╗
+   ║  A. UMUMIY QATLAM — barcha sahifalar (≤768px)                            ║
+   ╚═══════════════════════════════════════════════════════════════════════════╝ */
+@media (max-width:768px){
+
+  /* ── A1. JADVAL: skroll JADVAL ICHIDA, butun sahifa siljimaydi ─────────────
+     Loyihadagi barcha jadval o'rovlari `overflow:hidden` bilan yozilgan
+     (border-radius chetlarini kesish uchun). Natijada telefonda keng jadval
+     ustunlari KESILARDI va skroll ham yo'q edi — ma'lumot ko'rinmasdi.
+     Bu yerda faqat gorizontal o'q ochiladi; vertikal `hidden` qoladi, ya'ni
+     burchak radiusi va desktop ko'rinishi buzilmaydi. */
+  .tbl-wrap,.table-wrap,.data-table-wrap,.table-responsive,
+  .sup-table-wrap,.dt-wrap,.tbl-scroll{
+    overflow-x:auto !important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+  }
+  /* Ustunlar siqilib o'qib bo'lmas holga tushmasin: jadval tabiiy kengligini
+     saqlaydi va O'ROV ICHIDA suriladi (sahifa emas). */
+  .tbl-wrap>table,.table-wrap>table,.data-table-wrap>table,
+  .table-responsive>table,.sup-table-wrap>table,.dt-wrap>table{
+    min-width:max-content;
+  }
+
+  /* ── A2. Barmoq uchun tegish maydoni (min 44×44px) ────────────────────────
+     Sichqoncha uchun yetarli 24–36px tugmalar telefonda bosilmaydi. */
+  .btn,.btn-sm,.tb-btn,.tb-btn-primary,.act-btn,.pg-btn,.pager-btn,
+  .cat-btn,.otype-btn,.pay-method,.qa-btn,.cust-btn,.table-btn,
+  .disc-preset,.cash-preset,.w-preset,.disc-type-btn,.veh-tab,
+  .pb,.btn-ack,.tbl-card,.report-back-btn{
+    min-height:44px;
+  }
+  .icon-btn,.close-btn,.bk,.qty-btn,.ci-del,.nav-hamburger,.ways-quick{
+    min-width:44px;min-height:44px;
+  }
+  /* Yonma-yon tugmalarda barmoq xato bosmasin */
+  .cart-actions,.modal-footer,.oactions,.veh-actions,.mem-actions,
+  .receipt-actions,.split-ways-row{gap:.625rem}
+
+  /* ── A3. MODAL — telefon ekraniga to'liq sig'sin ──────────────────────────
+     Desktopda modal 360/480/640px markazda; telefonda deyarli to'liq kenglik.
+     `!important` shart: bir qancha modal inline `style="max-width:520px"` bilan
+     yozilgan (masalan modifikator guruhi), inline stil oddiy qoidadan kuchli. */
+  .modal-wrap,.modal-overlay{padding:.5rem}
+  .modal-box,.modal-card,.modal-content,.mc,.mbox{
+    max-width:100% !important;
+    width:100% !important;
+    max-height:92vh;
+  }
+  .modal-box.wide,.modal-box.narrow{max-width:100% !important}
+  .modal-body,.mb{padding:1rem}
+  .modal-header,.mh{padding:.875rem 1rem}
+  .modal-footer,.mf{flex-wrap:wrap;padding:.75rem 1rem}
+  .modal-footer .btn,.mf .btn{min-width:calc(50% - .3125rem)}
+  .modal-close,.mc-x{min-width:44px;min-height:44px}
+
+  /* ── A4. KPI / statistika gridlari — 2 ustun ──────────────────────────── */
+  .kpi-grid,.stat-grid,.sg,.mem-stats,.reports-hub-grid,.charts-row,.g2,
+  .kpi-row,.stats-row,.grid2{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  /* ── A4b. FORMA qatorlari — ikki ustunli maydonlar telefonda o'ralsin ─────
+     Yaratish/tahrir oynalari (mahsulot, xodim, aksiya, modifikator, hotel
+     xona/bron) 2 ustunli grid/flex bilan yozilgan → 375px da maydonlar
+     siqilib o'qib bo'lmasdi. Grid'lar 1 ustunga, flex qatorlar o'raladi. */
+  .form-grid,.fr2,.fr,.row2,.item-row,.form-row-grid{grid-template-columns:1fr}
+  .form-row,.fields-row,.inline-fields{flex-wrap:wrap}
+  /* flex:1 bolalar o'ralishi uchun eng kichik kenglik kerak (aks holda bir
+     qatorda siqilib qoladi) */
+  .form-row>.form-group,.fields-row>.form-group{min-width:150px}
+  .form-group,.fg{margin-bottom:.75rem}
+
+  /* ── A5. Sarlavha + asboblar paneli o'ralsin ──────────────────────────────
+     Gorizontal siljitishning 2-sababi: `.ph` (sahifa sarlavhasi, ~40 sahifada
+     bir xil naqsh) va asboblar panellari `flex` bo'lib, o'ralmagan — telefonda
+     tugmalar o'ngga chiqib butun sahifani surardi. */
+  .ph,.page-header,.admin-topbar,
+  .toolbar,.tb-row,.export-bar,.veh-toolbar,.mem-toolbar,.svc-toolbar,
+  .sup-toolbar,.filters,.filter-row,.dt-tools,
+  .filter-bar,.ha,.actions,.action-btns,.date-nav,.tb{flex-wrap:wrap}
+  .ph{padding-left:.75rem;padding-right:.75rem;gap:.5rem}
+  /* Sarlavha o'z qatorini oladi → tugmalar pastga tushadi, kesilmaydi */
+  .ph-title,.pt,.page-title{flex:1 1 100%;min-width:0}
+  /* Gorizontal ro'yxatlar o'ralmaydi — surilib ko'riladi (kategoriya/bo'lim/tab) */
+  .cats-bar,#deptsBarBtns,#quickSellButtons,.tabs,.tab-bar,.veh-tabs{
+    overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;
+  }
+  .tabs>*,.tab-bar>*,.veh-tabs>*{flex-shrink:0}
+
+  /* ── A6. Flex/grid bolalari konteynerdan toshmasin ──────────────────────── */
+  .pos-main,.admin-main,.main-content,.pc,.ci-info,.cust-detail,
+  .order-desc,.svc-card-body,.layout,.page-wrap,.content{min-width:0}
+  /* Sahifa konteyneri — telefonda chetlar ingichka (1.5rem juda katta) */
+  .pc,.main-content,.page-wrap>.content{padding-left:.75rem;padding-right:.75rem}
+  canvas{max-width:100% !important}
+  img{max-width:100%}
+
+  /* ── A7. Kiritish maydonlari — barmoqbop + iOS avto-zoom bo'lmasin ─────── */
+  input:not([type="checkbox"]):not([type="radio"]),select,textarea{
+    font-size:16px;min-height:44px;
+  }
+
+  /* ── A8. Toast — ekran kengligiga moslashsin (300px fiks edi) ────────────
+     `#toastContainer` ni js/ui/toast.js dinamik yaratadi (HTML da yo'q).
+     DIQQAT: `left/right` BERMAYMIZ — ba'zi sahifada konteyner `fixed` emas,
+     `relative` (masalan barcode.html: .toast-container stili umuman yo'q).
+     Relative elementda left/right kengaytirmaydi, faqat SURADI → sahifa
+     siljirdi. Shu sabab faqat kenglik cheklanadi — ikkala holatda ham to'g'ri. */
+  #toasts,#toastContainer,.toast-container{
+    width:auto;max-width:calc(100vw - 1rem);
+  }
+  .toast{min-width:0;max-width:100%}
+
+  /* ── A9. O'ROVSIZ jadvallar — o'zi skroll konteyneriga aylanadi ───────────
+     Ba'zi sahifalarda <table> hech qanday o'rovsiz yozilgan (masalan
+     salon_analytics: .emp-table/.client-table) → butun sahifani surardi.
+     `display:block` + overflow: jadval o'z ichida suriladi, ustunlar
+     tuzilishi saqlanadi (anonim table box). Desktopda TEGILMAYDI. */
+  .emp-table,.client-table,.bare-table{
+    display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    max-width:100%;white-space:nowrap;
+  }
+
+  /* ── A10. Keng minimumli auto-fill gridlar — telefonda 1 ustun ────────────
+     `minmax(300..360px,1fr)` 375px ekranda konteynerdan chiqib ketadi. */
+  .debt-grid,.cards-grid,.sup-grid{grid-template-columns:1fr}
+
+  /* ── A11. Filtr / qidiruv qatorlari (sahifaga xos nomlar) ──────────────── */
+  .tier-filter,.status-filter,.range-filter,.seg-filter,
+  .customer-search,.search-row,.input-row{flex-wrap:wrap}
+  /* Qidiruv maydoni to'liq qatorni oladi, tugma pastga tushadi */
+  .customer-search>input,.search-row>input{flex:1 1 100%;min-width:0}
+}
+
+
+/* ╔═══════════════════════════════════════════════════════════════════════════╗
+   ║  A2. OSHXONA EKRANI (kitchen.html) — planshet/telefon                    ║
+   ╚═══════════════════════════════════════════════════════════════════════════╝ */
+@media (max-width:768px){
+  /* KDS sarlavhasi 56px fiks balandlikda, 4+ statistika yorlig'i bilan —
+     telefonda o'ngga chiqib sahifani surardi. O'raladi va balandlik erkin. */
+  .kds-header{height:auto;min-height:56px;flex-wrap:wrap;padding:.5rem .75rem;gap:.5rem}
+  .kds-clock{margin-left:0}
+  .hdr-stat{font-size:.75rem;padding:.3rem .6rem}
+}
+
+
+/* ╔═══════════════════════════════════════════════════════════════════════════╗
+   ║  B. POS — kassa telefonda (pos.html)                                     ║
+   ╚═══════════════════════════════════════════════════════════════════════════╝ */
+
+/* ── B1. ≤900px — savat paneli va uni ochish tugmasi ───────────────────────
+   pos.html:399-404 da ≤900px uchun savat o'ng tomondan chiquvchi panelga
+   aylantirilgan va `.cart-toggle{display:flex}` yozilgan — LEKIN DOM da bunday
+   element yo'q edi va `#cartPanel` ga hech qachon `.open` qo'shilmasdi.
+   Natija: ≤900px da savat ekrandan tashqarida qolib, ochib bo'lmasdi →
+   telefonda sotuvni yakunlab bo'lmasdi. Shu bo'shliq to'ldiriladi. */
+@media (max-width:900px){
+
+  /* Savatni ochuvchi/yopuvchi suzuvchi tugma (FAB) */
+  .pos-cart-fab{
+    display:flex;align-items:center;gap:.5rem;
+    position:fixed;right:1rem;bottom:1rem;z-index:210;
+    min-height:52px;padding:0 1.125rem;border-radius:99px;
+    background:linear-gradient(135deg,#16a34a,#22c55e,#16a34a);
+    color:#04160d;font-weight:700;font-size:.9375rem;white-space:nowrap;
+    box-shadow:0 8px 26px rgba(34,197,94,.35);
+    transition:transform .12s ease;
+  }
+  .pos-cart-fab:active{transform:scale(.96)}
+  .pos-cart-fab .fab-count{
+    min-width:22px;height:22px;padding:0 .3rem;border-radius:11px;
+    background:rgba(4,22,13,.22);
+    display:flex;align-items:center;justify-content:center;
+    font-size:.75rem;font-weight:800;
+  }
+
+  /* Savat ortidagi qorong'i fon — tashqariga bosib yopish */
+  .pos-cart-backdrop{
+    display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.55);
+  }
+  .pos-cart-backdrop.show{display:block}
+
+  /* Chiquvchi savat — telefonda deyarli to'liq, planshetda 360px */
+  .cart-panel{width:min(360px,92vw)}
+
+  /* Savat ochiq — orqa fon surilmasin */
+  body.cart-open{overflow:hidden}
+
+  /* Sinxronizatsiya belgisi FAB ostida qolmasin */
+  #syncBadge{bottom:5.25rem}
+}
+
+/* ── B2. ≤768px — POS tartibi telefonga ─────────────────────────────────── */
+@media (max-width:768px){
+
+  /* Yon menyu ingichkalashadi (72→56px) — mahsulotlarga joy.
+     `.wide` rejimi endi kontentni siqmaydi, ustidan chiquvchi panel bo'ladi
+     (#sidebarToggle mantiqi o'zgarmaydi — u faqat `.wide` ni almashtiradi). */
+  .pos-wrap>.sidebar{width:56px}
+  .pos-wrap>.sidebar.wide{
+    position:fixed;top:0;bottom:0;left:0;z-index:300;
+    width:min(220px,74vw);box-shadow:0 0 40px rgba(0,0,0,.55);
+  }
+
+  /* Monoblok tugmalari telefonda kerak emas (ikkinchi monitor, F11) */
+  #custDisplayBtn,#fullscreenBtn,#wsStatusCorner{display:none}
+
+  /* Sarlavha paneli sig'sin — qidiruv pastki qatorga tushadi */
+  .pos-header{height:auto;min-height:56px;padding:.5rem .625rem;flex-wrap:wrap}
+  .header-search{flex:1 1 100%;max-width:none;order:3}
+  .header-search kbd{display:none}
+  .hdr-actions{margin-left:auto}
+
+  /* Mahsulot kartalari — barmoq uchun kattaroq nishon */
+  .products-grid{
+    grid-template-columns:repeat(auto-fill,minmax(132px,1fr));
+    gap:.5rem;padding:.625rem;
+  }
+  .products-grid:not(.list-view) .product-card{min-height:158px}
+  .products-grid.list-view .product-card{min-height:56px}
+
+  /* Barkod qatori — ikki qatorga o'ralsin */
+  .barcode-row{flex-wrap:wrap}
+  .barcode-input-wrap{max-width:none;flex:1 1 100%}
+
+  /* Tez amallar 4→3 ustun (yorliqlar kesilmasin) */
+  .quick-actions{grid-template-columns:repeat(3,1fr)}
+
+  /* To'lov usullari 4–5 → 3 ustun */
+  .pay-methods,.pay-methods.has-credit{grid-template-columns:repeat(3,1fr)}
+  .pay-total-amt{font-size:1.875rem}
+
+  /* Tarozi (og'irlik) oynasi */
+  #weightInput{width:120px;font-size:1.75rem}
+
+  /* ── Sotuvchi almashtirish PIN paneli (iiko qulf) — barmoq uchun katta ──
+     Raqamlar 1.35rem / ~48px edi; telefonda PIN tez va xatosiz terilishi kerak. */
+  .sl-card{width:min(340px,94vw);padding:1.375rem 1.125rem}
+  .sl-grid{gap:.65rem}
+  .sl-key{padding:1.05rem 0;font-size:1.6rem;min-height:60px}
+  .sl-dot{width:16px;height:16px}
+  .sl-cancel{min-height:44px}
+}
+
+
+/* ╔═══════════════════════════════════════════════════════════════════════════╗
+   ║  C. ADMIN / HISOBOT panellari (≤768px)                                   ║
+   ╚═══════════════════════════════════════════════════════════════════════════╝ */
+@media (max-width:768px){
+
+  /* Admin drawer (admin.css:721 da ≤900px uchun tayyor) — mazmun ostida
+     qolmasin va hamburger barmoqbop bo'lsin. */
+  .admin-topbar{gap:.5rem;padding-left:.625rem;padding-right:.625rem}
+  .admin-content{padding:.875rem .75rem}
+
+  /* Sarlavha + qidiruv bir qatorga sig'masa o'ralsin */
+  .admin-topbar .dt-search input{width:100%}
+
+  /* Grafik kartalari — bitta ustun (ikkitasi telefonda o'qilmaydi) */
+  .charts-row{grid-template-columns:1fr}
+}
+
+
+/* ╔═══════════════════════════════════════════════════════════════════════════╗
+   ║  D. TELEFON (≤430px) — 360 / 375 / 390 / 414 / 430                       ║
+   ╚═══════════════════════════════════════════════════════════════════════════╝ */
+@media (max-width:430px){
+
+  /* Statistika kartalari — bitta ustun (2 ustunda raqamlar sig'maydi) */
+  .kpi-grid,.stat-grid,.mem-stats,.g2,.kpi-row,.stats-row,.grid2{
+    grid-template-columns:1fr;
+  }
+
+  /* Forma qatorlari — 375px da ikki maydon yonma-yon siqiladi → ustma-ust */
+  .form-row,.fields-row,.inline-fields{flex-direction:column;gap:0}
+  .form-row>.form-group,.fields-row>.form-group{min-width:0;width:100%}
+
+  /* JS yasaydigan forma qatorlari (mahsulot/pachka oynasi — js/admin/core.js).
+     Ular INLINE `grid-template-columns` bilan chiziladi, shuning uchun
+     `!important` shart. `.fld-row` klassi faqat shu ilgak uchun qo'shilgan. */
+  .fld-row,.fld-row-3{grid-template-columns:1fr !important}
+
+  /* Modal — chetlar ingichka, ichki bo'shliq kamroq */
+  .modal-wrap{padding:.375rem}
+  .modal-header{padding:.875rem 1rem}
+  .modal-body{padding:.875rem}
+  .modal-footer{padding:.75rem 1rem}
+
+  /* POS: mahsulot gridi aniq 2 ustun */
+  .products-grid{grid-template-columns:repeat(2,1fr);gap:.4375rem}
+  .products-grid:not(.list-view) .product-card{min-height:148px}
+
+  /* POS: tez amallar 3→2 ustun */
+  .quick-actions{grid-template-columns:repeat(2,1fr)}
+
+  /* To'lov usullari 3→2 ustun */
+  .pay-methods,.pay-methods.has-credit{grid-template-columns:repeat(2,1fr)}
+}

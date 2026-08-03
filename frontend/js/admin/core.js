@@ -1059,7 +1059,7 @@ function _pkRowHtml(p) {
       ${p.name} <span style="font-weight:400;color:var(--text3);font-size:.75rem">— joriy narx: ${fmtMoney(p.price||0)}</span>
     </label>
     <div class="pk-fields" style="display:${on?'block':'none'};margin-top:.5rem">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
+      <div class="fld-row fld-row-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem">
         <input class="pk-dona" type="number" min="0" placeholder="Dona narxi" value="${on?(p.price||''):''}" style="${_pkInput}">
         <input class="pk-pack" type="number" min="0" placeholder="Pachka narxi" value="${p.pack_price??''}" style="${_pkInput}">
         <input class="pk-size" type="number" min="2" placeholder="Dona soni" value="${p.pack_size??''}" style="${_pkInput}">
@@ -1524,7 +1524,9 @@ function buildProductModal(product) {
   }
   for (const f of activeCfg.fields) {
     if (Array.isArray(f)) {
-      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">${f.map(fn=>fldHtml(fn,product)).join('')}</div>`;
+      // `fld-row` klassi — faqat mobil uchun ilgak (styles/mobile.css, ≤430px da
+      // ustma-ust). Inline stil desktopda o'zgarmaydi, klass hech narsa qo'shmaydi.
+      html += `<div class="fld-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">${f.map(fn=>fldHtml(fn,product)).join('')}</div>`;
     } else {
       html += fldHtml(f, product);
     }
@@ -1601,7 +1603,7 @@ function buildProductModal(product) {
     packBlock.style.cssText = 'margin-top:.75rem';
     packBlock.innerHTML = `
       <label id="pmPackTitle" style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500">Pachka bilan sotish (ixtiyoriy)</label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div class="fld-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
         <input type="number" id="pmf_pack_price" min="0" step="0.01" placeholder="Pachka narxi (30000)" style="${_pcs}">
         <input type="number" id="pmf_pack_size" min="2" step="1" placeholder="Pachkadagi dona (10)" style="${_pcs}">
       </div>

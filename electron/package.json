@@ -28,6 +28,8 @@
     "files": [
       "main.js",
       "preload.js",
+      "escpos-builder.js",
+      "lan-socket.js",
       "loading.html",
       "assets/**/*",
       "!**/*.log",

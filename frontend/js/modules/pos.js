@@ -1732,16 +1732,18 @@ async function doPayment() {
 }
 
 // ─── Receipt + ESC/POS chop etish ─────────────────────────────────────────────
-let _printerStatus = { enabled: false, auto_print: false, mode: 'mock' };
+let _printerStatus = { enabled: false, auto_print: false, mode: 'mock', open_drawer_enabled: false, open_drawer_mode: 'cash_only' };
 let _lastReceiptOrderId = null;
 // Chek sozlamalari — chek print CSS'iga + markaziy print servisga uzatiladi.
 // font_size: Kichik/Normal/Katta ('small'/'normal'/'large') → 11/13/15px (receipt-print.js).
-// print_type (B1): 'usb' (SumatraPDF, default) | 'lan' (IP:port, stub) | 'qr'.
+// print_type (B1): 'usb' (SumatraPDF, default) | 'lan' (IP:port TCP) | 'qr'.
 // store_name/address/phone/tax_id/header_text/footer_text — LOKAL CHEK (B1-bosqich)
 // uchun: bir marta (sessiya boshida) yuklanadi, har sotuvda serverga qayta so'ralmaydi.
+// paper_width (LAN 2-bosqich): 57/58 → 32 belgi, 80 → 48 belgi (ESC/POS qator).
 let _receiptCfg = {
   font_size: 'normal', print_type: 'usb', printer_ip: null, printer_port: null,
   store_name: null, address: null, phone: null, tax_id: null, header_text: null, footer_text: null,
+  paper_width: 80,
 };
 
 async function loadPrinterStatus() {
@@ -1767,8 +1769,16 @@ async function loadReceiptSettings() {
       _receiptCfg.tax_id       = d.tax_id       || null;
       _receiptCfg.header_text  = d.header_text  || null;
       _receiptCfg.footer_text  = d.footer_text  || null;
+      if (d.paper_width) _receiptCfg.paper_width = d.paper_width;
     }
   } catch { /* sozlama olinmasa — 'normal' shrift + 'usb' print ishlatiladi, chekda "XENORA" chiqadi */ }
+}
+
+// Pul qutisi (cash drawer) — sozlama yoqilgan va rejimга mos bo'lsa 'true'.
+// 'cash_only' — faqat naqd to'lovda; 'always' — har chekda (payMethod'dan qat'iy nazar).
+function _shouldOpenDrawer() {
+  if (!_printerStatus.open_drawer_enabled) return false;
+  return _printerStatus.open_drawer_mode !== 'cash_only' || payMethod === 'cash';
 }
 
 // Markaziy print servisga uzatiladigan print sozlamalari (bir joyda).
@@ -1778,7 +1788,20 @@ function _printOpts(extra) {
     printType:   _receiptCfg.print_type,
     printerIp:   _receiptCfg.printer_ip,
     printerPort: _receiptCfg.printer_port,
+    paperWidth:  _receiptCfg.paper_width,
+    openDrawer:  _shouldOpenDrawer(),
   }, extra || {});
+}
+
+// USB'da pul qutisi — SumatraPDF/PDF yo'lidan MUSTAQIL, ALOHIDA IPC (main.js:
+// openCashDrawerUsb). LAN'da esa drawer signali chek bayt oqimiga o'zi
+// qo'shiladi (opts.openDrawer orqali) — bu yerda alohida chaqiruv shart emas.
+async function _maybeOpenUsbDrawer() {
+  if (_receiptCfg.print_type !== 'usb') return;   // faqat USB — LAN o'z ichida hal qiladi
+  if (!_shouldOpenDrawer()) return;
+  try {
+    await window.electronAPI?.openCashDrawer?.(_printerStatus.printer_name || '');
+  } catch { /* pul qutisi ochilmasa ham chek chiqqan — jim o'tamiz */ }
 }
 
 // Chekni LOKAL printerga chiqarish (do'kon kompyuteridagi XP-58).
@@ -1796,6 +1819,7 @@ async function sendEscposPrint(_orderId) {
   }));
   if (res && res.ok) {
     if (!res.browser) toast('Chek chiqarildi', 'success');  // brauzer dialogida jimgina
+    _maybeOpenUsbDrawer();   // USB + sozlama yoqilgan bo'lsa — pul qutisi (LAN o'z ichida hal qildi)
     return true;
   }
   // HAQIQIY xato — jimgina "yuborildi" demaymiz
@@ -2031,7 +2055,9 @@ async function reprintSale(id) {
     const rec = res && res.data;
     if (!rec) { toast('Chek topilmadi', 'error'); return; }
     const html = buildReceipt58(rec);   // admin reprint bilan bir xil (global state'siz)
-    const r = await printReceiptHTML(html, _printOpts({ deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id) }));
+    // openDrawer:false — reprint eski (stale) payMethod asosida qutini QAYTA
+    // OCHMASIN (kassir eski chekni qayta chop etayotgani uchun, yangi sotuv emas).
+    const r = await printReceiptHTML(html, _printOpts({ deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id), openDrawer: false }));
     if (r && r.ok) { if (!r.browser) toast('Chek chiqarildi', 'success'); }
     else toast('Chek chiqmadi: ' + ((r && r.error) || "noma'lum xato"), 'error');
   } catch (e) {

@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Chek + Z-hisobot + kunlik hisobot shu yagona yo'ldan o'tadi.
     printDocument: (payload) => ipcRenderer.invoke('print-document', payload),
     listPrinters: () => ipcRenderer.invoke('list-printers'),
+    // Pul qutisi (cash drawer) — USB, chek chop etish yo'lidan (printDocument)
+    // MUSTAQIL. LAN uchun alohida chaqiruv shart emas — drawer signali chek
+    // bayt oqimiga o'zi qo'shiladi (printDocument payload.openDrawer orqali).
+    openCashDrawer: (deviceName) => ipcRenderer.invoke('open-cash-drawer', { deviceName }),
 
     // Oyna boshqaruvi
     minimize: () => ipcRenderer.send('window-minimize'),

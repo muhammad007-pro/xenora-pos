@@ -57,6 +57,8 @@ const STATIC_ASSETS = [
     '/js/modules/pos.js',
     '/js/modules/kitchen.js',
     '/js/modules/admin.js',
+    '/js/modules/barcode.js',
+    '/js/modules/camera-scanner.js',
     '/js/ui/toast.js',
     '/js/ui/modal.js',
     '/js/utils/formatter.js',

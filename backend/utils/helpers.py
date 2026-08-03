@@ -66,16 +66,21 @@ def generate_transaction_id(prefix: str = "TRX") -> str:
 
 
 def generate_barcode(prefix: str = "2") -> str:
-    """Barcode yaratish (EAN-13 format)"""
-    # 12 ta raqam
+    """Barcode yaratish (haqiqiy EAN-13: 12 raqam + nazorat raqami = 13)
+
+    TUZATISH: avval `range(11 - len(prefix))` ishlatilgan edi → bazasi 12 emas,
+    11 raqam bo'lib, natija 13 emas 12 belgi qaytardi va nazorat raqami ham
+    noto'g'ri bazadan hisoblandi (calculate_ean13_checksum `digits[:12]` kutadi).
+    Bunday kod EAN-13 sifatida YAROQSIZ — skaner o'qishdan bosh tortadi.
+    Bu funksiyani hozircha hech qayer chaqirmaydi, shu sabab tuzatish xavfsiz.
+    """
+    # Bazaviy 12 ta raqam (prefiks + tasodifiy to'ldirish)
     digits = prefix
-    for _ in range(11 - len(prefix)):
+    for _ in range(12 - len(prefix)):
         digits += str(random.randint(0, 9))
-    
-    # Checksum hisoblash
-    checksum = calculate_ean13_checksum(digits)
-    
-    return digits + str(checksum)
+
+    # 13-chi — nazorat raqami
+    return digits + str(calculate_ean13_checksum(digits))
 
 
 def calculate_ean13_checksum(digits: str) -> int:

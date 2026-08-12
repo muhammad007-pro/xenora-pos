@@ -87,33 +87,42 @@ $written = 0
 if (-not $RP::OpenPrinter($PrinterName, [ref]$h, [IntPtr]::Zero)) {
   Write-Error ("PRINTER_OPEN_FAILED:" + $M::GetLastWin32Error()); exit 3
 }
-# DOCINFOA: pDocName, pOutputFile(null), pDataType("RAW") — 3 ta ko'rsatkich
-$pDoc = $M::StringToHGlobalAnsi($DocName)
-$pRaw = $M::StringToHGlobalAnsi('RAW')
-$ptrSize = $M::SizeOf([IntPtr])
-$di = $M::AllocHGlobal($ptrSize * 3)
-try {
-  $M::WriteIntPtr($di, 0, $pDoc)
-  $M::WriteIntPtr($di, $ptrSize, [IntPtr]::Zero)
-  $M::WriteIntPtr($di, $ptrSize * 2, $pRaw)
 
-  if (-not $RP::StartDocPrinter($h, 1, $di)) {
-    Write-Error ("STARTDOC_FAILED:" + $M::GetLastWin32Error()); exit 4
-  }
+# Handle OCHILDI — bundan keyingi HAR QANDAY xatoda ham yopilishi shart,
+# shu sabab qolgan hammasi shu try/finally ICHIDA.
+try {
+  # DOCINFOA: pDocName, pOutputFile(null), pDataType("RAW") — 3 ta ko'rsatkich.
+  # ⚠️ [IntPtr]::Size ishlatiladi, Marshal::SizeOf EMAS — PowerShell'da
+  # SizeOf([IntPtr]) overload'ni yecha olmaydi (Type obyektini struct deb oladi)
+  # va "Exception calling SizeOf with 1 argument(s)" beradi (jonli sinovda chiqdi).
+  $ptrSize = [IntPtr]::Size
+  $pDoc = $M::StringToHGlobalAnsi($DocName)
+  $pRaw = $M::StringToHGlobalAnsi('RAW')
+  $di   = $M::AllocHGlobal($ptrSize * 3)
   try {
-    if (-not $RP::StartPagePrinter($h)) {
-      Write-Error ("STARTPAGE_FAILED:" + $M::GetLastWin32Error()); exit 5
+    $M::WriteIntPtr($di, 0, $pDoc)
+    $M::WriteIntPtr($di, $ptrSize, [IntPtr]::Zero)
+    $M::WriteIntPtr($di, $ptrSize * 2, $pRaw)
+
+    if (-not $RP::StartDocPrinter($h, 1, $di)) {
+      Write-Error ("STARTDOC_FAILED:" + $M::GetLastWin32Error()); exit 4
     }
     try {
-      if (-not $RP::WritePrinter($h, $bytes, $bytes.Length, [ref]$written)) {
-        Write-Error ("WRITE_FAILED:" + $M::GetLastWin32Error()); exit 6
+      if (-not $RP::StartPagePrinter($h)) {
+        Write-Error ("STARTPAGE_FAILED:" + $M::GetLastWin32Error()); exit 5
       }
-    } finally { [void]$RP::EndPagePrinter($h) }
-  } finally { [void]$RP::EndDocPrinter($h) }
-} finally {
-  [void]$RP::ClosePrinter($h)
-  $M::FreeHGlobal($di); $M::FreeHGlobal($pDoc); $M::FreeHGlobal($pRaw)
-}
+      try {
+        if (-not $RP::WritePrinter($h, $bytes, $bytes.Length, [ref]$written)) {
+          Write-Error ("WRITE_FAILED:" + $M::GetLastWin32Error()); exit 6
+        }
+      } finally { [void]$RP::EndPagePrinter($h) }
+    } finally { [void]$RP::EndDocPrinter($h) }
+  } finally {
+    if ($di   -ne $null -and $di   -ne [IntPtr]::Zero) { $M::FreeHGlobal($di) }
+    if ($pDoc -ne $null -and $pDoc -ne [IntPtr]::Zero) { $M::FreeHGlobal($pDoc) }
+    if ($pRaw -ne $null -and $pRaw -ne [IntPtr]::Zero) { $M::FreeHGlobal($pRaw) }
+  }
+} finally { [void]$RP::ClosePrinter($h) }
 Write-Output ("RAW_OK:" + $written)
 `;
 

@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Frontend (config.js va inline sahifalar) window.XENORA_SERVER ni o'qib,
 // API/WS ni to'g'ridan shu serverga yuboradi. main.js dagi SERVER_URL bilan
 // BIR XIL bo'lishi shart (sandbox preload local fayl require qila olmaydi).
-const XENORA_SERVER = 'http://146.190.225.168';
+const XENORA_SERVER = 'http://178.128.251.218';
 contextBridge.exposeInMainWorld('XENORA_SERVER', XENORA_SERVER);
 
 // Xavfsiz API ko'prigi

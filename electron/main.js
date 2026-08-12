@@ -7,10 +7,10 @@ const { buildReceiptBytes, buildTestReceiptBytes, DRAWER_KICK } = require('./esc
 const { sendRawTcp } = require('./lan-socket');
 
 // ── XENORA SaaS server manzili ──
-// Backend SERVERDA ishlaydi (http://146.190.225.168). Electron o'z backendini
+// Backend SERVERDA ishlaydi (http://178.128.251.218). Electron o'z backendini
 // ISHGA TUSHIRMAYDI — faqat local frontend'ni ko'rsatadi va shu serverga ulanadi.
 // preload.js dagi XENORA_SERVER bilan BIR XIL bo'lishi shart.
-const SERVER_URL = 'http://146.190.225.168';
+const SERVER_URL = 'http://178.128.251.218';
 
 let mainWindow = null;
 

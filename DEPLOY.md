@@ -14,7 +14,7 @@
 | | |
 |---|---|
 | **Provayder** | DigitalOcean droplet, region AMS3 |
-| **IP** | `146.190.225.168` |
+| **IP** | `178.128.251.218` |
 | **Host / user** | `root@xenora-saas` (Ubuntu 24.04) |
 | **Kod joyi** | `/opt/xenora` (git `main` branch) |
 | **Backend xizmati** | **systemd** — `xenora.service` (⚠️ **DOCKER EMAS**) |
@@ -35,7 +35,7 @@ Muhim yo'llar:
 ## 2. SSH ulanish
 
 ```bash
-ssh -i ~/.ssh/xenora_deploy root@146.190.225.168
+ssh -i ~/.ssh/xenora_deploy root@178.128.251.218
 ```
 
 - Kalit: `~/.ssh/xenora_deploy` (parolsiz, serverga o'rnatilgan).
@@ -44,7 +44,7 @@ ssh -i ~/.ssh/xenora_deploy root@146.190.225.168
 
 Tez tekshir:
 ```bash
-ssh -i ~/.ssh/xenora_deploy -o BatchMode=yes root@146.190.225.168 "echo SSH_OK; hostname"
+ssh -i ~/.ssh/xenora_deploy -o BatchMode=yes root@178.128.251.218 "echo SSH_OK; hostname"
 ```
 
 ---
@@ -55,7 +55,7 @@ Barchasi serverda (`ssh` ichida) bajariladi.
 
 ```bash
 # ── 0) SSH ichiga kir ──
-ssh -i ~/.ssh/xenora_deploy root@146.190.225.168
+ssh -i ~/.ssh/xenora_deploy root@178.128.251.218
 cd /opt/xenora
 
 # ── 1) DB BACKUP (migratsiyadan OLDIN — SHART) ──

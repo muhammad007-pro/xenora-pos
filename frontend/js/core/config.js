@@ -22,7 +22,7 @@ const _isLiveServer = _devServerPorts.includes(_port)
 const _isDev = _isFile || _isLiveServer;
 
 // Electron server rejimi (SaaS): preload window.XENORA_SERVER ni beradi
-// (masalan 'http://146.190.225.168'). Bu belgilangan bo'lsa — file:// dev
+// (masalan 'http://178.128.251.218'). Bu belgilangan bo'lsa — file:// dev
 // mantig'idan USTUN turadi va API/WS to'g'ridan serverga yo'naltiriladi.
 const _xenoraServer = (typeof window !== 'undefined' && window.XENORA_SERVER)
   ? window.XENORA_SERVER : null;

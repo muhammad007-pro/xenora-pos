@@ -5,6 +5,8 @@ const os = require('os');
 const { execFile } = require('child_process');
 const { buildReceiptBytes, buildTestReceiptBytes, DRAWER_KICK } = require('./escpos-builder');
 const { sendRawTcp } = require('./lan-socket');
+// USB etiketka printeri — Windows RAW spooler (native addon YO'Q, PowerShell+C#).
+const { sendRawToPrinter } = require('./raw-print');
 // Etiketka printeri (TSPL) — chek yadrosidan (escpos-builder) MUSTAQIL fayl.
 const { buildLabelBytes } = require('./tspl-builder');
 
@@ -346,7 +348,61 @@ const labelLanTransport = {
     },
 };
 
-const _transports = { usb: usbTransport, lan: lanTransport, qr: qrTransport, label_lan: labelLanTransport };
+// ── ETIKETKA USB transport (label_usb) ───────────────────────────────────────
+// Xprinter XP-365B kabi FAQAT-USB etiketka printerlari: LAN porti yo'q, lekin
+// Windows drayveri (Seagull/BarTender) o'rnatilgan → printer NAVBATI bor.
+// TSPL baytlari o'sha navbatga RAW datatype bilan yuboriladi (raw-print.js).
+//
+// ⚠️ CHEK USB yo'li (usbTransport) BILAN ARALASHTIRMANG: u HTML→PDF→SumatraPDF
+// qiladi. PDF ESC/POS yoki TSPL buyruqlarini olib o'ta olmaydi (rasterlanadi) —
+// shu sabab etiketka uchun butunlay ALOHIDA, RAW spooler yo'li kerak.
+const labelUsbTransport = {
+    needsHtml: false,
+    async send(_html, opts) {
+        const o = opts || {};
+        const name = o.printerName ? String(o.printerName).trim() : '';
+        if (!name) {
+            return { ok: false, engine: 'label-raw',
+                error: 'Etiketka printeri tanlanmagan — sozlamalarda "Printer nomi" ni tanlang' };
+        }
+        const items = Array.isArray(o.items) ? o.items : [];
+        if (!items.length) {
+            return { ok: false, engine: 'label-raw', error: "Etiketka ro'yxati bo'sh" };
+        }
+
+        // Nom Windows'da bormi — bo'lmasa mavjudlar ro'yxati bilan aniq xato
+        // (kassir "ishlamayapti" deb qolmasin, nimani tanlash kerakligini ko'rsin).
+        try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                const printers = await mainWindow.webContents.getPrintersAsync();
+                const names = (printers || []).map((p) => p.name);
+                if (names.length && !names.includes(name)) {
+                    return { ok: false, engine: 'label-raw',
+                        error: `"${name}" printeri topilmadi. Mavjud: ${names.join(', ')}` };
+                }
+            }
+        } catch { /* ro'yxatni olib bo'lmadi — baribir urinib ko'ramiz */ }
+
+        let bytes;
+        try {
+            bytes = buildLabelBytes(items, {
+                widthMm: o.labelWidth, heightMm: o.labelHeight, gapMm: o.gap,
+                density: o.density, speed: o.speed, copies: o.copies,
+                dpi: o.dpi, currency: o.currency,
+            });
+        } catch (err) {
+            console.error('labelUsbTransport build error', err);
+            return { ok: false, engine: 'label-raw', error: 'Etiketka formatlashda xato: ' + err.message };
+        }
+
+        return sendRawToPrinter(name, bytes, 20000);
+    },
+};
+
+const _transports = {
+    usb: usbTransport, lan: lanTransport, qr: qrTransport,
+    label_lan: labelLanTransport, label_usb: labelUsbTransport,
+};
 
 // ── MARKAZIY: printType ga qarab transport tanlab, send() chaqiradi ──
 async function printDocument(payload) {

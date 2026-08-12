@@ -300,19 +300,20 @@ window.setMode = function(m) {
 
   const note = document.getElementById('modeNote');
   if (mode === 'tspl') {
-    const ip = labelCfg && labelCfg.printer_ip;
+    const target = labelTarget();     // USB → printer nomi, LAN → ip:port
     if (!labelCfg || !labelCfg.enabled) {
       note.className = 'mode-note warn';
       note.textContent = "Etiketka printeri sozlanmagan — Sozlamalar → Chek sozlamalari → Etiketka printeri bo'limida yoqing.";
-    } else if (!ip) {
+    } else if (!target) {
       note.className = 'mode-note warn';
-      note.textContent = 'Etiketka printeri IP manzili kiritilmagan.';
+      note.textContent = labelConn() === 'usb'
+        ? 'Etiketka printeri nomi tanlanmagan (Windows printeri).'
+        : 'Etiketka printeri IP manzili kiritilmagan.';
     } else {
       note.className = 'mode-note';
-      note.textContent = `Yorliqlar to'g'ridan-to'g'ri ${ip}:${labelCfg.printer_port || 9100} printeriga yuboriladi (XENORA desktop ilovasi kerak).`;
+      note.textContent = `Yorliqlar to'g'ridan-to'g'ri ${target} printeriga yuboriladi (XENORA desktop ilovasi kerak).`;
     }
-    document.getElementById('tsplTarget').textContent =
-      labelCfg && labelCfg.printer_ip ? `Printer: ${labelCfg.printer_ip}:${labelCfg.printer_port || 9100}` : '';
+    document.getElementById('tsplTarget').textContent = target ? `Printer: ${target}` : '';
   } else {
     note.className = 'mode-note';
     note.textContent = "Brauzer chop etish oynasi ochiladi (A4 varaqda bir nechta yorliq). Oddiy printer uchun.";
@@ -621,16 +622,34 @@ function printLabelsA4(entries) {
   }, 200);
 }
 
-// ── TSPL (etiketka printeri, LAN) ────────────────────────────────────────────
+// ── TSPL (etiketka printeri) — ulanish turiga qarab USB yoki LAN ─────────────
+// Sozlamadagi connection_type transportni tanlaydi:
+//   'usb' → label_usb  (Windows RAW spooler, printer nomi bilan) — XP-365B
+//   'lan' → label_lan  (TCP 9100, IP bilan)                      — XP-350B
 // qty printerga PRINT 1,{qty} bo'lib ketadi — takrorlashni PRINTER bajaradi
 // (bayt oqimi kichik, chop etish tez).
+function labelConn() {
+  return (labelCfg && labelCfg.connection_type === 'lan') ? 'lan' : 'usb';
+}
+
+// Ko'rsatiladigan manzil: USB → printer nomi, LAN → ip:port. Sozlanmagan bo'lsa ''.
+function labelTarget() {
+  if (!labelCfg) return '';
+  return labelConn() === 'lan'
+    ? (labelCfg.printer_ip ? `${labelCfg.printer_ip}:${labelCfg.printer_port || 9100}` : '')
+    : (labelCfg.printer_name || '');
+}
+
 async function printLabelsTspl(entries) {
   if (!labelCfg || !labelCfg.enabled) {
     toast("Etiketka printeri yoqilmagan — Sozlamalar → Etiketka printeri bo'limida yoqing", 'err');
     return;
   }
-  if (!labelCfg.printer_ip) {
-    toast('Etiketka printeri IP manzili kiritilmagan', 'err');
+  const target = labelTarget();
+  if (!target) {
+    toast(labelConn() === 'usb'
+      ? 'Etiketka printeri nomi tanlanmagan (sozlamalarda tanlang)'
+      : 'Etiketka printeri IP manzili kiritilmagan', 'err');
     return;
   }
   if (!(window.electronAPI && window.electronAPI.printDocument)) {
@@ -648,23 +667,26 @@ async function printLabelsTspl(entries) {
   const w = clampDim(document.getElementById('tsplW').value, labelCfg.label_width || 40);
   const h = clampDim(document.getElementById('tsplH').value, labelCfg.label_height || 30);
 
+  const base = {
+    labelWidth: w, labelHeight: h,
+    gap: labelCfg.gap, density: labelCfg.density, speed: labelCfg.speed,
+    currency: "so'm",
+    items,
+  };
+  const payload = labelConn() === 'lan'
+    ? { ...base, printType: 'label_lan',
+        printerIp: labelCfg.printer_ip, printerPort: labelCfg.printer_port || 9100 }
+    : { ...base, printType: 'label_usb', printerName: labelCfg.printer_name };
+
   const btn = document.getElementById('printBtn');
   btn.disabled = true;
   const orig = btn.textContent;
   btn.textContent = 'Yuborilmoqda...';
   try {
-    const res = await window.electronAPI.printDocument({
-      printType: 'label_lan',
-      printerIp: labelCfg.printer_ip,
-      printerPort: labelCfg.printer_port || 9100,
-      labelWidth: w, labelHeight: h,
-      gap: labelCfg.gap, density: labelCfg.density, speed: labelCfg.speed,
-      currency: "so'm",
-      items,
-    });
+    const res = await window.electronAPI.printDocument(payload);
     if (res && res.ok) {
       const total = entries.reduce((s, e) => s + e.qty, 0);
-      toast(`${total} ta etiketka yuborildi (${labelCfg.printer_ip})`, 'ok');
+      toast(`${total} ta etiketka yuborildi (${target})`, 'ok');
     } else {
       toast('Etiketka xato: ' + ((res && res.error) || "noma'lum"), 'err');
     }

@@ -329,14 +329,26 @@ async function testLanPrint() {
 // Chek sozlamalari (/receipt-settings, /settings/printer) TEGILMAYDI.
 // ═══════════════════════════════════════════════════════
 const LABEL_PRINTER_FIELDS = [
-  ['lpIp',      'printer_ip'],
-  ['lpPort',    'printer_port'],
-  ['lpWidth',   'label_width'],
-  ['lpHeight',  'label_height'],
-  ['lpGap',     'gap'],
-  ['lpDensity', 'density'],
-  ['lpSpeed',   'speed'],
+  ['lpConnType',    'connection_type'],
+  ['lpPrinterName', 'printer_name'],
+  ['lpIp',          'printer_ip'],
+  ['lpPort',        'printer_port'],
+  ['lpWidth',       'label_width'],
+  ['lpHeight',      'label_height'],
+  ['lpGap',         'gap'],
+  ['lpDensity',     'density'],
+  ['lpSpeed',       'speed'],
 ];
+
+// Ulanish turiga qarab maydonlarni ko'rsatish/yashirish (USB va LAN turli
+// ma'lumot so'raydi — ikkalasini birga ko'rsatish chalkashtiradi).
+function toggleLabelConn() {
+  const t = document.getElementById('lpConnType')?.value || 'usb';
+  const usb = document.getElementById('lpUsbGroup');
+  const lan = document.getElementById('lpLanGroup');
+  if (usb) usb.style.display = t === 'usb' ? 'block' : 'none';
+  if (lan) lan.style.display = t === 'lan' ? 'grid'  : 'none';
+}
 
 async function loadLabelPrinterSettings() {
   // Backend yozuv bo'lmasa ham to'liq default qaytaradi (404 emas) — shu sabab
@@ -357,6 +369,18 @@ async function loadLabelPrinterSettings() {
     const el = document.getElementById(elId);
     if (el && s[key] !== undefined && s[key] !== null) el.value = s[key];
   }
+  toggleLabelConn();
+
+  // Windows printerlari ro'yxati (USB uchun datalist) — chek printeridagi
+  // bilan bir xil manba, lekin ALOHIDA datalist (rsPrinterList tegilmaydi).
+  try {
+    if (window.electronAPI && window.electronAPI.listPrinters) {
+      const list = await window.electronAPI.listPrinters();
+      const dl = document.getElementById('lpPrinterList');
+      if (dl && Array.isArray(list)) dl.innerHTML = list.map(pr =>
+        `<option value="${(pr.name || '').replace(/"/g, '&quot;')}">${pr.displayName || pr.name || ''}</option>`).join('');
+    }
+  } catch { /* Electron emas — datalist bo'sh, qo'lda yoziladi */ }
 }
 
 // Formadan qiymatlarni yig'ish — test va saqlash IKKALASI ham shu funksiyani
@@ -367,21 +391,28 @@ function _labelPrinterFormValues() {
     return Number.isFinite(v) ? v : dflt;
   };
   return {
-    enabled:      !!document.getElementById('lpEnabled')?.checked,
-    printer_ip:   (document.getElementById('lpIp')?.value || '').trim(),
-    printer_port: num('lpPort', 9100),
-    label_width:  num('lpWidth', 40),
-    label_height: num('lpHeight', 30),
-    gap:          num('lpGap', 2),
-    density:      num('lpDensity', 8),
-    speed:        num('lpSpeed', 4),
+    enabled:         !!document.getElementById('lpEnabled')?.checked,
+    connection_type: document.getElementById('lpConnType')?.value || 'usb',
+    printer_name:    (document.getElementById('lpPrinterName')?.value || '').trim(),
+    printer_ip:      (document.getElementById('lpIp')?.value || '').trim(),
+    printer_port:    num('lpPort', 9100),
+    label_width:     num('lpWidth', 40),
+    label_height:    num('lpHeight', 30),
+    gap:             num('lpGap', 2),
+    density:         num('lpDensity', 8),
+    speed:           num('lpSpeed', 4),
   };
 }
 
 async function saveLabelPrinterSettings() {
   const body = _labelPrinterFormValues();
-  if (body.enabled && !body.printer_ip) {
-    toast('Etiketka printeri yoqilgan — IP manzil kiritilsin', 'error');
+  // Backend ham tekshiradi — bu yerda faqat tezroq, aniqroq xabar berish uchun.
+  if (body.enabled && body.connection_type === 'usb' && !body.printer_name) {
+    toast('USB etiketka printeri yoqilgan — printer nomi tanlansin', 'error');
+    return;
+  }
+  if (body.enabled && body.connection_type === 'lan' && !body.printer_ip) {
+    toast('LAN etiketka printeri yoqilgan — IP manzil kiritilsin', 'error');
     return;
   }
   try {
@@ -400,29 +431,45 @@ async function saveLabelPrinterSettings() {
   }
 }
 
-// ── "Sinov etiketkasi" — saqlashdan OLDIN, formadagi (hali saqlanmagan) IP/port
-// bilan haqiqiy TCP orqali yorliq yuboradi. Real printDocument(printType:
-// 'label_lan') yo'lidan o'tadi — TSPL qurish + TCP hammasi sinaladi.
+// Sozlama qiymatlaridan printDocument payload'ini quradi. Ulanish turiga qarab
+// TRANSPORT va manzil maydonlari farq qiladi, qolgani (TSPL o'lchamlari) bir xil.
+// labels.html ham AYNI shaklni yuboradi — bitta joyda saqlanadi, ikkiga bo'linmasin.
+function labelPrintPayload(v, items) {
+  const base = {
+    labelWidth: v.label_width, labelHeight: v.label_height, gap: v.gap,
+    density: v.density, speed: v.speed,
+    currency: "so'm",
+    items,
+  };
+  return v.connection_type === 'lan'
+    ? { ...base, printType: 'label_lan', printerIp: v.printer_ip, printerPort: v.printer_port }
+    : { ...base, printType: 'label_usb', printerName: v.printer_name };
+}
+
+// ── "Sinov etiketkasi" — saqlashdan OLDIN, formadagi (hali saqlanmagan)
+// qiymatlar bilan haqiqiy yorliq yuboradi. Real printDocument yo'lidan o'tadi:
+//   USB → label_usb (Windows RAW spooler), LAN → label_lan (TCP 9100).
 // (testLanPrint bilan bir xil naqsh, faqat boshqa transport va payload.) ──────
 async function testLabelPrint() {
   const v = _labelPrinterFormValues();
-  if (!v.printer_ip) { toast('Avval etiketka printeri IP kiritilsin', 'error'); return; }
+  if (v.connection_type === 'usb' && !v.printer_name) {
+    toast('Avval Windows printer nomini tanlang', 'error'); return;
+  }
+  if (v.connection_type === 'lan' && !v.printer_ip) {
+    toast('Avval etiketka printeri IP kiritilsin', 'error'); return;
+  }
   if (!(window.electronAPI && window.electronAPI.printDocument)) {
     toast('Sinov etiketkasi faqat XENORA desktop (.exe) ilovasida ishlaydi', 'warning');
     return;
   }
+  const target = v.connection_type === 'lan' ? `${v.printer_ip}:${v.printer_port}` : v.printer_name;
   const btn = document.getElementById('lpTestBtn');
   btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Yuborilmoqda...';
   try {
-    const res = await window.electronAPI.printDocument({
-      printType: 'label_lan',
-      printerIp: v.printer_ip, printerPort: v.printer_port,
-      labelWidth: v.label_width, labelHeight: v.label_height, gap: v.gap,
-      density: v.density, speed: v.speed,
-      currency: "so'm",
-      items: [{ name: 'XENORA SINOV ETIKETKA', price: 150000, barcode: '2012345678909', qty: 1 }],
-    });
-    if (res && res.ok) toast(`Sinov etiketkasi yuborildi (${v.printer_ip}:${v.printer_port})`, 'success');
+    const res = await window.electronAPI.printDocument(labelPrintPayload(v, [
+      { name: 'XENORA SINOV ETIKETKA', price: 150000, barcode: '2012345678909', qty: 1 },
+    ]));
+    if (res && res.ok) toast(`Sinov etiketkasi yuborildi (${target})`, 'success');
     else toast('Sinov etiketkasi xato: ' + ((res && res.error) || "noma'lum"), 'error');
   } catch (e) {
     toast('Sinov etiketkasi xato: ' + (e?.message || e), 'error');

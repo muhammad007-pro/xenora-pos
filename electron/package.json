@@ -31,6 +31,7 @@
       "escpos-builder.js",
       "tspl-builder.js",
       "lan-socket.js",
+      "raw-print.js",
       "loading.html",
       "assets/**/*",
       "!**/*.log",

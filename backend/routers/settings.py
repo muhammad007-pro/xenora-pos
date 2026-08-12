@@ -98,24 +98,34 @@ async def update_printer_settings(
     set_tenant_config(db, tid, "printer", config)
     return MessageResponse(message="Printer sozlamalari saqlandi")
 
-# ── ETIKETKA PRINTERI (Xprinter XP-350B, TSPL) ───────────────────────────────
+# ── ETIKETKA PRINTERI (TSPL: Xprinter XP-350B / XP-365B) ─────────────────────
 # Chek printeri sozlamalaridan (yuqoridagi /printer va ReceiptSettings jadvali)
-# MUTLAQO ALOHIDA: bu boshqa qurilma, boshqa til (TSPL), boshqa IP/port.
+# MUTLAQO ALOHIDA: bu boshqa qurilma, boshqa til (TSPL), o'z ulanishi.
 # Saqlanish joyi: TenantSettings(config_name="label_printer") — MIGRATSIYA YO'Q.
+#
+# ULANISH TURI:
+#   "usb" — Windows drayveri o'rnatilgan printer (XP-365B da LAN porti YO'Q).
+#           TSPL baytlari printer NAVBATIGA RAW yuboriladi → printer_name kerak.
+#   "lan" — tarmoq printeri (XP-350B), TCP 9100 → printer_ip kerak.
+# Standart "usb" — jonli mijozda (Faza Parfum) aynan shunday.
 #
 # DIQQAT: bu marshrutlar fayl oxiridagi umumiy `/{config_name}` dan OLDIN
 # turishi SHART (FastAPI ro'yxatga olish tartibida moslaydi), aks holda
 # "label-printer" catch-all'ga tushib, yozuv yo'q tenantda 404 qaytarardi.
 LABEL_PRINTER_DEFAULTS = {
     "enabled": False,
-    "printer_ip": "",
-    "printer_port": 9100,   # RAW/JetDirect
-    "label_width": 40,      # mm
-    "label_height": 30,     # mm
-    "gap": 2,               # mm — etiketkalar orasidagi bo'shliq
-    "density": 8,           # 0..15 qoralik
-    "speed": 4,             # dyuym/sekund
+    "connection_type": "usb",   # "usb" | "lan"
+    "printer_name": "",         # USB: Windows'dagi printer nomi
+    "printer_ip": "",           # LAN: IP manzil
+    "printer_port": 9100,       # LAN: RAW/JetDirect
+    "label_width": 40,          # mm
+    "label_height": 30,         # mm
+    "gap": 2,                   # mm — etiketkalar orasidagi bo'shliq
+    "density": 8,               # 0..15 qoralik
+    "speed": 4,                 # dyuym/sekund
 }
+
+LABEL_CONNECTION_TYPES = ("usb", "lan")
 
 # Har maydon uchun (tur, min, maks). Chegaralar TSPL/XP-350B doirasida —
 # noto'g'ri qiymat printerni "osib" qo'yishi yoki bo'sh etiketka chiqarishi mumkin.
@@ -139,8 +149,16 @@ def _label_printer_normalize(raw: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(LABEL_PRINTER_DEFAULTS)
 
     out["enabled"] = bool(src.get("enabled", LABEL_PRINTER_DEFAULTS["enabled"]))
-    ip = src.get("printer_ip", LABEL_PRINTER_DEFAULTS["printer_ip"])
-    out["printer_ip"] = str(ip).strip() if ip is not None else ""
+
+    conn = str(src.get("connection_type", LABEL_PRINTER_DEFAULTS["connection_type"]) or "").strip().lower()
+    if conn not in LABEL_CONNECTION_TYPES:
+        raise HTTPException(status_code=400,
+                            detail=f"'connection_type' faqat {' yoki '.join(LABEL_CONNECTION_TYPES)} bo'lishi mumkin")
+    out["connection_type"] = conn
+
+    for key in ("printer_name", "printer_ip"):
+        val = src.get(key, LABEL_PRINTER_DEFAULTS[key])
+        out[key] = str(val).strip() if val is not None else ""
 
     for key, (_cast, lo, hi) in _LABEL_NUM_RANGES.items():
         val = src.get(key, LABEL_PRINTER_DEFAULTS[key])
@@ -186,9 +204,15 @@ async def update_label_printer_settings(
     current.update(incoming)
     saved = _label_printer_normalize(current)   # yangi qiymatlarni ham validatsiya qiladi
 
-    # Yoqilgan bo'lsa IP majburiy — aks holda kassir "yoqdim, ishlamayapti" holatiga tushadi.
-    if saved["enabled"] and not saved["printer_ip"]:
-        raise HTTPException(status_code=400, detail="Etiketka printeri yoqilgan — IP manzil kiritilishi shart")
+    # Yoqilgan bo'lsa ulanish ma'lumoti majburiy — aks holda kassir "yoqdim,
+    # ishlamayapti" holatiga tushadi. Talab ulanish TURIGA bog'liq.
+    if saved["enabled"]:
+        if saved["connection_type"] == "usb" and not saved["printer_name"]:
+            raise HTTPException(status_code=400,
+                                detail="USB etiketka printeri yoqilgan — printer nomi tanlanishi shart")
+        if saved["connection_type"] == "lan" and not saved["printer_ip"]:
+            raise HTTPException(status_code=400,
+                                detail="LAN etiketka printeri yoqilgan — IP manzil kiritilishi shart")
 
     set_tenant_config(db, tid, "label_printer", saved)
     return saved

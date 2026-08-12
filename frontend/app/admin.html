@@ -1981,7 +1981,25 @@
               <label for="lpEnabled" style="margin:0">Etiketka printeri ishlatilsin</label>
             </div>
             <div id="lpBody" style="display:none">
-              <div style="display:grid;grid-template-columns:2fr 1fr;gap:.5rem">
+              <div class="form-group">
+                <label>Ulanish turi</label>
+                <select class="form-control" id="lpConnType" onchange="toggleLabelConn()">
+                  <option value="usb">USB — Windows drayveri (XP-365B)</option>
+                  <option value="lan">LAN — tarmoq printeri (IP orqali)</option>
+                </select>
+                <small style="color:var(--text3);display:block;margin-top:.35rem">
+                  USB — printerda LAN porti bo'lmasa (drayver o'rnatilgan bo'lishi shart). LAN — IP:port orqali.
+                </small>
+              </div>
+              <div class="form-group" id="lpUsbGroup">
+                <label>Printer nomi (Windows)</label>
+                <input class="form-control" id="lpPrinterName" list="lpPrinterList" placeholder="Xprinter XP-365B">
+                <datalist id="lpPrinterList"></datalist>
+                <small style="color:var(--text3);display:block;margin-top:.35rem">
+                  Ro'yxat XENORA desktop ilovasida to'ladi. Nom Windows "Printerlar" oynasidagi bilan AYNAN bir xil bo'lsin.
+                </small>
+              </div>
+              <div id="lpLanGroup" style="display:none;grid-template-columns:2fr 1fr;gap:.5rem">
                 <div class="form-group"><label>Printer IP</label><input class="form-control" id="lpIp" placeholder="192.168.1.60"></div>
                 <div class="form-group"><label>Port</label><input class="form-control" id="lpPort" type="number" placeholder="9100"></div>
               </div>

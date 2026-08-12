@@ -112,11 +112,29 @@ function money(n) {
     return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+// ── Kenglik xavfsizlik koeffitsienti ─────────────────────────────────────────
+// JONLI SINOVDA (XP-365B, 40x30mm) aniqlandi: nominal hisob bo'yicha 252 nuqta
+// (304 dan kichik) bo'lgan matn O'NGDAN KESILDI — x=286 da tugardi, printer
+// esa undan oldinroq to'xtagan. Sabab ikkitasidan biri (tashqaridan farqlab
+// bo'lmaydi): firmware shrift kengligi nominal jadvaldan katta, YOKI bosiladigan
+// maydon 40mm dan tor (kalla siljishi / o'ng chekka).
+// Ikkalasida ham yechim bir xil: SIG'DIRISH hisobida belgini kengroq deb olamiz.
+// DIQQAT: bu faqat "sig'adimi / nechta belgi" QARORI uchun. Markazlashtirish
+// HAQIQIY kenglik bilan hisoblanadi — aks holda matn chapga qiyshayardi.
+const FIT_SAFETY = 1.2;
+
+function fitWidth(font, xMul) {
+    return charWidth(font, xMul) * FIT_SAFETY;
+}
+
+function maxCharsFor(maxDots, font, xMul) {
+    return Math.max(1, Math.floor(maxDots / fitWidth(font, xMul)));
+}
+
 // Matnni berilgan NUQTA kengligiga sig'dirish (belgi soniga aylantirib qirqadi).
 function fitText(text, maxDots, font, xMul) {
     const s = sanitize(text);
-    const cw = charWidth(font, xMul);
-    const maxChars = Math.max(1, Math.floor(maxDots / cw));
+    const maxChars = maxCharsFor(maxDots, font, xMul);
     if (s.length <= maxChars) return s;
     if (maxChars <= 3) return s.slice(0, maxChars);
     return s.slice(0, maxChars - 3) + '...';
@@ -126,8 +144,7 @@ function fitText(text, maxDots, font, xMul) {
 // sig'masa "..." bilan qirqiladi). Etiketka kichik — 2 qatordan ko'pi sig'maydi.
 function splitName(text, maxDots, font, xMul, maxLines) {
     const s = sanitize(text);
-    const cw = charWidth(font, xMul);
-    const maxChars = Math.max(1, Math.floor(maxDots / cw));
+    const maxChars = maxCharsFor(maxDots, font, xMul);
     const limit = Math.max(1, Number(maxLines) || 2);
 
     const words = s.split(/\s+/).filter(Boolean);
@@ -176,9 +193,43 @@ const PRICE_FONT_LADDER = [
 function pickPriceFont(text, maxDots) {
     const len = String(text || '').length;
     for (const f of PRICE_FONT_LADDER) {
-        if (len * charWidth(f.font, f.mul) <= maxDots) return f;
+        if (len <= maxCharsFor(maxDots, f.font, f.mul)) return f;
     }
     return PRICE_FONT_LADDER[PRICE_FONT_LADDER.length - 1];
+}
+
+// ── Mahsulot nomi — HECH QACHON KESILMASIN ───────────────────────────────────
+// Etiketkada nom eng muhim ma'lumot: kesilgan nom yaroqsiz. Shuning uchun
+// ketma-ket urinamiz: katta shrift 1 qator → katta shrift 2 qator →
+// kichik shrift 1 qator → kichik shrift 2 qator. Faqat shundan keyin "..."
+// (bu holat 2 qator × ~34 belgidan uzun nomda bo'ladi).
+const NAME_FONT_LADDER = [
+    { font: '2', mul: 1 },   // 12x20 — asosiy, o'qish qulay
+    { font: '1', mul: 1 },   // 8x12  — juda uzun nomlar uchun
+];
+
+function fitName(text, maxDots, maxLines) {
+    const s = sanitize(text);
+    const limit = Math.max(1, Number(maxLines) || 2);
+
+    for (const f of NAME_FONT_LADDER) {
+        const maxChars = maxCharsFor(maxDots, f.font, f.mul);
+        if (s.length <= maxChars) {
+            return { font: f.font, mul: f.mul, lines: [s] };
+        }
+        const lines = splitName(s, maxDots, f.font, f.mul, limit);
+        // splitName sig'magan qoldiqni "..." bilan belgilaydi — "..." bo'lmasa
+        // demak nom TO'LIQ sig'di, shu shriftni olamiz.
+        if (!lines.some((l) => l.endsWith('...'))) {
+            return { font: f.font, mul: f.mul, lines };
+        }
+    }
+    // Oxirgi chora: eng kichik shrift, 2 qator, qoldiq "..." bilan.
+    const last = NAME_FONT_LADDER[NAME_FONT_LADDER.length - 1];
+    return {
+        font: last.font, mul: last.mul,
+        lines: splitName(s, maxDots, last.font, last.mul, limit),
+    };
 }
 
 // ── Barcode ──────────────────────────────────────────────────────────────────
@@ -235,23 +286,23 @@ function buildLabelBytes(items, opts) {
 
     const W = mmToDots(widthMm, dpi);    // 40mm @203dpi = 320
     const H = mmToDots(heightMm, dpi);   // 30mm @203dpi = 240
-    const M = 8;                          // chetki bo'sh joy (nuqta)
-    const usable = W - M * 2;             // 304 nuqta
+    // Chetki bo'sh joy: 8 → 16 nuqta (2mm). Jonli sinovda o'ng chekka
+    // kesgani uchun oshirildi (FIT_SAFETY bilan birga ishlaydi).
+    const M = 16;
+    const usable = W - M * 2;             // 40mm da 288 nuqta
 
-    // ── Vertikal joylashuv (40x30mm = 320x240 uchun hisoblangan) ──
-    //   y=6    nom 1-qator   (shrift 2, 12x20)
-    //   y=28   nom 2-qator
-    //   y=52   narx          (shrift 3, x2/y2 → 32x48)
-    //   y=106  barcode       (balandlik 62)
-    //   y=172  barcode raqami(shrift 1, 8x12)
-    // Jami ~184 < 240 — pastda zaxira bor (etiketka biroz siljisa ham kesilmaydi).
-    const NAME_FONT = '2', NAME_MUL = 1;
+    // ── Vertikal joylashuv (40x30mm = 320x240) ──
+    //   y=4    nom 1-qator   (shrift avto: 2 yoki 1)
+    //   y=26   nom 2-qator
+    //   y=52   narx          (shrift avto, eng kattasi 32 balandlik)
+    //   y=90   barcode       (balandlik 88 ≈ 11mm — skaner uchun qulay)
+    //   y=182  barcode raqami(shrift 1, 8x12) → 194 da tugaydi
+    // Jami ~194 < 240 — pastda 46 nuqta zaxira (etiketka siljisa ham kesilmaydi).
     const CODE_FONT = '1', CODE_MUL = 1;
-    const Y_NAME = 6;
-    const Y_NAME_STEP = charHeight(NAME_FONT, NAME_MUL) + 2;
+    const Y_NAME = 4;
     const Y_PRICE = 52;
-    const Y_BARCODE = 106;
-    const BARCODE_H = 62;
+    const Y_BARCODE = 90;
+    const BARCODE_H = 88;                 // 62 → 88 (~7.7mm → ~11mm)
     const Y_CODE_TEXT = Y_BARCODE + BARCODE_H + 4;
 
     const parts = [];
@@ -270,12 +321,13 @@ function buildLabelBytes(items, opts) {
 
         parts.push(cmd('CLS'));
 
-        // ── Nom (2 qatorgacha) ──
-        const nameLines = splitName(it.name || '', usable, NAME_FONT, NAME_MUL, 2);
-        nameLines.forEach((ln, i) => {
-            const x = centerX(ln.length, W, NAME_FONT, NAME_MUL);
-            const y = Y_NAME + i * Y_NAME_STEP;
-            parts.push(cmd(`TEXT ${x},${y},"${NAME_FONT}",0,${NAME_MUL},${NAME_MUL},"${escapeTspl(ln)}"`));
+        // ── Nom — shrift/qator soni AVTOMATIK, kesilmasin (fitName) ──
+        const nf = fitName(it.name || '', usable, 2);
+        const nameStep = charHeight(nf.font, nf.mul) + 2;
+        nf.lines.forEach((ln, i) => {
+            const x = centerX(ln.length, W, nf.font, nf.mul);
+            const y = Y_NAME + i * nameStep;
+            parts.push(cmd(`TEXT ${x},${y},"${nf.font}",0,${nf.mul},${nf.mul},"${escapeTspl(ln)}"`));
         });
 
         // ── Narx (katta, markazda) — son bo'lsa money(), matn bo'lsa o'zi ──
@@ -334,5 +386,6 @@ module.exports = {
     dotsPerMm, mmToDots, fontMetrics, charWidth, charHeight,
     sanitize, escapeTspl, money, fitText, splitName, centerX,
     barcodeType, barcodeWidthDots,
+    FIT_SAFETY, fitWidth, maxCharsFor, fitName, pickPriceFont,
     buildLabelBytes, buildTestLabelBytes, TEST_ITEMS,
 };

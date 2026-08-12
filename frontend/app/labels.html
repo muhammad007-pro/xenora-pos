@@ -59,7 +59,11 @@ select.form-control option{background:var(--bg2)}
 /* Barcode'siz mahsulot — tanlab bo'lmaydi (chop etishga qo'shilmaydi) */
 .product-item.no-barcode{opacity:.55;cursor:not-allowed}
 .product-item.no-barcode:hover{border-color:var(--border);background:var(--bg3)}
-.nb-warn{font-size:.6875rem;color:var(--amber);display:flex;align-items:center;gap:.25rem}
+.nb-warn{font-size:.6875rem;color:var(--amber);display:flex;align-items:center;gap:.375rem;flex-wrap:wrap}
+.nb-btn{padding:.1rem .4rem;border-radius:.25rem;border:1px solid rgba(245,158,11,.45);background:rgba(245,158,11,.12);
+  color:var(--amber);font-size:.6875rem;font-weight:600;cursor:pointer;font-family:inherit;pointer-events:auto}
+.nb-btn:hover{background:rgba(245,158,11,.25)}
+.nb-btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* Har mahsulot qatoridagi son maydoni */
 .pi-qty{width:58px;flex-shrink:0;text-align:center;padding:.3rem .25rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:.8125rem;font-family:inherit;outline:none}
@@ -192,6 +196,14 @@ select.form-control option{background:var(--bg2)}
 
     <div class="panel">
       <div class="panel-title">Mahsulotlar</div>
+      <!-- Barcode'i yo'q mahsulotlarga birdan ichki kod berish (parfumeriya oqimi) -->
+      <div id="genAllWrap" style="display:none;margin-bottom:.75rem">
+        <button class="btn btn-out" id="genAllBtn" style="width:100%;justify-content:center"
+                onclick="genAll()">🏷 Barchasiga kod berish (<span id="noBcCount">0</span>)</button>
+        <div style="font-size:.6875rem;color:var(--text3);margin-top:.375rem;line-height:1.4">
+          Zavod kodi yo'q mahsulotlarga ichki EAN-13 beriladi (do'kon ichki kodi).
+        </div>
+      </div>
       <div class="form-group">
         <div class="search-wrap">
           <span class="search-ico">🔍</span>
@@ -317,6 +329,7 @@ async function loadProducts() {
     const data = await r.json();
     allProducts = Array.isArray(data) ? data : (data.items || []);
     renderList(allProducts);
+    refreshGenAll();
   } catch {
     document.getElementById('productList').innerHTML =
       '<div style="color:var(--red);text-align:center;padding:1rem;font-size:.8rem">Yuklab bo\'lmadi</div>';
@@ -345,7 +358,9 @@ function renderList(products) {
         <div class="product-item-price">${fmtNum(p.price)} so'm</div>
         ${p.barcode
           ? `<div class="product-item-barcode">${escHtml(p.barcode)}</div>`
-          : `<div class="nb-warn">⚠ barcode yo'q — chop etilmaydi</div>`}
+          : `<div class="nb-warn">⚠ barcode yo'q
+               <button class="nb-btn" onclick="event.stopPropagation();genOne(${p.id})">Kod berish</button>
+             </div>`}
       </div>
       <input type="number" class="pi-qty" min="1" max="999"
              value="${on ? selected[p.id].qty : (parseInt(document.getElementById('globalQty')?.value, 10) || 1)}"
@@ -408,6 +423,78 @@ window.applyQtyToAll = function() {
   Object.values(selected).forEach(e => { e.qty = q; });
   document.querySelectorAll('.product-item.selected .pi-qty').forEach(i => { i.value = q; });
   renderPreview();
+};
+
+// ── Ichki shtrix-kod berish ──────────────────────────────────────────────────
+// Zavod kodi yo'q mahsulotга do'kon ichki EAN-13 beriladi (backend generatsiya
+// qiladi — AI-Ombor bilan AYNI generator). Kod berilgach mahsulot darrov
+// tanlanadigan bo'ladi va yorlig'i chop etilishi mumkin.
+function noBarcodeList() {
+  return allProducts.filter(p => !p.barcode);
+}
+
+function refreshGenAll() {
+  const n = noBarcodeList().length;
+  document.getElementById('genAllWrap').style.display = n ? 'block' : 'none';
+  document.getElementById('noBcCount').textContent = n;
+}
+
+async function postJson(path, body) {
+  const r = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let data = null;
+  try { data = await r.json(); } catch { /* bo'sh javob */ }
+  if (!r.ok) throw new Error((data && data.detail) || `Xato (${r.status})`);
+  return data;
+}
+
+window.genOne = async function(id) {
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`"${p.name}" uchun ichki shtrix-kod yaratilsinmi?\n\nKod mahsulotga biriktiriladi va yorliqqa chiqadi.`)) return;
+
+  const btn = document.querySelector(`[data-id="${id}"] .nb-btn`);
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    const updated = await postJson(`/products/${id}/generate-barcode`);
+    p.barcode = updated.barcode;              // ro'yxatni joyida yangilaymiz
+    filterProducts();                          // qidiruv filtri saqlanadi
+    refreshGenAll();
+    toast(`Kod berildi: ${updated.barcode}`, 'ok');
+  } catch (e) {
+    toast('Kod berishda xato: ' + (e?.message || e), 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Kod berish'; }
+  }
+};
+
+window.genAll = async function() {
+  const missing = noBarcodeList();
+  if (!missing.length) { toast("Barcode'siz mahsulot yo'q", 'warn'); return; }
+  if (!confirm(`${missing.length} ta mahsulotga ichki shtrix-kod yaratilsinmi?\n\nZavod kodi bor mahsulotlarga tegilmaydi.`)) return;
+
+  const btn = document.getElementById('genAllBtn');
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.textContent = 'Yaratilmoqda...';
+  try {
+    const res = await postJson('/products/generate-barcodes', { all_without_barcode: true });
+    // Qaytgan kodlarni lokal ro'yxatga yozamiz (qayta yuklash shart emas)
+    (res.generated || []).forEach(g => {
+      const p = allProducts.find(x => x.id === g.product_id);
+      if (p) p.barcode = g.barcode;
+    });
+    filterProducts();
+    refreshGenAll();
+    toast(res.message || `${res.generated_count} ta kod berildi`, 'ok');
+  } catch (e) {
+    toast('Kod berishda xato: ' + (e?.message || e), 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
 };
 
 window.filterProducts = function() {

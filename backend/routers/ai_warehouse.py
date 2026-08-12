@@ -15,7 +15,6 @@ XAVFSIZLIK / IZOLYATSIYA:
   - API kalit serverda; rasm diskka saqlanmaydi.
   - Kalit yo'q / xato bo'lsa — tushunarli HTTP xato (server crash emas).
 """
-import random
 import re
 from datetime import datetime
 from typing import List, Optional
@@ -26,13 +25,13 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from core.audit import log_audit
+from core.barcode import gen_internal_barcode
 from database import get_db
 from deps import (
     apply_tenant_filter, get_current_active_user, has_permission, resolve_tenant_id,
 )
 from models import Category, Inventory, Product, StockMovement, User
 from services import ai_warehouse as ai
-from utils.helpers import calculate_ean13_checksum
 
 router = APIRouter()
 
@@ -205,40 +204,9 @@ class ConfirmResponse(BaseModel):
     message: str
 
 
-# HAQIQIY EAN-13 ichki (do'kon) kod: "20" prefiks + 10 tasodifiy raqam + nazorat
-# raqami = 13 belgi. Prefiks 20-29 GS1 da "do'kon ichki (restricted circulation)"
-# uchun ajratilgan — ichki kod uchun to'g'ri tanlov.
-#
-# TUZATISH: avval "20" + 11 tasodifiy raqam yozilardi, ya'ni 13-chi belgi
-# NAZORAT RAQAMI emas, oddiy tasodifiy raqam edi. Bunday kod EAN-13 sifatida
-# yaroqsiz: kamera skaner (ML Kit / BarcodeDetector / ZXing) va lazer skaner
-# nazorat raqamini tekshiradi va noto'g'ri bo'lsa kodni QAYTARMAYDI.
-# DIQQAT: mavjud (allaqachon yaratilgan) barkodlarga TEGILMAYDI — bu faqat
-# yangi generatsiya. Eski kodlar `products.barcode` aniq mosligi bilan
-# (barcodes.py lookup 2-qadam) va CODE128 yorliq bilan ishlashda davom etadi.
-#
-# Tenant ichida (va shu partiya ichida) UNIKAL — mahsulot bilan bir vaqtda saqlanadi.
-def _gen_internal_barcode(db: Session, tenant_id: Optional[int], used: set) -> str:
-    def _ean13(base12: str) -> str:
-        """12 raqamli bazaga nazorat raqamini qo'shadi → to'g'ri EAN-13."""
-        return base12 + str(calculate_ean13_checksum(base12))
-
-    for _ in range(30):
-        code = _ean13("20" + f"{random.randint(0, 10**10 - 1):010d}")
-        if code in used:
-            continue
-        exists = (
-            db.query(Product.id)
-            .filter(Product.tenant_id == tenant_id, Product.barcode == code)
-            .first()
-        )
-        if not exists:
-            used.add(code)
-            return code
-    # Juda kam ehtimol — vaqt asosida zaxira kod (u ham to'g'ri EAN-13)
-    code = _ean13("29" + f"{int(datetime.now().timestamp() * 1000) % 10**10:010d}")
-    used.add(code)
-    return code
+# Ichki EAN-13 generatori `core/barcode.py` ga KO'CHIRILDI (mantiq o'zgarmadi) —
+# endi /products/.../generate-barcode endpointlari ham AYNI generatordan
+# foydalanadi. Bu yerdagi chaqiruv xulqi avvalgidek (check_alt_barcodes=False).
 
 
 def _get_or_create_inventory(db: Session, product_id: int, tenant_id: Optional[int],
@@ -354,7 +322,7 @@ async def confirm(
                                             detail=f"'{name}' — shtrix-kod {barcode} band.")
                     used_barcodes.add(barcode)
                 else:
-                    barcode = _gen_internal_barcode(db, tenant_id, used_barcodes)
+                    barcode = gen_internal_barcode(db, tenant_id, used_barcodes)
 
                 product = Product(
                     tenant_id=tenant_id,

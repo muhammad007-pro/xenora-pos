@@ -65,22 +65,11 @@ def generate_transaction_id(prefix: str = "TRX") -> str:
     return f"{prefix}{timestamp}{random_part}"
 
 
-def generate_barcode(prefix: str = "2") -> str:
-    """Barcode yaratish (haqiqiy EAN-13: 12 raqam + nazorat raqami = 13)
-
-    TUZATISH: avval `range(11 - len(prefix))` ishlatilgan edi → bazasi 12 emas,
-    11 raqam bo'lib, natija 13 emas 12 belgi qaytardi va nazorat raqami ham
-    noto'g'ri bazadan hisoblandi (calculate_ean13_checksum `digits[:12]` kutadi).
-    Bunday kod EAN-13 sifatida YAROQSIZ — skaner o'qishdan bosh tortadi.
-    Bu funksiyani hozircha hech qayer chaqirmaydi, shu sabab tuzatish xavfsiz.
-    """
-    # Bazaviy 12 ta raqam (prefiks + tasodifiy to'ldirish)
-    digits = prefix
-    for _ in range(12 - len(prefix)):
-        digits += str(random.randint(0, 9))
-
-    # 13-chi — nazorat raqami
-    return digits + str(calculate_ean13_checksum(digits))
+# OLIB TASHLANDI: generate_barcode(prefix="2") — hech qayer chaqirmasdi va
+# tenant ichida unikallikni TEKSHIRMASDI (takroriy kod berishi mumkin edi).
+# O'rniga: core/barcode.py `gen_internal_barcode(db, tenant_id, used)` —
+# DB bilan tekshiradi, AI-Ombor va /products/.../generate-barcode ikkalasi
+# ham shundan foydalanadi.
 
 
 def calculate_ean13_checksum(digits: str) -> int:

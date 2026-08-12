@@ -1,6 +1,7 @@
 # XENORA POS — Deploy qo'llanmasi
 
 > Bu fayl production deploy tafsilotini saqlaydi — **har yangi sessiyada shu yerdan o'qing**, qayta izlamang.
+> 🆕 **SERVER ALMASHDI (2026-08-12):** eski droplet `146.190.225.168` yo'q qilingan, yangi server **`178.128.251.218`** (`xenora-2pos`) noldan qurildi va 22.07 zaxirasidan tiklandi. Tafsilot §11.
 > Oxirgi tasdiqlangan deploy: **v1.4.0** (2026-07-21) — **PRINT TIZIMI (markaziy servis)**: barcha print (chek, Z-hisobot, kunlik hisobot) bitta `printDocument` (Electron main.js) dan o'tadi; `print_type` (usb/lan/qr) transportni tanlaydi — USB=SumatraPDF (hozirgi), LAN=stub ("tez orada"), QR=stub. Chek sozlamasida "Print turi" + IP/port UI. Z-hisobot to'liq (SOTILGAN MAHSULOTLAR breakdown + kamomad). Kunlik hisobot (report.html) 58mm markaziyga (grafik/panel EMAS). Barcha `window.print()` (butun panel) → markaziy (etiketka/QR/legacy alohida media, tegilmadi).
 > ⚠️ **MIGRATSIYA BOR (B0):** `d0e1f2a3b4c5` — `receipt_settings.print_type/printer_ip/printer_port` (nullable, `print_type` default 'usb', idempotent). `c9d0e1f2a3b4`→`d0e1f2a3b4c5`. Android versionCode **20** / 1.4.0.
 > ⚠️ **BACKEND DEPLOY SHART:** shift.py (Z-hisobot products/avg_order/store_name), receipt_settings.py (print config), models.py + migratsiya. `alembic upgrade head` MAJBURIY. Backup majburiy.
@@ -13,20 +14,28 @@
 
 | | |
 |---|---|
-| **Provayder** | DigitalOcean droplet, region AMS3 |
+| **Provayder** | DigitalOcean droplet |
 | **IP** | `178.128.251.218` |
-| **Host / user** | `root@xenora-saas` (Ubuntu 24.04) |
+| **Host / user** | `root@xenora-2pos` (Ubuntu 24.04.4 LTS) |
+| **Resurs** | 1 vCPU, 1 GB RAM (+ **2 GB swap** `/swapfile`, fstab'da), 33 GB disk |
 | **Kod joyi** | `/opt/xenora` (git `main` branch) |
 | **Backend xizmati** | **systemd** — `xenora.service` (⚠️ **DOCKER EMAS**) |
-| **Backend runtime** | venv uvicorn → `127.0.0.1:8000` (1 worker, WebSocket uchun) |
-| **Web server** | nginx — `/opt/xenora/frontend` ni serve qiladi + `/api` `/ws` `/health` `/uploads` `/static` `/docs` → `127.0.0.1:8000` proxy |
-| **DB** | PostgreSQL (native), migratsiya venv alembic bilan |
+| **Backend runtime** | venv uvicorn → `127.0.0.1:8000` (**1 worker** — WebSocket in-process broadcast; ko'p worker BUZADI) |
+| **Web server** | nginx 1.24 — `/opt/xenora/frontend` ni serve qiladi + `/api` `/ws` `/health` `/uploads` `/static` `/public` `/docs` → `127.0.0.1:8000` proxy |
+| **DB** | PostgreSQL **16.14** (native) — baza `xenora_db`, user `xenora_user`; migratsiya venv alembic bilan |
+| **Firewall** | UFW **faol** — faqat `22/tcp` va `80/tcp` ochiq, qolgani deny |
+| **SSH** | **Faqat kalit** (`PasswordAuthentication no`) — parol bilan kirish o'chirilgan |
 
 Muhim yo'llar:
 - venv: `/opt/xenora/backend/venv`
 - alembic: `/opt/xenora/backend/venv/bin/alembic` (WorkingDirectory = `/opt/xenora/backend`)
 - `.env`: `/opt/xenora/backend/.env` (ruxsat 600, **faqat serverda**, git'da yo'q)
 - nginx config: `/etc/nginx/sites-available/xenora` (default_server)
+- systemd unit: `/etc/systemd/system/xenora.service`
+- **Maxfiy qiymatlar:** `/root/.xenora/` (700) — `dbpw`, `secret_key`, `su_password`, `root_password` (har biri 600).
+  DO web-konsoli uchun root parol shu yerda (SSH orqali parol ishlamaydi).
+- sshd qattiqlashtirish: `/etc/ssh/sshd_config.d/00-xenora-hardening.conf`
+  (⚠️ `00-` prefiksi SHART — OpenSSH birinchi topilgan qiymatni oladi, `50-cloud-init.conf` `yes` qo'yadi)
 
 > **Repoda `docker-compose.yml` bor** — bu production'da ISHLATILMAYDI. Production = systemd. Deploy'da doim systemd usulini qo'llang.
 
@@ -147,8 +156,17 @@ npm run build          # electron-builder → dist/ (Setup + Portable)
 
 - Repo: **`muhammad007-pro/xenora-pos`** (private).
 - Local push: `git push origin main` (HTTPS).
-- **Serverda pull** deploy key bilan: `git@github.com` orqali, `~/.ssh/github_deploy`.
-  - Server `.git/config` da doimiy: `core.sshCommand = ssh -i ~/.ssh/github_deploy -o StrictHostKeyChecking=no`.
+- **Serverda pull** deploy key bilan: `git@github.com` orqali, `/root/.ssh/github_deploy`.
+  - Kalit `/root/.ssh/config` da doimiy bog'langan:
+    ```
+    Host github.com
+      HostName github.com
+      User git
+      IdentityFile /root/.ssh/github_deploy
+      IdentitiesOnly yes
+    ```
+  - GitHub'dagi nomi: **`xenora-server-178.128.251.218`** (read-only deploy key).
+    Eski server kaliti (`xenora-server-deploy`) 2026-08-12 da o'chirildi.
   - Busiz `git pull` → `Permission denied (publickey)` (default kalit ishlatiladi).
 
 ---
@@ -211,3 +229,41 @@ backup tushib qolardi. Endi cron (restart'dan mustaqil, belgilangan soat).
 **Tekshirish:** `tail /opt/xenora/logs/backup.log`; `ls -la /opt/xenora/backend/backup/auto/ | tail`.
 Monitoring (§9) backup yoshini kuzatadi — 26 soatdan eski bo'lsa Telegram alert.
 **To'xtatish:** `crontab -e` → qatorni o'chir. **Sozlash:** `BK_MIN_KEEP=7` (doim saqlanadigan), `BK_MAX_AGE_DAYS=14`.
+
+---
+
+## 11. Server qayta qurish (2026-08-12) — nima qilindi
+
+Eski droplet `146.190.225.168` **yo'q qilingan** (destroyed) — u bilan birga server `.env` va jonli baza ham
+yo'qolgan. Yangi server `178.128.251.218` noldan qurildi va **22.07.2026 zaxirasidan** tiklandi.
+
+**Tiklash manbai (lokal, Muhammad mashinasida):** `C:\Users\user\eco_offsite\`
+- `eco_db_20260722_1608.sql.gz` — PostgreSQL 16.14 plain dump (81 jadval)
+- `eco_media_20260722.tar.gz` — `static/uploads/products/` (3 rasm)
+
+**Bajarilgan ketma-ketlik:** swap → apt paketlar → `xenora_db`+`xenora_user` → clone+venv →
+`.env` (yangi `SECRET_KEY`, yangi DB parol) → restore → `alembic upgrade head` → media →
+systemd+nginx → obuna muddatlari → UFW+SSH qattiqlashtirish.
+
+**⚠️ Yo'qolgan va QAYTA sozlanishi kerak bo'lganlar:**
+
+| Qiymat | Holat |
+|---|---|
+| `SECRET_KEY` | **Yangi** generatsiya qilindi — eski JWT/refresh tokenlar bekor, qurilmalar qayta login qiladi |
+| DB parol | **Yangi** (`/root/.xenora/dbpw`) |
+| `SENTRY_DSN` | ❌ **BO'SH** — sentry.io panelidan DSN olib `.env` ga qo'yish kerak |
+| `ANTHROPIC_API_KEY` | ❌ **BO'SH** — AI-Ombor `/ai-warehouse/scan` 503 qaytaradi (server ishlaydi) |
+| `TELEGRAM_BOT_TOKEN` / `ALERT_CHAT_ID` | ❌ bo'sh — monitoring/alert jim |
+| Click/Payme/SMS/SMTP | ❌ bo'sh (hech qachon sozlanmagan) |
+| HTTPS / domen | ❌ yo'q — hozircha **oddiy HTTP**, certbot domen olingach |
+| monitor.py / backup.py cron | ❌ **o'rnatilmagan** (§9, §10 bo'yicha qayta o'rnatiladi) |
+
+**Ma'lumot holati:** 4 tenant, 559 mahsulot (eco aroma tenant 20 → **555**), 7 user, 43 buyurtma.
+Obuna muddatlari **2027-08-12** gacha uzaytirildi (zaxira 3 hafta eski edi, muddatlar tugab tenantlar
+avtomatik o'chgan edi). Super-admin `admin` / `+998949974770` — parol zaxiradagi eski hash.
+
+**⚠️ APK/Electron:** `window.XENORA_SERVER` va `SERVER_URL` yangi IP ga o'tkazildi (`2a821f6`),
+lekin **qayta build qilinmagan** — eski .apk/.exe hali yo'q qilingan serverga urinadi.
+
+**Kirishni yo'qotsangiz:** SSH parol bilan ishlamaydi. DigitalOcean web-konsoli (Recovery Console)
+orqali kiring — root parol `/root/.xenora/root_password` da (yoki DO paneldan reset).

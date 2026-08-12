@@ -3,6 +3,29 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.7.0] — 2026-08-12
+
+Server ko'chirish relizi + v1.4–v1.6 branchlarini birlashtirish. **Migratsiya YO'Q** (head `b9c8d7e6f5a4`).
+
+### Server almashdi (KRITIK — build SHART)
+- Eski droplet `146.190.225.168` **yo'q qilingan**. Yangi server **`178.128.251.218`** (`xenora-2pos`)
+  noldan qurildi, 22.07.2026 zaxirasidan tiklandi (4 tenant, 559 mahsulot, eco aroma 555).
+- **`window.XENORA_SERVER`** (72 frontend HTML, Capacitor/APK yo'li) va Electron
+  `SERVER_URL`/`XENORA_SERVER` yangi IP ga o'tkazildi (`2a821f6`).
+  ⚠️ **Eski .exe/.apk ishlamaydi** — ular yo'q qilingan serverga urinadi. Qayta build SHART.
+- `SECRET_KEY` yangi → barcha eski JWT/refresh token bekor, qurilmalar qayta login qiladi.
+- Deploy tafsiloti: `DEPLOY.md` §11.
+
+### Versiya birlashtirildi
+- Repo aralash holatda edi (backend/android `1.4.0`, electron/frontend `1.6.0`) — hammasi **1.7.0** ga
+  keltirildi: `config.py`, `version.js`, `login.html`, `electron/package.json`,
+  `build.gradle` (versionName `1.7.0`, versionCode **21**), SW `v1.43.0`.
+
+### Oldingi birlashtirilgan branchlar (1.4.0–1.6.0 oralig'i, alohida yozilmagan edi)
+- `feature/lan-printer`, `feature/local-receipt`, `feature/camera-scanner`, `feature/responsive-mobile`
+- v1.6.0 integratsiyasi: seller-switch, POS aksiya, modifikator admin, hotel formalari,
+  bog'liqlik xavfsizligi (Pillow 10.4.0, python-multipart 0.0.18).
+
 ## [1.3.0] — 2026-07-21
 
 Katta reliz: chek 54mm + QR toggle, atir maydalash, POS tarix/ombor, grafik ramka. **Migratsiya YO'Q**.

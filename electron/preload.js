@@ -31,8 +31,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Chek LOKAL silent print (do'kon kompyuteridagi printerga)
     printReceipt: (payload) => ipcRenderer.invoke('print-receipt', payload),
-    // Markaziy print servis (B1) — payload.printType (usb/lan/qr) ga qarab transport.
-    // Chek + Z-hisobot + kunlik hisobot shu yagona yo'ldan o'tadi.
+    // Markaziy print servis (B1) — payload.printType ga qarab transport tanlanadi:
+    //   usb/lan/qr  → CHEK (payload.html kerak)
+    //   label_lan   → ETIKETKA (payload.items massivi, html KERAK EMAS;
+    //                 printerIp/printerPort — etiketka printerining o'ziniki)
+    // Chek + Z-hisobot + kunlik hisobot + etiketka shu yagona yo'ldan o'tadi.
     printDocument: (payload) => ipcRenderer.invoke('print-document', payload),
     listPrinters: () => ipcRenderer.invoke('list-printers'),
     // Pul qutisi (cash drawer) — USB, chek chop etish yo'lidan (printDocument)

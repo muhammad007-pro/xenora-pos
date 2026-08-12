@@ -5,6 +5,8 @@ const os = require('os');
 const { execFile } = require('child_process');
 const { buildReceiptBytes, buildTestReceiptBytes, DRAWER_KICK } = require('./escpos-builder');
 const { sendRawTcp } = require('./lan-socket');
+// Etiketka printeri (TSPL) — chek yadrosidan (escpos-builder) MUSTAQIL fayl.
+const { buildLabelBytes } = require('./tspl-builder');
 
 // ── XENORA SaaS server manzili ──
 // Backend SERVERDA ishlaydi (http://178.128.251.218). Electron o'z backendini
@@ -299,14 +301,64 @@ const qrTransport = {
     },
 };
 
-const _transports = { usb: usbTransport, lan: lanTransport, qr: qrTransport };
+// ── ETIKETKA LAN transport (label_lan) ───────────────────────────────────────
+// Etiketka printeri (Xprinter XP-350B, 203 dpi) — TSPL tilida gaplashadi va RAW
+// TCP 9100 portida bayt kutadi. Chek printeri (ESC/POS) yo'liga UMUMAN
+// TEGILMAYDI: bu ALOHIDA qurilma, ALOHIDA til, ALOHIDA IP/port sozlamasi
+// (printerIp bu yerda ETIKETKA printerining IP'si, chek printeriniki emas).
+//
+// Chek transportlaridan farqi: ular HTML oladi va uni yashirin oynada render
+// qilib DOM'dan structured ma'lumot o'qiydi. Etiketkada bu bosqich KERAK EMAS —
+// ma'lumot allaqachon tuzilgan (nom/narx/barcode/nusxa). Shu sabab
+// needsHtml=false va yashirin oyna umuman ochilmaydi (tezroq, xotira tejaladi).
+const labelLanTransport = {
+    needsHtml: false,
+    async send(_html, opts) {
+        const o = opts || {};
+        const ip = o.printerIp ? String(o.printerIp).trim() : '';
+        const port = Number(o.printerPort || 0) || 9100;
+        if (!ip) {
+            return { ok: false, engine: 'label-tcp',
+                error: 'Etiketka printeri IP kiritilmagan — sozlamalarda "Etiketka printeri IP" ni to\'ldiring' };
+        }
+        const items = Array.isArray(o.items) ? o.items : [];
+        if (!items.length) {
+            return { ok: false, engine: 'label-tcp', error: "Etiketka ro'yxati bo'sh" };
+        }
+        let bytes;
+        try {
+            // Yo'q qiymatlar tspl-builder ichida standartga tushadi (40x30mm, gap 2,
+            // density 8, speed 4, 203 dpi) — bu yerda majburlash shart emas.
+            bytes = buildLabelBytes(items, {
+                widthMm: o.labelWidth, heightMm: o.labelHeight, gapMm: o.gap,
+                density: o.density, speed: o.speed, copies: o.copies,
+                dpi: o.dpi, currency: o.currency,
+            });
+        } catch (err) {
+            console.error('labelLanTransport build error', err);
+            return { ok: false, engine: 'label-tcp', error: 'Etiketka formatlashda xato: ' + err.message };
+        }
+        // sendRawTcp qayta ishlatiladi (protokolga bog'liq emas — ESC/POS ham,
+        // TSPL ham bir xil RAW bayt). engine nomini almashtiramiz: logda chek
+        // LAN'i bilan etiketka LAN'i aralashmasin. lan-socket.js TEGILMAYDI.
+        const res = await sendRawTcp(ip, port, bytes, 5000);
+        return { ...res, engine: 'label-tcp' };
+    },
+};
+
+const _transports = { usb: usbTransport, lan: lanTransport, qr: qrTransport, label_lan: labelLanTransport };
 
 // ── MARKAZIY: printType ga qarab transport tanlab, send() chaqiradi ──
 async function printDocument(payload) {
     const p = payload || {};
-    if (!p.html) return { ok: false, error: "Print HTML bo'sh" };
     const type = (p.printType && String(p.printType).trim().toLowerCase()) || 'usb';
     const transport = _transports[type] || usbTransport;   // noma'lum tur → usb (regressiya yo'q)
+    // HTML tekshiruvi transport TANLANGANDAN keyin: ba'zi transportlar (etiketka)
+    // HTML emas, structured ma'lumot oladi. Bayroq yo'q = true → usb/lan/qr
+    // AVVALGIDEK ishlaydi (noma'lum tur ham usb'ga tushadi → ayni xato matni).
+    if (transport.needsHtml !== false && !p.html) {
+        return { ok: false, error: "Print HTML bo'sh" };
+    }
     try {
         return await transport.send(p.html, p);
     } catch (err) {

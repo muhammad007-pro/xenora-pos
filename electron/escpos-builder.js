@@ -88,6 +88,13 @@ const CMD = {
     DOUBLE_OFF:  Buffer.from([GS, 0x21, 0x00]),
     CUT:         Buffer.from([GS, 0x56, 0x00]),                // GS V 0 — to'liq kesish
     FEED:        Buffer.from([0x0a, 0x0a, 0x0a]),
+    // Kesishdan OLDINGI feed — 8 qator (~28-30mm).
+    // NEGA: termal printerda pichoq bosma kalladan ~20-30mm PASTDA turadi.
+    // Oxirgi bosilgan qator kallada qolib ketadi va CUT darrov yuborilsa pichoq
+    // AYNAN o'sha matnni kesadi. Jonli sinov (XP-N160II, LAN): 3 qator feed bilan
+    // footer ("Xaridingiz uchun rahmat!") yarmidan kesilardi.
+    // 8 × ~3.5mm ≈ 28mm — footer pichoqdan o'tib ketadi, keyin kesiladi.
+    FEED_BEFORE_CUT: Buffer.from([0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a, 0x0a]),
 };
 // ESC p m t1 t2 — pul qutisi (cash drawer) "kick" signali. m=0 → pin 2 (eng keng
 // tarqalgan drawer ulanishi). t1/t2 — signal davomiyligi (~impuls uzunligi).
@@ -166,7 +173,7 @@ function buildReceiptBytes(structured, widthMm, opts) {
     // ── Footer ──
     parts.push(CMD.ALIGN_CENTER);
     for (const ln of wrapText(s.footer || 'Xarid uchun rahmat!', w)) parts.push(textLine(ln));
-    parts.push(CMD.ALIGN_LEFT, CMD.FEED);
+    parts.push(CMD.ALIGN_LEFT, CMD.FEED_BEFORE_CUT);
 
     // Pul qutisi — kesishdan OLDIN (chek uzilib chiqqach, tortma ochiladi).
     if (o.openDrawer) parts.push(DRAWER_KICK);

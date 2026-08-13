@@ -218,9 +218,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 <script type="module">
 import { API_BASE } from '../js/core/config.js';
-import { getToken } from '../js/core/auth.js';
 import { initErrorHandler, showToast } from '../js/core/error-handler.js';
 initErrorHandler();
+
+// ⚠️ TUZATISH (labels.html bilan bir xil xato): auth.js `getToken` ni
+// EKSPORT QILMAYDI — mavjud bo'lmagan nomni import qilish ES modulda link
+// xatosi va butun sahifa skripti ishga tushmaydi. Loyihadagi izchil usul —
+// localStorage 'access_token' (admin/core.js, pos.js, api.js ham shundan).
+const getToken = () => localStorage.getItem('access_token');
 
 const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js API_BASE eksport qiladi)
 const h = () => ({ Authorization: 'Bearer ' + getToken(), 'Content-Type': 'application/json' });

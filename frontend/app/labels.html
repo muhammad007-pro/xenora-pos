@@ -235,9 +235,19 @@ select.form-control option{background:var(--bg2)}
 
 <script type="module">
 import { API_BASE } from '../js/core/config.js';
-import { getToken } from '../js/core/auth.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
 initErrorHandler();
+
+// ⚠️ TUZATISH: ilgari `import { getToken } from '../js/core/auth.js'` yozilgan
+// edi, LEKIN auth.js bunday nom eksport qilmaydi (faqat AuthService va
+// clearTenantSession). ES modulda mavjud bo'lmagan nomni import qilish —
+// LINK xatosi: butun modul BAJARILMAYDI. Natijada window.* funksiyalar
+// tayinlanmasdi (tugmalar o'lik) va loadProducts() chaqirilmasdi
+// ("Yuklanmoqda..." qotib qolardi). Sahifa yashirin turgani uchun bu
+// 2026-07-24 dan beri sezilmagan.
+// Loyihadagi IZCHIL usul — localStorage 'access_token' (admin/core.js,
+// pos.js va api.js ham AYNI shu kalitni o'qiydi).
+const getToken = () => localStorage.getItem('access_token');
 
 const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js API_BASE eksport qiladi)
 let allProducts = [];
@@ -267,12 +277,25 @@ function toast(msg, kind) {
 // ── Etiketka printeri sozlamasi ──────────────────────────────────────────────
 // enabled=true bo'lsa TSPL rejimi DEFAULT bo'lib ochiladi (3-bosqich sozlamasi).
 async function loadLabelConfig() {
+  // Xato bo'lsa JIM qolmaymiz: ilgari `catch { return; }` edi va foydalanuvchi
+  // nega TSPL rejimi yo'qligini bilmasdi. Endi sabab toast'da ko'rinadi,
+  // sahifa esa A4 rejimida ishlashda davom etadi (butunlay to'xtamaydi).
   try {
     const r = await fetch(`${API}/settings/label-printer`, {
       headers: { Authorization: 'Bearer ' + getToken() }
     });
-    if (r.ok) labelCfg = await r.json();
-  } catch { /* sozlama o'qilmadi — A4 rejimida qolamiz */ }
+    if (r.ok) {
+      labelCfg = await r.json();
+    } else if (r.status === 401) {
+      toast('Sessiya tugagan — qaytadan kiring (etiketka sozlamasi yuklanmadi)', 'err');
+    } else if (r.status === 403) {
+      toast("Etiketka sozlamasini ko'rish uchun ruxsat yo'q (admin roli kerak)", 'warn');
+    } else {
+      toast(`Etiketka sozlamasi yuklanmadi (server ${r.status}) — A4 rejimi ishlaydi`, 'warn');
+    }
+  } catch (e) {
+    toast('Etiketka sozlamasi yuklanmadi: ' + (e?.message || 'tarmoq xatosi'), 'warn');
+  }
 
   if (labelCfg && labelCfg.enabled) {
     document.getElementById('tsplW').value = labelCfg.label_width || 40;
@@ -326,14 +349,21 @@ async function loadProducts() {
     const r = await fetch(`${API}/products/?page_size=500`, {
       headers: { Authorization: 'Bearer ' + getToken() }
     });
-    if (!r.ok) throw new Error();
+    if (!r.ok) throw new Error(r.status === 401 ? 'Sessiya tugagan — qaytadan kiring'
+                             : r.status === 403 ? "Mahsulotlarni ko'rish uchun ruxsat yo'q"
+                             : `server ${r.status}`);
     const data = await r.json();
     allProducts = Array.isArray(data) ? data : (data.items || []);
     renderList(allProducts);
     refreshGenAll();
-  } catch {
+  } catch (e) {
+    // Sabab KO'RINSIN: ilgari faqat quruq "Yuklab bo'lmadi" edi.
+    const why = escHtml(e?.message || 'tarmoq xatosi');
     document.getElementById('productList').innerHTML =
-      '<div style="color:var(--red);text-align:center;padding:1rem;font-size:.8rem">Yuklab bo\'lmadi</div>';
+      `<div style="color:var(--red);text-align:center;padding:1rem;font-size:.8rem">
+         Mahsulotlar yuklanmadi<br><span style="color:var(--text3);font-size:.75rem">${why}</span>
+       </div>`;
+    toast('Mahsulotlar yuklanmadi: ' + (e?.message || 'tarmoq xatosi'), 'err');
   }
 }
 

@@ -1,4 +1,5 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, Field
@@ -12,6 +13,7 @@ from deps import resolve_tenant_id, get_current_user, get_current_active_user, h
 from config import settings
 from routers.price_history import record_price_change
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
+from core.barcode import gen_internal_barcode  # ichki EAN-13 (AI-Ombor bilan AYNI generator)
 
 router = APIRouter()
 
@@ -178,6 +180,153 @@ async def bulk_set_category(
         "count": updated,
     })
     return MessageResponse(message=f"{updated} ta mahsulotga '{category.name}' kategoriyasi berildi")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ICHKI SHTRIX-KOD BERISH — zavod kodi yo'q mahsulotlar uchun (parfumeriya)
+#   Kod: EAN-13, "20" prefiks (GS1 "do'kon ichki") + nazorat raqami.
+#   Generator: core/barcode.py — AI-Ombor oqimi bilan AYNI (ikki xil sxema
+#   paydo bo'lmasin). Kod `products.barcode` ga yoziladi, ya'ni
+#   /barcodes/lookup/{barcode} uni darrov topadi (sotuvda ishlaydi).
+# ════════════════════════════════════════════════════════════════════════════
+class GenerateBarcodesRequest(BaseModel):
+    """To'plam: aniq id'lar YOKI barcode'i yo'q hammasi."""
+    product_ids: Optional[List[int]] = None
+    all_without_barcode: bool = False
+
+
+class GeneratedBarcodeItem(BaseModel):
+    product_id: int
+    name: str
+    barcode: str
+
+
+class SkippedBarcodeItem(BaseModel):
+    product_id: int
+    name: str
+    reason: str
+
+
+class GenerateBarcodesResponse(BaseModel):
+    generated: List[GeneratedBarcodeItem]
+    generated_count: int
+    skipped: List[SkippedBarcodeItem]
+    skipped_count: int
+    message: str
+
+
+def _has_barcode(p: Product) -> bool:
+    return bool(p.barcode and str(p.barcode).strip())
+
+
+# DIQQAT: literal path `/{product_id}` dan OLDIN (bulk-category bilan bir xil sabab).
+@router.post("/generate-barcodes", response_model=GenerateBarcodesResponse)
+async def generate_barcodes_bulk(
+    payload: GenerateBarcodesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_menu")),
+):
+    """Bir nechta mahsulotga birdan ichki EAN-13 beradi.
+
+    `all_without_barcode=true` — shu tenantdagi kodi YO'Q hamma mahsulot.
+    Allaqachon kodi bori o'tkazib yuboriladi (qayta yozilmaydi) va javobda
+    `skipped` ro'yxatida ko'rsatiladi.
+
+    TRANZAKSIYA: hammasi yoki hech nima — bitta commit, xatoda rollback.
+    """
+    tid = resolve_tenant_id(db, current_user)
+    if not tid:
+        raise HTTPException(status_code=400, detail="Tenant (kafe) aniqlanmadi")
+
+    if not payload.all_without_barcode and not payload.product_ids:
+        raise HTTPException(status_code=400,
+                            detail="product_ids ro'yxati yoki all_without_barcode=true kerak")
+
+    q = apply_tenant_filter(db.query(Product), Product, current_user)
+    if payload.all_without_barcode:
+        q = q.filter(or_(Product.barcode.is_(None), Product.barcode == ""))
+    else:
+        q = q.filter(Product.id.in_(payload.product_ids))
+    products = q.order_by(Product.id).all()
+
+    if not products:
+        return GenerateBarcodesResponse(
+            generated=[], generated_count=0, skipped=[], skipped_count=0,
+            message="Mos mahsulot topilmadi",
+        )
+
+    generated: List[GeneratedBarcodeItem] = []
+    skipped: List[SkippedBarcodeItem] = []
+    used: set = set()   # shu partiya ichida takrorlanmasin
+
+    try:
+        for p in products:
+            if _has_barcode(p):
+                skipped.append(SkippedBarcodeItem(
+                    product_id=p.id, name=p.name, reason="Shtrix-kod allaqachon bor"))
+                continue
+            code = gen_internal_barcode(db, tid, used, check_alt_barcodes=True)
+            p.barcode = code
+            generated.append(GeneratedBarcodeItem(product_id=p.id, name=p.name, barcode=code))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Shtrix-kod berishda xato — hech narsa saqlanmadi")
+
+    if generated:
+        log_audit(current_user, "products", "GENERATE_BARCODE", None, detail={
+            "count": len(generated),
+            "skipped": len(skipped),
+            "product_ids": [g.product_id for g in generated],
+        })
+
+    return GenerateBarcodesResponse(
+        generated=generated, generated_count=len(generated),
+        skipped=skipped, skipped_count=len(skipped),
+        message=f"{len(generated)} ta mahsulotga shtrix-kod berildi"
+              + (f", {len(skipped)} ta o'tkazib yuborildi" if skipped else ""),
+    )
+
+
+@router.post("/{product_id}/generate-barcode", response_model=ProductInDB)
+async def generate_barcode_single(
+    product_id: int,
+    force: bool = Query(False, description="Mavjud kodni ALMASHTIRISH (ehtiyot bo'ling)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_menu")),
+):
+    """Bitta mahsulotga ichki EAN-13 beradi.
+
+    Kodi allaqachon bo'lsa 400 — tasodifan qayta yozilmasin. Ataylab
+    almashtirish uchun `?force=true` (eski kod audit logga yoziladi;
+    eski yorliqlar ishlamay qoladi).
+    """
+    tid = resolve_tenant_id(db, current_user)
+    if not tid:
+        raise HTTPException(status_code=400, detail="Tenant (kafe) aniqlanmadi")
+
+    product = apply_tenant_filter(db.query(Product), Product, current_user) \
+        .filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
+
+    old = product.barcode
+    if _has_barcode(product) and not force:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Mahsulotda shtrix-kod allaqachon bor ({old}). Almashtirish uchun force=true.",
+        )
+
+    code = gen_internal_barcode(db, tid, set(), check_alt_barcodes=True)
+    product.barcode = code
+    db.commit()
+    db.refresh(product)
+
+    log_audit(current_user, "products", "GENERATE_BARCODE", product.id, detail={
+        "barcode": code, "old_barcode": old, "forced": bool(force),
+    })
+    return ProductInDB.model_validate(product)
+
 
 @router.patch("/{product_id}/availability")
 async def set_product_availability(

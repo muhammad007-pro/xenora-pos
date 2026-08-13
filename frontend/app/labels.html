@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);--bg:#070f1e;--bg2:#0a1628;--bg3:#0f2038;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;--green:#22c55e;--red:#ef4444;--r:.5rem;--r2:.875rem}
+:root{--gold:#d4b46c;--gold-dim:rgba(34,197,94,.15);--bg:#070f1e;--bg2:#0a1628;--bg3:#0f2038;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.12);--text:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;--r:.5rem;--r2:.875rem}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .ph{display:flex;align-items:center;gap:.75rem;padding:.875rem 1.5rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
 .bk{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r);background:var(--bg3);border:1px solid var(--border);color:var(--text2);text-decoration:none;font-size:1.1rem;transition:.2s}
@@ -17,6 +17,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem 1rem;border-radius:var(--r);font-size:.875rem;font-weight:600;cursor:pointer;border:none;transition:.2s;font-family:inherit}
 .btn-gold{background:var(--gold);color:#04160d}
 .btn-gold:hover{opacity:.9}
+.btn-gold:disabled{opacity:.5;cursor:not-allowed}
 .btn-out{background:transparent;border:1px solid var(--border2);color:var(--text2)}
 .btn-out:hover{border-color:var(--gold);color:var(--gold)}
 .btn-red{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red)}
@@ -33,6 +34,14 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .form-control:focus{border-color:var(--gold)}
 select.form-control option{background:var(--bg2)}
 
+/* ─── Rejim tanlash (TSPL / A4) ─── */
+.mode-tabs{display:flex;gap:.375rem;margin-bottom:1rem}
+.mode-tab{flex:1;padding:.5rem .5rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:.8125rem;font-weight:600;cursor:pointer;transition:.2s;font-family:inherit;line-height:1.25}
+.mode-tab small{display:block;font-size:.65rem;font-weight:400;color:var(--text3);margin-top:.125rem}
+.mode-tab.active{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+.mode-note{font-size:.75rem;color:var(--text3);margin-bottom:.875rem;line-height:1.45}
+.mode-note.warn{color:var(--amber)}
+
 .search-wrap{position:relative}
 .search-wrap input{padding-left:2rem}
 .search-ico{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--text3);font-size:.875rem}
@@ -47,6 +56,20 @@ select.form-control option{background:var(--bg2)}
 .product-item-price{font-size:.75rem;color:var(--gold);font-weight:600}
 .product-item-barcode{font-size:.6875rem;color:var(--text3);font-family:'JetBrains Mono',monospace}
 
+/* Barcode'siz mahsulot — tanlab bo'lmaydi (chop etishga qo'shilmaydi) */
+.product-item.no-barcode{opacity:.55;cursor:not-allowed}
+.product-item.no-barcode:hover{border-color:var(--border);background:var(--bg3)}
+.nb-warn{font-size:.6875rem;color:var(--amber);display:flex;align-items:center;gap:.375rem;flex-wrap:wrap}
+.nb-btn{padding:.1rem .4rem;border-radius:.25rem;border:1px solid rgba(245,158,11,.45);background:rgba(245,158,11,.12);
+  color:var(--amber);font-size:.6875rem;font-weight:600;cursor:pointer;font-family:inherit;pointer-events:auto}
+.nb-btn:hover{background:rgba(245,158,11,.25)}
+.nb-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Har mahsulot qatoridagi son maydoni */
+.pi-qty{width:58px;flex-shrink:0;text-align:center;padding:.3rem .25rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:.8125rem;font-family:inherit;outline:none}
+.pi-qty:focus{border-color:var(--gold)}
+.pi-qty:disabled{opacity:.35}
+
 .qty-row{display:flex;align-items:center;gap:.5rem}
 .qty-row input{width:70px;text-align:center}
 
@@ -54,15 +77,18 @@ select.form-control option{background:var(--bg2)}
 .size-btn{padding:.375rem .75rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:.8125rem;cursor:pointer;transition:.2s;font-family:inherit}
 .size-btn.active{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
 
+.dim-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+
 /* ─── O'ng panel: preview ─── */
 .preview-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:1.25rem}
-.preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:.5rem;flex-wrap:wrap}
 .preview-grid{display:flex;flex-wrap:wrap;gap:.75rem;padding:.75rem;background:var(--bg3);border-radius:var(--r);min-height:200px;border:1px solid var(--border)}
 .empty-preview{width:100%;text-align:center;padding:3rem;color:var(--text3);font-size:.875rem}
 
 /* ─── Etiketka stillari (screen ko'rinishi) ─── */
 .label-card{background:#fff;color:#000;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;border:1px solid #ddd;flex-shrink:0;position:relative}
 .label-card.sz-sm{width:120px;min-height:76px}
+.label-card.sz-p40{width:120px;min-height:92px}
 .label-card.sz-md{width:175px;min-height:120px}
 .label-card.sz-lg{width:220px;min-height:140px}
 
@@ -77,6 +103,14 @@ select.form-control option{background:var(--bg2)}
 .label-barcode svg,.label-barcode canvas{max-width:100%;height:auto}
 
 .label-qty-badge{position:absolute;top:2px;right:3px;font-size:7px;background:#333;color:#fff;border-radius:2px;padding:0 3px}
+
+/* ─── Xabar (toast) ─── */
+.toast{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);z-index:100;max-width:min(90vw,460px);
+  padding:.7rem 1rem;border-radius:var(--r);font-size:.8125rem;line-height:1.4;display:none;
+  background:var(--bg3);border:1px solid var(--border2);color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.45)}
+.toast.ok{border-color:rgba(34,197,94,.45);color:#86efac}
+.toast.err{border-color:rgba(239,68,68,.45);color:#fca5a5}
+.toast.warn{border-color:rgba(245,158,11,.45);color:#fcd34d}
 
 /* ─── PRINT ─── */
 @media print {
@@ -94,7 +128,7 @@ select.form-control option{background:var(--bg2)}
     margin:1mm;
   }
   .label-qty-badge{display:none}
-  .ph,.panel,.preview-header{display:none}
+  .ph,.panel,.preview-header,.toast{display:none}
 }
 </style>
 <link rel="stylesheet" href="../styles/premium-overlay.css">
@@ -107,23 +141,42 @@ select.form-control option{background:var(--bg2)}
   <a class="bk" href="admin.html">←</a>
   <div class="ph-title">🏷 Etiketka Chop Etish</div>
   <button class="btn btn-out" onclick="clearAll()">Tozalash</button>
-  <button class="btn btn-gold" onclick="printLabels()">🖨 Chop Etish</button>
+  <button class="btn btn-gold" id="printBtn" onclick="printLabels()">🖨 Chop Etish</button>
 </div>
 
 <div class="pc">
   <!-- ── SOL PANEL ── -->
   <div>
     <div class="panel" style="margin-bottom:1rem">
-      <div class="panel-title">Sozlamalar</div>
+      <div class="panel-title">Chop etish rejimi</div>
+      <div class="mode-tabs">
+        <button class="mode-tab" id="tabTspl" onclick="setMode('tspl')">🏷 Etiketka printeri<small>TSPL · LAN</small></button>
+        <button class="mode-tab active" id="tabA4" onclick="setMode('a4')">🖨 Oddiy printer<small>A4 · brauzer</small></button>
+      </div>
+      <div class="mode-note" id="modeNote">Yuklanmoqda...</div>
+
+      <div class="panel-title" style="margin-top:1.25rem">Sozlamalar</div>
       <div class="form-group">
         <label>O'lcham</label>
         <div class="size-btns">
           <button class="size-btn active" onclick="setSize('sm',this)">Kichik<br><span style="font-size:.65rem;color:var(--text3)">40×25mm</span></button>
+          <button class="size-btn" onclick="setSize('p40',this)">Yorliq<br><span style="font-size:.65rem;color:var(--text3)">40×30mm</span></button>
           <button class="size-btn" onclick="setSize('md',this)">O'rta<br><span style="font-size:.65rem;color:var(--text3)">58×40mm</span></button>
           <button class="size-btn" onclick="setSize('lg',this)">Katta<br><span style="font-size:.65rem;color:var(--text3)">72×50mm</span></button>
         </div>
       </div>
-      <div class="form-group">
+
+      <!-- TSPL rejimida: aniq mm o'lchamlari (sozlamadan keladi, bu yerda ham o'zgartirsa bo'ladi) -->
+      <div id="tsplDims" style="display:none">
+        <div class="dim-row">
+          <div class="form-group"><label>Kenglik (mm)</label><input class="form-control" type="number" id="tsplW" min="10" max="120"></div>
+          <div class="form-group"><label>Balandlik (mm)</label><input class="form-control" type="number" id="tsplH" min="10" max="120"></div>
+        </div>
+        <div class="mode-note" id="tsplTarget"></div>
+      </div>
+
+      <!-- A4 rejimida: barcode turi (TSPL'da printer o'zi tanlaydi) -->
+      <div class="form-group" id="a4Format">
         <label>Barcode turi</label>
         <select class="form-control" id="barcodeFormat" onchange="renderPreview()">
           <option value="CODE128">Code-128 (universal)</option>
@@ -131,17 +184,26 @@ select.form-control option{background:var(--bg2)}
           <option value="CODE39">Code-39</option>
         </select>
       </div>
+
       <div class="form-group">
-        <label>Har etiketkadan nechta</label>
+        <label>Standart son (yangi tanlanganlar uchun)</label>
         <div class="qty-row">
-          <input class="form-control" type="number" id="globalQty" value="1" min="1" max="100" oninput="renderPreview()">
-          <span style="font-size:.8rem;color:var(--text3)">dona</span>
+          <input class="form-control" type="number" id="globalQty" value="1" min="1" max="999">
+          <button class="btn btn-out" style="padding:.5rem .625rem" onclick="applyQtyToAll()">Barchasiga</button>
         </div>
       </div>
     </div>
 
     <div class="panel">
       <div class="panel-title">Mahsulotlar</div>
+      <!-- Barcode'i yo'q mahsulotlarga birdan ichki kod berish (parfumeriya oqimi) -->
+      <div id="genAllWrap" style="display:none;margin-bottom:.75rem">
+        <button class="btn btn-out" id="genAllBtn" style="width:100%;justify-content:center"
+                onclick="genAll()">🏷 Barchasiga kod berish (<span id="noBcCount">0</span>)</button>
+        <div style="font-size:.6875rem;color:var(--text3);margin-top:.375rem;line-height:1.4">
+          Zavod kodi yo'q mahsulotlarga ichki EAN-13 beriladi (do'kon ichki kodi).
+        </div>
+      </div>
       <div class="form-group">
         <div class="search-wrap">
           <span class="search-ico">🔍</span>
@@ -159,7 +221,7 @@ select.form-control option{background:var(--bg2)}
   <div class="preview-panel">
     <div class="preview-header">
       <div class="panel-title" style="margin:0">Preview</div>
-      <div style="font-size:.8125rem;color:var(--text3)" id="totalCount">Jami: 0 ta etiketka</div>
+      <div style="font-size:.8125rem;color:var(--text3)" id="totalCount">Jami: 0 mahsulot, 0 etiketka</div>
     </div>
     <div class="preview-grid" id="previewGrid">
       <div class="empty-preview">Mahsulot tanlanmagan</div>
@@ -169,6 +231,7 @@ select.form-control option{background:var(--bg2)}
 
 <!-- PRINT AREA (ko'rinmas, faqat print uchun) -->
 <div id="printArea" style="display:none"></div>
+<div class="toast" id="toastBox"></div>
 
 <script type="module">
 import { API_BASE } from '../js/core/config.js';
@@ -180,6 +243,83 @@ const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js 
 let allProducts = [];
 let selected = {};   // product_id → { product, qty }
 let currentSize = 'sm';
+let mode = 'a4';     // 'a4' (window.print) yoki 'tspl' (etiketka printeri, LAN)
+let labelCfg = null; // GET /settings/label-printer natijasi
+
+// O'lcham kaliti → mm. TSPL rejimida shu qiymatlar printerga uzatiladi;
+// A4 rejimida faqat ekran/print CSS klassi (sz-*) ishlatiladi.
+const SIZES = {
+  sm:  { w: 40, h: 25 },
+  p40: { w: 40, h: 30 },   // Faza Parfum yorlig'i
+  md:  { w: 58, h: 40 },
+  lg:  { w: 72, h: 50 },
+};
+
+function toast(msg, kind) {
+  const b = document.getElementById('toastBox');
+  b.className = 'toast ' + (kind || '');
+  b.textContent = msg;
+  b.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { b.style.display = 'none'; }, kind === 'err' ? 6000 : 3500);
+}
+
+// ── Etiketka printeri sozlamasi ──────────────────────────────────────────────
+// enabled=true bo'lsa TSPL rejimi DEFAULT bo'lib ochiladi (3-bosqich sozlamasi).
+async function loadLabelConfig() {
+  try {
+    const r = await fetch(`${API}/settings/label-printer`, {
+      headers: { Authorization: 'Bearer ' + getToken() }
+    });
+    if (r.ok) labelCfg = await r.json();
+  } catch { /* sozlama o'qilmadi — A4 rejimida qolamiz */ }
+
+  if (labelCfg && labelCfg.enabled) {
+    document.getElementById('tsplW').value = labelCfg.label_width || 40;
+    document.getElementById('tsplH').value = labelCfg.label_height || 30;
+    // Sozlamadagi o'lchamga mos tugmani faollashtiramiz (mos kelmasa — hech biri)
+    const key = Object.keys(SIZES).find(k =>
+      SIZES[k].w === labelCfg.label_width && SIZES[k].h === labelCfg.label_height);
+    if (key) currentSize = key;
+    syncSizeButtons();
+    setMode('tspl');
+  } else {
+    document.getElementById('tsplW').value = 40;
+    document.getElementById('tsplH').value = 30;
+    setMode('a4');
+  }
+}
+
+window.setMode = function(m) {
+  mode = m === 'tspl' ? 'tspl' : 'a4';
+  document.getElementById('tabTspl').classList.toggle('active', mode === 'tspl');
+  document.getElementById('tabA4').classList.toggle('active', mode === 'a4');
+  document.getElementById('tsplDims').style.display = mode === 'tspl' ? 'block' : 'none';
+  document.getElementById('a4Format').style.display = mode === 'tspl' ? 'none' : 'block';
+  document.getElementById('printBtn').textContent = mode === 'tspl' ? '🏷 Etiketka chop etish' : '🖨 Chop Etish';
+
+  const note = document.getElementById('modeNote');
+  if (mode === 'tspl') {
+    const target = labelTarget();     // USB → printer nomi, LAN → ip:port
+    if (!labelCfg || !labelCfg.enabled) {
+      note.className = 'mode-note warn';
+      note.textContent = "Etiketka printeri sozlanmagan — Sozlamalar → Chek sozlamalari → Etiketka printeri bo'limida yoqing.";
+    } else if (!target) {
+      note.className = 'mode-note warn';
+      note.textContent = labelConn() === 'usb'
+        ? 'Etiketka printeri nomi tanlanmagan (Windows printeri).'
+        : 'Etiketka printeri IP manzili kiritilmagan.';
+    } else {
+      note.className = 'mode-note';
+      note.textContent = `Yorliqlar to'g'ridan-to'g'ri ${target} printeriga yuboriladi (XENORA desktop ilovasi kerak).`;
+    }
+    document.getElementById('tsplTarget').textContent = target ? `Printer: ${target}` : '';
+  } else {
+    note.className = 'mode-note';
+    note.textContent = "Brauzer chop etish oynasi ochiladi (A4 varaqda bir nechta yorliq). Oddiy printer uchun.";
+  }
+  renderPreview();
+};
 
 async function loadProducts() {
   try {
@@ -190,6 +330,7 @@ async function loadProducts() {
     const data = await r.json();
     allProducts = Array.isArray(data) ? data : (data.items || []);
     renderList(allProducts);
+    refreshGenAll();
   } catch {
     document.getElementById('productList').innerHTML =
       '<div style="color:var(--red);text-align:center;padding:1rem;font-size:.8rem">Yuklab bo\'lmadi</div>';
@@ -202,25 +343,43 @@ function renderList(products) {
     el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:.8rem">Mahsulot topilmadi</div>';
     return;
   }
-  el.innerHTML = products.map(p => `
-    <div class="product-item ${selected[p.id] ? 'selected' : ''}" onclick="toggleProduct(${p.id})" data-id="${p.id}">
-      <input type="checkbox" ${selected[p.id] ? 'checked' : ''} onclick="event.stopPropagation();toggleProduct(${p.id})">
+  el.innerHTML = products.map(p => {
+    // Barcode yo'q → tanlab bo'lmaydi. Etiketkaning butun mazmuni barcode'da;
+    // soxta kod chop etilsa skaner uni topa olmaydi. (Keyingi bosqich: avtomatik
+    // ichki barcode generatsiyasi.)
+    const noBc = !p.barcode;
+    const on = !!selected[p.id];
+    return `
+    <div class="product-item ${on ? 'selected' : ''} ${noBc ? 'no-barcode' : ''}"
+         ${noBc ? '' : `onclick="toggleProduct(${p.id})"`} data-id="${p.id}">
+      <input type="checkbox" ${on ? 'checked' : ''} ${noBc ? 'disabled' : ''}
+             ${noBc ? '' : `onclick="event.stopPropagation();toggleProduct(${p.id})"`}>
       <div class="product-item-info">
         <div class="product-item-name">${escHtml(p.name)}</div>
         <div class="product-item-price">${fmtNum(p.price)} so'm</div>
-        ${p.barcode ? `<div class="product-item-barcode">${escHtml(p.barcode)}</div>` : ''}
+        ${p.barcode
+          ? `<div class="product-item-barcode">${escHtml(p.barcode)}</div>`
+          : `<div class="nb-warn">⚠ barcode yo'q
+               <button class="nb-btn" onclick="event.stopPropagation();genOne(${p.id})">Kod berish</button>
+             </div>`}
       </div>
-    </div>
-  `).join('');
+      <input type="number" class="pi-qty" min="1" max="999"
+             value="${on ? selected[p.id].qty : (parseInt(document.getElementById('globalQty')?.value, 10) || 1)}"
+             ${noBc ? 'disabled' : ''}
+             onclick="event.stopPropagation()"
+             oninput="setQty(${p.id}, this)">
+    </div>`;
+  }).join('');
 }
 
 window.toggleProduct = function(id) {
   const p = allProducts.find(x => x.id === id);
-  if (!p) return;
+  if (!p || !p.barcode) return;
   if (selected[id]) {
     delete selected[id];
   } else {
-    const qty = parseInt(document.getElementById('globalQty').value) || 1;
+    const row = document.querySelector(`[data-id="${id}"] .pi-qty`);
+    const qty = clampQty(row ? row.value : null) || parseInt(document.getElementById('globalQty').value, 10) || 1;
     selected[id] = { product: p, qty };
   }
   const el = document.querySelector(`[data-id="${id}"]`);
@@ -231,6 +390,114 @@ window.toggleProduct = function(id) {
   renderPreview();
 };
 
+// Son 1..999 — bo'sh yoki noto'g'ri kiritishda 1 ga tushadi.
+function clampQty(v) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(999, Math.max(1, n));
+}
+
+// Qator ichidagi son maydoni. Mahsulot hali tanlanmagan bo'lsa — son kiritish
+// uni AVTOMATIK tanlaydi (kassir "12" yozib, keyin belgilashni unutmasin).
+window.setQty = function(id, input) {
+  const p = allProducts.find(x => x.id === id);
+  if (!p || !p.barcode) return;
+  const q = clampQty(input.value);
+  if (q === null) return;                 // hali yozmoqda (bo'sh maydon) — tegmaymiz
+  if (String(q) !== String(input.value)) input.value = q;
+  if (!selected[id]) {
+    selected[id] = { product: p, qty: q };
+    const el = document.querySelector(`[data-id="${id}"]`);
+    if (el) el.classList.add('selected');
+    const cb = el?.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = true;
+  } else {
+    selected[id].qty = q;
+  }
+  updateSelectedCount();
+  renderPreview();
+};
+
+// "Barchasiga" — standart sonni barcha TANLANGAN mahsulotlarga qo'llaydi.
+window.applyQtyToAll = function() {
+  const q = clampQty(document.getElementById('globalQty').value) || 1;
+  Object.values(selected).forEach(e => { e.qty = q; });
+  document.querySelectorAll('.product-item.selected .pi-qty').forEach(i => { i.value = q; });
+  renderPreview();
+};
+
+// ── Ichki shtrix-kod berish ──────────────────────────────────────────────────
+// Zavod kodi yo'q mahsulotга do'kon ichki EAN-13 beriladi (backend generatsiya
+// qiladi — AI-Ombor bilan AYNI generator). Kod berilgach mahsulot darrov
+// tanlanadigan bo'ladi va yorlig'i chop etilishi mumkin.
+function noBarcodeList() {
+  return allProducts.filter(p => !p.barcode);
+}
+
+function refreshGenAll() {
+  const n = noBarcodeList().length;
+  document.getElementById('genAllWrap').style.display = n ? 'block' : 'none';
+  document.getElementById('noBcCount').textContent = n;
+}
+
+async function postJson(path, body) {
+  const r = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let data = null;
+  try { data = await r.json(); } catch { /* bo'sh javob */ }
+  if (!r.ok) throw new Error((data && data.detail) || `Xato (${r.status})`);
+  return data;
+}
+
+window.genOne = async function(id) {
+  const p = allProducts.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`"${p.name}" uchun ichki shtrix-kod yaratilsinmi?\n\nKod mahsulotga biriktiriladi va yorliqqa chiqadi.`)) return;
+
+  const btn = document.querySelector(`[data-id="${id}"] .nb-btn`);
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    const updated = await postJson(`/products/${id}/generate-barcode`);
+    p.barcode = updated.barcode;              // ro'yxatni joyida yangilaymiz
+    filterProducts();                          // qidiruv filtri saqlanadi
+    refreshGenAll();
+    toast(`Kod berildi: ${updated.barcode}`, 'ok');
+  } catch (e) {
+    toast('Kod berishda xato: ' + (e?.message || e), 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Kod berish'; }
+  }
+};
+
+window.genAll = async function() {
+  const missing = noBarcodeList();
+  if (!missing.length) { toast("Barcode'siz mahsulot yo'q", 'warn'); return; }
+  if (!confirm(`${missing.length} ta mahsulotga ichki shtrix-kod yaratilsinmi?\n\nZavod kodi bor mahsulotlarga tegilmaydi.`)) return;
+
+  const btn = document.getElementById('genAllBtn');
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.textContent = 'Yaratilmoqda...';
+  try {
+    const res = await postJson('/products/generate-barcodes', { all_without_barcode: true });
+    // Qaytgan kodlarni lokal ro'yxatga yozamiz (qayta yuklash shart emas)
+    (res.generated || []).forEach(g => {
+      const p = allProducts.find(x => x.id === g.product_id);
+      if (p) p.barcode = g.barcode;
+    });
+    filterProducts();
+    refreshGenAll();
+    toast(res.message || `${res.generated_count} ta kod berildi`, 'ok');
+  } catch (e) {
+    toast('Kod berishda xato: ' + (e?.message || e), 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+};
+
 window.filterProducts = function() {
   const q = document.getElementById('searchInput').value.toLowerCase();
   renderList(q ? allProducts.filter(p =>
@@ -239,31 +506,42 @@ window.filterProducts = function() {
   ) : allProducts);
 };
 
+function syncSizeButtons() {
+  const order = ['sm', 'p40', 'md', 'lg'];
+  const idx = order.indexOf(currentSize);
+  document.querySelectorAll('.size-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+}
+
 window.setSize = function(sz, btn) {
   currentSize = sz;
   document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  // TSPL mm maydonlarini ham ergashtiramiz (printerga aynan shu ketadi)
+  if (SIZES[sz]) {
+    document.getElementById('tsplW').value = SIZES[sz].w;
+    document.getElementById('tsplH').value = SIZES[sz].h;
+  }
   renderPreview();
 };
 
 window.renderPreview = function() {
   const grid = document.getElementById('previewGrid');
   const entries = Object.values(selected);
-  const globalQty = parseInt(document.getElementById('globalQty').value) || 1;
-  // globalQty o'zgarganda tanlanganlarni ham yangilaymiz
-  entries.forEach(e => { e.qty = globalQty; });
 
   if (!entries.length) {
     grid.innerHTML = '<div class="empty-preview">Mahsulot tanlanmagan</div>';
-    document.getElementById('totalCount').textContent = 'Jami: 0 ta etiketka';
+    document.getElementById('totalCount').textContent = 'Jami: 0 mahsulot, 0 etiketka';
     return;
   }
 
   const totalLabels = entries.reduce((s, e) => s + e.qty, 0);
-  document.getElementById('totalCount').textContent = `Jami: ${totalLabels} ta etiketka`;
+  document.getElementById('totalCount').textContent =
+    `Jami: ${entries.length} mahsulot, ${totalLabels} etiketka`;
 
+  // Preview'da har mahsulotdan BITTA namuna + son belgisi (100 dona yorliqni
+  // ekranga chizish shart emas — brauzer qotib qoladi).
   grid.innerHTML = entries.map(({ product: p, qty }) =>
-    Array.from({ length: qty }, () => buildLabelHtml(p, currentSize)).join('')
+    buildLabelHtml(p, currentSize, qty)
   ).join('');
 
   // Barcode render
@@ -285,10 +563,12 @@ window.renderPreview = function() {
   });
 };
 
-function buildLabelHtml(p, sz) {
+function buildLabelHtml(p, sz, qty) {
   const barcodeVal = p.barcode || String(p.id).padStart(8, '0');
+  const badge = qty && qty > 1 ? `<div class="label-qty-badge">×${qty}</div>` : '';
   return `
     <div class="label-card sz-${sz}">
+      ${badge}
       <div class="label-name">${escHtml(p.name)}</div>
       <div class="label-barcode">
         <svg data-barcode="${escHtml(barcodeVal)}"></svg>
@@ -299,13 +579,19 @@ function buildLabelHtml(p, sz) {
   `;
 }
 
+// ── Chop etish — rejimga qarab ajraladi ──────────────────────────────────────
 window.printLabels = function() {
   const entries = Object.values(selected);
   if (!entries.length) {
-    alert('Hech qanday mahsulot tanlanmagan');
+    toast('Hech qanday mahsulot tanlanmagan', 'warn');
     return;
   }
+  if (mode === 'tspl') return printLabelsTspl(entries);
+  return printLabelsA4(entries);
+};
 
+// ── A4 (MAVJUD YO'L — window.print) ──────────────────────────────────────────
+function printLabelsA4(entries) {
   const printArea = document.getElementById('printArea');
   const fmt = document.getElementById('barcodeFormat').value;
 
@@ -334,7 +620,89 @@ window.printLabels = function() {
     window.print();
     printArea.style.display = 'none';
   }, 200);
-};
+}
+
+// ── TSPL (etiketka printeri) — ulanish turiga qarab USB yoki LAN ─────────────
+// Sozlamadagi connection_type transportni tanlaydi:
+//   'usb' → label_usb  (Windows RAW spooler, printer nomi bilan) — XP-365B
+//   'lan' → label_lan  (TCP 9100, IP bilan)                      — XP-350B
+// qty printerga PRINT 1,{qty} bo'lib ketadi — takrorlashni PRINTER bajaradi
+// (bayt oqimi kichik, chop etish tez).
+function labelConn() {
+  return (labelCfg && labelCfg.connection_type === 'lan') ? 'lan' : 'usb';
+}
+
+// Ko'rsatiladigan manzil: USB → printer nomi, LAN → ip:port. Sozlanmagan bo'lsa ''.
+function labelTarget() {
+  if (!labelCfg) return '';
+  return labelConn() === 'lan'
+    ? (labelCfg.printer_ip ? `${labelCfg.printer_ip}:${labelCfg.printer_port || 9100}` : '')
+    : (labelCfg.printer_name || '');
+}
+
+async function printLabelsTspl(entries) {
+  if (!labelCfg || !labelCfg.enabled) {
+    toast("Etiketka printeri yoqilmagan — Sozlamalar → Etiketka printeri bo'limida yoqing", 'err');
+    return;
+  }
+  const target = labelTarget();
+  if (!target) {
+    toast(labelConn() === 'usb'
+      ? 'Etiketka printeri nomi tanlanmagan (sozlamalarda tanlang)'
+      : 'Etiketka printeri IP manzili kiritilmagan', 'err');
+    return;
+  }
+  if (!(window.electronAPI && window.electronAPI.printDocument)) {
+    toast('Etiketka printeri faqat XENORA desktop (.exe) ilovasida ishlaydi', 'warn');
+    return;
+  }
+
+  const items = entries.map(({ product: p, qty }) => ({
+    name: p.name,
+    price: p.price,
+    barcode: p.barcode,
+    qty,
+  }));
+
+  const w = clampDim(document.getElementById('tsplW').value, labelCfg.label_width || 40);
+  const h = clampDim(document.getElementById('tsplH').value, labelCfg.label_height || 30);
+
+  const base = {
+    labelWidth: w, labelHeight: h,
+    gap: labelCfg.gap, density: labelCfg.density, speed: labelCfg.speed,
+    currency: "so'm",
+    items,
+  };
+  const payload = labelConn() === 'lan'
+    ? { ...base, printType: 'label_lan',
+        printerIp: labelCfg.printer_ip, printerPort: labelCfg.printer_port || 9100 }
+    : { ...base, printType: 'label_usb', printerName: labelCfg.printer_name };
+
+  const btn = document.getElementById('printBtn');
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = 'Yuborilmoqda...';
+  try {
+    const res = await window.electronAPI.printDocument(payload);
+    if (res && res.ok) {
+      const total = entries.reduce((s, e) => s + e.qty, 0);
+      toast(`${total} ta etiketka yuborildi (${target})`, 'ok');
+    } else {
+      toast('Etiketka xato: ' + ((res && res.error) || "noma'lum"), 'err');
+    }
+  } catch (e) {
+    toast('Etiketka xato: ' + (e?.message || e), 'err');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+function clampDim(v, dflt) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n) || n < 10 || n > 120) return dflt;
+  return n;
+}
 
 window.clearAll = function() {
   selected = {};
@@ -349,7 +717,9 @@ window.clearAll = function() {
 
 function updateSelectedCount() {
   const n = Object.keys(selected).length;
-  document.getElementById('selectedCount').textContent = `${n} ta tanlangan`;
+  const total = Object.values(selected).reduce((s, e) => s + e.qty, 0);
+  document.getElementById('selectedCount').textContent =
+    n ? `${n} ta tanlangan · ${total} etiketka` : '0 ta tanlangan';
 }
 
 function fmtNum(n) {
@@ -360,6 +730,7 @@ function escHtml(s) {
 }
 
 loadProducts();
+loadLabelConfig();
 </script>
 </body>
 </html>

@@ -98,6 +98,126 @@ async def update_printer_settings(
     set_tenant_config(db, tid, "printer", config)
     return MessageResponse(message="Printer sozlamalari saqlandi")
 
+# ── ETIKETKA PRINTERI (TSPL: Xprinter XP-350B / XP-365B) ─────────────────────
+# Chek printeri sozlamalaridan (yuqoridagi /printer va ReceiptSettings jadvali)
+# MUTLAQO ALOHIDA: bu boshqa qurilma, boshqa til (TSPL), o'z ulanishi.
+# Saqlanish joyi: TenantSettings(config_name="label_printer") — MIGRATSIYA YO'Q.
+#
+# ULANISH TURI:
+#   "usb" — Windows drayveri o'rnatilgan printer (XP-365B da LAN porti YO'Q).
+#           TSPL baytlari printer NAVBATIGA RAW yuboriladi → printer_name kerak.
+#   "lan" — tarmoq printeri (XP-350B), TCP 9100 → printer_ip kerak.
+# Standart "usb" — jonli mijozda (Faza Parfum) aynan shunday.
+#
+# DIQQAT: bu marshrutlar fayl oxiridagi umumiy `/{config_name}` dan OLDIN
+# turishi SHART (FastAPI ro'yxatga olish tartibida moslaydi), aks holda
+# "label-printer" catch-all'ga tushib, yozuv yo'q tenantda 404 qaytarardi.
+LABEL_PRINTER_DEFAULTS = {
+    "enabled": False,
+    "connection_type": "usb",   # "usb" | "lan"
+    "printer_name": "",         # USB: Windows'dagi printer nomi
+    "printer_ip": "",           # LAN: IP manzil
+    "printer_port": 9100,       # LAN: RAW/JetDirect
+    "label_width": 40,          # mm
+    "label_height": 30,         # mm
+    "gap": 2,                   # mm — etiketkalar orasidagi bo'shliq
+    "density": 8,               # 0..15 qoralik
+    "speed": 4,                 # dyuym/sekund
+}
+
+LABEL_CONNECTION_TYPES = ("usb", "lan")
+
+# Har maydon uchun (tur, min, maks). Chegaralar TSPL/XP-350B doirasida —
+# noto'g'ri qiymat printerni "osib" qo'yishi yoki bo'sh etiketka chiqarishi mumkin.
+_LABEL_NUM_RANGES = {
+    "printer_port": (int, 1, 65535),
+    "label_width": (int, 10, 120),
+    "label_height": (int, 10, 120),
+    "gap": (int, 0, 20),
+    "density": (int, 0, 15),
+    "speed": (int, 1, 15),
+}
+
+
+def _label_printer_normalize(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Saqlangan (yoki kelgan) dict'ni to'liq va tur-jihatdan to'g'ri holatga keltiradi.
+
+    Yetishmagan kalit → default. Shu sabab ESKI tenant (yozuv yo'q) ham 404/500
+    emas, to'liq default oladi — orqaga moslik.
+    """
+    src = raw if isinstance(raw, dict) else {}
+    out = dict(LABEL_PRINTER_DEFAULTS)
+
+    out["enabled"] = bool(src.get("enabled", LABEL_PRINTER_DEFAULTS["enabled"]))
+
+    conn = str(src.get("connection_type", LABEL_PRINTER_DEFAULTS["connection_type"]) or "").strip().lower()
+    if conn not in LABEL_CONNECTION_TYPES:
+        raise HTTPException(status_code=400,
+                            detail=f"'connection_type' faqat {' yoki '.join(LABEL_CONNECTION_TYPES)} bo'lishi mumkin")
+    out["connection_type"] = conn
+
+    for key in ("printer_name", "printer_ip"):
+        val = src.get(key, LABEL_PRINTER_DEFAULTS[key])
+        out[key] = str(val).strip() if val is not None else ""
+
+    for key, (_cast, lo, hi) in _LABEL_NUM_RANGES.items():
+        val = src.get(key, LABEL_PRINTER_DEFAULTS[key])
+        try:
+            num = int(float(val))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"'{key}' butun son bo'lishi kerak")
+        if num < lo or num > hi:
+            raise HTTPException(status_code=400, detail=f"'{key}' {lo}..{hi} oralig'ida bo'lishi kerak")
+        out[key] = num
+
+    return out
+
+
+@router.get("/label-printer")
+async def get_label_printer_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_settings"))
+):
+    """Etiketka printeri sozlamalari (yozuv bo'lmasa — to'liq default)."""
+    tid = resolve_tenant_id(db, current_user)
+    stored = get_tenant_config(db, tid, "label_printer") if tid else {}
+    return _label_printer_normalize(stored)
+
+
+@router.patch("/label-printer")
+async def update_label_printer_settings(
+    settings: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_settings"))
+):
+    """Etiketka printeri sozlamalarini saqlash (qisman yuborish mumkin).
+
+    Chek printeri sozlamalariga TEGMAYDI — alohida config_name.
+    """
+    tid = resolve_tenant_id(db, current_user)
+    if not tid:
+        raise HTTPException(status_code=400, detail="Sozlama saqlash uchun tenant (kafe) aniqlanmadi")
+
+    current = _label_printer_normalize(get_tenant_config(db, tid, "label_printer"))
+    # Faqat tanilgan kalitlar qabul qilinadi — begona maydonlar JSON'ni shishirmasin.
+    incoming = {k: v for k, v in (settings or {}).items() if k in LABEL_PRINTER_DEFAULTS}
+    current.update(incoming)
+    saved = _label_printer_normalize(current)   # yangi qiymatlarni ham validatsiya qiladi
+
+    # Yoqilgan bo'lsa ulanish ma'lumoti majburiy — aks holda kassir "yoqdim,
+    # ishlamayapti" holatiga tushadi. Talab ulanish TURIGA bog'liq.
+    if saved["enabled"]:
+        if saved["connection_type"] == "usb" and not saved["printer_name"]:
+            raise HTTPException(status_code=400,
+                                detail="USB etiketka printeri yoqilgan — printer nomi tanlanishi shart")
+        if saved["connection_type"] == "lan" and not saved["printer_ip"]:
+            raise HTTPException(status_code=400,
+                                detail="LAN etiketka printeri yoqilgan — IP manzil kiritilishi shart")
+
+    set_tenant_config(db, tid, "label_printer", saved)
+    return saved
+
+
 @router.get("/fiscal")
 async def get_fiscal_settings(
     db: Session = Depends(get_db),

@@ -52,6 +52,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isElectron: true
 });
 
+// ── KLAVIATURA FOKUSI TO'RI (v1.8.4) ─────────────────────────────────────────
+// Jonli xato: etiketka bosilgandan keyin ilovada hech qayerga yozib bo'lmasdi —
+// kursor chiqmasdi, sichqoncha/tugmalar esa ishlardi. Alt+Tab tiklardi.
+//
+// Buzuq holatning YAGONA ishonchli belgisi (o'lchov bilan tasdiqlangan):
+// `document.hasFocus() === false`, holbuki main'da isFocused() ikkalasi ham
+// `true` qaytaradi. Shuning uchun tekshiruv AYNAN shu yerda — renderer'da.
+//
+// NEGA SHU YERDA: bu to'r SABABGA BOG'LIQ EMAS. Fokusni nima o'ldirgan bo'lsa
+// ham (chop etish, drayver, tashqi jarayon, hali topilmagan sabab), kassirning
+// KEYINGI BOSISHI uni tiklaydi — ya'ni u muammoni sezmaydi ham. Preload har bir
+// sahifada ishlaydi, shuning uchun 87 ta frontend faylga tegish shart emas.
+//
+// pointerdown (capture) tanlandi: sichqoncha ham, sensor ham, qalam ham shu
+// hodisani beradi; capture bosqichi — sahifa JS'i to'xtatsa ham biz ko'ramiz.
+// Hodisa TO'XTATILMAYDI/O'ZGARTIRILMAYDI — faqat kuzatiladi, shuning uchun
+// mavjud bosish mantiqiga (POS savatchasi, modal, skaner) ta'sir qilmaydi.
+window.addEventListener('pointerdown', () => {
+    try {
+        if (!document.hasFocus()) ipcRenderer.send('xenora:repair-focus');
+    } catch { /* ignore */ }
+}, true);
+
 // ── Sensor optimizatsiya + ekrandagi to'liq-ekran tugmasi ──
 // Har bir sahifada (login, POS, admin, oshxona...) ishlaydi — preload universal.
 window.addEventListener('DOMContentLoaded', () => {

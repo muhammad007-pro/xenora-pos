@@ -348,26 +348,46 @@ const labelLanTransport = {
     },
 };
 
-// Tashqi jarayon (PowerShell) ishlagach klaviatura fokusini ILOVAGA qaytaradi.
+// ── KLAVIATURA FOKUSINI TIKLASH ──────────────────────────────────────────────
 //
-// ⚠️ MUHIM: oyna fokusi (Windows) va webContents fokusi (Chromium) — IKKI
-// ALOHIDA narsa. Tashqi jarayon foreground'ni olib qo'ysa, Chromium ichki
-// "fokusdagi webContents" holati eskirib qoladi: oyna o'zi fokusda ko'rinadi,
-// lekin klaviatura hech qayerga bormaydi. Shu sabab HAR IKKALASI chaqiriladi.
-// Windows fokusni darrov qaytarmasligi mumkin — bir marta takrorlanadi (~200ms).
-// Xatoda jim o'tadi — chop etish natijasiga ta'sir qilmasin.
+// ⚠️ O'LCHOV BILAN ANIQLANGAN (v1.8.4, jonli xato + laboratoriya sinovi).
+//
+// Buzuq holat: oyna foreground'da, sichqoncha va JS ishlaydi, LEKIN webview
+// klaviatura fokusini yo'qotgan. Belgisi: `document.hasFocus() === false` —
+// inputga bosilsa kursor chiqmaydi, yozib bo'lmaydi. Sahifa almashtirish
+// yordam bermaydi (holat oyna darajasida), Alt+Tab esa TIKLAYDI.
+//
+// NEGA v1.8.3 ISHLAMADI (sinovda o'lchandi): shu holatda
+//   mainWindow.isFocused()            → true
+//   mainWindow.webContents.isFocused() → true
+// ya'ni oyna ham, webContents ham O'ZINI fokusda deb hisoblaydi. Shuning uchun
+// `focus()` chaqiruvi NO-OP: Windows'ga SetForegroundWindow yuboriladi, u esa
+// oyna allaqachon foreground bo'lgani uchun hech nima qilmaydi → WM_SETFOCUS
+// kelmaydi → webview baribir o'lik qoladi. Sinov natijasi (document.hasFocus):
+//   buzuq                          → false
+//   win.focus() + wc.focus()       → false   ← v1.8.3, ISHLAMADI
+//   app.focus({steal:true})        → false   ← ISHLAMADI
+//   win.focusOnWebView()           → TRUE    ← ISHLADI
+//   win.blur() → win.focus()       → TRUE    ← ishladi, lekin fullscreen'da
+//                                              ko'rinadigan miltillash beradi
+// Shu sabab focusOnWebView() tanlandi — u aynan shu holat uchun mo'ljallangan
+// ("oyna fokusda, webview esa yo'q") va vizual nojo'ya ta'siri yo'q.
 function restoreAppFocus() {
     const grab = () => {
         try {
             if (!mainWindow || mainWindow.isDestroyed()) return;
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
-            mainWindow.webContents.focus();
+            mainWindow.focusOnWebView();   // ← HAQIQIY tiklovchi (yuqoriga qara)
         } catch { /* ignore */ }
     };
     grab();
     setTimeout(grab, 200);
 }
+
+// Renderer'dan chaqiriladigan tiklash (preload.js: fokus o'lganini SEZGANDA).
+// SABABGA BOG'LIQ EMAS — nima uni buzgan bo'lsa ham, bitta bosish tiklaydi.
+ipcMain.on('xenora:repair-focus', () => restoreAppFocus());
 
 // ── ETIKETKA USB transport (label_usb) ───────────────────────────────────────
 // Xprinter XP-365B kabi FAQAT-USB etiketka printerlari: LAN porti yo'q, lekin
@@ -416,14 +436,18 @@ const labelUsbTransport = {
             return { ok: false, engine: 'label-raw', error: 'Etiketka formatlashda xato: ' + err.message };
         }
 
-        // ⚠️ FOKUSNI QAYTARISH (jonli xato, v1.8.2): etiketka bosilgandan keyin
-        // ilovada HECH QAYERGA yozib bo'lmasdi — mahsulot qo'shish, ombor, hamma
-        // matn maydonlari javob bermasdi, ilovani qayta ochish kerak bo'lardi.
-        // Sabab: PowerShell jarayoni (windowsHide bo'lsa ham) Windows'da qisqa
-        // vaqt oldingi plan fokusini oladi va tugagach fokus Electron oynasiga
-        // O'ZI qaytmaydi — klaviatura kiritishi yo'qoladi.
-        // Chek yo'llariga (usbTransport/SumatraPDF, lanTransport) TEGILMAYDI:
-        // bu faqat shu transportning oxirida.
+        // Chop etishdan keyin klaviatura fokusini tiklaymiz (v1.8.4).
+        //
+        // ⚠️ SINOVDA ANIQLANDI: PowerShell'ning O'ZI aybdor EMAS. Laboratoriya
+        // o'lchovida (haqiqiy XP-365B navbatiga haqiqiy TSPL baytlar, fullscreen
+        // oyna) fokus umuman yo'qolmadi — `windowsHide: true` tufayli konsol
+        // oynasi yaratilmaydi va foreground o'zgarmaydi. Ya'ni v1.8.3 dagi
+        // "PowerShell fokusni tortadi" tashxisi NOTO'G'RI edi.
+        // Do'kondagi buzilish nimadan kelib chiqishi aniqlanmagan (o'sha
+        // muhitda: sensor monoblok, jonli printer). Shu sabab bu yerdagi
+        // chaqiruv — arzon EHTIYOT chorasi, asosiy himoya esa preload.js dagi
+        // sababga-bog'liq-bo'lmagan to'r (fokus o'lganini SEZIB tiklaydi).
+        // Chek yo'llariga (usbTransport/SumatraPDF, lanTransport) TEGILMAYDI.
         const res = await sendRawToPrinter(name, bytes, 20000);
         restoreAppFocus();
         return res;
@@ -599,21 +623,12 @@ function createWindow() {
     // Server health — keyin frontend
     waitForServerThenLoad();
 
-    // ⚠️ KLAVIATURA O'LIB QOLISHIGA QARSHI TO'R (jonli xato, v1.8.2).
-    // Belgisi: etiketka bosilgandan keyin ilovada HECH QAYERGA yozib bo'lmasdi
-    // (mahsulot qo'shish, ombor — hamma matn maydonlari), sichqoncha ishlardi,
-    // faqat ilovani qayta ochish yordam berardi.
-    // Sabab: tashqi jarayon (chop etish uchun PowerShell) yoki OS chop etish
-    // oynasi foreground'ni oladi; qaytganda Windows oynani fokusga qo'yadi,
-    // lekin Chromium'ning ichki webContents fokusi eskirib qoladi → oyna
-    // fokusda, klaviatura esa o'lik. Sahifa almashtirish ham yordam bermaydi
-    // (holat oyna darajasida), shuning uchun "qayta ochish" kerak bo'lardi.
-    // Yechim: oyna fokus olgan HAR SAFAR webContents'ni ham majburan fokuslaymiz.
-    // Bu umumiy to'r — printerdan qat'i nazar (etiketka USB/LAN, A4 window.print,
-    // Windows dialoglari) ishlaydi va hech qaysi chop etish yo'liga tegmaydi.
+    // Oyna fokus olganda webview ham fokus olsin (Alt+Tab bilan qaytish yo'li).
+    // Do'konda kassir Alt+Tab qilib qaytganda yozish tiklanardi — bu shuni
+    // avtomatlashtiradi. restoreAppFocus() izohiga qara: nega focusOnWebView().
     mainWindow.on('focus', () => {
         try {
-            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.focus();
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focusOnWebView();
         } catch { /* ignore */ }
     });
 

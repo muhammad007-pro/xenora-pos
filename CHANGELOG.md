@@ -3,6 +3,53 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.8.4] — 2026-08-13
+
+Klaviatura fokusi xatosining HAQIQIY tuzatishi (v1.8.3 ishlamagan edi).
+Migratsiya YO'Q. Faqat Electron (`main.js`, `preload.js`).
+
+### v1.8.3 nega ishlamadi — o'lchov bilan
+Buzuq holatni laboratoriyada qayta yaratib (`blurWebView()`), har bir tiklash
+usuli `document.hasFocus()` bilan o'lchandi:
+
+| Usul | Natija |
+|---|---|
+| buzuq holat | `false` |
+| `win.focus()` + `wc.focus()` — **v1.8.3** | `false` ← **ishlamadi** |
+| `app.focus({steal:true})` | `false` |
+| `win.blur()` → `win.focus()` | `true` (lekin fullscreen'da miltillaydi) |
+| **`win.focusOnWebView()`** | **`true`** ← tanlandi |
+
+Sabab: buzuq holatda `win.isFocused()` ham, `wc.isFocused()` ham `true`
+qaytaradi — oyna O'ZINI fokusda deb biladi. Shuning uchun `focus()` NO-OP:
+Windows oyna allaqachon foreground bo'lgani uchun `WM_SETFOCUS` yubormaydi.
+Buzuq bo'lgan narsa — webview'ning klaviatura fokusi, va uni tiklaydigan
+yagona chaqiruv `focusOnWebView()`.
+
+### Tuzatish
+- **`preload.js` — asosiy himoya, SABABGA BOG'LIQ EMAS:** `pointerdown`
+  (capture) da `document.hasFocus()` tekshiriladi; `false` bo'lsa main'ga
+  `xenora:repair-focus` yuboriladi. Fokusni nima o'ldirgan bo'lsa ham,
+  kassirning **keyingi bosishi** tiklaydi — u muammoni sezmaydi ham.
+  Hodisa to'xtatilmaydi/o'zgartirilmaydi, mavjud bosish mantiqiga ta'sir yo'q.
+  Preload har sahifada ishlaydi → 87 frontend fayliga tegilmadi.
+- **`main.js`:** `restoreAppFocus()` endi `focusOnWebView()` ishlatadi;
+  `mainWindow.on('focus')` ham (kassir Alt+Tab bilan qaytgan holat).
+- **Tasdiqlangan:** buzuq → v1.8.3 usuli hamon o'lik → bosish TIKLADI →
+  yozish ishladi; takroran 2/2.
+
+### ⚠️ v1.8.3 dagi tashxis NOTO'G'RI edi (yozib qo'yildi)
+"PowerShell foreground'ni tortadi" degan taxmin **o'lchov bilan rad etildi**:
+haqiqiy `raw-print.js` orqali haqiqiy XP-365B navbatiga TSPL baytlar yuborilib
+(fullscreen oyna), fokus **umuman yo'qolmadi** (`ok:true`, 260 bayt).
+`windowsHide: true` tufayli konsol oynasi yaratilmaydi, foreground o'zgarmaydi.
+Shuningdek rad etilgan: yashirin oyna sizishi (chek oynasi `close()` bilan
+3/3 `isDestroyed:true`), `getPrintersAsync()`, pos.js keyboard-wedge va
+`labels.html` dagi `disabled`/`blur` (sahifa almashuvi yangi hujjat yaratadi —
+renderer holati omon qolmaydi).
+**Do'kondagi fokusni nima o'ldirgani hamon noma'lum** — shu sabab tuzatish
+sababni emas, HOLATNI tuzatadi.
+
 ## [1.8.3] — 2026-08-13
 
 Shoshilinch tuzatish: etiketka bosgandan keyin klaviatura o'lib qolardi.

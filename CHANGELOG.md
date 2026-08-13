@@ -3,6 +3,47 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.8.0] — 2026-08-13
+
+ETIKETKA PRINTERI relizi. **Migratsiya YO'Q** (sozlama TenantSettings JSON'da).
+Chek printeri yo'llari (usb/lan/qr) **TEGILMADI** — sha256 bilan tasdiqlangan.
+
+### Etiketka printeri (TSPL) — yangi
+- **`electron/tspl-builder.js`** — TSPL yadro (40×30mm, 203 dpi = 320×240 nuqta).
+  Kirill→lotin translitiratsiya, qo'shtirnoq ekranlash, EAN-13/CODE128 avto-tanlov.
+- **USB** (`label_usb`) — `electron/raw-print.js`: Windows RAW spooler
+  (PowerShell → `winspool.drv` P/Invoke, datatype `RAW`). **Native addon YO'Q**.
+  ⚠️ `Add-Type -TypeDefinition` (C#) rad etildi — `csc.exe` sovuq startda 30s+
+  ketardi va timeout berardi; `Reflection.Emit` bilan 1.5–5s.
+- **LAN** (`label_lan`) — TCP 9100, `lan-socket.js` qayta ishlatildi.
+- Ulanish turi sozlamada: `connection_type` = `usb` | `lan`.
+- **`labels.html`**: TSPL va A4 **ikki rejim** (A4 = mavjud `window.print()` yo'li,
+  o'zgarmadi), har mahsulotga alohida **son 1–999**, 40×30mm o'lcham qo'shildi,
+  sahifa menyuda ochildi.
+
+### Jonli qurilmada sozlangan (Xprinter XP-365B)
+- Nom **kesilmaydi**: avto-shrift + 2 qator (`FIT_SAFETY`) — firmware shrifti
+  nominal jadvaldan keng ekani aniqlandi.
+- Mazmun **vertikal markazda** (`V_SAFETY`) — balandlik ham nominal jadvaldan katta.
+- Barcode 62 → 88 nuqta (~11mm), ostidagi raqam shrift 1 → 2.
+  ⚠️ Barcode KENGLIGI oshirilmadi: EAN-13 = 95 modul × narrow, `narrow=3` → 303
+  nuqta, bosiladigan chekka esa <286 — kafolatli kesilardi.
+
+### Ichki EAN-13 generatsiya (parfumeriya uchun)
+- `_gen_internal_barcode` AI-Ombor'dan **`core/barcode.py`** ga ko'chirildi
+  (AI-Ombor xulqi bayt-ma-bayt o'zgarmadi).
+- Yangi: `POST /products/{id}/generate-barcode?force=` va
+  `POST /products/generate-barcodes` (to'plam, bitta tranzaksiya).
+- `labels.html`: "Kod berish" / "Barchasiga kod berish"; barcode'siz mahsulot
+  chop etishga qo'shilmaydi (ilgari soxta kod bosilardi).
+- O'lik `utils/helpers.py:generate_barcode()` **o'chirildi** (0 chaqiruvchi,
+  unikallikni tekshirmasdi).
+
+### Build
+- `tspl-builder.js` va `raw-print.js` electron-builder `files` ro'yxatiga
+  qo'shildi. ⚠️ Bu ANIQ ro'yxat — yangi lokal `require` qo'shsangiz shu yerga
+  ham yozing, aks holda `.exe` startup'da "Cannot find module" bilan yiqiladi.
+
 ## [1.7.0] — 2026-08-12
 
 Server ko'chirish relizi + v1.4–v1.6 branchlarini birlashtirish. **Migratsiya YO'Q** (head `b9c8d7e6f5a4`).

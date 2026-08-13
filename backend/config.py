@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "RestoPOS"
     # Backend versiya — yagona manba. /health va / (root) shu qiymatni qaytaradi
     # (hardcoded literal emas). Frontend SW cache versiyasi bilan mos yuritiladi.
-    VERSION: str = "1.8.1"
+    VERSION: str = "1.8.2"
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = False
     ENVIRONMENT: str = "development"  # development | staging | production

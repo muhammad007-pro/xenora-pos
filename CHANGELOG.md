@@ -3,6 +3,31 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.8.2] — 2026-08-13
+
+Shoshilinch tuzatish: etiketka sahifasi ochilmasdi. Migratsiya YO'Q.
+
+### Etiketka sahifasi ishga tushmasdi (mijozda)
+- **Muammo:** `labels.html` da "Yuklanmoqda..." qotib qolardi, tugmalar bosilmasdi.
+- **Sabab:** `import { getToken } from '../js/core/auth.js'` — auth.js bunday nom
+  **eksport qilmaydi**. ES modulda mavjud bo'lmagan nomni import qilish LINK
+  xatosi: **modul umuman bajarilmaydi** → `window.*` handlerlar tayinlanmaydi
+  (tugmalar o'lik), `loadProducts()` chaqirilmaydi (placeholder qotadi).
+  Xato 2026-07-24 (`d732a43`) dan beri bor edi, sahifa yashirin turgani uchun
+  sezilmagan; v1.8.0 da menyuda ochilgach yuzaga chiqdi.
+- **Tuzatish:** loyihadagi izchil usul — `localStorage.getItem('access_token')`.
+- `returns.html` da ayni shu xato bor edi — u ham tuzatildi.
+- Xato ishlovi: `loadLabelConfig` va `loadProducts` endi 401/403/server xatosini
+  **ko'rinadigan** qilib aytadi (ilgari jim qaytardi).
+
+### ⚠️ Ma'lum, hali tuzatilmagan (keyingi reliz)
+- `bonus_cards.html`, `markirovka.html`, `markup_policy.html`, `promotions.html`
+  — `../js/core/toast.js` faylini import qiladi, **u fayl yo'q** → ayni shu
+  sabab bilan bu 4 sahifa ham ochilmaydi. (`error-handler.js` da `showToast` bor.)
+- `js/modules/admin.js` — 7 ta import mavjud bo'lmagan papkalarga (o'lik kod).
+- `labels.html` JsBarcode'ni CDN'dan yuklaydi — do'konda internet bo'lmasa
+  A4 rejimida barcode chizilmaydi (TSPL rejimiga ta'siri yo'q).
+
 ## [1.8.1] — 2026-08-13
 
 Chek footer kesilishi tuzatildi. Migratsiya YO'Q.

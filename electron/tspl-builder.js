@@ -131,6 +131,23 @@ function maxCharsFor(maxDots, font, xMul) {
     return Math.max(1, Math.floor(maxDots / fitWidth(font, xMul)));
 }
 
+// ── Balandlik ham nominal jadvaldan KATTA ────────────────────────────────────
+// JONLI SINOV 3: hisobda tepa/past 14/14 chiqardi, amalda esa mazmun yuqoriga
+// siljib, barcode ostidagi raqam etiketka chekkasiga TEGDI. Formula to'g'ri edi
+// (oxirgi element balandligi, barcode balandligi va uchala bo'shliq hisobga
+// olingan) — muammo kenglikdagi bilan AYNI: nominal shrift o'lchami haqiqiydan
+// kichik. 1.2 koeffitsient bilan blok 212 emas, ~229 bo'ladi va past chekka
+// 243 ga chiqadi (limit 240) — kuzatilgan holat aynan shu.
+//
+// Bu yerda koeffitsient BLOK HISOBIGA ham, y SILJISHIGA ham qo'llanadi:
+// aks holda nom qatorlari bir-biriga kirib ketadi.
+// Barcode balandligiga TEGMAYDI — uni printer aniq chizadi.
+const V_SAFETY = 1.2;
+
+function vHeight(font, yMul) {
+    return Math.ceil(charHeight(font, yMul) * V_SAFETY);
+}
+
 // Matnni berilgan NUQTA kengligiga sig'dirish (belgi soniga aylantirib qirqadi).
 function fitText(text, maxDots, font, xMul) {
     const s = sanitize(text);
@@ -300,12 +317,17 @@ function buildLabelBytes(items, opts) {
     // shriftga bog'liq (nom 1 yoki 2 qator, narx avto-shrift), shuning uchun
     // qattiq y qiymatlari emas, YIG'INDI hisoblanadi.
     const CODE_FONT = '2', CODE_MUL = 1;  // shrift 1 → 2: raqam o'qish uchun juda kichik edi
-    const GAP_NAME_PRICE = 8;
-    const GAP_PRICE_BARCODE = 10;
+    // Bo'shliqlar qisqartirildi (8/10/4 → 6/8/4): V_SAFETY bilan blok kattaroq
+    // hisoblanadi, ko'rinadigan chetki joy qolishi uchun o'rin kerak.
+    const GAP_NAME_PRICE = 6;
+    const GAP_PRICE_BARCODE = 8;
     const GAP_BARCODE_CODE = 4;
-    const MIN_V_MARGIN = 6;               // tepa/pastdagi eng kam bo'sh joy
-    const BARCODE_H_TARGET = 104;         // ~13mm — kenglikni oshira olmaymiz, balandlik bilan qoplaymiz
-    const BARCODE_H_MIN = 60;
+    const MIN_V_MARGIN = 12;              // tepa/pastdagi eng kam bo'sh joy (~1.5mm)
+    // 104 → 88 (~11mm): 104 bilan V_SAFETY hisobida blok etiketkadan chiqib
+    // ketardi. Kenglikni oshira olmaganimiz uchun balandlik muhim, lekin
+    // chetga tegib turgan yorliqdan ko'ra biroz pastroq barcode afzal.
+    const BARCODE_H_TARGET = 88;
+    const BARCODE_H_MIN = 56;
 
     const parts = [];
 
@@ -328,7 +350,7 @@ function buildLabelBytes(items, opts) {
 
         // Nom — shrift/qator soni AVTOMATIK, kesilmasin (fitName)
         const nf = fitName(it.name || '', usable, 2);
-        const nameLineH = charHeight(nf.font, nf.mul);
+        const nameLineH = vHeight(nf.font, nf.mul);
         const nameStep  = nameLineH + 2;
         const nameH = nf.lines.length * nameLineH + (nf.lines.length - 1) * 2;
 
@@ -343,7 +365,7 @@ function buildLabelBytes(items, opts) {
         if (priceTxt) {
             pf = pickPriceFont(priceTxt, usable);
             priceTxt = fitText(priceTxt, usable, pf.font, pf.mul);
-            priceH = charHeight(pf.font, pf.mul);
+            priceH = vHeight(pf.font, pf.mul);
         }
 
         // Barcode — printer o'zi chizadi (rasm yubormaymiz).
@@ -360,7 +382,7 @@ function buildLabelBytes(items, opts) {
             if (barcodeWidthDots(code, type, narrow) > usable) narrow = 1;
             bw = barcodeWidthDots(code, type, narrow);
             codeTxt = fitText(code, usable, CODE_FONT, CODE_MUL);
-            codeH = charHeight(CODE_FONT, CODE_MUL);
+            codeH = vHeight(CODE_FONT, CODE_MUL);
             barcodeH = BARCODE_H_TARGET;
         }
 
@@ -425,6 +447,6 @@ module.exports = {
     dotsPerMm, mmToDots, fontMetrics, charWidth, charHeight,
     sanitize, escapeTspl, money, fitText, splitName, centerX,
     barcodeType, barcodeWidthDots,
-    FIT_SAFETY, fitWidth, maxCharsFor, fitName, pickPriceFont,
+    FIT_SAFETY, V_SAFETY, fitWidth, vHeight, maxCharsFor, fitName, pickPriceFont,
     buildLabelBytes, buildTestLabelBytes, TEST_ITEMS,
 };

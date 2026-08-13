@@ -348,6 +348,27 @@ const labelLanTransport = {
     },
 };
 
+// Tashqi jarayon (PowerShell) ishlagach klaviatura fokusini ILOVAGA qaytaradi.
+//
+// ⚠️ MUHIM: oyna fokusi (Windows) va webContents fokusi (Chromium) — IKKI
+// ALOHIDA narsa. Tashqi jarayon foreground'ni olib qo'ysa, Chromium ichki
+// "fokusdagi webContents" holati eskirib qoladi: oyna o'zi fokusda ko'rinadi,
+// lekin klaviatura hech qayerga bormaydi. Shu sabab HAR IKKALASI chaqiriladi.
+// Windows fokusni darrov qaytarmasligi mumkin — bir marta takrorlanadi (~200ms).
+// Xatoda jim o'tadi — chop etish natijasiga ta'sir qilmasin.
+function restoreAppFocus() {
+    const grab = () => {
+        try {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+            mainWindow.webContents.focus();
+        } catch { /* ignore */ }
+    };
+    grab();
+    setTimeout(grab, 200);
+}
+
 // ── ETIKETKA USB transport (label_usb) ───────────────────────────────────────
 // Xprinter XP-365B kabi FAQAT-USB etiketka printerlari: LAN porti yo'q, lekin
 // Windows drayveri (Seagull/BarTender) o'rnatilgan → printer NAVBATI bor.
@@ -395,7 +416,17 @@ const labelUsbTransport = {
             return { ok: false, engine: 'label-raw', error: 'Etiketka formatlashda xato: ' + err.message };
         }
 
-        return sendRawToPrinter(name, bytes, 20000);
+        // ⚠️ FOKUSNI QAYTARISH (jonli xato, v1.8.2): etiketka bosilgandan keyin
+        // ilovada HECH QAYERGA yozib bo'lmasdi — mahsulot qo'shish, ombor, hamma
+        // matn maydonlari javob bermasdi, ilovani qayta ochish kerak bo'lardi.
+        // Sabab: PowerShell jarayoni (windowsHide bo'lsa ham) Windows'da qisqa
+        // vaqt oldingi plan fokusini oladi va tugagach fokus Electron oynasiga
+        // O'ZI qaytmaydi — klaviatura kiritishi yo'qoladi.
+        // Chek yo'llariga (usbTransport/SumatraPDF, lanTransport) TEGILMAYDI:
+        // bu faqat shu transportning oxirida.
+        const res = await sendRawToPrinter(name, bytes, 20000);
+        restoreAppFocus();
+        return res;
     },
 };
 
@@ -567,6 +598,24 @@ function createWindow() {
 
     // Server health — keyin frontend
     waitForServerThenLoad();
+
+    // ⚠️ KLAVIATURA O'LIB QOLISHIGA QARSHI TO'R (jonli xato, v1.8.2).
+    // Belgisi: etiketka bosilgandan keyin ilovada HECH QAYERGA yozib bo'lmasdi
+    // (mahsulot qo'shish, ombor — hamma matn maydonlari), sichqoncha ishlardi,
+    // faqat ilovani qayta ochish yordam berardi.
+    // Sabab: tashqi jarayon (chop etish uchun PowerShell) yoki OS chop etish
+    // oynasi foreground'ni oladi; qaytganda Windows oynani fokusga qo'yadi,
+    // lekin Chromium'ning ichki webContents fokusi eskirib qoladi → oyna
+    // fokusda, klaviatura esa o'lik. Sahifa almashtirish ham yordam bermaydi
+    // (holat oyna darajasida), shuning uchun "qayta ochish" kerak bo'lardi.
+    // Yechim: oyna fokus olgan HAR SAFAR webContents'ni ham majburan fokuslaymiz.
+    // Bu umumiy to'r — printerdan qat'i nazar (etiketka USB/LAN, A4 window.print,
+    // Windows dialoglari) ishlaydi va hech qaysi chop etish yo'liga tegmaydi.
+    mainWindow.on('focus', () => {
+        try {
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.focus();
+        } catch { /* ignore */ }
+    });
 
     mainWindow.on('closed', () => { mainWindow = null; });
 }

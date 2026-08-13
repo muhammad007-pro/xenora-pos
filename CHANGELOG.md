@@ -3,6 +3,33 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.8.3] — 2026-08-13
+
+Shoshilinch tuzatish: etiketka bosgandan keyin klaviatura o'lib qolardi.
+Migratsiya YO'Q. Faqat Electron (`electron/main.js`) — backend TEGILMAGAN.
+
+### Etiketka chop etilgandan keyin hech qayerga yozib bo'lmasdi (mijozda)
+- **Muammo:** etiketka bosilgach ilovada barcha matn maydonlari javob bermay
+  qolardi (mahsulot qo'shish, ombor, qidiruv). Sichqoncha ishlardi, klaviatura
+  yo'q. Sahifa almashtirish yordam bermasdi — faqat ilovani qayta ochish.
+- **Sabab:** oyna fokusi (Windows) va `webContents` fokusi (Chromium) — ikki
+  alohida holat. RAW chop etish uchun ishga tushadigan PowerShell jarayoni
+  qisqa vaqt foreground'ni oladi; u tugagach Windows oynani fokusga qaytaradi,
+  lekin Chromium'ning ichki "fokusdagi webContents" holati eskirib qoladi.
+  Natija: oyna fokusda ko'rinadi, klaviatura esa hech qayerga bormaydi. Holat
+  oyna darajasida bo'lgani uchun sahifa almashtirish ham tozalamasdi.
+- **Tuzatish (ikki qatlam):**
+  1. `mainWindow.on('focus')` → `webContents.focus()` — **umumiy to'r**: oyna
+     fokus olgan har safar Chromium fokusi ham tiklanadi. Bu printerdan qat'i
+     nazar ishlaydi (etiketka USB/LAN, A4 `window.print`, Windows dialoglari).
+  2. `restoreAppFocus()` — `label_usb` chop etish tugagach fokusni darrov
+     qaytaradi (~200ms da bir marta takrorlanadi, Windows kechikishiga qarshi).
+- **PowerShell oynasi:** `raw-print.js` da `windowsHide: true` **allaqachon bor
+  edi** — ko'rinadigan oyna sabab EMAS. Fayl umuman o'zgartirilmadi.
+- **Regressiya:** chek yo'llari (`usbTransport`/SumatraPDF, `lanTransport`) va
+  `labelLanTransport` **bayt-ma-bayt o'zgarmagan** — diffda bor-yo'g'i 1 satr
+  o'chgan, u ham `labelUsbTransport` ichida.
+
 ## [1.8.2] — 2026-08-13
 
 Shoshilinch tuzatish: etiketka sahifasi ochilmasdi. Migratsiya YO'Q.

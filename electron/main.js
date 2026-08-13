@@ -367,22 +367,49 @@ const labelLanTransport = {
 //   buzuq                          → false
 //   win.focus() + wc.focus()       → false   ← v1.8.3, ISHLAMADI
 //   app.focus({steal:true})        → false   ← ISHLAMADI
-//   win.focusOnWebView()           → TRUE    ← ISHLADI
-//   win.blur() → win.focus()       → TRUE    ← ishladi, lekin fullscreen'da
-//                                              ko'rinadigan miltillash beradi
-// Shu sabab focusOnWebView() tanlandi — u aynan shu holat uchun mo'ljallangan
-// ("oyna fokusda, webview esa yo'q") va vizual nojo'ya ta'siri yo'q.
+//   win.focusOnWebView()           → TRUE    ← v1.8.4
+//   win.blur() → win.focus()       → TRUE
+//
+// ⚠️ v1.8.4 HAM YETARLI EMAS EDI (do'kondan qaytgan ma'lumot):
+// focusOnWebView() dan keyin KURSOR CHIQADI, lekin YOZIB BO'LMAYDI. Sabab:
+// fokusning IKKI qatlami bor —
+//   1) Chromium ichidagi holat  → kursorni chizadi   (focusOnWebView tuzatadi)
+//   2) Windows klaviatura yo'nalishi (qaysi HWND WM_KEYDOWN oladi)
+//                               → belgilarni yetkazadi (focusOnWebView TUZATMAYDI)
+// Native dialog (confirm/alert/prompt) yoki tashqi jarayon yopilgach, Windows
+// fokusi o'sha o'lgan oynada QOLIB KETADI. Alt+Tab tuzatadi, chunki u HAQIQIY
+// OS fokus sikli. Shuning uchun endi biz ham aynan shu siklni bajaramiz:
+// blur() → focus(), ya'ni oynani rostdan fokusdan chiqarib, qayta kiritamiz —
+// shundagina Windows WM_SETFOCUS yuboradi va klavishlar yana bizga keladi.
 function restoreAppFocus() {
-    const grab = () => {
-        try {
-            if (!mainWindow || mainWindow.isDestroyed()) return;
-            if (mainWindow.isMinimized()) mainWindow.restore();
-            mainWindow.focus();
-            mainWindow.focusOnWebView();   // ← HAQIQIY tiklovchi (yuqoriga qara)
-        } catch { /* ignore */ }
-    };
-    grab();
-    setTimeout(grab, 200);
+    try {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        _focusCycle();
+    } catch { /* ignore */ }
+}
+
+// HAQIQIY OS fokus sikli (Alt+Tab bilan bir xil ta'sir).
+// _cycling — qayta kirishdan himoya: blur()/focus() o'zlari 'blur'/'focus'
+// hodisalarini uyg'otadi, ular yana shu funksiyani chaqirsa CHEKSIZ SIKL bo'ladi.
+let _cycling = false;
+function _focusCycle() {
+    if (_cycling) return;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    _cycling = true;
+    const done = () => { _cycling = false; };
+    try {
+        mainWindow.blur();
+        setTimeout(() => {
+            try {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.focus();
+                    mainWindow.focusOnWebView();   // Chromium qatlami ham tiklansin
+                }
+            } catch { /* ignore */ }
+            done();
+        }, 60);
+    } catch { done(); }
 }
 
 // Renderer'dan chaqiriladigan tiklash (preload.js: fokus o'lganini SEZGANDA).
@@ -623,12 +650,28 @@ function createWindow() {
     // Server health — keyin frontend
     waitForServerThenLoad();
 
-    // Oyna fokus olganda webview ham fokus olsin (Alt+Tab bilan qaytish yo'li).
-    // Do'konda kassir Alt+Tab qilib qaytganda yozish tiklanardi — bu shuni
-    // avtomatlashtiradi. restoreAppFocus() izohiga qara: nega focusOnWebView().
+    // ── KLAVIATURA O'LIMIGA QARSHI ASOSIY HIMOYA (v1.8.5) ────────────────────
+    // Do'konda kassir Alt+Tab qilib qaytganda yozish TIKLANARDI. Demak yagona
+    // kerakli narsa — haqiqiy OS fokus sikli. Uni avtomatlashtiramiz.
+    //
+    // Trigger sifatida "oyna fokusni yo'qotib, qaytib oldi" ishlatiladi: native
+    // dialog (confirm/alert/prompt — kodda 96 ta chaqiruv) ochilganda ham,
+    // tashqi jarayon (chop etish) ishlaganda ham AYNAN shu bo'ladi. Ya'ni bu
+    // triggerni qidirib topish shart emas — o'zi bildiradi, va yangi sabab
+    // qo'shilsa ham avtomat qamrab olinadi.
+    //
+    // Oddiy holatda (kassir shunchaki boshqa oynaga qarab qaytdi) sikl zarar
+    // qilmaydi — Alt+Tab qanchalik zararsiz bo'lsa, shunchalik.
+    let _lostFocus = false;
+    mainWindow.on('blur', () => { if (!_cycling) _lostFocus = true; });
     mainWindow.on('focus', () => {
         try {
-            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focusOnWebView();
+            if (_cycling) return;                    // bizning o'z siklimiz
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            if (!_lostFocus) { mainWindow.focusOnWebView(); return; }
+            _lostFocus = false;
+            // Windows fokusni to'liq joylashtirib olsin, keyin siklni bajaramiz.
+            setTimeout(() => _focusCycle(), 40);
         } catch { /* ignore */ }
     });
 

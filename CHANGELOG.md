@@ -3,6 +3,59 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.8.5] — 2026-08-13
+
+Klaviatura o'limining ikkinchi qatlami. Migratsiya YO'Q. Faqat `electron/main.js`.
+
+### Yangi fakt: bu ESKI xato, etiketka faqat uni ko'rsatdi
+Mijoz aniqladi — muammo etiketka printeridan OLDIN ham bor edi: Eco Aroma'da
+**mahsulot o'chirgandan** keyin aynan shunday bo'lardi. v1.8.4 dan keyingi
+holat: **kursor CHIQADI, lekin YOZIB BO'LMAYDI**.
+
+### Sabab: fokusning IKKI qatlami bor
+| qatlam | nima qiladi | v1.8.4 tuzatdimi |
+|---|---|---|
+| Chromium ichidagi holat | kursorni chizadi | ✅ `focusOnWebView()` |
+| Windows klaviatura yo'nalishi (qaysi HWND `WM_KEYDOWN` oladi) | belgilarni yetkazadi | ❌ |
+
+Native dialog (`confirm`/`alert`/`prompt`) yoki tashqi jarayon yopilgach,
+Windows fokusi o'sha o'lgan oynada qolib ketadi. `focusOnWebView()` sof
+Chromium chaqiruvi — Windows qatlamiga tegmaydi. Shuning uchun kursor
+qaytdi-yu, klavishlar kelmadi. **Alt+Tab tuzatadi** (do'konda tasdiqlandi),
+chunki u haqiqiy OS fokus sikli.
+
+### Tuzatish — Alt+Tab ni avtomatlashtirish
+- `_focusCycle()`: `blur()` → 60ms → `focus()` + `focusOnWebView()`, ya'ni
+  HAQIQIY OS sikli. `_cycling` bayrog'i qayta kirishni bloklaydi (blur/focus
+  o'zlari hodisa uyg'otadi → himoyasiz cheksiz sikl bo'lardi).
+- **Trigger — "oyna fokusni yo'qotib, qaytib oldi"**: native dialog ochilganda
+  ham, tashqi jarayon ishlaganda ham AYNAN shu bo'ladi. Ya'ni triggerni
+  qidirish shart emas, va yangi sabab qo'shilsa ham avtomat qamraladi.
+- `restoreAppFocus()` (chop etishdan keyin) ham shu siklni ishlatadi.
+
+**Sinovda tasdiqlangan:** tashqi oyna fokusni oldi → yopildi → sikl **1 marta**
+ishga tushdi → klaviatura tirik; +6s da sikllar soni oshmadi (cheksizlik yo'q);
+`activeElement` saqlandi (kassir bosgan input fokusda qoladi).
+
+### Rad etilgan (kod tahlili — sizning gipotezalaringiz)
+Barcha 12 ta global klaviatura ushlovchisi tekshirildi — **hech biri oddiy
+belgilarni to'smaydi**:
+- `shortcuts.js:56` — `preventDefault()` faqat ro'yxatdagi kombinatsiyalar
+  uchun (F1/F5/Esc/Alt+harf/Ctrl+K/Ctrl+F); yakka harf mos kelmaydi.
+- `pos.js:3111` (skaner wedge) — `activeElement` INPUT/TEXTAREA/SELECT bo'lsa
+  darrov chiqadi; "tez yozishni skaner deb o'ylash" mumkin emas (≥4 belgi +
+  600ms + Enter talab qiladi, va faqat inputdan tashqarida).
+- `modal.js:25`, `core.js:239`, `admin.html:4084`, `camera-scanner.js:163`,
+  `inventory.html:576,580` — faqat `Escape`/`Enter`/`F2`.
+
+### ⚠️ Tuzatilmagan, alohida ish sifatida qoldi
+- **96 ta native dialog chaqiruvi** (`confirm`/`alert`/`prompt`) — ildiz sabab.
+  Ilova ichidagi modallarga almashtirilsa trigger butunlay yo'qoladi.
+  Eng ko'p: `core.js` (8), `cafes.html` (6), `pos.js` (6), `inventory.js` (4).
+- **`modal.js:25` listener leak** — har `new Modal()` `document` ga keydown
+  qo'shadi, hech qachon olib tashlamaydi. Faqat `Escape` ni ushlaydi, shuning
+  uchun zararsiz, lekin to'planadi.
+
 ## [1.8.4] — 2026-08-13
 
 Klaviatura fokusi xatosining HAQIQIY tuzatishi (v1.8.3 ishlamagan edi).

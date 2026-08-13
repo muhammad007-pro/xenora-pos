@@ -291,19 +291,21 @@ function buildLabelBytes(items, opts) {
     const M = 16;
     const usable = W - M * 2;             // 40mm da 288 nuqta
 
-    // ── Vertikal joylashuv (40x30mm = 320x240) ──
-    //   y=4    nom 1-qator   (shrift avto: 2 yoki 1)
-    //   y=26   nom 2-qator
-    //   y=52   narx          (shrift avto, eng kattasi 32 balandlik)
-    //   y=90   barcode       (balandlik 88 ≈ 11mm — skaner uchun qulay)
-    //   y=182  barcode raqami(shrift 1, 8x12) → 194 da tugaydi
-    // Jami ~194 < 240 — pastda 46 nuqta zaxira (etiketka siljisa ham kesilmaydi).
-    const CODE_FONT = '1', CODE_MUL = 1;
-    const Y_NAME = 4;
-    const Y_PRICE = 52;
-    const Y_BARCODE = 90;
-    const BARCODE_H = 88;                 // 62 → 88 (~7.7mm → ~11mm)
-    const Y_CODE_TEXT = Y_BARCODE + BARCODE_H + 4;
+    // ── Vertikal joylashuv — MAZMUN ETIKETKA O'RTASIDA ───────────────────────
+    // Ilgari y=4 dan boshlanardi va pastda ~46 nuqta bo'sh qolardi (yorliq
+    // "yuqoriga yopishgan" ko'rinardi). Endi butun blok balandligi hisoblanib,
+    // (H - blok) / 2 dan boshlanadi — tepa va past teng.
+    //
+    // Blok: nom → narx → barcode → raqam. Har elementning balandligi TANLANGAN
+    // shriftga bog'liq (nom 1 yoki 2 qator, narx avto-shrift), shuning uchun
+    // qattiq y qiymatlari emas, YIG'INDI hisoblanadi.
+    const CODE_FONT = '2', CODE_MUL = 1;  // shrift 1 → 2: raqam o'qish uchun juda kichik edi
+    const GAP_NAME_PRICE = 8;
+    const GAP_PRICE_BARCODE = 10;
+    const GAP_BARCODE_CODE = 4;
+    const MIN_V_MARGIN = 6;               // tepa/pastdagi eng kam bo'sh joy
+    const BARCODE_H_TARGET = 104;         // ~13mm — kenglikni oshira olmaymiz, balandlik bilan qoplaymiz
+    const BARCODE_H_MIN = 60;
 
     const parts = [];
 
@@ -321,46 +323,83 @@ function buildLabelBytes(items, opts) {
 
         parts.push(cmd('CLS'));
 
-        // ── Nom — shrift/qator soni AVTOMATIK, kesilmasin (fitName) ──
-        const nf = fitName(it.name || '', usable, 2);
-        const nameStep = charHeight(nf.font, nf.mul) + 2;
-        nf.lines.forEach((ln, i) => {
-            const x = centerX(ln.length, W, nf.font, nf.mul);
-            const y = Y_NAME + i * nameStep;
-            parts.push(cmd(`TEXT ${x},${y},"${nf.font}",0,${nf.mul},${nf.mul},"${escapeTspl(ln)}"`));
-        });
+        // ── 1-BOSQICH: elementlarni TAYYORLAB, balandliklarini hisoblaymiz ──
+        // (hali chizmaymiz — avval blok balandligi kerak, markazlashtirish uchun)
 
-        // ── Narx (katta, markazda) — son bo'lsa money(), matn bo'lsa o'zi ──
-        // Valyuta FAQAT songa qo'shiladi ("Aksiya so'm" ma'nosiz bo'lardi).
+        // Nom — shrift/qator soni AVTOMATIK, kesilmasin (fitName)
+        const nf = fitName(it.name || '', usable, 2);
+        const nameLineH = charHeight(nf.font, nf.mul);
+        const nameStep  = nameLineH + 2;
+        const nameH = nf.lines.length * nameLineH + (nf.lines.length - 1) * 2;
+
+        // Narx — son bo'lsa money(), matn bo'lsa o'zi. Valyuta FAQAT songa
+        // qo'shiladi ("Aksiya so'm" ma'nosiz bo'lardi). Qirqish emas —
+        // sig'adigan eng katta shrift tanlanadi.
         const rawPrice = it.price;
         const isNumeric = typeof rawPrice === 'number' || /^\d+(\.\d+)?$/.test(String(rawPrice || ''));
         let priceTxt = isNumeric ? money(rawPrice) : sanitize(rawPrice || '');
         if (priceTxt && isNumeric && currency) priceTxt += ' ' + currency;
+        let pf = null, priceH = 0;
         if (priceTxt) {
-            // Qirqish emas — sig'adigan eng katta shriftni tanlaymiz.
-            const pf = pickPriceFont(priceTxt, usable);
+            pf = pickPriceFont(priceTxt, usable);
             priceTxt = fitText(priceTxt, usable, pf.font, pf.mul);
-            const px = centerX(priceTxt.length, W, pf.font, pf.mul);
-            parts.push(cmd(`TEXT ${px},${Y_PRICE},"${pf.font}",0,${pf.mul},${pf.mul},"${escapeTspl(priceTxt)}"`));
+            priceH = charHeight(pf.font, pf.mul);
         }
 
-        // ── Barcode — printer o'zi chizadi (rasm yubormaymiz) ──
+        // Barcode — printer o'zi chizadi (rasm yubormaymiz).
+        // ⚠️ KENGLIK O'ZGARTIRILMAYDI: EAN-13 = 95 modul × narrow, oraliq qiymat
+        // YO'Q. narrow=2 → 190 nuqta (x=65..255, JONLI SINOVDA toza chiqqan).
+        // narrow=3 → 285 nuqta (x=18..303) — jonli sinovda x=286 KESILGAN,
+        // ya'ni 303 kafolatli kesiladi. Shu sabab kenglik o'rniga BALANDLIK
+        // oshiriladi (skaner uchun balandlik ham muhim: ko'proq skan chizig'i).
         const code = sanitize(it.barcode || '');
+        let type = null, narrow = 2, bw = 0, codeTxt = '', codeH = 0;
+        let barcodeH = 0;
         if (code) {
-            const type = barcodeType(code);
-            // narrow=2 → EAN-13 kengligi 190 nuqta (304 ga bemalol sig'adi).
-            // CODE128 uzun bo'lsa narrow=1 ga tushiramiz, aks holda chetdan chiqadi.
-            let narrow = 2;
+            type = barcodeType(code);
             if (barcodeWidthDots(code, type, narrow) > usable) narrow = 1;
-            const bw = barcodeWidthDots(code, type, narrow);
+            bw = barcodeWidthDots(code, type, narrow);
+            codeTxt = fitText(code, usable, CODE_FONT, CODE_MUL);
+            codeH = charHeight(CODE_FONT, CODE_MUL);
+            barcodeH = BARCODE_H_TARGET;
+        }
+
+        // ── 2-BOSQICH: blok balandligi va markazlashtirish ──
+        const gaps = (priceTxt ? GAP_NAME_PRICE : 0)
+                   + (code ? GAP_PRICE_BARCODE + GAP_BARCODE_CODE : 0);
+        const fixedH = nameH + priceH + codeH + gaps;
+        // Balandlik sig'masa barcode'ni qisqartiramiz (matn hech qachon kesilmaydi).
+        const maxBarcodeH = H - 2 * MIN_V_MARGIN - fixedH;
+        if (code && barcodeH > maxBarcodeH) {
+            barcodeH = Math.max(BARCODE_H_MIN, maxBarcodeH);
+        }
+        const blockH = fixedH + barcodeH;
+        let y = Math.max(MIN_V_MARGIN, Math.round((H - blockH) / 2));
+
+        // ── 3-BOSQICH: chizish (hamma element BIR XIL markaz o'qida) ──
+        nf.lines.forEach((ln, i) => {
+            const x = centerX(ln.length, W, nf.font, nf.mul);
+            parts.push(cmd(`TEXT ${x},${y + i * nameStep},"${nf.font}",0,${nf.mul},${nf.mul},"${escapeTspl(ln)}"`));
+        });
+        y += nameH;
+
+        if (priceTxt) {
+            y += GAP_NAME_PRICE;
+            const px = centerX(priceTxt.length, W, pf.font, pf.mul);
+            parts.push(cmd(`TEXT ${px},${y},"${pf.font}",0,${pf.mul},${pf.mul},"${escapeTspl(priceTxt)}"`));
+            y += priceH;
+        }
+
+        if (code) {
+            y += GAP_PRICE_BARCODE;
             const bx = Math.max(M, Math.round((W - bw) / 2));
             // BARCODE x,y,"tur",balandlik,human_readable,burilish,narrow,wide,"kod"
             // human_readable=0 — raqamni O'ZIMIZ pastda chizamiz (shrift nazorati uchun).
-            parts.push(cmd(`BARCODE ${bx},${Y_BARCODE},"${type}",${BARCODE_H},0,0,${narrow},${narrow * 2},"${escapeTspl(code)}"`));
+            parts.push(cmd(`BARCODE ${bx},${y},"${type}",${barcodeH},0,0,${narrow},${narrow * 2},"${escapeTspl(code)}"`));
+            y += barcodeH + GAP_BARCODE_CODE;
 
-            const codeTxt = fitText(code, usable, CODE_FONT, CODE_MUL);
             const cx = centerX(codeTxt.length, W, CODE_FONT, CODE_MUL);
-            parts.push(cmd(`TEXT ${cx},${Y_CODE_TEXT},"${CODE_FONT}",0,${CODE_MUL},${CODE_MUL},"${escapeTspl(codeTxt)}"`));
+            parts.push(cmd(`TEXT ${cx},${y},"${CODE_FONT}",0,${CODE_MUL},${CODE_MUL},"${escapeTspl(codeTxt)}"`));
         }
 
         // PRINT m,n → m ta to'plam, har biri n nusxa. Bizda 1 to'plam × copies.

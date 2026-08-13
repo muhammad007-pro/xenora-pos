@@ -167,10 +167,18 @@ function sendRawToPrinter(printerName, bytes, timeoutMs) {
         const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const binPath = path.join(os.tmpdir(), `xenora_raw_${stamp}.bin`);
         const ps1Path = path.join(os.tmpdir(), `xenora_raw_${stamp}.ps1`);
-        const cleanup = () => {
+        // Temp fayllarni o'chirish. Darrov o'chmasligi mumkin: PowerShell jarayoni
+        // endi yopilayotgan yoki antivirus faylni skanerlab turgan bo'ladi (Windows
+        // faylni qulflaydi). Bunda jimgina qayta urinamiz — aks holda kuniga
+        // yuzlab yorliq bosadigan kassada %TEMP% asta-sekin axlatlanadi.
+        const cleanup = (attempt = 0) => {
+            let stuck = false;
             for (const f of [binPath, ps1Path]) {
-                try { fs.unlinkSync(f); } catch { /* ignore */ }
+                try {
+                    if (fs.existsSync(f)) fs.unlinkSync(f);
+                } catch { stuck = true; }
             }
+            if (stuck && attempt < 3) setTimeout(() => cleanup(attempt + 1), 500 * (attempt + 1));
         };
 
         try {

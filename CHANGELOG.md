@@ -3,6 +3,22 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.8.1] — 2026-08-13
+
+Chek footer kesilishi tuzatildi. Migratsiya YO'Q.
+
+### Chek (LAN) — kesishdan oldingi feed
+- **Muammo (jonli, XP-N160II):** chek pastidagi "Xaridingiz uchun rahmat!"
+  pichoq chizig'iga tushib **yarim kesilardi**.
+- **Sabab:** termal printerda pichoq bosma kalladan ~20–30mm PASTDA. Oxirgi
+  bosilgan qator kallada qolib ketadi va `CUT` darrov yuborilsa pichoq aynan
+  o'sha matnni kesadi. `CMD.FEED` atigi 3 qator (~10mm) edi.
+- **Tuzatish:** `CMD.FEED_BEFORE_CUT` (8 × LF, ~28mm). `CMD.FEED` 3 qatorligicha
+  qoldi (umumiy maqsad uchun).
+- **Doira:** FAQAT LAN yo'li (`escpos-builder.js` → `lanTransport`).
+  USB/SumatraPDF yo'li HTML→PDF orqali ishlaydi va bu faylga tegmaydi —
+  `main.js` bu relizda **umuman ochilmadi** (5/5 transport sha256 bir xil).
+
 ## [1.8.0] — 2026-08-13
 
 ETIKETKA PRINTERI relizi. **Migratsiya YO'Q** (sozlama TenantSettings JSON'da).

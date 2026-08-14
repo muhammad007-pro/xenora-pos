@@ -64,10 +64,40 @@ function buildCss(fontPx) {
   .receipt-table th{text-align:left;font-size:0.85em;font-weight:700;border-bottom:1px solid #000}
   /* mahsulot nomi + soni + narx — BOLD (termal aniq, xira emas) */
   .receipt-table td{font-size:0.85em;font-weight:700;word-break:break-word;overflow-wrap:anywhere}
-  .receipt-table th:nth-child(1),.receipt-table td:nth-child(1){width:50%}
-  .receipt-table th:nth-child(2),.receipt-table td:nth-child(2){width:14%;text-align:center}
-  /* narx ustuni: o'ngga tayanadi, bir qatorda (nowrap) va to'liq sig'adi */
-  .receipt-table th:nth-child(3),.receipt-table td:nth-child(3){width:36%;text-align:right;white-space:nowrap}
+  /* ── MAHSULOT BLOKI (v1.8.7) — ESC/POS bilan BIR XIL joylashuv ──────────────
+     1-qator: nom (to'liq kenglik, uzun bo'lsa o'raladi)
+     2-qator: "11 x 5 000" chapda,  summa o'ngda
+     NEGA JADVAL EMAS, GRID: 48mm ga uchala ustunni BIR qatorga tiqish uchun
+     narx ustuni torayadi va katta summa KESILADI (o'lchovda tasdiqlangan:
+     29% da "1 500 000" klip bo'ldi). "1fr auto" da narx ustuni O'ZI kerakli
+     kenglikni oladi — hech qachon kesilmaydi, nom esa qolganini oladi.
+     Grid yana bo'shliqqa (HTML'dagi satr ko'chirish) SEZGIR EMAS — pos.js va
+     receipt-print.js turlicha yozilgan, inline-block bo'lsa buzilardi.
+     ⚠️ 3 ta <td> SAQLANADI: LAN yo'li DOM'dan tds[1]/tds[2] ni o'qiydi
+     (main.js _RECEIPT_EXTRACT_JS) — tuzilma o'zgarsa eski .exe buziladi.
+     ⚠️ Bu izoh JS template literal ICHIDA — backtick YOZMANG (literalni uzadi). */
+  .receipt-table,.receipt-table thead,.receipt-table tbody{display:block;width:100%}
+  .receipt-table thead tr,.receipt-table tbody tr{display:grid;grid-template-columns:1fr auto;column-gap:4px}
+  .receipt-table thead th:nth-child(2){display:none}         /* "Soni" sarlavhasi keraksiz */
+  .receipt-table thead th:nth-child(1){grid-column:1}
+  .receipt-table thead th:nth-child(3){grid-column:2;text-align:right}
+  /* min-width:0 — GRID TUZOG'I: "1fr" ustunining standart eng kichik kengligi
+     "auto" (min-content), shuning uchun uzun "1000 x 1 500 000" qisqarmay,
+     narx ustunini siqib KESIB qo'yardi (o'lchovda ko'rindi). 0 bo'lsa — narx
+     kerakli joyni to'liq oladi, miqdor esa qolganiga o'raladi. */
+  .receipt-table tbody td{min-width:0}
+  /* ⚠️ :has(td:nth-child(3)) — 2 USTUNLI jadvallarni BUZMASLIK uchun.
+     report.html (kunlik hisobot) qatorlari 2 katakli: "nom | qiymat".
+     Ular uchun standart "1fr auto" AYNAN kerakli natija (chapda nom, o'ngda
+     qiymat). Faqat 3 katakli MAHSULOT qatorlari 2 qatorli blokka aylanadi. */
+  .receipt-table tbody tr:has(td:nth-child(3)) td:nth-child(1){grid-column:1/-1}
+  .receipt-table tbody tr:has(td:nth-child(3)) td:nth-child(2){grid-column:1;text-align:left;padding-left:8px}
+  .receipt-table tbody td:nth-child(3){grid-column:2;text-align:right;white-space:nowrap}
+  .receipt-table tbody td:last-child{text-align:right}
+  /* MAHSULOTLAR ORASIDA AJRATUVCHI (mijoz talabi): ilgari qatorlar bir-biriga
+     yopishib ketardi. Sarlavha chizig'i SOLID, mahsulot orasidagi DASHED —
+     jadval tugagandek ko'rinmasin. Oxirgisidan keyin yo'q (pastda totals bor). */
+  .receipt-table tbody tr:not(:last-child){border-bottom:1px dashed #000;padding-bottom:3px;margin-bottom:3px}
   .receipt-totals{border-top:1px dashed #000;padding-top:4px;margin-top:4px}
   .rt-row{display:flex;justify-content:space-between;gap:6px;font-size:1em;padding:1px 0}
   .rt-row span:last-child{text-align:right}
@@ -161,6 +191,53 @@ function _esc(s) {
 
 const _PAY = { cash: 'Naqd', card: 'Karta', click: 'Click', payme: 'Payme', credit: 'Nasiya', transfer: "O'tkazma", room_charge: 'Xona hisobi' };
 
+// ── "Soni" ustuni: miqdor × BIRLIK narx ──────────────────────────────────────
+// v1.8.7, mijoz talabi: chekda "11 dona ... 55 000" edi — xaridor qaysi tovar
+// QANCHADAN olinganini bilmasdi. Endi "11 x 5 000 ... 55 000".
+//
+// ⚠️ BU YAGONA MANBA: uchala renderer (POS jonli chek, reprint/admin, Z-hisobot)
+// shu funksiyani chaqiradi. LAN (ESC/POS) yo'li esa chek HTML'ini DOM'dan o'qiydi
+// (main.js `_RECEIPT_EXTRACT_JS` → tds[1] = "Soni" katakchasi), ya'ni shu yerdagi
+// matn O'ZGARISHSIZ termal printerga ham boradi — ikkala yo'l bir xil ko'rinadi.
+// Shu sabab format ASCII 'x' bilan: '×' (U+00D7) termal kod-sahifada (CP437)
+// boshqa belgiga aylanadi.
+//
+// moneyFn — har fayl O'Z pul formatini beradi (reprint: "5 000", POS: "5,000").
+function _qtyNum(q) {
+  // 11 → "11", 1.5 → "1.5" (ortiqcha nol yo'q — 58mm da har belgi qimmat)
+  const n = Number(q);
+  if (!isFinite(n)) return String(q == null ? '' : q);
+  return String(Math.round(n * 1000) / 1000);
+}
+
+/**
+ * Birlik narx: avval haqiqiy `price` (aniq), bo'lmasa jami/miqdor.
+ * `price` afzal — bo'linmada yaxlitlash xatosi bo'lishi mumkin
+ * (3 dona / 10 000 → 3 333.33), haqiqiy narx esa aniq.
+ */
+export function unitPriceOf(it, lineTotal, qty) {
+  const p = Number(it && it.price);
+  if (isFinite(p) && p > 0) return p;
+  const q = Number(qty), t = Number(lineTotal);
+  if (isFinite(q) && q > 0 && isFinite(t) && t > 0) return t / q;
+  return 0;
+}
+
+/**
+ * "11 x 5 000" yorlig'i. Birlik narx noma'lum yoki 0 bo'lsa (bepul aksiya,
+ * buzuq ma'lumot) — ESKI ko'rinish (faqat miqdor), ya'ni hech qachon
+ * "11 x 0" kabi chalg'ituvchi matn chiqmaydi.
+ */
+export function qtyPriceLabel(qty, unitPrice, moneyFn) {
+  const m = typeof moneyFn === 'function' ? moneyFn : _money;
+  const u = Number(unitPrice);
+  const q = Number(qty);
+  if (!isFinite(u) || u <= 0 || !isFinite(q) || q <= 0) {
+    return String(qty == null ? '' : qty);
+  }
+  return `${_qtyNum(q)} x ${m(u)}`;
+}
+
 /**
  * `/orders/{id}/receipt` server ma'lumotidan 58mm chek innerHTML yasash (REPRINT uchun).
  * Chek mazmuni POS chekiga mos: pachka yorlig'i, chegirma, jami, to'lov, fiskal QR.
@@ -220,7 +297,10 @@ export function buildReceipt58(rec) {
     if (it.unit_sold === 'pachka' && it.base_qty && qty) {
       sub2 = `<br><small>📦 Pachka (${Math.round(it.base_qty / qty)} dona)</small>`;
     }
-    return `<tr><td>${name}${sub2}</td><td>${_esc(qty)}</td>`
+    // "11 x 5 000" — miqdor × birlik narx (v1.8.7). LAN yo'li shu katakchani
+    // DOM'dan o'qiydi, shuning uchun USB va LAN bir xil ko'rinadi.
+    const qtyTxt = qtyPriceLabel(qty, unitPriceOf(it, line, qty), _money);
+    return `<tr><td>${name}${sub2}</td><td>${_esc(qtyTxt)}</td>`
       + `<td style="text-align:right">${_money(line)}</td></tr>`;
   }).join('');
 

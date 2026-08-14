@@ -100,6 +100,20 @@ const CMD = {
 // tarqalgan drawer ulanishi). t1/t2 — signal davomiyligi (~impuls uzunligi).
 const DRAWER_KICK = Buffer.from([ESC, 0x70, 0x00, 25, 250]);
 
+/**
+ * Miqdor yorlig'i.
+ *
+ * v1.8.7 dan chek HTML'i "Soni" katakchasiga TAYYOR matn beradi:
+ * "11 x 5 000" (miqdor × birlik narx) — biz uni O'ZGARTIRMAY bosamiz.
+ * Bare son kelsa (eski chek ma'lumoti, test namunasi, yoki birlik narx
+ * noma'lum bo'lgan qator) — AVVALGIDEK " dona" qo'shamiz, ya'ni eski
+ * chiqish buzilmaydi.
+ */
+function qtyLabel(qty) {
+    const q = qty != null && qty !== '' ? String(qty) : '1';
+    return /\sx\s/.test(q) ? q : `${q} dona`;
+}
+
 function textLine(s) {
     return Buffer.concat([Buffer.from(sanitize(s) + '\n', 'latin1')]);
 }
@@ -142,11 +156,14 @@ function buildReceiptBytes(structured, widthMm, opts) {
     // ── Mahsulotlar ──
     parts.push(textLine(row('Mahsulot', 'Summa', w)));
     parts.push(line(w, '-'));
-    for (const it of (s.rows || [])) {
+    (s.rows || []).forEach((it, idx) => {
+        // AJRATUVCHI (v1.8.7, mijoz talabi): ilgari mahsulotlar bir-biriga
+        // yopishib ketardi. Birinchisidan OLDIN qo'ymaymiz — sarlavha chizig'i
+        // allaqachon bor; oxirgisidan KEYIN ham yo'q — pastda yopuvchi chiziq bor.
+        if (idx > 0) parts.push(line(w, '-'));
         for (const ln of wrapText(it.name || '', w)) parts.push(textLine(ln));
-        const qty = it.qty != null && it.qty !== '' ? it.qty : '1';
-        parts.push(textLine(row(`  ${qty} dona`, it.price || '', w)));
-    }
+        parts.push(textLine(row(`  ${qtyLabel(it.qty)}`, it.price || '', w)));
+    });
     parts.push(line(w, '-'));
 
     // ── Jami / soliq / chegirma / umumiy ──
@@ -188,8 +205,9 @@ const TEST_STRUCTURED = {
     addressLines: ["Toshkent sh., Test ko'chasi 1"],
     meta: 'Chek #TEST-001',
     rows: [
-        { name: 'Kofe Amerikano', qty: '2', price: money(30000) },
-        { name: 'Sendvich (uzun nom misoli uchun tekshirish)', qty: '1', price: money(25000) },
+        // "2 x 15 000" — v1.8.7 ko'rinishi (miqdor × birlik narx)
+        { name: 'Kofe Amerikano', qty: '2 x ' + money(15000), price: money(30000) },
+        { name: 'Sendvich (uzun nom misoli uchun tekshirish)', qty: '1 x ' + money(25000), price: money(25000) },
     ],
     totals: [
         { label: 'Jami:', value: money(55000), bold: false },
@@ -205,7 +223,7 @@ function buildTestReceiptBytes(widthMm, opts) {
 }
 
 module.exports = {
-    charsForWidth, sanitize, wrapText, row, money,
+    charsForWidth, sanitize, wrapText, row, money, qtyLabel,
     CMD, DRAWER_KICK,
     buildReceiptBytes, buildTestReceiptBytes, TEST_STRUCTURED,
 };

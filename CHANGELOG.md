@@ -3,6 +3,53 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.8.6] — 2026-08-14
+
+Etiketka sahifasida mahsulotning yo'qolishi. Migratsiya YO'Q.
+Faqat `frontend/app/labels.html` (bir endpoint) — backend TEGILMAGAN.
+
+### Muammo
+Mahsulot ombor va POS'da bor, etiketka sahifasida esa yo'q — qidiruvda ham
+topilmaydi. Nom o'zgartirilsa ba'zan "tuzalardi".
+
+### Sabab — uchta narsa birga
+1. `labels.html` `GET /products/?page_size=500` — faqat **1-sahifa**
+2. `product.py:71` — `order_by(Product.name)`, ya'ni **alifbo tartibida**
+3. `labels.html` qidiruvi **frontendда** (`filterProducts`) — serverga bormaydi
+
+Natija: alifboda 500-o'rindan keyingi mahsulot umuman yuklanmaydi, shuning
+uchun qidiruvda ham topilmaydi. Nom o'zgarganda mahsulot alifboda birinchi
+500 ichiga **ko'chib o'tardi** — shuning uchun "ba'zan tuzalardi".
+
+Jonli ma'lumot (serverda o'lchandi):
+| tenant | faol mahsulot | ko'rinmasdi |
+|---|---|---|
+| 26 FAZZA PERFUM | 663 | **163** |
+| 20 eco aroma | 552 | **52** |
+
+`TAROQ ORTA` alifboda 559-o'rinda, `VIVICN TAROQ` 622-o'rinda edi.
+
+### Tuzatish
+`labels.html` endi POS (`pos.js`) va ombor (`inventory.html`) BILAN AYNI
+endpoint'ni ishlatadi: **`GET /products/all`** — paginatsiyasiz, limit 5000.
+
+- Farqi: `/products/all` faqat `is_active` VA `is_available` mahsulotlarni
+  qaytaradi. Etiketka uchun to'g'ri — sotuvda bo'lmagan tovarga narx
+  etiketkasi bosilmaydi. **Yo'qotish yo'q**: bazada `is_active=true` va
+  `is_available=false` bo'lgan mahsulot **0 ta** (barcha tenantda).
+- 5000 chegarasiga yetilsa endi **ogohlantirish** ko'rsatiladi — jimgina
+  kesib tashlamaydi (aynan shu jimlik xatoni oylab sezdirmagan edi).
+
+### Sinov (serverda, endpoint so'rovi aynan takrorlandi)
+- tenant 26: eski **500** → yangi **664** mahsulot
+- `TAROQ ORTA` (559) va `VIVICN TAROQ` (622) — endi **yuklanadi** ✅
+- hech bir tenant 5000 chegarasiga yaqin emas
+
+### Qolgan ish (shoshilinch emas)
+`page_size=500` yana 6 sahifada bor va katta katalogda xuddi shu muammoni
+beradi: `combo.html`, `expiry.html`, `goods_regrade.html`,
+`internal_transfers.html`, `customers.html`, `bonus_cards.html`.
+
 ## [1.8.5] — 2026-08-13
 
 Klaviatura o'limining ikkinchi qatlami. Migratsiya YO'Q. Faqat `electron/main.js`.

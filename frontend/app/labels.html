@@ -344,9 +344,25 @@ window.setMode = function(m) {
   renderPreview();
 };
 
+// ⚠️ TUZATISH v1.8.6 (jonli xato): ilgari `/products/?page_size=500` edi —
+// FAQAT 1-sahifa, ya'ni alifbo tartibida birinchi 500 ta mahsulot. Katalogi
+// kattaroq do'konda qolganlari UMUMAN yuklanmasdi, va qidiruv shu yerda
+// frontendда ishlagani uchun (filterProducts) ular qidiruvda ham topilmasdi.
+// Jonli holat: Faza Parfum 663 ta faol mahsulot → 163 tasi ko'rinmasdi
+// (masalan "TAROQ ORTA" alifboda 559-o'rinda), Eco Aroma 552 → 52 ta.
+// Nom o'zgartirilganda "tuzalgandek" bo'lardi — mahsulot alifboda birinchi
+// 500 ichiga ko'chib o'tardi, xolos.
+//
+// Endi POS (pos.js) va ombor (inventory.html) BILAN AYNI endpoint:
+// `/products/all` — paginatsiyasiz, limit 5000.
+// Farqi: `/products/all` faqat is_active VA is_available mahsulotlarni
+// qaytaradi (POS katalogi shart-sharoiti). Etiketka uchun bu to'g'ri —
+// sotuvda bo'lmagan tovarga narx etiketkasi bosilmaydi.
+const PRODUCT_LIMIT = 5000;   // backend: product.py get_all_products(limit)
+
 async function loadProducts() {
   try {
-    const r = await fetch(`${API}/products/?page_size=500`, {
+    const r = await fetch(`${API}/products/all`, {
       headers: { Authorization: 'Bearer ' + getToken() }
     });
     if (!r.ok) throw new Error(r.status === 401 ? 'Sessiya tugagan — qaytadan kiring'
@@ -356,6 +372,12 @@ async function loadProducts() {
     allProducts = Array.isArray(data) ? data : (data.items || []);
     renderList(allProducts);
     refreshGenAll();
+    // Chegaraga TEGDI — demak ro'yxat kesilgan bo'lishi mumkin. Jim qolmaymiz:
+    // aynan shu jimlik yuqoridagi xatoni oylab sezilmay yurishiga sabab bo'lgan.
+    if (allProducts.length >= PRODUCT_LIMIT) {
+      toast(`Diqqat: ${PRODUCT_LIMIT} ta mahsulot chegarasiga yetildi — `
+          + `ro'yxat to'liq bo'lmasligi mumkin. Qidiruvda topilmasa, xabar bering.`, 'warn');
+    }
   } catch (e) {
     // Sabab KO'RINSIN: ilgari faqat quruq "Yuklab bo'lmadi" edi.
     const why = escHtml(e?.message || 'tarmoq xatosi');

@@ -3263,6 +3263,12 @@ function quickSellAdd(productId) {
     }).catch(() => toast('Mahsulot topilmadi', 'warning'));
   }
 }
+// ⚠️ MAJBURIY: pos.js <script type="module"> bilan yuklanadi (pos.html:1525).
+// Modul ichidagi `function` GLOBAL EMAS — u modul doirasida qoladi. Yuqoridagi
+// tugma esa inline `onclick="quickSellAdd(...)"` ishlatadi, inline onclick esa
+// nomni window'dan qidiradi → "quickSellAdd is not defined" (savatga qo'shilmasdi).
+// Shu fayldagi mavjud naqsh: window.handleBarcodeScan, window._posAddAnalog.
+window.quickSellAdd = quickSellAdd;
 
 // ─── BOSQICH 21: Bo'limlar filtri (departments) ───────────────────────────────
 async function loadDeptsBar() {
@@ -3314,6 +3320,11 @@ function filterByDept(deptId, color) {
   // Mahsulotlarni filtr qil
   renderProducts();
 }
+// ⚠️ MAJBURIY (quickSellAdd bilan AYNAN bir xil sabab): loadDeptsBar() tugmalari
+// inline `onclick="filterByDept(...)"` ishlatadi, modul ichidagi funksiya esa
+// window'da yo'q. Mijoz hali bu tugmani bosmagan bo'lsa ham xato AYNAN o'sha —
+// ikkalasi ham BOSQICH 20/21 da bir vaqtda yozilgan, bir xil tuzoqqa tushgan.
+window.filterByDept = filterByDept;
 
 
 // ═══ Sotuvchi almashtirish + avto-qulf (iiko naqshi) ═══════════════════════════

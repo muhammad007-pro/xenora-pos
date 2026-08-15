@@ -288,6 +288,21 @@ class OrderService:
                 base_qty   = item.quantity
                 item_unit_sold = "dona" if unit_sold == "dona" else None
 
+            # ── POS narx kelishuvi: FAQAT OSHIRISH ────────────────────────────
+            # Marg'ilon amaliyoti ikki tomonlama: odatda narx tushiriladi, ammo
+            # tanqis mahsulotga ustiga qo'yiladi.
+            #
+            # TUSHIRISH bu yerdan O'TMAYDI — u chegirma kanalidan (discount_value)
+            # o'tadi, u yerda subtotal bilan cheklangan va Order.discount_amount ga
+            # yozilib hisobotlarga tushadi. Bu yerda faqat OSHIRISH qabul qilinadi:
+            # shunda client narxni O'ZI UCHUN ARZONLASHTIRA OLMAYDI (server katalog
+            # narxidan pastga hech qachon tushmaydi), ya'ni "client narxiga
+            # ishonilmaydi" qoidasi buzilmaydi.
+            ov = getattr(item, "unit_price_override", None)
+            if ov is not None and float(ov) > unit_price:
+                unit_price = float(ov)
+                # unit_cost TEGILMAYDI — tan narx o'zgarmaydi, foyda to'g'ri oshadi.
+
             total_price = unit_price * item.quantity
             total_amount += total_price
             items_data.append({

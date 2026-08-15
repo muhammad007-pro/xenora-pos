@@ -163,6 +163,15 @@ a{text-decoration:none;color:inherit}
 .ci-info{flex:1;min-width:0}
 .ci-name{font-size:.8125rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ci-price{font-size:.75rem;color:var(--text2)}
+/* Savatda narx kelishuvi: narx katakchasi doim tahrirlanadigan (alohida "tahrirlash
+   rejimi" yo'q) - sensor ekranda bitta tegish yetadi. qty-input naqshi bilan bir xil. */
+.price-input{width:88px;height:30px;padding:0 .35rem;font-size:.75rem;font-weight:600;
+  text-align:right;background:var(--bg3);border:1px solid var(--border2);border-radius:5px;
+  color:var(--text);outline:none;font-family:inherit;transition:border-color var(--tr)}
+.price-input:focus{border-color:var(--gold);background:var(--bg2)}
+.price-input.edited{border-color:var(--success);color:var(--success)}
+.price-input.raised{border-color:var(--warning);color:var(--warning)}
+.ci-orig{font-size:.68rem;color:var(--text3);text-decoration:line-through}
 .ci-qty{display:flex;align-items:center;gap:4px}
 .qty-btn{width:24px;height:24px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:600;transition:all var(--tr)}
 .qty-btn:hover{background:var(--gold-dim);color:var(--gold)}
@@ -785,6 +794,9 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
         <div class="cart-totals">
           <div class="tot-row"><span>Jami:</span><span id="totSubtotal">0 UZS</span></div>
           <div class="tot-row disc" id="autoDiscRow" style="display:none"><span id="autoDiscLabel">Aksiya chegirma:</span><span id="totAutoDiscount">0 UZS</span></div>
+          <!-- Narx kelishuvi alohida qator: kassir qaysi chegirma qayerdan kelganini ko'rsin.
+               Serverga esa mavjud chegirma kanalidan yagona summa bo'lib ketadi. -->
+          <div class="tot-row disc" id="priceEditRow" style="display:none"><span>Narx kelishuvi:</span><span id="totPriceEdit">0 UZS</span></div>
           <div class="tot-row disc" id="discRow" style="display:none"><span>Chegirma:</span><span id="totDiscount">0 UZS</span></div>
           <div class="tot-row" id="taxRow"><span>Soliq (12%):</span><span id="totTax">0 UZS</span></div>
           <div class="tot-row" id="svcRow"><span>Xizmat (10%):</span><span id="totService">0 UZS</span></div>

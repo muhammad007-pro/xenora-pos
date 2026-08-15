@@ -31,9 +31,12 @@ from services.report_service import ReportService
 from utils.revenue import net_revenue_expr, order_subtotal_subq
 
 _fails = []
+_total = 0
 
 
 def check(name, got, want, tol=0.005):
+    global _total
+    _total += 1
     ok = abs(float(got) - float(want)) <= tol
     if not ok:
         _fails.append(name)
@@ -174,11 +177,10 @@ def main():
 
     db.close()
     print()
-    total = 15
     if _fails:
-        print(f"{total - len(_fails)}/{total} PASS — XATO: {', '.join(_fails)}")
+        print(f"{_total - len(_fails)}/{_total} PASS — XATO: {', '.join(_fails)}")
         sys.exit(1)
-    print(f"{total}/{total} PASS")
+    print(f"{_total}/{_total} PASS")
 
 
 if __name__ == "__main__":

@@ -272,12 +272,22 @@ async function apiFetch(path) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   try {
+    // ⚠️ `.catch(() => null)` xatoni JIMGINA yutadi. Aynan shu sabab serverdagi
+    // 500 xatosi kartalarni "buzuq" emas, "BO'SH" qilib ko'rsatgan edi va muammo
+    // uzoq vaqt sezilmagan. Endi xato yutiladi (sahifa qulamasin), lekin
+    // FOYDALANUVCHIGA tushunarli tilda bildiriladi.
+    const _failed = [];
+    const _try = (p, label) => p.catch(() => { _failed.push(label); return null; });
     const [analytics, orders, trends] = await Promise.all([
-      apiFetch('/analytics/summary?period=today').catch(() => null),
-      apiFetch('/orders/?limit=8&page=1').catch(() => null),
+      _try(apiFetch('/analytics/summary?period=today'), 'kunlik ko\'rsatkichlar'),
+      _try(apiFetch('/orders/?limit=8&page=1'), 'oxirgi buyurtmalar'),
       // o'sish % (trend) — alohida endpoint, mavjud raqam to'ldirishga TEGMAYDI
-      apiFetch('/analytics/dashboard?range=today').catch(() => null),
+      _try(apiFetch('/analytics/dashboard?range=today'), 'foyda va maqsad'),
     ]);
+    if (_failed.length) {
+      // Texnik matn emas: nima ko'rinmayotgani va nima qilish kerakligi.
+      toast(`Dashboard qismi yuklanmadi (${_failed.join(', ')}). Sahifani yangilang — takrorlansa administratorga ayting.`, 'warning', 6000);
+    }
     if (trends) {
       setKpiTrend('kpiRevTrend',  trends.revenue_trend,   'kecha');
       setKpiTrend('kpiOrdTrend',  trends.orders_trend,    'kecha');
@@ -351,7 +361,11 @@ function renderMonthlyGoal(trends){
     const shown = Math.round(pct);
     document.getElementById('goalPctText').textContent  = shown;
     document.getElementById('goalRemaining').textContent = fmtMoney(trends.goal_remaining || 0) + ' UZS';
-    document.getElementById('goalDaysLeft').textContent  = trends.days_left != null ? trends.days_left : '—';
+    // days_left endi BUGUNNI sanamaydi (backend: last_day - now.day). Oyning oxirgi
+    // kunida 0 keladi — "0 kun ichida" mantiqsiz, shuning uchun "oxirgi kun".
+    const _dl = trends.days_left;
+    document.getElementById('goalDaysLeft').textContent =
+      _dl == null ? '—' : (_dl <= 0 ? 'oxirgi kun' : `${_dl} kun ichida`);
     // ring to'lish (foiz 100% bilan cheklanadi; C = 2πr, r=52)
     const C = 326.726, fill = document.getElementById('goalRingFill');
     const off = C * (1 - Math.min(pct, 100) / 100);

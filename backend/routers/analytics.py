@@ -8,7 +8,7 @@ from database import get_db
 from models import Order, Payment, Product, Customer, User, OrderItem, Category, Appointment, Service, Employee, ServiceOrder, Vehicle, Room, RoomBooking
 from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, user_has_permission, resolve_tenant_id, require_feature
 from services.analytics_service import AnalyticsService
-from core.timeutils import tenant_now
+from core.timeutils import tenant_now, to_local
 from core.tenant_config import get_tenant_config
 
 router = APIRouter()
@@ -62,16 +62,29 @@ async def get_summary(
         Order.created_at >= chart_start,
         Order.status == "completed",
     ).all()
+    # TUZATISH (mijozda topildi — dashboard kartalari BO'SH edi):
+    # avvalgi kod har buyurtmani `created_at.replace(tzinfo=None)` bilan NAIVE qilib,
+    # AWARE `day_start`/`day_end` bilan solishtirardi:
+    #     TypeError: can't compare offset-naive and offset-aware datetimes
+    # Bu butun endpointni 500 qilardi; frontend esa `.catch(() => null)` bilan
+    # xatoni jimgina yutib, 4 ta KPI kartasi va grafikni BO'SH qoldirardi.
+    # Xato faqat SOTUV BO'LGANDA chiqardi (sotuvsiz do'konda sikl bo'sh) — shu sabab
+    # ilgari sezilmagan. Kod naive `datetime.now()` davrida yozilgan, keyin
+    # `tenant_now()` (aware) kiritilgan — regressiya (a7ada36).
+    #
+    # Endi kunlar TOSHKENT sanasi bo'yicha guruhlanadi: qulash yo'q va yarim tundan
+    # keyingi (00:00–05:00) sotuv o'z kuniga tushadi, oldingi kunga emas.
+    rev_by_day: dict = {}
+    for o in chart_orders:
+        if not o.created_at:
+            continue
+        d = to_local(o.created_at).date()
+        rev_by_day[d] = rev_by_day.get(d, 0) + (o.final_amount or 0)
+
     daily: list = []
     for i in range(chart_days - 1, -1, -1):
-        day_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end   = (now - timedelta(days=i)).replace(hour=23, minute=59, second=59)
-        rev = sum(
-            o.final_amount or 0
-            for o in chart_orders
-            if day_start <= (o.created_at.replace(tzinfo=None) if o.created_at and o.created_at.tzinfo else o.created_at or now) <= day_end
-        )
-        daily.append({"date": day_start.date().isoformat(), "revenue": rev})
+        d = (now - timedelta(days=i)).date()
+        daily.append({"date": d.isoformat(), "revenue": rev_by_day.get(d, 0)})
 
     return {
         "total_revenue"      : total_revenue,
@@ -186,7 +199,11 @@ async def get_dashboard_data(
         goal_pct = round(monthly_actual / monthly_goal_target * 100, 1) if monthly_goal_target > 0 else 0
         goal_remaining = round(max(monthly_goal_target - monthly_actual, 0), 0)
         last_day = calendar.monthrange(now.year, now.month)[1]
-        days_left = last_day - now.day + 1
+        # TUZATISH: avval `+ 1` bor edi — bugungi kun ham "qolgan" deb sanalardi
+        # (15-avgustda 17 chiqardi, do'konchi esa 16 kutadi). Endi BUGUN sanalmaydi:
+        # oyning oxirgi kunida 0 chiqadi va UI "oxirgi kun" deb ko'rsatadi.
+        # `now` — tenant_now() (Toshkent), ya'ni bu yerda timezone xatosi YO'Q edi.
+        days_left = last_day - now.day
 
     return {
         "total_revenue": current_data["total_revenue"],

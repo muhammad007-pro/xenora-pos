@@ -41,6 +41,28 @@ def tenant_now(tz_name: str = None) -> datetime:
     return datetime.now(_local_tz(tz_name))
 
 
+def to_local(dt, tz_name: str = None):
+    """DB dan o'qilgan timestampni TENANT MAHALLIY zonasiga o'giradi (aware).
+
+    NEGA KERAK: `tenant_now()` aware qiymat qaytaradi. DB dan kelgan `created_at`
+    bilan uni to'g'ridan solishtirish yoki `.hour`/`.date()` olish XATO beradi:
+      - PostgreSQL (prod): created_at aware UTC → `.date()` UTC kunini beradi,
+        Toshkent kunini emas (00:00–05:00 oralig'i oldingi kunga tushadi).
+      - `.replace(tzinfo=None)` bilan "tuzatish" esa aware↔naive aralashuviga olib
+        keladi → `TypeError: can't compare offset-naive and offset-aware datetimes`
+        (aynan shu xato dashboard kartalarini bo'sh qoldirgan edi).
+
+    Naive qiymat UTC deb qaraladi — DB ustunlari UTC saqlaydi (SQLite dev'da
+    `func.now()` ham UTC naive beradi).
+    """
+    if dt is None:
+        return None
+    z = _local_tz(tz_name)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(z)
+
+
 def _as_local(dt, z):
     """Berilgan qiymatni mahalliy aware datetime'ga keltiradi (date/datetime/None)."""
     if dt is None:

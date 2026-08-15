@@ -545,7 +545,9 @@
           <div class="goal-info">
             <div class="goal-title">Oylik savdo maqsadi</div>
             <div class="goal-stat"><span id="goalPctText">0</span>% bajarildi</div>
-            <div class="goal-sub">Qoldi: <b id="goalRemaining">—</b> · <b id="goalDaysLeft">—</b> kun ichida</div>
+            <!-- "kun ichida" matni JS ichiga ko'chirildi: oxirgi kunda (0 kun qolganda)
+                 "0 kun ichida" emas, "oxirgi kun" deb yozilsin. -->
+            <div class="goal-sub">Qoldi: <b id="goalRemaining">—</b> · <b id="goalDaysLeft">—</b></div>
           </div>
         </div>
         <!-- Oylik maqsad belgilanmagan holat -->

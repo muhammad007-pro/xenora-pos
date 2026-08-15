@@ -6,6 +6,8 @@ import os
 
 from models import (Order, OrderItem, Payment, Product, Category, User, Shift,
                     Customer, Inventory)
+# Chegirma AYIRILGAN daromad — yagona manba (izohli formula shu faylda).
+from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq
 
 
 class ReportService:
@@ -71,12 +73,19 @@ class ReportService:
                                 current_user=None) -> Dict[str, Any]:
         from deps import apply_tenant_filter
 
+        # TUZATISH: daromad endi CHEGIRMA AYIRILGAN (avval OrderItem.total_price —
+        # katalog summasi — olinardi, chegirma hech qachon ayirilmasdi → foyda oshiq
+        # chiqardi). Formula va taqsimlash izohi: utils/revenue.py
+        sq = order_subtotal_subq()
+        net = net_revenue_expr(sq)
+
         q = self.db.query(
             func.date(Order.created_at).label('d'),
-            func.sum(OrderItem.total_price).label('revenue'),
+            func.sum(net).label('revenue'),
             func.sum(OrderItem.quantity * OrderItem.unit_cost).label('cost'),
             func.count(func.distinct(Order.id)).label('orders')
-        ).join(Order, Order.id == OrderItem.order_id).filter(
+        ).join(Order, Order.id == OrderItem.order_id
+        ).join(sq, sq.c.order_id == OrderItem.order_id).filter(
             Order.created_at >= date_from,
             Order.created_at <= date_to,
             Order.status == "completed"
@@ -92,13 +101,16 @@ class ReportService:
         total_profit = total_revenue - total_cost
         margin = (total_profit / total_revenue * 100) if total_revenue else 0
 
+        # Mahsulot kesimi: buyurtma chegirmasi qatorlar orasida ULUSHGA qarab
+        # taqsimlanadi (utils/revenue.py) — Σ item_sof = subtotal − chegirma.
         pq = self.db.query(
             Product.name,
-            func.sum(OrderItem.total_price).label('revenue'),
+            func.sum(net).label('revenue'),
             func.sum(OrderItem.quantity * OrderItem.unit_cost).label('cost'),
             func.sum(OrderItem.quantity).label('qty')
         ).join(OrderItem, OrderItem.product_id == Product.id
-        ).join(Order, Order.id == OrderItem.order_id).filter(
+        ).join(Order, Order.id == OrderItem.order_id
+        ).join(sq, sq.c.order_id == OrderItem.order_id).filter(
             Order.created_at >= date_from,
             Order.created_at <= date_to,
             Order.status == "completed"
@@ -108,7 +120,7 @@ class ReportService:
         if branch_id:
             pq = pq.filter(Order.branch_id == branch_id)
         products = pq.group_by(Product.id, Product.name).order_by(
-            (func.sum(OrderItem.total_price) - func.sum(OrderItem.quantity * OrderItem.unit_cost)).desc()
+            (func.sum(net) - func.sum(OrderItem.quantity * OrderItem.unit_cost)).desc()
         ).limit(20).all()
 
         return {
@@ -289,15 +301,19 @@ class ReportService:
     def generate_products_report(self, date_from: datetime, date_to: datetime,
                                   limit: int = 50, branch_id: Optional[int] = None,
                                   current_user=None) -> Dict[str, Any]:
+        # Reyting hisoboti, lekin daromad SHU YERDA HAM chegirma ayirilgan bo'lsin —
+        # aks holda mijoz turli sahifada bir mahsulot uchun turli raqam ko'radi.
+        sq = order_subtotal_subq()
         q = self.db.query(
             Product.id, Product.name,
             Category.name.label('category'),
             func.sum(OrderItem.quantity).label('quantity'),
-            func.sum(OrderItem.total_price).label('revenue'),
+            func.sum(net_revenue_expr(sq)).label('revenue'),
             func.count(func.distinct(Order.id)).label('orders_count')
         ).join(Category, Category.id == Product.category_id
         ).join(OrderItem, OrderItem.product_id == Product.id
-        ).join(Order, Order.id == OrderItem.order_id).filter(
+        ).join(Order, Order.id == OrderItem.order_id
+        ).join(sq, sq.c.order_id == OrderItem.order_id).filter(
             Order.created_at >= date_from,
             Order.created_at <= date_to,
             Order.status == "completed"

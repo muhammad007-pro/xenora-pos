@@ -1293,8 +1293,9 @@ async def get_store_dashboard(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Magazin egasi uchun umumiy dashboard — barcha ko'rsatkichlar bir joyda"""
-    from models import Inventory, ProductReorderSetting, PurchaseReceipt
+    from models import Inventory, ProductReorderSetting, Supplier
     from sqlalchemy import func as sqlfunc
+    from services.supplier_debt import total_debt
     now = tenant_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     month_start = now - timedelta(days=30)
@@ -1347,14 +1348,18 @@ async def get_store_dashboard(
         if (inv.quantity if inv else 0) < rs.min_qty:
             low_stock_count += 1
 
-    # 5. Firma qarzlari (tasdiqlanmagan priyomkalar)
+    # 5. Firma qarzlari
+    # FAZA 1 TUZATISH: ilgari shu yerda MUTLAQO BOSHQA formula turardi —
+    #     status != "paid" bo'lgan priyomkalar summasi
+    # ya'ni draft (hali omborga kirmagan) nakladnoylarni ham qo'shar, to'lov va
+    # vozvratni esa UMUMAN ayirmasdi. Natijada "Firmalar qarzi" soni Qarzlar
+    # tabidagi son bilan mos kelmasdi. Endi ikkalasi bitta servisni chaqiradi.
     supplier_debt = 0.0
     try:
-        receipts = db.query(PurchaseReceipt).filter(
-            PurchaseReceipt.tenant_id == current_user.tenant_id,
-            PurchaseReceipt.status != "paid",
-        ).all()
-        supplier_debt = sum((r.net_amount or 0) for r in receipts)
+        active_suppliers = apply_tenant_filter(
+            db.query(Supplier), Supplier, current_user
+        ).filter(Supplier.is_active == True).all()
+        supplier_debt = total_debt(db, active_suppliers)
     except Exception:
         pass
 

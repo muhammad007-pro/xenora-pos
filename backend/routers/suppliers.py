@@ -2,20 +2,21 @@
 Yetkazib beruvchilar (Suppliers) router — BOSQICH 24 (B2B)
 Firma kartochkasi: INN (tax_id), telefon, manzil, shartnoma, otsrochka, mas'ul shaxs.
 Qarz summary hisoblash: priyomkalar - to'lovlar - vozvratlар.
+FAZA 1: hisobning O'ZI services/supplier_debt.py ga ko'chirildi (yagona manba).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import date as Date
 from typing import Optional
 
 from database import get_db
-from models import Supplier, PurchaseReceipt, SupplierPayment, SupplierReturn, User
+from models import Supplier, User
 from schemas import (
     SupplierCreate, SupplierUpdate, SupplierInDB,
     SupplierDebtSummary, PaginatedResponse, MessageResponse,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+from services.supplier_debt import compute_debts
 
 router = APIRouter()
 
@@ -59,49 +60,33 @@ async def debt_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_reports")),
 ):
-    """Barcha firmalar qarz holati (qizil = muddati o'tgan)"""
-    from datetime import timedelta
+    """Barcha firmalar qarz holati (qizil = muddati o'tgan)
+
+    Hisob services/supplier_debt.py da — /store-dashboard ham SHU servisni
+    chaqiradi, ya'ni ikki ekran endi bir xil son ko'rsatadi.
+    """
     suppliers = (
         apply_tenant_filter(db.query(Supplier), Supplier, current_user)
         .filter(Supplier.is_active == True)
         .order_by(Supplier.name)
         .all()
     )
-    today = Date.today()
+    debts = compute_debts(db, suppliers)
     result = []
     for s in suppliers:
-        confirmed = [r for r in s.purchase_receipts if r.status in ("confirmed", "paid")]
-        total_purchases = sum(r.net_amount for r in confirmed)
-        last_purchase   = max((r.receipt_date for r in confirmed), default=None)
-
-        # B2B to'lovlar: receipt_id bor to'lovlar
-        b2b_pays = db.query(SupplierPayment).filter(
-            SupplierPayment.supplier_id == s.id,
-            SupplierPayment.receipt_id.isnot(None),
-        ).all()
-        total_paid     = sum(p.amount for p in b2b_pays)
-        total_returned = sum(r.total_amount for r in s.supplier_returns)
-        debt = max(0.0, total_purchases - total_paid - total_returned)
-
-        # Muddati o'tgan
-        overdue = 0.0
-        for rec in confirmed:
-            if rec.status != "paid":
-                due = rec.receipt_date + timedelta(days=s.payment_delay_days or 0)
-                if due < today:
-                    paid_for_rec = sum(p.amount for p in b2b_pays if p.receipt_id == rec.id)
-                    overdue += max(0.0, rec.net_amount - paid_for_rec)
-
+        d = debts[s.id]
         result.append(SupplierDebtSummary(
-            supplier_id=s.id,
-            supplier_name=s.name,
-            phone=s.phone,
-            total_purchases=total_purchases,
-            total_paid=total_paid,
-            total_returned=total_returned,
-            debt=debt,
-            overdue_amount=overdue,
-            last_purchase=str(last_purchase) if last_purchase else None,
+            supplier_id=d.supplier_id,
+            supplier_name=d.supplier_name,
+            phone=d.phone,
+            total_purchases=d.total_purchases,
+            total_paid=d.total_paid,
+            total_returned=d.total_returned,
+            debt=d.debt,
+            advance=d.advance,
+            balance=d.balance,
+            overdue_amount=d.overdue_amount,
+            last_purchase=str(d.last_purchase) if d.last_purchase else None,
         ).model_dump())
     return result
 

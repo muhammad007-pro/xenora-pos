@@ -1397,6 +1397,11 @@ class SupplierDebtSummary(BaseModel):
     debt:            float
     overdue_amount:  float
     last_purchase:   Optional[str] = None
+    # FAZA 1: avans (ortiqcha to'langan pul) endi yo'qolmaydi.
+    # `debt` eski UI uchun o'zgarishsiz qoladi (manfiysi kesilgan),
+    # `balance` esa ISHORALI: musbat = qarz, manfiy = avans.
+    advance:         float = 0.0
+    balance:         float = 0.0
 
 
 class PurchaseReceiptItemCreate(BaseModel):

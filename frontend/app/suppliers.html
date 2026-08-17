@@ -72,9 +72,32 @@
   .stat-val    { font-weight:600; }
   .btn-row     { display:flex; gap:.5rem; margin-top:1rem; }
   .sub-tab-bar { display:flex; gap:.5rem; margin-bottom:1rem; }
-  .history-row { display:flex; justify-content:space-between; padding:.5rem .75rem; border-radius:.5rem; font-size:.875rem; margin-bottom:.25rem; }
+  .history-row { display:flex; justify-content:space-between; align-items:center; gap:.75rem;
+                 flex-wrap:wrap; padding:.5rem .75rem; border-radius:.5rem; font-size:.875rem; margin-bottom:.25rem; }
   .history-row:hover { background:var(--surface2); }
   .pay-positive { color:#22c55e; }
+  /* FAZA 2: JAMI banner + avans. Qarz QIZIL, avans YASHIL — do'konchi agent
+     bilan turganda rangdan bir qarashda tushunsin. */
+  .debt-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+                 gap:.875rem; margin-bottom:1.25rem; }
+  .dt-card     { border:2px solid var(--border); border-radius:.75rem; padding:.875rem 1rem;
+                 background:var(--surface1); display:flex; flex-direction:column; gap:.25rem; }
+  .dt-label    { font-size:.75rem; color:var(--text3); font-weight:600; }
+  .dt-val      { font-size:1.5rem; font-weight:800; line-height:1.1; }
+  .dt-sub      { font-size:.6875rem; color:var(--text3); }
+  .dt-debt     { border-color:rgba(239,68,68,.45); }
+  .dt-debt .dt-val { color:#ef4444; }
+  .dt-adv      { border-color:rgba(34,197,94,.45); }
+  .dt-adv  .dt-val { color:#22c55e; }
+  .dt-over     { border-color:rgba(245,158,11,.45); }
+  .dt-over .dt-val { color:#f59e0b; }
+  .debt-num.green { color:#22c55e; }
+  .adv-tag     { font-size:.6875rem; font-weight:700; background:#dcfce7; color:#166534;
+                 border-radius:.375rem; padding:.15rem .4rem; }
+  .pay-tag     { font-size:.6875rem; font-weight:700; border-radius:.375rem; padding:.1rem .4rem;
+                 white-space:nowrap; }
+  .pay-tag.receipt { background:rgba(59,130,246,.16); color:#2563eb; }
+  .pay-tag.general { background:rgba(245,158,11,.18); color:#b45309; }
   .locked-box  { text-align:center; padding:3rem 1.5rem; color:var(--text3); }
   .locked-box .lock-ico { font-size:2.5rem; }
 
@@ -335,6 +358,24 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
         <button class="tab-btn" id="dtabHistory" onclick="debtSubTab('history')">To'lovlar tarixi</button>
       </div>
       <div id="dPanelDebt">
+        <!-- FAZA 2: JAMI banner — agent bilan turganda umumiy holat bir qarashda -->
+        <div class="debt-totals" id="debtTotals">
+          <div class="dt-card dt-debt">
+            <span class="dt-label">Jami qarz</span>
+            <span class="dt-val" id="dtDebt">—</span>
+            <span class="dt-sub" id="dtDebtSub">&nbsp;</span>
+          </div>
+          <div class="dt-card dt-adv">
+            <span class="dt-label">Jami avans (bizning haqimiz)</span>
+            <span class="dt-val" id="dtAdvance">—</span>
+            <span class="dt-sub" id="dtAdvanceSub">&nbsp;</span>
+          </div>
+          <div class="dt-card dt-over">
+            <span class="dt-label">Muddati o'tgan</span>
+            <span class="dt-val" id="dtOverdue">—</span>
+            <span class="dt-sub" id="dtOverdueSub">&nbsp;</span>
+          </div>
+        </div>
         <div class="debt-grid" id="debtGrid">
           <div class="sk-card"></div>
           <div class="sk-card"></div>
@@ -945,20 +986,41 @@ async function debtLoadPayReceipts() {
 async function loadDebt() {
   const res = await api.get('/suppliers-b2b/debt-summary');
   const grid = document.getElementById('debtGrid');
-  if (!Array.isArray(res) || !res.length) { grid.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">Firmalar topilmadi</div>'; return; }
-  grid.innerHTML = res.map(d => {
+  // FAZA 2: JAMI banner. Avans ALOHIDA — u boshqa firmaning qarzini yashirmasin.
+  const rows = Array.isArray(res) ? res : [];
+  const tot = rows.reduce((a, d) => ({
+    debt: a.debt + (d.debt || 0),
+    adv:  a.adv  + (d.advance || 0),
+    over: a.over + (d.overdue_amount || 0),
+    nDebt: a.nDebt + (d.debt > 0 ? 1 : 0),
+    nAdv:  a.nAdv  + (d.advance > 0 ? 1 : 0),
+    nOver: a.nOver + (d.overdue_amount > 0 ? 1 : 0),
+  }), {debt:0, adv:0, over:0, nDebt:0, nAdv:0, nOver:0});
+  const setT = (id, val, subId, n, word) => {
+    document.getElementById(id).textContent = fmt(val);
+    document.getElementById(subId).textContent = n ? `${n} ta firma${word}` : 'yo\'q';
+  };
+  setT('dtDebt',    tot.debt, 'dtDebtSub',    tot.nDebt, 'ga qarzdormiz');
+  setT('dtAdvance', tot.adv,  'dtAdvanceSub', tot.nAdv,  'da avansimiz bor');
+  setT('dtOverdue', tot.over, 'dtOverdueSub', tot.nOver, 'da muddat o\'tgan');
+
+  if (!rows.length) { grid.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">Firmalar topilmadi</div>'; return; }
+  grid.innerHTML = rows.map(d => {
     const pct     = d.total_purchases > 0 ? Math.min(100, d.total_paid / d.total_purchases * 100) : 100;
     const overdue = d.overdue_amount > 0;
+    // Avans = ortiqcha to'langan pul (firma bizga qarzdor). Yashil ko'rsatiladi,
+    // "0 so'm qarz" emas — ilgari max(0,...) sabab u umuman ko'rinmasdi.
+    const adv     = (d.advance || 0) > 0;
     return `
       <div class="debt-card ${overdue ? 'overdue':''}">
         <div class="card-header">
           <div>
-            <div class="firm-name">${d.supplier_name} ${overdue ? '<span class="overdue-tag">⚠ Muddati o\'tgan</span>' : ''}</div>
+            <div class="firm-name">${d.supplier_name} ${overdue ? '<span class="overdue-tag">⚠ Muddati o\'tgan</span>' : ''} ${adv ? '<span class="adv-tag">↩ Avans</span>' : ''}</div>
             <div class="firm-meta">${d.phone || ''} ${d.last_purchase ? '| Oxirgi: '+d.last_purchase : ''}</div>
           </div>
           <div class="debt-amount">
-            <div class="debt-num ${d.debt>0 ? 'red':''}">${fmt(d.debt)}</div>
-            <div style="font-size:.75rem;color:var(--text3)">so'm qarz</div>
+            <div class="debt-num ${adv ? 'green' : (d.debt>0 ? 'red':'')}">${fmt(adv ? d.advance : d.debt)}</div>
+            <div style="font-size:.75rem;color:var(--text3)">${adv ? "so'm avans" : "so'm qarz"}</div>
           </div>
         </div>
         <div class="progress-row">
@@ -992,11 +1054,17 @@ window.debtLoadHistory = async () => {
   const list = document.getElementById('historyList');
   const rows = res.items || [];
   if (!rows.length) { list.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">To\'lovlar topilmadi</div>'; return; }
+  // FAZA 2: to'lov TURI (nakladnoy uchunmi / tovarsiz umumiy pulmi) + KIM kiritgani.
+  // Do'konchi agent bilan hisob-kitob qilganda aynan shu ikkisini so'raydi.
   list.innerHTML = rows.map(p => {
     const sup = suppliers.find(s => s.id === p.supplier_id);
+    const isRec = p.payment_type === 'receipt';
+    const tag   = `<span class="pay-tag ${isRec ? 'receipt' : 'general'}">${isRec ? (p.receipt_label || 'Nakladnoy uchun') : "Umumiy to'lov"}</span>`;
+    const who   = p.created_by_name ? ` · ${p.created_by_name}` : '';
     return `<div class="history-row">
       <span style="font-weight:600">${sup?.name || 'Firma #'+p.supplier_id}</span>
-      <span style="color:var(--text2);font-size:.8125rem">${p.payment_date || ''} · ${methodLabel(p.payment_method)}</span>
+      ${tag}
+      <span style="color:var(--text2);font-size:.8125rem">${p.payment_date || ''} · ${methodLabel(p.payment_method)}${who}</span>
       <span class="pay-positive" style="font-weight:700">+${fmt(p.amount)}</span>
     </div>`;
   }).join('');
@@ -1074,12 +1142,13 @@ window.debtSaveRet = async () => {
 async function buxLoad() {
   const res = await api.get('/suppliers-b2b/debt-summary');
   const rows = Array.isArray(res) ? res : [];
-  const tot = rows.reduce((a,d) => ({ purch:a.purch+(d.total_purchases||0), paid:a.paid+(d.total_paid||0), ret:a.ret+(d.total_returned||0), debt:a.debt+(d.debt||0) }), {purch:0,paid:0,ret:0,debt:0});
+  const tot = rows.reduce((a,d) => ({ purch:a.purch+(d.total_purchases||0), paid:a.paid+(d.total_paid||0), ret:a.ret+(d.total_returned||0), debt:a.debt+(d.debt||0), adv:a.adv+(d.advance||0) }), {purch:0,paid:0,ret:0,debt:0,adv:0});
   document.getElementById('buxStats').innerHTML = `
     <div class="stat-item"><span class="stat-label">Jami xarid</span><span class="stat-val" style="font-size:1.125rem">${fmt(tot.purch)}</span></div>
     <div class="stat-item"><span class="stat-label">Jami to'langan</span><span class="stat-val" style="font-size:1.125rem;color:#22c55e">${fmt(tot.paid)}</span></div>
     <div class="stat-item"><span class="stat-label">Jami qaytarilgan</span><span class="stat-val" style="font-size:1.125rem;color:#f59e0b">${fmt(tot.ret)}</span></div>
-    <div class="stat-item"><span class="stat-label">Umumiy qarz</span><span class="stat-val" style="font-size:1.125rem;color:#ef4444">${fmt(tot.debt)}</span></div>`;
+    <div class="stat-item"><span class="stat-label">Umumiy qarz</span><span class="stat-val" style="font-size:1.125rem;color:#ef4444">${fmt(tot.debt)}</span></div>
+    <div class="stat-item"><span class="stat-label">Avans (bizning haqimiz)</span><span class="stat-val" style="font-size:1.125rem;color:#22c55e">${fmt(tot.adv)}</span></div>`;
   document.getElementById('buxTableBody').innerHTML = rows.map(d => `
     <tr>
       <td style="font-weight:600">${d.supplier_name}</td>

@@ -438,6 +438,15 @@ async function discDelete(id) {
 }
 
 // ══ BOSQICH 19: NASIYA / QARZ DAFTAR ══════════════════════════════════════════
+//
+// TUZATISH (mijozda topildi — Fazza Parfum): bu blokda 12 marta `showAlert(...)`
+// chaqirilardi, lekin bunday funksiya butun frontendda YO'Q (admin panelining
+// xabar funksiyasi — `toast()`, core.js:10). Har chaqiruv ReferenceError berardi:
+//   - validatsiya shoxida (try'dan TASHQARIDA) tugma butunlay "o'lik" bo'lardi —
+//     na xabar, na so'rov. Serverда 7 kun ichida BITTA ham POST /debts/ yo'q edi.
+//   - muvaffaqiyat shoxida esa xato `catch` ga tushib, catch ichidagi showAlert
+//     YANA yiqilardi -> ro'yxat yangilanmasdi.
+// Endi hamma joyda `toast()` (imzosi bir xil: msg, type).
 let debtCurrentPage = 1;
 let currentDebtId = null;
 let _debtCustomers = [];   // BOSQICH 13: yuklangan mijozlar (mahalliy dublikat tekshiruvi uchun)
@@ -543,12 +552,12 @@ function _dmToggleNewCust(show) {
 async function dmAddNewCustomer() {
   const name  = document.getElementById('dmNewName').value.trim();
   const phone = document.getElementById('dmNewPhone').value.trim();
-  if (!name)  { showAlert('Ism kiriting', 'error'); return; }
-  if (!phone) { showAlert('Telefon kiriting', 'error'); return; }   // do'kon nasiyasi — telefon majburiy
+  if (!name)  { toast('Ism kiriting', 'error'); return; }
+  if (!phone) { toast('Telefon kiriting', 'error'); return; }   // do'kon nasiyasi — telefon majburiy
   // BOSQICH S1: chegirma % (ixtiyoriy, 0-100)
   const discRaw = document.getElementById('dmNewDiscount')?.value;
   const disc = discRaw !== '' && discRaw != null ? parseFloat(discRaw) : 0;
-  if (!(disc >= 0 && disc <= 100)) { showAlert("Chegirma 0-100 oralig'ida bo'lsin", 'error'); return; }
+  if (!(disc >= 0 && disc <= 100)) { toast("Chegirma 0-100 oralig'ida bo'lsin", 'error'); return; }
   const sel = document.getElementById('dmCustomer');
 
   // Mahalliy dublikat: shu do'kon ro'yxatida telefon bo'lsa — mavjudni tanla (yangi yaratma)
@@ -556,7 +565,7 @@ async function dmAddNewCustomer() {
   if (existing) {
     sel.value = String(existing.id);
     _dmToggleNewCust(false);
-    showAlert('Mavjud mijoz tanlandi', 'info');
+    toast('Mavjud mijoz tanlandi', 'info');
     return;
   }
 
@@ -571,9 +580,9 @@ async function dmAddNewCustomer() {
     sel.value = String(c.id);
     _debtCustomers.push(c);
     _dmToggleNewCust(false);
-    showAlert("Mijoz qo'shildi va tanlandi", 'success');
+    toast("Mijoz qo'shildi va tanlandi", 'success');
   } catch (e) {
-    showAlert(e.message || 'Xato', 'error');   // backend 400 "Bu telefon raqam band" (global unique)
+    toast(e.message || 'Xato', 'error');   // backend 400 "Bu telefon raqam band" (global unique)
   } finally {
     btn.disabled = false; btn.textContent = 'Qo\'shish va tanlash';
   }
@@ -586,7 +595,7 @@ async function saveDebt() {
   const custId = document.getElementById('dmCustomer').value;
   const amount = parseFloat(document.getElementById('dmAmount').value);
   if (!custId || !amount || amount <= 0) {
-    showAlert('Mijoz va miqdor kiritilishi shart', 'error'); return;
+    toast('Mijoz va miqdor kiritilishi shart', 'error'); return;
   }
   const payload = {
     customer_id: parseInt(custId),
@@ -597,10 +606,10 @@ async function saveDebt() {
   try {
     await apiFetchPost('/debts/', payload, 'POST');   // apiFetch faqat GET — POST uchun apiFetchPost
     closeModal('debtModal');
-    showAlert('Qarz yozildi', 'success');
+    toast('Qarz yozildi', 'success');
     loadDebtSummary(); loadDebts(); updateDebtBadge();
   } catch (e) {
-    showAlert(e.message || 'Xato', 'error');
+    toast(e.message || 'Xato', 'error');
   }
 }
 
@@ -615,7 +624,7 @@ function openPayDebt(id, remaining) {
 
 async function submitDebtPayment() {
   const amount = parseFloat(document.getElementById('pdAmount').value);
-  if (!amount || amount <= 0) { showAlert('Miqdor kiriting', 'error'); return; }
+  if (!amount || amount <= 0) { toast('Miqdor kiriting', 'error'); return; }
   const payload = {
     amount,
     payment_method: document.getElementById('pdMethod').value,
@@ -624,10 +633,10 @@ async function submitDebtPayment() {
   try {
     await apiFetchPost(`/debts/${currentDebtId}/pay`, payload, 'POST');   // apiFetch faqat GET
     closeModal('payDebtModal');
-    showAlert('To\'lov qabul qilindi', 'success');
+    toast('To\'lov qabul qilindi', 'success');
     loadDebtSummary(); loadDebts(); updateDebtBadge();
   } catch (e) {
-    showAlert(e.message || 'Xato', 'error');
+    toast(e.message || 'Xato', 'error');
   }
 }
 

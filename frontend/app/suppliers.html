@@ -1207,9 +1207,15 @@ async function masterInit() {
     b.textContent = 'Buxgalteriya';
   }
 
-  // Default: Firmalar tab
-  loaded.firmalar = true;
-  loadFirms();
+  // Default: Firmalar tab. `?tab=qarzlar` bo'lsa — o'sha tab bilan ochiladi
+  // (eski supplier_debt.html havolasi shu yerga yo'naltiradi).
+  const wantTab = new URLSearchParams(location.search).get('tab');
+  if (wantTab && PANELS.includes(wantTab)) {
+    supTab(wantTab);
+  } else {
+    loaded.firmalar = true;
+    loadFirms();
+  }
 }
 
 masterInit();

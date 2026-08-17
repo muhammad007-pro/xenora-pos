@@ -32,7 +32,7 @@ Ikkalasi ham `backend/tests/test_supplier_debt.py` da GOLDEN test sifatida qotir
 | # | Muammo | Joy | Faza |
 |---|---|---|---|
 | B1 | Umumiy (nakladnoysiz) to'lov qarzni kamaytirmaydi | `routers/suppliers.py:80` | ✅ 1 |
-| B2 | Ombor kirimi boshqa daftarga yozadi (`supplier.balance`) | `routers/inventory.py:428` | 3 |
+| B2 | Ombor kirimi boshqa daftarga yozadi (`supplier.balance`) | `routers/inventory.py:428` | ✅ 2* |
 | B3 | Avans ko'rinmaydi (`max(0, ...)`) | `routers/suppliers.py:84` | ✅ 1 |
 | B4 | Direktor panelida butunlay boshqa formula | `routers/analytics.py:1351` | ✅ 1 |
 | B5 | To'lov o'chirilsa nakladnoy `paid` bo'lib qoladi | `routers/supplier_payments.py:93` | 5 |
@@ -80,18 +80,27 @@ Test: `tests/test_supplier_debt.py` — 13 ta, ikkala golden ssenariy ichida.
 Migratsiya: **YO'Q** (faqat `SupplierDebtSummary` ga `advance`/`balance` qo'shildi,
 ikkalasi ham default qiymatli — eski UI buzilmaydi).
 
-### FAZA 2 — do'konchi ko'rsin (frontend + kichik schema)
-- To'lov tarixida: tur (nakladnoy / umumiy) + nakladnoy raqami + kim kiritgani
-- Avans belgisi (yashil "Avans: 600 000"), progress bar 100% dan oshmasin
-- Qarzlar tabida JAMI banner: jami qarz / jami avans / muddati o'tgan
-- `supplier_debt.html` va Qarzlar tabi — bittaga keltirish
-- Migratsiya: **YO'Q** (`SupplierPaymentInDB` ga mavjud ustunlarni qo'shish kifoya)
+### ✅ FAZA 2 — do'konchi ko'rsin (TUGADI)
+- ✅ To'lov tarixida: tur (nakladnoy / umumiy) + nakladnoy raqami + kim kiritgani
+  (`payment_type` / `receipt_label` / `created_by_name`)
+- ✅ Avans belgisi (yashil "↩ Avans"), progress bar 100% da cheklangan
+- ✅ Qarzlar tabida JAMI banner: jami qarz (qizil) / avans (yashil) / muddati o'tgan (sariq)
+- ✅ `supplier_debt.html` → yo'naltiruvchi; yagona ekran `suppliers.html?tab=qarzlar`
+- Migratsiya: **YO'Q** (maydonlar allaqachon bazada edi, faqat schemaga chiqarildi)
 
-### FAZA 3 — yagona daftar (migratsiya bor)
-**Qaror (a):** Ombor "Kirim qilish" firma tanlanganda **qarz YARATMAYDI**. O'rniga
-tushunarli xabar: *"Firma bilan qarz yuritish uchun Priyomka bo'limidan foydalaning"*.
-Sabab: hujjat izi toza qoladi, ikki xil yo'l chalkashlik keltiradi.
+### ✅ FAZA 2* — B2 (Faza 3 dan olдinга olindi, KRITIK edi)
+Ombor "Kirim qilish" firma tanlanganda **qarz YARATMAYDI** (qaror (a)).
+`supplier.balance` yozuvi olib tashlandi; javobda `notice`, modalda esa firma
+tanlanishi bilan sariq ogohlantirish chiqadi:
+*"Firma bilan qarz yuritish uchun Priyomka bo'limidan foydalaning"*.
+`supplier_id` StockMovement'da saqlanadi (kim keltirgani ko'rinadi), lekin qarz
+hisobiga ta'sir qilmaydi. Qarzning yagona manbai — hujjatlar.
 
+⚠️ Jonli baza tekshirildi (2026-08-17): **`suppliers` jadvali BO'SH** (0 firma,
+`balance <> 0` bo'lgan bitta ham yozuv yo'q) — ya'ni yo'qoladigan ma'lumot yo'q edi,
+backfill kerak emas.
+
+### FAZA 3 — boshlang'ich qarz (migratsiya bor) — KEYINGI BUILD
 **Qaror (b):** boshlang'ich qarz uchun **yangi `suppliers.opening_debt` ustuni** +
 alembic migratsiya (mavjud `balance` ustuni ishlatilmaydi — uning tarixi iflos,
 Ombor kirimlari o'sha yerga yozilgan).

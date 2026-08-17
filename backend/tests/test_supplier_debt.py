@@ -346,5 +346,49 @@ def test_tolov_tarixi_kimsiz_ham_qulamaydi(db):
     assert res.items[0].payment_type == "general"
 
 
+# ── B2: Ombor kirimi firma qarziga TEGMAYDI ─────────────────────────────────
+def test_ombor_kirimi_supplier_balance_ga_yozmaydi(db):
+    """Ilgari `supplier.balance += summa` qilardi — hech kim ko'rmaydigan,
+    hech narsa kamaytirmaydigan IKKINCHI daftar. Endi qarz faqat hujjatlardan."""
+    import routers.inventory as inv_router
+    from models import Inventory
+    from schemas import StockInCreate
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=0, unit="dona"))
+    db.commit()
+    balance_oldin = s.balance or 0
+
+    res = asyncio.run(inv_router.add_stock(
+        inventory_id=1,
+        data=StockInCreate(quantity=10, unit_cost=50_000, supplier_id=s.id),
+        db=db, current_user=_User(),
+    ))
+    db.refresh(s)
+
+    assert (s.balance or 0) == balance_oldin      # daftar TEGILMADI
+    assert res["new_quantity"] == 10              # ombor esa yangilandi
+    assert res["notice"] and "Priyomka" in res["notice"]   # do'konchi ogohlantirildi
+    assert _debt(db, s).debt == 0                 # qarz hujjatsiz paydo bo'lmaydi
+
+
+def test_ombor_kirimi_firmasiz_ogohlantirmaydi(db):
+    """Firma tanlanmagan oddiy kirim — ortiqcha xabar chiqmasin."""
+    import routers.inventory as inv_router
+    from models import Inventory
+    from schemas import StockInCreate
+
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=5, unit="dona"))
+    db.commit()
+
+    res = asyncio.run(inv_router.add_stock(
+        inventory_id=1, data=StockInCreate(quantity=3, unit_cost=1000),
+        db=db, current_user=_User(),
+    ))
+
+    assert res["notice"] is None
+    assert res["new_quantity"] == 8
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

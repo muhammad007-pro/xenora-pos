@@ -32,11 +32,12 @@ from sqlalchemy.orm import sessionmaker
 
 from database import Base
 from models import (
-    Category, Product, PurchaseReceipt, Supplier, SupplierPayment, SupplierReturn,
+    Category, Product, PurchaseReceipt, Supplier, SupplierPayment, SupplierReturn, User,
 )
 from services.supplier_debt import compute_debts, total_debt
 
 import routers.suppliers as sup_router
+import routers.supplier_payments as pay_router
 
 TODAY = Date(2026, 8, 16)
 
@@ -302,6 +303,47 @@ def test_store_dashboard_debt_summary_bilan_bir_xil(db):
 
     assert dash["supplier_debt"] == 1_400_000
     assert dash["supplier_debt"] == sum(r["debt"] for r in rows)
+
+
+# ── FAZA 2: to'lov tarixi — turi va kim kiritgani ────────────────────────────
+def test_tolov_tarixida_turi_va_kim_korinadi(db):
+    """Do'konchi agent bilan turganda: nakladnoy uchunmi yoki umumiy pulmi + kim."""
+    db.add(User(id=7, tenant_id=1, full_name="Aziz Kassir", phone="+998901234567",
+                hashed_password="x"))
+    db.commit()
+    s = _supplier(db)
+    rec = _receipt(db, s, 1_000_000, days_ago=3, invoice="INV-77")
+
+    bogliq = _payment(db, s, 400_000, receipt=rec)
+    umumiy = _payment(db, s, 300_000, receipt=None)
+    for p in (bogliq, umumiy):
+        p.created_by = 7
+    db.commit()
+
+    # page/page_size ANIQ beriladi: endpoint to'g'ridan-to'g'ri chaqirilganda
+    # FastAPI `Query(...)` default'lari int'ga aylanmaydi.
+    res = asyncio.run(pay_router.list_payments(page=1, page_size=50, db=db, current_user=_User()))
+    rows = {r.id: r for r in res.items}
+
+    assert rows[bogliq.id].payment_type == "receipt"
+    assert rows[bogliq.id].receipt_label == f"Nakladnoy #{rec.id} · INV-77"
+    assert rows[umumiy.id].payment_type == "general"
+    assert rows[umumiy.id].receipt_label is None
+    assert rows[bogliq.id].created_by_name == "Aziz Kassir"
+
+
+def test_tolov_tarixi_kimsiz_ham_qulamaydi(db):
+    """Eski yozuvlarda created_by/user_id bo'lmasligi mumkin — 500 bermasin."""
+    s = _supplier(db)
+    _payment(db, s, 100_000, receipt=None)
+
+    # page/page_size ANIQ beriladi: endpoint to'g'ridan-to'g'ri chaqirilganda
+    # FastAPI `Query(...)` default'lari int'ga aylanmaydi.
+    res = asyncio.run(pay_router.list_payments(page=1, page_size=50, db=db, current_user=_User()))
+
+    assert res.total == 1
+    assert res.items[0].created_by_name is None
+    assert res.items[0].payment_type == "general"
 
 
 if __name__ == "__main__":

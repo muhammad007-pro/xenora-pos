@@ -9,7 +9,7 @@ from datetime import date as Date
 from typing import Optional
 
 from database import get_db
-from models import SupplierPayment, Supplier, PurchaseReceipt, User
+from models import SupplierPayment, Supplier, PurchaseReceipt, User  # User: to'lovni kim kiritgani
 from schemas import (
     SupplierPaymentCreate, SupplierPaymentInDB,
     PaginatedResponse, MessageResponse,
@@ -41,7 +41,34 @@ async def list_payments(
         q = q.filter(SupplierPayment.payment_date <= date_to)
     total = q.count()
     rows  = q.order_by(SupplierPayment.payment_date.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    items = [SupplierPaymentInDB.model_validate(r) for r in rows]
+
+    # FAZA 2: to'lov turi + kim kiritgani. Ikkalasi ham bazada BOR edi, lekin
+    # javobga chiqmasdi — do'konchi "tovar bilan berilganmi yoki alohida pulmi"
+    # va "kim kiritdi" degan savolga javob topa olmasdi.
+    # N+1 bo'lmasin: sahifadagi nakladnoy va foydalanuvchilar 2 ta so'rovda olinadi.
+    rec_ids  = {r.receipt_id for r in rows if r.receipt_id}
+    user_ids = {r.created_by or r.user_id for r in rows if (r.created_by or r.user_id)}
+    receipts = {rec.id: rec for rec in db.query(PurchaseReceipt)
+                .filter(PurchaseReceipt.id.in_(rec_ids)).all()} if rec_ids else {}
+    users    = {u.id: u for u in db.query(User)
+                .filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+    items = []
+    for r in rows:
+        m = SupplierPaymentInDB.model_validate(r)
+        if r.receipt_id:
+            m.payment_type = "receipt"
+            rec = receipts.get(r.receipt_id)
+            inv = f" · {rec.invoice_number}" if (rec and rec.invoice_number) else ""
+            m.receipt_label = f"Nakladnoy #{r.receipt_id}{inv}"
+        else:
+            m.payment_type  = "general"
+            m.receipt_label = None
+        u = users.get(r.created_by or r.user_id)
+        if u:
+            m.created_by_name = u.full_name or u.username or u.phone
+        items.append(m)
+
     return PaginatedResponse(items=items, total=total, page=page, page_size=page_size,
                              total_pages=(total + page_size - 1) // page_size)
 

@@ -3260,6 +3260,26 @@ async function init() {
 init();
 
 // ─── BOSQICH 20: Tez sotuv paneli ────────────────────────────────────────────
+// Foydalanuvchi TANLAGAN fon rangi ustida o'qiladigan matn rangi (WCAG nisbiy
+// yorug'lik). Yangi rang o'ylab topilmagan: oq — mavjud qiymat, #0d1b2e —
+// admin.css dagi yorug' mavzu `--text` qiymati.
+// Xuddi shu yordamchi js/admin/core.js da ham bor: bu ES modul, u klassik
+// skript — umumiy import qila olmaydi.
+function qsTextOn(bg) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(bg || '').trim());
+  if (!m) return '#fff';
+  const [r, g, b] = [1, 2, 3].map(i => {
+    const c = parseInt(m[i], 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Sobit yorug'lik chegarasi ISHLATILMAYDI — u standart yashil (#4CAF50) uchun
+  // oq matnni tanlab, 2.78:1 (WCAG AA 3.0 dan PAST) berardi. Buning o'rniga ikki
+  // nomzoddan KONTRASTI YUQORISI tanlanadi → har qanday rangda eng yaxshi variant.
+  const ratio = other => (Math.max(L, other) + 0.05) / (Math.min(L, other) + 0.05);
+  return ratio(1.0) >= ratio(0.0137) ? '#fff' : '#0d1b2e';   // 1.0 = oq, 0.0137 = #0d1b2e
+}
+
 async function loadQuickSellPanel() {
   const panel = document.getElementById('quickSellPanel');
   const btns  = document.getElementById('quickSellButtons');
@@ -3269,7 +3289,11 @@ async function loadQuickSellPanel() {
     const items = (_r && _r.success && Array.isArray(_r.data)) ? _r.data : [];
     if (!items.length) return;
     panel.style.display = '';
-    btns.innerHTML = items.map(item => `<button onclick="quickSellAdd(${item.product_id})" style="background:${item.color};color:#fff;border:none;border-radius:8px;padding:.35rem .7rem;cursor:pointer;font-size:.82rem;font-weight:600;white-space:nowrap">${item.display_name}</button>`).join('');
+    // Matn rangi TANLANGAN fonga moslashadi: standart yashil (#4CAF50) ustida oq
+    // yaxshi o'qiladi, lekin rang do'konchi tomonidan tanlanadi — sariq/och rang
+    // tanlansa qat'iy oq matn ko'rinmay qolardi. qsTextOn() nisbiy yorug'lik
+    // (WCAG) bo'yicha oq yoki to'q matnni tanlaydi.
+    btns.innerHTML = items.map(item => `<button onclick="quickSellAdd(${item.product_id})" style="background:${item.color};color:${qsTextOn(item.color)};border:none;border-radius:8px;padding:.35rem .7rem;cursor:pointer;font-size:.82rem;font-weight:600;white-space:nowrap">${item.display_name}</button>`).join('');
   } catch {}
 }
 function quickSellAdd(productId) {
@@ -3284,6 +3308,12 @@ function quickSellAdd(productId) {
     }).catch(() => toast('Mahsulot topilmadi', 'warning'));
   }
 }
+// ⚠️ MAJBURIY: pos.js <script type="module"> bilan yuklanadi (pos.html:1525).
+// Modul ichidagi `function` GLOBAL EMAS — u modul doirasida qoladi. Yuqoridagi
+// tugma esa inline `onclick="quickSellAdd(...)"` ishlatadi, inline onclick esa
+// nomni window'dan qidiradi → "quickSellAdd is not defined" (savatga qo'shilmasdi).
+// Shu fayldagi mavjud naqsh: window.handleBarcodeScan, window._posAddAnalog.
+window.quickSellAdd = quickSellAdd;
 
 // ─── BOSQICH 21: Bo'limlar filtri (departments) ───────────────────────────────
 async function loadDeptsBar() {
@@ -3335,6 +3365,11 @@ function filterByDept(deptId, color) {
   // Mahsulotlarni filtr qil
   renderProducts();
 }
+// ⚠️ MAJBURIY (quickSellAdd bilan AYNAN bir xil sabab): loadDeptsBar() tugmalari
+// inline `onclick="filterByDept(...)"` ishlatadi, modul ichidagi funksiya esa
+// window'da yo'q. Mijoz hali bu tugmani bosmagan bo'lsa ham xato AYNAN o'sha —
+// ikkalasi ham BOSQICH 20/21 da bir vaqtda yozilgan, bir xil tuzoqqa tushgan.
+window.filterByDept = filterByDept;
 
 
 // ═══ Sotuvchi almashtirish + avto-qulf (iiko naqshi) ═══════════════════════════

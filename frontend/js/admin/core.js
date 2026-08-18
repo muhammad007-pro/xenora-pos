@@ -272,12 +272,22 @@ async function apiFetch(path) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   try {
+    // ⚠️ `.catch(() => null)` xatoni JIMGINA yutadi. Aynan shu sabab serverdagi
+    // 500 xatosi kartalarni "buzuq" emas, "BO'SH" qilib ko'rsatgan edi va muammo
+    // uzoq vaqt sezilmagan. Endi xato yutiladi (sahifa qulamasin), lekin
+    // FOYDALANUVCHIGA tushunarli tilda bildiriladi.
+    const _failed = [];
+    const _try = (p, label) => p.catch(() => { _failed.push(label); return null; });
     const [analytics, orders, trends] = await Promise.all([
-      apiFetch('/analytics/summary?period=today').catch(() => null),
-      apiFetch('/orders/?limit=8&page=1').catch(() => null),
+      _try(apiFetch('/analytics/summary?period=today'), 'kunlik ko\'rsatkichlar'),
+      _try(apiFetch('/orders/?limit=8&page=1'), 'oxirgi buyurtmalar'),
       // o'sish % (trend) — alohida endpoint, mavjud raqam to'ldirishga TEGMAYDI
-      apiFetch('/analytics/dashboard?range=today').catch(() => null),
+      _try(apiFetch('/analytics/dashboard?range=today'), 'foyda va maqsad'),
     ]);
+    if (_failed.length) {
+      // Texnik matn emas: nima ko'rinmayotgani va nima qilish kerakligi.
+      toast(`Dashboard qismi yuklanmadi (${_failed.join(', ')}). Sahifani yangilang — takrorlansa administratorga ayting.`, 'warning', 6000);
+    }
     if (trends) {
       setKpiTrend('kpiRevTrend',  trends.revenue_trend,   'kecha');
       setKpiTrend('kpiOrdTrend',  trends.orders_trend,    'kecha');
@@ -351,7 +361,11 @@ function renderMonthlyGoal(trends){
     const shown = Math.round(pct);
     document.getElementById('goalPctText').textContent  = shown;
     document.getElementById('goalRemaining').textContent = fmtMoney(trends.goal_remaining || 0) + ' UZS';
-    document.getElementById('goalDaysLeft').textContent  = trends.days_left != null ? trends.days_left : '—';
+    // days_left endi BUGUNNI sanamaydi (backend: last_day - now.day). Oyning oxirgi
+    // kunida 0 keladi — "0 kun ichida" mantiqsiz, shuning uchun "oxirgi kun".
+    const _dl = trends.days_left;
+    document.getElementById('goalDaysLeft').textContent =
+      _dl == null ? '—' : (_dl <= 0 ? 'oxirgi kun' : `${_dl} kun ichida`);
     // ring to'lish (foiz 100% bilan cheklanadi; C = 2πr, r=52)
     const C = 326.726, fill = document.getElementById('goalRingFill');
     const off = C * (1 - Math.min(pct, 100) / 100);
@@ -2393,18 +2407,44 @@ async function deletePromo(id) {
 // BOSQICH 20 — Quick Sell
 // ═══════════════════════════════════════════════════════
 let _qsSelectedProductId = null;
+// Foydalanuvchi TANLAGAN fon rangi ustida o'qiladigan matn rangi (oq yoki to'q).
+// Rang do'konchi tomonidan tanlanadi (rang tanlagich) — sariq/och yashil tanlansa
+// qat'iy oq matn ko'rinmay qoladi. Nisbiy yorug'lik (WCAG) bo'yicha tanlaymiz.
+// Yangi rang o'ylab topilmagan: oq — mavjud qiymat, #0d1b2e — admin.css dagi
+// yorug' mavzu `--text` qiymati. Xuddi shu yordamchi pos.js da ham bor (u ES
+// modul, bu klassik skript — umumiy import qila olmaydi).
+function qsTextOn(bg) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(bg || '').trim());
+  if (!m) return '#fff';
+  const [r, g, b] = [1, 2, 3].map(i => {
+    const c = parseInt(m[i], 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Sobit yorug'lik chegarasi ISHLATILMAYDI — u standart yashil (#4CAF50) uchun
+  // oq matnni tanlab, 2.78:1 (WCAG AA 3.0 dan PAST) berardi. Buning o'rniga ikki
+  // nomzoddan KONTRASTI YUQORISI tanlanadi → har qanday rangda eng yaxshi variant.
+  const ratio = other => (Math.max(L, other) + 0.05) / (Math.min(L, other) + 0.05);
+  return ratio(1.0) >= ratio(0.0137) ? '#fff' : '#0d1b2e';   // 1.0 = oq, 0.0137 = #0d1b2e
+}
+
 async function loadQuickSellItems() {
   const items = await apiFetch(`/quick-sell/`);
   const grid = document.getElementById('quickSellGrid');
   if (!grid) return;
-  if (!items.length) { grid.innerHTML = '<p style="color:#888;grid-column:1/-1">Tez sotuv mahsulotlari yo\'q. "Qo\'shish" tugmasini bosing.</p>'; return; }
-  grid.innerHTML = items.map(item => `<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:.75rem;text-align:center;position:relative">
-    <div style="width:40px;height:40px;border-radius:50%;background:${item.color};margin:0 auto .5rem;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem">
+  if (!items.length) { grid.innerHTML = '<p style="color:var(--text3);grid-column:1/-1">Tez sotuv mahsulotlari yo\'q. "Qo\'shish" tugmasini bosing.</p>'; return; }
+  // TUZATISH (mijozda topildi): karta foni `#fff` QATTIQ KODLANGAN edi, mahsulot
+  // nomiga esa rang UMUMAN berilmagan → u to'q mavzudagi `--text` (#e8eef5,
+  // deyarli oq) ni meros olardi. Oq fon + deyarli oq matn = nom KO'RINMASDI.
+  // (Yorug' mavzuda tasodifan ishlardi — shu sabab sezilmay qolgan.)
+  // Endi mavzu o'zgaruvchilari ishlatiladi → qorong'i va yorug' rejimda ham to'g'ri.
+  grid.innerHTML = items.map(item => `<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:.75rem;text-align:center;position:relative">
+    <div style="width:40px;height:40px;border-radius:50%;background:${item.color};margin:0 auto .5rem;display:flex;align-items:center;justify-content:center;color:${qsTextOn(item.color)};font-size:1.2rem;font-weight:700">
       ${escH(item.display_name?.charAt(0)||'?')}
     </div>
-    <div style="font-weight:600;font-size:.9rem">${escH(item.display_name)}</div>
-    <div style="color:#22c55e;font-size:.85rem">${fmtNum(item.price||0)} so'm</div>
-    <button onclick="removeQuickSell(${item.id})" style="position:absolute;top:6px;right:6px;background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem" title="O'chirish">×</button>
+    <div style="font-weight:600;font-size:.9rem;color:var(--text)">${escH(item.display_name)}</div>
+    <div style="color:var(--success);font-size:.85rem">${fmtNum(item.price||0)} so'm</div>
+    <button onclick="removeQuickSell(${item.id})" style="position:absolute;top:6px;right:6px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:1.1rem" title="O'chirish">×</button>
   </div>`).join('');
 }
 async function openAddQuickSellModal() {
@@ -2421,8 +2461,11 @@ async function searchQsProducts() {
   const data = await apiFetch(`/products/?search=${encodeURIComponent(q)}&page_size=10&is_active=true`);
   const list = document.getElementById('qsProductList');
   const items = data.items || [];
-  if (!items.length) { list.innerHTML = '<div style="padding:.5rem;color:#888">Topilmadi</div>'; list.style.display = ''; return; }
-  list.innerHTML = items.map(p => `<div onclick="selectQsProduct(${p.id},'${escH(p.name)}')" style="padding:.5rem .75rem;cursor:pointer;border-bottom:1px solid #f3f4f6" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">${escH(p.name)} — ${fmtNum(p.price)} so'm</div>`).join('');
+  // Xuddi shu qattiq kodlangan ranglar muammosi: `#f3f4f6` (deyarli oq) hover foni
+  // to'q mavzuda och matn bilan qo'shilib, sichqoncha ustiga kelganda qatorni
+  // O'QIB BO'LMAS qilardi. Mavzu o'zgaruvchilariga o'tkazildi.
+  if (!items.length) { list.innerHTML = '<div style="padding:.5rem;color:var(--text3)">Topilmadi</div>'; list.style.display = ''; return; }
+  list.innerHTML = items.map(p => `<div onclick="selectQsProduct(${p.id},'${escH(p.name)}')" style="padding:.5rem .75rem;cursor:pointer;color:var(--text);border-bottom:1px solid var(--border2)" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">${escH(p.name)} — ${fmtNum(p.price)} so'm</div>`).join('');
   list.style.display = '';
 }
 function selectQsProduct(id, name) {

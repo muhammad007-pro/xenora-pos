@@ -1,8 +1,14 @@
 """suppliers.opening_debt — boshlang'ich qarz (FAZA 3)
 
 Revision ID: d4e5f6a7b8c9
-Revises: b9c8d7e6f5a4
+Revises: e7f8a9b0c1d2
 Create Date: 2026-08-18
+
+MERGE (v1.9.1): dastlab b9c8d7e6f5a4 dan tarmoqlangan edi (ikki branch parallel
+ishlagan). Birlashtirishda IKKI HEAD paydo bo'ldi va 
+yiqilardi. Zanjir chiziqli qilindi: b9c8d7e6f5a4 -> e7f8a9b0c1d2 -> BU -> a9b8c7d6e5f4.
+Xavfsiz, chunki bu migratsiya hech qayerda (jumladan prodda) HALI QO'LLANMAGAN —
+prod b9c8d7e6f5a4 da turibdi.
 
 NEGA: do'kon XENORA'ni yangi o'rnatganda firmaga ALLAQACHON qarzi bo'ladi, lekin
 unga mos priyomka hujjati yo'q. Ilgari o'sha eski qarzni kiritish joyi umuman
@@ -27,7 +33,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "d4e5f6a7b8c9"
-down_revision = "b9c8d7e6f5a4"
+down_revision = "e7f8a9b0c1d2"
 branch_labels = None
 depends_on = None
 

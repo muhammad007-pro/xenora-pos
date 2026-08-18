@@ -458,6 +458,16 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
       <div class="form-row"><label class="form-label">Otsrochka (kun)</label><input type="number" class="inp" id="fDelay" placeholder="30" min="0"></div>
     </div>
     <div class="form-row"><label class="form-label">Mas'ul shaxs</label><input type="text" class="inp" id="fContact" placeholder="F.I.Sh."></div>
+    <!-- FAZA 3: tizimga o'tishdan OLDINGI qarz. Nakladnoysiz eski qarz shu yerga
+         kiritiladi — soxta priyomka yaratish (ombor qoldig'ini buzish) shart emas. -->
+    <div class="form-row">
+      <label class="form-label">Boshlang'ich qarz (so'm)</label>
+      <input type="number" class="inp" id="fOpeningDebt" placeholder="0" min="0" step="1000">
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem">
+        Ixtiyoriy. Tizimga o'tishdan oldin bu firmaga qarzingiz bo'lsa — shu yerga yozing.
+        Nakladnoysiz qarz hisobiga qo'shiladi.
+      </div>
+    </div>
     <div class="form-row"><label class="form-label">Izoh</label><input type="text" class="inp" id="fNotes" placeholder="Ixtiyoriy..."></div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="closeFirmModal()">Bekor</button>
@@ -477,6 +487,16 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     <div class="form-grid">
       <div class="form-row"><label class="form-label">Nakladnoy raqami</label><input type="text" class="inp" id="nInvoice" placeholder="NL-001"></div>
       <div class="form-row"><label class="form-label">Chegirma (UZS)</label><input type="number" class="inp" id="nDiscount" placeholder="0" min="0"></div>
+    </div>
+    <!-- FAZA 4: nakladnoy kelganda darhol berilgan pul. To'lov yozuvi priyomka
+         TASDIQLANGANDA yaratiladi va nakladnoyga bog'lanadi. Bu 1-ssenariyni
+         (tovar + qisman to'lov) 3 ekrandan 1 ekranga tushiradi. -->
+    <div class="form-row">
+      <label class="form-label">Hozir to'landi (so'm)</label>
+      <input type="number" class="inp" id="nPaidNow" placeholder="0" min="0" step="1000" oninput="recCalcTotal()">
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem" id="nPaidNowHint">
+        Ixtiyoriy. Tasdiqlanganda avtomatik to'lov yoziladi — Qarzlar tabiga alohida kirish shart emas.
+      </div>
     </div>
     <div class="form-row"><label class="form-label">Izoh</label><input type="text" class="inp" id="nNotes" placeholder="Ixtiyoriy..."></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;margin-top:1rem">
@@ -505,6 +525,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     </table>
     <div style="text-align:right;margin-top:.5rem;font-size:.875rem;color:var(--text2)">
       Jami: <strong id="totalLabel">0</strong> so'm &nbsp;|&nbsp; Net: <strong id="netLabel">0</strong> so'm
+      <span id="debtAfterBox" style="display:none">&nbsp;|&nbsp; Qarzga qoladi:
+        <strong id="debtAfterLabel" style="color:#ef4444">0</strong> so'm</span>
     </div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="recCloseNew()">Bekor</button>
@@ -568,6 +590,28 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="debtClosePay()">Bekor</button>
       <button class="btn" id="btnPaySave" onclick="debtSavePay()">To'lov qilish</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAZA 4: OBOROT VARAG'I (firma kartochkasi) — agent bilan hisob-kitob ekrani -->
+<div class="modal-overlay" id="ledgerModal">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-title" id="ledgerTitle">Oborot varag'i</div>
+    <div id="ledgerSummary" style="font-size:.875rem;color:var(--text2);margin-bottom:.75rem"></div>
+    <div class="table-wrap" style="max-height:60vh;overflow:auto">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:110px">Sana</th>
+          <th>Hujjat</th>
+          <th style="text-align:right;width:140px">Summa</th>
+          <th style="text-align:right;width:150px">Qoldiq</th>
+        </tr></thead>
+        <tbody id="ledgerBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeLedger()">Yopish</button>
     </div>
   </div>
 </div>
@@ -719,6 +763,7 @@ window.openFirmEdit = (s) => {
   document.getElementById('fAddress').value  = s.address || '';
   document.getElementById('fContract').value = s.contract_number || '';
   document.getElementById('fDelay').value    = s.payment_delay_days || 0;
+  document.getElementById('fOpeningDebt').value = s.opening_debt || 0;
   document.getElementById('fContact').value  = s.contact_person || '';
   document.getElementById('fNotes').value    = s.notes || '';
   document.getElementById('firmModal').classList.add('active');
@@ -728,6 +773,7 @@ document.getElementById('btnAddFirm').onclick = () => {
   document.getElementById('firmEditId').value = '';
   ['fName','fInn','fPhone','fAddress','fContract','fContact','fNotes'].forEach(id => document.getElementById(id).value='');
   document.getElementById('fDelay').value = 0;
+  document.getElementById('fOpeningDebt').value = 0;
   document.getElementById('firmModal').classList.add('active');
 };
 window.closeFirmModal = () => document.getElementById('firmModal').classList.remove('active');
@@ -745,6 +791,7 @@ window.saveFirm = async () => {
     address:            document.getElementById('fAddress').value.trim() || null,
     contract_number:    document.getElementById('fContract').value.trim() || null,
     payment_delay_days: parseInt(document.getElementById('fDelay').value) || 0,
+    opening_debt:       parseFloat(document.getElementById('fOpeningDebt').value) || 0,
     contact_person:     document.getElementById('fContact').value.trim() || null,
     notes:              document.getElementById('fNotes').value.trim() || null,
   };
@@ -759,7 +806,23 @@ window.saveFirm = async () => {
   }
 };
 window.archiveFirm = async (id) => {
-  if (!confirm('Firmani arxivlashni tasdiqlaysizmi?')) return;
+  // B7: qarzi bor firmani arxivlash — QARZ JIMGINA YO'QOLADI (arxivlangan firma
+  // Qarzlar tabida ko'rinmaydi). Do'konchi buni BILIB turib qilsin.
+  // Qoldiq oborot varag'idan olinadi (Faza 4) — yangi hisob mantig'i yo'q.
+  let ogoh = 'Firmani arxivlashni tasdiqlaysizmi?';
+  try {
+    const led  = await api.get(`/suppliers-b2b/${id}/ledger`);
+    const rows = Array.isArray(led) ? led : (led?.data || []);
+    const bal  = rows.length ? rows[rows.length - 1].balance : 0;
+    if (bal > 0) {
+      ogoh = `⚠️ Bu firmaning ${fmt(bal)} so'm QARZI bor.\n\n`
+           + `Arxivlangan firma Qarzlar ro'yxatida ko'rinmaydi — qarz ko'zdan yo'qoladi `
+           + `(o'chib ketmaydi, firmani qayta faollashtirsangiz qaytadi).\n\nDavom etasizmi?`;
+    } else if (bal < 0) {
+      ogoh = `Bu firmada ${fmt(-bal)} so'm AVANSINGIZ bor (firma sizga qarzdor).\n\nDavom etasizmi?`;
+    }
+  } catch { /* qoldiqni olib bo'lmasa — oddiy tasdiq bilan davom etamiz */ }
+  if (!confirm(ogoh)) return;
   const res = await api.patch(`/suppliers-b2b/${id}`, { is_active: false });
   if (apiOk(res)) { showToast('Arxivlandi', 'success'); loadFirms(); }
   else showToast(apiErr(res, "Arxivlab bo'lmadi"), 'error');
@@ -828,8 +891,16 @@ function recCalcTotal() {
     total += Math.max(0, qty - brak) * price;
   });
   const disc = parseFloat(document.getElementById('nDiscount').value) || 0;
+  const net  = Math.max(0, total - disc);
   document.getElementById('totalLabel').textContent = fmt(total);
-  document.getElementById('netLabel').textContent   = fmt(Math.max(0, total - disc));
+  document.getElementById('netLabel').textContent   = fmt(net);
+  // FAZA 4: "hozir to'landi" kiritilsa — qarzga nima qolishini DARHOL ko'rsatamiz
+  const paidNow = parseFloat(document.getElementById('nPaidNow')?.value) || 0;
+  const box = document.getElementById('debtAfterBox');
+  if (box) {
+    box.style.display = paidNow > 0 ? '' : 'none';
+    document.getElementById('debtAfterLabel').textContent = fmt(Math.max(0, net - paidNow));
+  }
 }
 window.recCalcTotal = recCalcTotal;
 document.getElementById('nDiscount').oninput = recCalcTotal;
@@ -858,6 +929,7 @@ window.recCreate = async () => {
     invoice_number:  document.getElementById('nInvoice').value.trim() || null,
     receipt_date:    date,
     discount_amount: parseFloat(document.getElementById('nDiscount').value) || 0,
+    paid_now:        parseFloat(document.getElementById('nPaidNow').value) || 0,
     notes:           document.getElementById('nNotes').value.trim() || null,
     items,
   });
@@ -904,7 +976,10 @@ window.recConfirm = async () => {
   btn.disabled = false;
   // DIQQAT: `res.status` — O'RALGAN javobning HTTP statusi (200), priyomka holati EMAS.
   // Priyomka holati `res.data.status` da.
-  if (apiOk(res) && apiData(res, {}).status === 'confirmed') {
+  // MERGE (v1.9.1): FAZA 4 dan keyin "Hozir to'landi" net summani to'liq qoplasa
+  // server holatni DARHOL `paid` qiladi — faqat `confirmed` ni kutish muvaffaqiyatli
+  // tasdiqlashni "xato" deb ko'rsatardi.
+  if (apiOk(res) && ['confirmed', 'paid'].includes(apiData(res, {}).status)) {
     showToast('Priyomka tasdiqlandi! Ombor yangilandi.', 'success'); recCloseDetail(); loadReceipts();
   } else {
     showToast(apiErr(res, 'Priyomka tasdiqlanmadi'), 'error');
@@ -912,6 +987,8 @@ window.recConfirm = async () => {
 };
 window.recCloseNew = () => {
   document.getElementById('newModal').classList.remove('active');
+  document.getElementById('nPaidNow').value = '';
+  document.getElementById('debtAfterBox').style.display = 'none';
   document.getElementById('itemsBody').innerHTML = '';
   recAddItemRow();
 };
@@ -1091,6 +1168,8 @@ async function loadDebt() {
         <div class="btn-row">
           <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenPay(${d.supplier_id})">To'lov qilish</button>
           <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenRet(${d.supplier_id})">Vozvrat</button>
+          <!-- FAZA 4: agent bilan hisob-kitob ekrani -->
+          <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="openLedger(${d.supplier_id}, '${(d.supplier_name||'').replace(/'/g, "\\\\'")}')">📄 Oborot</button>
         </div>
       </div>`;
   }).join('');
@@ -1155,6 +1234,46 @@ window.debtSavePay = async () => {
   if (apiOk(res) && apiData(res, {}).id) { showToast('To\'lov saqlandi', 'success'); debtClosePay(); document.getElementById('payAmount').value=''; loadDebt(); }
   else showToast(apiErr(res, "To'lov saqlanmadi"), 'error');
 };
+
+// ════════════════ FAZA 4: OBOROT VARAG'I ════════════════
+// Do'konchi agent bilan turganda ochadigan ekran: "qara, hammasi shu yerda".
+// Hisob BACKENDDA (services/supplier_debt.py) — bu yerda YANGI mantiq yo'q,
+// shuning uchun oxirgi qoldiq Qarzlar kartasidagi raqam bilan bir xil bo'ladi.
+window.openLedger = async (supplierId, supplierName) => {
+  const body = document.getElementById('ledgerBody');
+  document.getElementById('ledgerTitle').textContent = `Oborot varag'i — ${supplierName || 'Firma #'+supplierId}`;
+  document.getElementById('ledgerSummary').textContent = 'Yuklanmoqda...';
+  body.innerHTML = '';
+  document.getElementById('ledgerModal').classList.add('active');
+
+  const res = await api.get(`/suppliers-b2b/${supplierId}/ledger`);
+  const rows = Array.isArray(res) ? res : (res?.data || []);
+  if (!rows.length) {
+    document.getElementById('ledgerSummary').textContent = 'Harakat yo\'q.';
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text3)">Hujjat topilmadi</td></tr>';
+    return;
+  }
+  const KIND = { opening: '🗂', receipt: '📦', payment: '💵', return: '↩' };
+  body.innerHTML = rows.map(e => {
+    const plus = e.amount > 0;
+    return `<tr>
+      <td style="color:var(--text3);font-size:.8125rem">${e.date || '—'}</td>
+      <td>${KIND[e.kind] || ''} ${e.label}</td>
+      <td style="text-align:right;font-weight:600;color:${plus ? '#ef4444' : '#22c55e'}">
+        ${plus ? '+' : '−'}${fmt(Math.abs(e.amount))}
+      </td>
+      <td style="text-align:right;font-weight:700">${fmt(e.balance)}</td>
+    </tr>`;
+  }).join('');
+
+  const last = rows[rows.length - 1].balance;
+  document.getElementById('ledgerSummary').innerHTML = last > 0
+    ? `Joriy qoldiq: <b style="color:#ef4444">${fmt(last)} so'm qarz</b>`
+    : (last < 0 ? `Joriy qoldiq: <b style="color:#22c55e">${fmt(-last)} so'm avans</b>`
+                : 'Joriy qoldiq: <b>0</b> — hisob-kitob yopiq');
+};
+window.closeLedger = () => document.getElementById('ledgerModal').classList.remove('active');
+document.getElementById('ledgerModal').onclick = e => { if (e.target===e.currentTarget) closeLedger(); };
 
 // ════════════════ VOZVRAT TAB ════════════════
 window.debtLoadReturns = async () => {

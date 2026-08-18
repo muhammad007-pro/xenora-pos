@@ -100,10 +100,20 @@ hisobiga ta'sir qilmaydi. Qarzning yagona manbai — hujjatlar.
 `balance <> 0` bo'lgan bitta ham yozuv yo'q) — ya'ni yo'qoladigan ma'lumot yo'q edi,
 backfill kerak emas.
 
-### FAZA 3 — boshlang'ich qarz (migratsiya bor) — KEYINGI BUILD
-**Qaror (b):** boshlang'ich qarz uchun **yangi `suppliers.opening_debt` ustuni** +
-alembic migratsiya (mavjud `balance` ustuni ishlatilmaydi — uning tarixi iflos,
-Ombor kirimlari o'sha yerga yozilgan).
+### ✅ FAZA 3 — boshlang'ich qarz (TUGADI, migratsiya bor)
+**Qaror (b) bajarildi:** yangi `suppliers.opening_debt` ustuni (Numeric 14,2,
+default 0) + migratsiya `d4e5f6a7b8c9`. `balance` tegilmadi (tarixi iflos —
+Ombor kirimlari o'sha yerga yozilgan edi).
+
+Hisob: `jami_qarz = opening_debt + priyomkalar − to'lovlar − vozvratlar`.
+Boshlang'ich qarz FIFO'da **eng eski** qarz — umumiy to'lov avval shuni yopadi.
+"Muddati o'tgan" belgisi **qo'yilmaydi**: asl shartnoma sanasi bizda yo'q,
+o'ylab topilgan muddat do'konchiga yolg'on ogohlantirish berardi.
+`total_purchases` faqat priyomkalar bo'lib qoladi (opening alohida maydon).
+
+UI: firma formasida "Boshlang'ich qarz (so'm)" — ixtiyoriy, default 0.
+
+⚠️ Deploy: **backup-first**, migratsiya kod deployidan **alohida** qadam.
 
 ⚠️ **Migratsiya qoidalari (majburiy):**
 - backup-first (migratsiyadan oldin baza nusxasi)
@@ -119,18 +129,39 @@ ketmasligi** kerak — kerak bo'lsa `opening_debt` ga backfill qilinadi.
 SELECT id, name, balance FROM suppliers WHERE balance <> 0 ORDER BY balance DESC;
 ```
 
-### FAZA 4 — oborot varag'i + priyomkada to'lov
-- Firma kartochkasi: xronologik harakat va yugurib boruvchi qoldiq
-  (agent bilan hisob-kitob qilish ekrani)
-- Nakladnoy oynasida "hozir to'landi" maydoni
-- Migratsiya: **YO'Q**
+### ✅ FAZA 4 — oborot varag'i + priyomkada to'lov (TUGADI)
+- **Oborot varag'i**: `GET /suppliers-b2b/{id}/ledger` — xronologik harakat
+  (boshlang'ich qarz → priyomka → to'lov → vozvrat) va yugurib boruvchi qoldiq.
+  Qarzlar tabidagi kartada "📄 Oborot" tugmasi. Hisob `supplier_debt.py` da —
+  **kafolat**: oxirgi qoldiq = `debt-summary` dagi `balance` (test bilan qotirilgan).
+- **"Hozir to'landi"**: nakladnoy oynasida ixtiyoriy maydon; priyomka
+  TASDIQLANGANDA avtomatik `SupplierPayment` (receipt_id bilan) yoziladi.
+  Draft holatda to'lov yaratilmaydi (draft hali qarz emas → "avans" ko'rinmasin).
+  Oynada "Qarzga qoladi" darhol hisoblanadi. To'liq to'lansa holat → `paid`.
+- Migratsiya: **HA** — `purchase_receipts.paid_now` (`a9b8c7d6e5f4`).
+  Yaratish va tasdiqlash orasida summa shu ustunda saqlanadi.
+- Yon tuzatish: `receipt_date` endi routerda `date` ga o'giriladi (ilgari matn
+  ketardi — PostgreSQL o'girardi, sqlite yiqilardi).
 
-### FAZA 5 — butunlik va himoya
-- B5: to'lov o'chirilsa nakladnoy holati tiklansin
-- B6: vozvrat StockMovement yozsin; o'chirilganda ombor tiklansin
-- B7: qarzi bor firmani arxivlashda ogohlantirish
-- To'lov va vozvrat uchun audit yozuvi
+### ✅ FAZA 5 — butunlik va himoya (TUGADI)
+- ✅ **B5**: to'lov o'chirilganda nakladnoy holati qayta hisoblanadi
+  (to'liq to'lanmagan bo'lsa `paid` → `confirmed`). Ilgari `paid` bo'lib qolib,
+  nakladnoy "muddati o'tgan" hisobidan abadiy chiqib ketardi.
+- ✅ **B6**: vozvrat endi `StockMovement` yozadi (`movement_type="return"`,
+  `reference_type="supplier_return"`); o'chirilganda tovar **omborga qaytadi**
+  va teskari harakat yoziladi. Ilgari har o'chirish omborda abadiy kamomad
+  qoldirardi.
+- ✅ **B7**: qarzi bor firmani arxivlashda ogohlantirish (qoldiq oborot
+  varag'idan olinadi; avans holatida ham alohida matn).
+- ✅ **Audit**: to'lov (CREATE/DELETE) va vozvrat (CREATE/DELETE) `audit_log` ga
+  yoziladi — kim, qachon, qancha. "Kim qancha to'lov kiritdi" endi tekshiriladi.
 - Migratsiya: **YO'Q**
+- Yon tuzatish: `return_date` ham routerda `date` ga o'giriladi (Faza 4 dagi
+  `receipt_date` bilan bir xil sabab).
+
+### Qolgan (kelajak uchun qayd)
+- Qarzdan tushgan pul (`DebtPayment`) hech bir naqd hisobotda ko'rinmaydi —
+  mijoz nasiyasi bo'yicha alohida ish (qarang: nasiya B varianti qarori).
 
 ---
 

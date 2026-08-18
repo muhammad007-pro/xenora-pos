@@ -63,9 +63,9 @@ def db():
 
 
 # ── Yordamchilar ─────────────────────────────────────────────────────────────
-def _supplier(db, name="Fazza ta'minot", delay=0, sid=1):
+def _supplier(db, name="Fazza ta'minot", delay=0, sid=1, opening=0):
     s = Supplier(id=sid, tenant_id=1, name=name, phone="+998901112233",
-                 is_active=True, payment_delay_days=delay)
+                 is_active=True, payment_delay_days=delay, opening_debt=opening)
     db.add(s)
     db.commit()
     return s
@@ -388,6 +388,329 @@ def test_ombor_kirimi_firmasiz_ogohlantirmaydi(db):
 
     assert res["notice"] is None
     assert res["new_quantity"] == 8
+
+
+# ── FAZA 3: BOSHLANG'ICH QARZ (opening_debt) ────────────────────────────────
+def test_boshlangich_qarz_golden(db):
+    """MIJOZNING ASL SSENARIYSI — endi eski qarzni HUJJATSIZ kiritish mumkin.
+
+    Ilgari 1 500 000 eski qarz faqat oldingi priyomkalardan kelib chiqardi;
+    tizimga yangi o'tgan do'konda esa uni kiritish joyi YO'Q edi (soxta priyomka
+    yaratishga majbur bo'lardi — ombor qoldig'ini buzardi).
+    """
+    s = _supplier(db, opening=1_500_000)              # tizimdan OLDINGI qarz
+    yangi = _receipt(db, s, 1_000_000, days_ago=0)    # yangi nakladnoy
+    _payment(db, s, 500_000, receipt=yangi)           # qisman to'lov
+
+    d = _debt(db, s)
+
+    assert d.debt == 2_000_000
+    assert d.opening_debt == 1_500_000
+    assert d.total_purchases == 1_000_000    # "jami xarid" — FAQAT priyomkalar
+    assert d.total_paid == 500_000
+
+
+def test_boshlangich_qarz_fifo_birinchi_yopiladi(db):
+    """Hujjatlardan ham eski — umumiy to'lov avval SHUNI yopadi."""
+    s = _supplier(db, opening=1_000_000)
+    rec = _receipt(db, s, 800_000, days_ago=5)
+    _payment(db, s, 600_000, receipt=None)            # umumiy to'lov
+
+    d = _debt(db, s)
+    rows = {r.receipt_id: r for r in d.receipts}
+
+    assert d.debt == 1_200_000                        # 1.8M - 600k
+    assert rows[rec.id].remaining == 800_000          # nakladnoyga TEGILMADI
+    assert d.advance == 0
+
+
+def test_boshlangich_qarz_toliq_yopilishi(db):
+    """To'lov eski qarzdan oshsa — qolgani nakladnoyga o'tadi, avans emas."""
+    s = _supplier(db, opening=500_000)
+    rec = _receipt(db, s, 500_000, days_ago=2)
+    _payment(db, s, 700_000, receipt=None)
+
+    d = _debt(db, s)
+    rows = {r.receipt_id: r for r in d.receipts}
+
+    assert d.debt == 300_000
+    assert rows[rec.id].remaining == 300_000
+    assert d.advance == 0
+
+
+def test_boshlangich_qarz_muddati_otgan_deb_belgilanmaydi(db):
+    """Asl shartnoma sanasi bizda yo'q — soxta "muddati o'tgan" ogohlantirish
+    bermaymiz (aks holda do'konchi yolg'on qizil belgini ko'rardi)."""
+    s = _supplier(db, delay=10, opening=900_000)
+
+    d = _debt(db, s)
+
+    assert d.debt == 900_000
+    assert d.overdue_amount == 0
+
+
+def test_boshlangich_qarzsiz_firma_ozgarmadi(db):
+    """Regressiya: opening_debt=0 bo'lganda hamma narsa avvalgidek."""
+    s = _supplier(db)                                  # opening=0
+    _receipt(db, s, 1_000_000, days_ago=5)
+    _payment(db, s, 250_000, receipt=None)
+
+    d = _debt(db, s)
+
+    assert d.opening_debt == 0
+    assert d.debt == 750_000
+
+
+# ── FAZA 4: OBOROT VARAG'I ──────────────────────────────────────────────────
+def _ledger(db, supplier):
+    from services.supplier_debt import supplier_ledger
+    return supplier_ledger(db, supplier)
+
+
+def test_oborot_varagi_xronologik_va_qoldiq(db):
+    """Mijoz misoli: har qatorda yugurib boruvchi qoldiq."""
+    s = _supplier(db, opening=1_500_000)
+    rec = _receipt(db, s, 1_000_000, days_ago=2, invoice="INV-12")
+    _payment(db, s, 500_000, receipt=None, days_ago=2)
+    _vozvrat(db, s, 200_000, days_ago=0)
+
+    rows = _ledger(db, s)
+
+    assert [r.kind for r in rows] == ["opening", "receipt", "payment", "return"]
+    assert [r.balance for r in rows] == [1_500_000, 2_500_000, 2_000_000, 1_800_000]
+    assert rows[1].label == f"Priyomka #{rec.id} · INV-12"
+    assert rows[2].label == "To'lov (umumiy)"
+    assert rows[0].date is None          # boshlang'ich qarzda sana yo'q
+
+
+def test_oborot_varagi_GOLDEN_debt_summary_bilan_mos(db):
+    """KAFOLAT: oborot varag'ining OXIRGI qoldig'i = debt-summary `balance`.
+
+    Ikki ekran bir xil raqamni ko'rsatishi SHART — aks holda do'konchi agent
+    bilan turganda qaysi biriga ishonishni bilmaydi.
+    """
+    s = _supplier(db, opening=1_500_000)
+    yangi = _receipt(db, s, 1_000_000, days_ago=1)
+    _payment(db, s, 500_000, receipt=yangi)
+    _payment(db, s, 600_000, receipt=None)
+    _vozvrat(db, s, 150_000)
+
+    d    = _debt(db, s)
+    rows = _ledger(db, s)
+
+    assert rows[-1].balance == d.balance          # ← asosiy invariant
+    assert rows[-1].balance == 1_250_000          # 1.5M + 1M − 0.5M − 0.6M − 0.15M
+    assert d.debt == 1_250_000
+
+
+def test_oborot_varagi_avansda_manfiy_qoldiq(db):
+    """Ortiqcha to'langan bo'lsa oxirgi qoldiq MANFIY (avans) va `balance` ga mos."""
+    s = _supplier(db)
+    _receipt(db, s, 500_000, days_ago=3)
+    _payment(db, s, 800_000, receipt=None)
+
+    d    = _debt(db, s)
+    rows = _ledger(db, s)
+
+    assert rows[-1].balance == -300_000
+    assert rows[-1].balance == d.balance
+    assert d.advance == 300_000
+
+
+def test_oborot_varagida_draft_yoq(db):
+    """Draft priyomka qarz emas — oborot varag'ida ham ko'rinmaydi."""
+    s = _supplier(db)
+    _receipt(db, s, 400_000, days_ago=1)
+    _receipt(db, s, 9_000_000, days_ago=0, status="draft")
+
+    rows = _ledger(db, s)
+
+    assert len(rows) == 1
+    assert rows[0].balance == 400_000
+
+
+# ── FAZA 4: priyomkada "hozir to'landi" ─────────────────────────────────────
+def test_priyomkada_hozir_tolandi_tasdiqlanganda_yoziladi(db):
+    """Nakladnoy bilan birga berilgan pul — tasdiqlanganda to'lovga aylanadi."""
+    import routers.purchase_receipts as rec_router
+    from schemas import PurchaseReceiptCreate, PurchaseReceiptItemCreate
+    from models import Inventory
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=0, unit="dona"))
+    db.commit()
+
+    created = asyncio.run(rec_router.create_receipt(
+        data=PurchaseReceiptCreate(
+            supplier_id=s.id, receipt_date=str(TODAY), invoice_number="INV-99",
+            paid_now=500_000,
+            items=[PurchaseReceiptItemCreate(product_id=1, quantity=10, unit_price=100_000)],
+        ),
+        db=db, current_user=_User(),
+    ))
+    # DRAFT holatda: qarz ham, to'lov ham YO'Q
+    assert created["paid_now"] == 500_000
+    assert db.query(SupplierPayment).count() == 0
+    assert _debt(db, s).debt == 0
+
+    asyncio.run(rec_router.confirm_receipt(receipt_id=created["id"], db=db, current_user=_User()))
+
+    pay = db.query(SupplierPayment).one()
+    assert pay.amount == 500_000
+    assert pay.receipt_id == created["id"]        # "Nakladnoy uchun" turi
+    d = _debt(db, s)
+    assert d.total_purchases == 1_000_000
+    assert d.total_paid == 500_000
+    assert d.debt == 500_000                      # 1M − 500k
+
+
+def test_priyomka_toliq_tolansa_holat_paid(db):
+    import routers.purchase_receipts as rec_router
+    from schemas import PurchaseReceiptCreate, PurchaseReceiptItemCreate
+    from models import Inventory
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=0, unit="dona"))
+    db.commit()
+
+    created = asyncio.run(rec_router.create_receipt(
+        data=PurchaseReceiptCreate(
+            supplier_id=s.id, receipt_date=str(TODAY), paid_now=1_000_000,
+            items=[PurchaseReceiptItemCreate(product_id=1, quantity=10, unit_price=100_000)],
+        ),
+        db=db, current_user=_User(),
+    ))
+    out = asyncio.run(rec_router.confirm_receipt(receipt_id=created["id"], db=db, current_user=_User()))
+
+    assert out["status"] == "paid"
+    assert _debt(db, s).debt == 0
+
+
+def test_priyomka_hozir_tolandisiz_ozgarmadi(db):
+    """Regressiya: paid_now=0 bo'lsa hech qanday to'lov yaratilmaydi."""
+    import routers.purchase_receipts as rec_router
+    from schemas import PurchaseReceiptCreate, PurchaseReceiptItemCreate
+    from models import Inventory
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=0, unit="dona"))
+    db.commit()
+
+    created = asyncio.run(rec_router.create_receipt(
+        data=PurchaseReceiptCreate(
+            supplier_id=s.id, receipt_date=str(TODAY),
+            items=[PurchaseReceiptItemCreate(product_id=1, quantity=5, unit_price=100_000)],
+        ),
+        db=db, current_user=_User(),
+    ))
+    out = asyncio.run(rec_router.confirm_receipt(receipt_id=created["id"], db=db, current_user=_User()))
+
+    assert db.query(SupplierPayment).count() == 0
+    assert out["status"] == "confirmed"
+    assert _debt(db, s).debt == 500_000
+
+
+# ── FAZA 5 / B5: to'lov o'chirilsa nakladnoy holati tiklanadi ───────────────
+def test_b5_tolov_ochirilsa_nakladnoy_confirmed_ga_qaytadi(db):
+    """Ilgari yozuv o'chirilar, `status` esa "paid" bo'lib QOLAVERARDI —
+    nakladnoy "muddati o'tgan" hisobidan abadiy chiqib ketardi."""
+    import routers.supplier_payments as pay_router
+
+    s = _supplier(db)
+    rec = _receipt(db, s, 1_000_000, days_ago=5)
+    p = _payment(db, s, 1_000_000, receipt=rec)
+    rec.status = "paid"                      # to'liq to'langan holat
+    db.commit()
+
+    asyncio.run(pay_router.delete_payment(payment_id=p.id, db=db, current_user=_User()))
+    db.refresh(rec)
+
+    assert rec.status == "confirmed", "to'lov yo'q, lekin nakladnoy hamon 'paid'"
+    assert _debt(db, s).debt == 1_000_000    # qarz qaytdi
+
+
+def test_b5_qisman_tolov_ochirilsa_paid_bolib_qolmaydi(db):
+    """Ikki to'lovdan biri o'chsa — qolgani yetmasa `confirmed`."""
+    import routers.supplier_payments as pay_router
+
+    s = _supplier(db)
+    rec = _receipt(db, s, 1_000_000, days_ago=5)
+    p1 = _payment(db, s, 600_000, receipt=rec)
+    _payment(db, s, 400_000, receipt=rec)
+    rec.status = "paid"
+    db.commit()
+
+    asyncio.run(pay_router.delete_payment(payment_id=p1.id, db=db, current_user=_User()))
+    db.refresh(rec)
+
+    assert rec.status == "confirmed"
+    assert _debt(db, s).debt == 600_000
+
+
+def test_b5_umumiy_tolov_ochirilsa_nakladnoyga_tegmaydi(db):
+    """receipt_id yo'q to'lov — hech qaysi nakladnoy holatini o'zgartirmaydi."""
+    import routers.supplier_payments as pay_router
+
+    s = _supplier(db)
+    rec = _receipt(db, s, 1_000_000, days_ago=5)
+    p = _payment(db, s, 300_000, receipt=None)
+
+    asyncio.run(pay_router.delete_payment(payment_id=p.id, db=db, current_user=_User()))
+    db.refresh(rec)
+
+    assert rec.status == "confirmed"
+    assert _debt(db, s).debt == 1_000_000
+
+
+# ── FAZA 5 / B6: vozvrat — StockMovement + o'chirishda ombor tiklash ────────
+def test_b6_vozvrat_stockmovement_yozadi(db):
+    """Ilgari ombor kamayardi, lekin harakat tarixida IZ QOLMASDI."""
+    import routers.supplier_returns as ret_router
+    from schemas import SupplierReturnCreate
+    from models import Inventory, StockMovement
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=50, unit="dona"))
+    db.commit()
+
+    asyncio.run(ret_router.create_return(
+        data=SupplierReturnCreate(supplier_id=s.id, product_id=1, quantity=10,
+                                  unit_price=45_000, return_date=str(TODAY),
+                                  reason="brak"),
+        db=db, current_user=_User(),
+    ))
+
+    inv = db.query(Inventory).filter(Inventory.id == 1).one()
+    mv  = db.query(StockMovement).filter(StockMovement.reference_type == "supplier_return").one()
+
+    assert inv.quantity == 40                    # ombor kamaydi (avvalgidek)
+    assert mv.movement_type == "return"
+    assert mv.quantity == 10
+    assert mv.supplier_id == s.id
+    assert _debt(db, s).total_returned == 450_000
+
+
+def test_b6_vozvrat_ochirilsa_ombor_tiklanadi(db):
+    """Ilgari o'chirish omborda ABADIY kamomad qoldirardi."""
+    import routers.supplier_returns as ret_router
+    from schemas import SupplierReturnCreate
+    from models import Inventory
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=50, unit="dona"))
+    db.commit()
+
+    created = asyncio.run(ret_router.create_return(
+        data=SupplierReturnCreate(supplier_id=s.id, product_id=1, quantity=10,
+                                  unit_price=45_000, return_date=str(TODAY)),
+        db=db, current_user=_User(),
+    ))
+    assert db.query(Inventory).filter(Inventory.id == 1).one().quantity == 40
+
+    asyncio.run(ret_router.delete_return(return_id=created["id"], db=db, current_user=_User()))
+
+    assert db.query(Inventory).filter(Inventory.id == 1).one().quantity == 50   # tiklandi
+    assert _debt(db, s).total_returned == 0                                     # qarz ham tiklandi
 
 
 if __name__ == "__main__":

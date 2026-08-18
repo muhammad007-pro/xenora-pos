@@ -9,7 +9,7 @@ from datetime import date as Date
 from typing import Optional
 
 from database import get_db
-from models import PurchaseReceipt, PurchaseReceiptItem, Supplier, Product, Inventory, StockMovement, ProductBatch, User
+from models import PurchaseReceipt, PurchaseReceiptItem, Supplier, Product, Inventory, StockMovement, ProductBatch, SupplierPayment, User
 from schemas import (
     PurchaseReceiptCreate, PurchaseReceiptUpdate,
     PurchaseReceiptInDB, PurchaseReceiptItemInDB,
@@ -46,6 +46,7 @@ def _enrich(rec: PurchaseReceipt) -> dict:
         "discount_amount": rec.discount_amount,
         "net_amount":      rec.net_amount,
         "status":          rec.status,
+        "paid_now":        float(rec.paid_now or 0),
         "notes":           rec.notes,
         "created_at":      rec.created_at,
         "items":           items_out,
@@ -108,13 +109,19 @@ async def create_receipt(
         tenant_id=tid,
         supplier_id=data.supplier_id,
         invoice_number=data.invoice_number,
-        receipt_date=data.receipt_date,
+        # Sana MATN sifatida keladi ("2026-08-18"). PostgreSQL uni o'zi
+        # o'giradi, sqlite esa YO'Q — shuning uchun bu yerda aniq date qilamiz
+        # (dialektga bog'liqlik yo'qoladi, testlar ham xuddi shu yo'ldan yuradi).
+        receipt_date=Date.fromisoformat(data.receipt_date) if isinstance(data.receipt_date, str) else data.receipt_date,
         total_amount=total,
         discount_amount=data.discount_amount,
         net_amount=net,
         notes=data.notes,
         created_by=current_user.id,
         status="draft",
+        # FAZA 4: "Hozir to'landi" — to'lov yozuvi TASDIQLANGANDA yaratiladi
+        # (draft hali qarz emas; unga to'lov bog'lash "avans" bo'lib ko'rinardi).
+        paid_now=data.paid_now or 0,
     )
     db.add(rec)
     db.flush()
@@ -270,6 +277,29 @@ async def confirm_receipt(
     rec.status       = "confirmed"
     rec.confirmed_by = current_user.id
     rec.confirmed_at = datetime.now()
+
+    # FAZA 4: "Hozir to'landi" — nakladnoy bilan birga berilgan pul endi HAQIQIY
+    # to'lov yozuviga aylanadi (receipt_id bilan bog'langan → tarixda "Nakladnoy
+    # uchun" turi bo'lib ko'rinadi va qarzdan ayriladi).
+    # IDEMPOTENT: confirm faqat `draft` dan ishlaydi (yuqorida tekshirilgan),
+    # ya'ni bu blok bir marta bajariladi.
+    _paid_now = float(rec.paid_now or 0)
+    if _paid_now > 0:
+        db.add(SupplierPayment(
+            tenant_id=tid,
+            supplier_id=rec.supplier_id,
+            receipt_id=rec.id,
+            amount=_paid_now,
+            payment_date=rec.receipt_date,
+            payment_method="cash",
+            notes="Priyomka bilan birga to'landi",
+            user_id=current_user.id,
+            created_by=current_user.id,
+        ))
+        # To'liq to'langan bo'lsa — holat darhol `paid`
+        if _paid_now >= float(rec.net_amount or 0):
+            rec.status = "paid"
+
     db.commit()
     db.refresh(rec)
     return _enrich(rec)

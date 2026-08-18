@@ -1,0 +1,182 @@
+/**
+ * searchableSelect — mavjud <select> ustiga QIDIRUV qatlami.
+ *
+ * MUAMMO (mijozda, Fazza Parfum): mahsulot tanlash oynalarida oddiy <select>
+ * turadi va 794 faol mahsulot ichidan sichqoncha bilan topish kerak — nom
+ * bo'yicha yozib qidirish YO'Q edi. Ustiga-ustak ro'yxat `page_size=500` bilan
+ * yuklanardi, ya'ni 294 mahsulot dropdownga UMUMAN tushmasdi (bu labels.html
+ * dagi v1.8.6 xatosining aynan takrori).
+ *
+ * QOIDA (ataylab): mavjud `<select>` DOM'da QOLADI. Chaqiruvchi kodning
+ * `sel.value` va `opt.dataset.*` o'qishlari TEGILMAYDI — biz faqat select
+ * USTIGA qidiruv inputi qo'yamiz va option'larni almashtiramiz. Shu sabab
+ * regressiya xavfi minimal (autocomplete'ga o'tsak 5 joyning o'qish yo'li
+ * o'zgarardi).
+ *
+ * QIDIRUV SERVERDA: 794 (yoki 5000) mahsulotni brauzerga tortmaymiz —
+ * `search(q)` callback'i serverga boradi (masalan `/products/?search=q`),
+ * natija `limit` bilan cheklanadi.
+ *
+ * CLASSIC skript (module EMAS): `window.searchableSelect` sifatida ochiladi,
+ * chunki chaqiruvchilar ham modul (suppliers.html), ham classic
+ * (js/admin/inventory.js) kontekstida.
+ *
+ * Ishlatilishi:
+ *   searchableSelect(document.getElementById('retProduct'), {
+ *     placeholder: 'Mahsulot nomi...',
+ *     initial: products,                       // boshlang'ich ro'yxat
+ *     search:  (q) => api.get(...),            // Promise<Array>
+ *     render:  (p) => ({ value: p.id, label: p.name, data: { price: p.price||0 } }),
+ *   });
+ */
+(function () {
+  'use strict';
+
+  const DEFAULTS = {
+    placeholder: 'Qidirish...',
+    className:   'inp',      // sahifadagi input uslubi
+    debounce:    300,        // ms — sensor ekranda ham qulay
+    minChars:    1,
+    limit:       50,         // ro'yxatda 794 option render QILINMAYDI
+    emptyLabel:  '',         // birinchi bo'sh option matni (bo'lsa saqlanadi)
+  };
+
+  function _optionOf(item, render) {
+    const r = render(item) || {};
+    const o = document.createElement('option');
+    o.value = String(r.value ?? '');
+    o.textContent = r.label ?? '';
+    if (r.data) {
+      for (const k in r.data) {
+        const v = r.data[k];
+        if (v !== null && v !== undefined) o.dataset[k] = String(v);
+      }
+    }
+    return o;
+  }
+
+  window.searchableSelect = function searchableSelect(select, opts) {
+    if (!select) return null;
+    if (select._ss) return select._ss;            // ikki marta ulanmasin
+    const cfg = Object.assign({}, DEFAULTS, opts || {});
+    if (typeof cfg.render !== 'function') throw new Error('searchableSelect: render kerak');
+
+    // Bo'sh (placeholder) option bo'lsa — eslab qolamiz, filtrdan keyin ham qolsin
+    const first = select.options[0];
+    const keepEmpty = first && first.value === '' ? first.cloneNode(true) : null;
+
+    // ── Qidiruv inputi. O'ram (wrapper) YARATMAYMIZ: select'ning ota elementi
+    // (<td>, .form-row) o'zgarmasin — layout buzilmasin.
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.inputMode = 'search';
+    input.autocomplete = 'off';
+    input.placeholder = cfg.placeholder;
+    input.className = cfg.className;
+    input.style.cssText = 'width:100%;margin-bottom:.25rem;min-height:36px';
+    input.setAttribute('data-ss-input', '1');
+
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:.6875rem;color:var(--text3);margin-bottom:.25rem;min-height:1em';
+
+    select.parentNode.insertBefore(input, select);
+    select.parentNode.insertBefore(hint, select);
+
+    let timer = null;
+    let lastQuery = '';
+
+    // `cap` FAQAT qidiruv natijasiga qo'llanadi. Boshlang'ich (filtrsiz) ro'yxat
+    // TO'LIQ chiziladi — aks holda do'konchi hech narsa yozmaganda avvalgidan
+    // ham kam mahsulot ko'rardi (ilgari 500 ta ko'rinardi).
+    function fill(items, note, cap) {
+      const prev = select.value;
+      const list = cap ? (items || []).slice(0, cfg.limit) : (items || []);
+      select.innerHTML = '';
+      if (keepEmpty) select.appendChild(keepEmpty.cloneNode(true));
+      list.forEach(it => select.appendChild(_optionOf(it, cfg.render)));
+      // Tanlangan qiymat yangi ro'yxatda ham bo'lsa — saqlaymiz
+      if (prev && select.querySelector(`option[value="${CSS.escape(prev)}"]`)) select.value = prev;
+      hint.textContent = note || '';
+    }
+
+    async function run(q) {
+      if (q === lastQuery) return;
+      lastQuery = q;
+      if (q.length < cfg.minChars) {
+        fill(cfg.initial || [], '', false);
+        return;
+      }
+      hint.textContent = 'qidirilmoqda...';
+      try {
+        const items = await cfg.search(q);
+        const list  = Array.isArray(items) ? items : [];
+        if (!list.length) {
+          fill([], `"${q}" — topilmadi`, true);
+        } else {
+          const more = list.length > cfg.limit ? ` (birinchi ${cfg.limit})` : '';
+          fill(list, `${list.length} ta topildi${more}`, true);
+          // Bitta natija — DARHOL tanlanadi (kassir uchun bitta tegish kamayadi)
+          if (list.length === 1) {
+            select.selectedIndex = keepEmpty ? 1 : 0;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      } catch (e) {
+        hint.textContent = 'qidiruv ishlamadi';
+      }
+    }
+
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      timer = setTimeout(() => run(q), cfg.debounce);
+    });
+
+    // POS naqshi (js/modules/pos.js): Enter — qo'llaydi va fokusni uzatadi;
+    // Escape — bekor qiladi. stopPropagation: barkod skaneri (keyboard-wedge)
+    // hujjat darajasidagi ishlovchisiga yetib bormasin.
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        clearTimeout(timer);
+        run(input.value.trim()).then(() => {
+          select.focus();
+          if (typeof cfg.onEnter === 'function') cfg.onEnter(select);
+        });
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        input.value = '';
+        lastQuery = ' ';           // majburiy qayta to'ldirish
+        run('');
+      }
+    });
+
+    const api = {
+      input, hint,
+      /** Boshlang'ich ro'yxatni almashtirish (masalan mahsulotlar qayta yuklandi) */
+      setInitial(items) { cfg.initial = items || []; if (!input.value.trim()) fill(cfg.initial, '', false); },
+      /** Filtrni tozalash — modal qayta ochilganda */
+      reset() { input.value = ''; lastQuery = ' '; run(''); },
+      /**
+       * Option'ni KAFOLATLI qo'shish va tanlash — barkod skaneri yo'li uchun.
+       * Filtrdan keyin option ro'yxatda bo'lmasligi mumkin; o'shanda
+       * `sel.value = id` JIMGINA ishlamay qolardi (shu sinfdagi xato bu
+       * loyihada bir necha marta chiqqan).
+       */
+      ensure(item) {
+        const r = cfg.render(item) || {};
+        const v = String(r.value ?? '');
+        let opt = select.querySelector(`option[value="${CSS.escape(v)}"]`);
+        if (!opt) { opt = _optionOf(item, cfg.render); select.appendChild(opt); }
+        select.value = v;
+        return opt;
+      },
+    };
+    select._ss = api;
+
+    fill(cfg.initial || [], '', false);
+    return api;
+  };
+})();

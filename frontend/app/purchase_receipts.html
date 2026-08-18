@@ -267,7 +267,10 @@ async function init() {
 
   // Barkod skaner UI — faqat barcode flagi yoqilgan tenantlarda
   try { await features.init(); } catch {}
-  if (features.has('barcode') || features.has('multi_barcode')) {
+  // TUZATISH: FeatureManager'da `has` metodi YO'Q — u `isEnabled`.
+  // `features.has(...)` TypeError berardi va shu IIFE o'sha yerda o'lardi,
+  // ya'ni barkod skaner qutisi HECH QACHON ko'rinmasdi (jim xato).
+  if (features.isEnabled('barcode') || features.isEnabled('multi_barcode')) {
     document.getElementById('scanRow').style.display = '';
   }
 }

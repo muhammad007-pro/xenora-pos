@@ -316,6 +316,12 @@ class OrderItemCreate(BaseModel):
     # BOSQICH B3 (pachka/dona): client FAQAT sotilgan birlikni yuboradi ("pachka"|"dona"|None).
     # unit_price/base_qty SERVERDA product'dan hisoblanadi (client narxiga ishonilmaydi).
     unit_sold: Optional[str] = None
+    # POS'da narx kelishuvi — FAQAT NARXNI OSHIRISH uchun (tanqis mahsulot).
+    # Server buni faqat katalog narxidan KATTA bo'lsa qabul qiladi (order_service).
+    # Narxni TUSHIRISH bu yerdan O'TMAYDI — u chegirma kanalidan (discount_type/
+    # discount_value) o'tadi va u yerda subtotal bilan cheklangan. Ya'ni client
+    # narxni o'zi uchun ARZONLASHTIRA OLMAYDI.
+    unit_price_override: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
 
 class OrderItemUpdate(BaseModel):
     quantity: Optional[int] = Field(None, gt=0)

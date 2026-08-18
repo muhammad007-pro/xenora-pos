@@ -211,6 +211,48 @@ const state = {
   cleaningInfo: null,   // dry_cleaning: { items, color, notes, pickup_date }
 };
 
+// ─── Savatda NARX KELISHUVI ───────────────────────────────────────────────────
+// MUAMMO (mijoz, Fazza Parfum / Marg'ilon amaliyoti): do'konchi narxni zaxira
+// bilan qo'yadi va mijoz bilan kelishib tushiradi (145 000 -> 140 000). Bu faqat
+// "Chegirma" tugmasidan qilinardi - noqulay. Endi savatdagi narx katakchasiga
+// to'g'ridan yangi narx yoziladi.
+//
+// ⚠️ ENG MUHIM QOIDA: `item.price` KATALOG narxi bo'lib QOLADI, hech qachon
+// o'zgartirilmaydi. Kelishilgan narx ALOHIDA `item._priceNew` maydonida turadi.
+// Sabab: server buyurtma qabul qilganda `unit_price = product.price` (katalog)
+// dan yozadi va aksiya/chegirmani SHU narxdan qayta hisoblaydi. Agar client
+// `item.price` ni tushirsa, client aksiyani 140 000 dan, server 145 000 dan
+// hisoblab, EKRANDAGI JAMI SERVERDAGI JAMIGA TENG BO'LMAY QOLARDI.
+//
+// IKKI YO'NALISH ATAYIN ASIMMETRIK:
+//   TUSHIRISH -> farq CHEGIRMAGA yoziladi (Order.discount_amount), narx katalog
+//     narxida qoladi. Mavjud `fixed` chegirma kanalidan o'tadi - yangi tur
+//     o'ylab topilmadi, backend chegirma mantig'i TEGILMADI.
+//   OSHIRISH  -> bu chegirma EMAS (tanqis mahsulotga ustiga qo'yish). Sotuv
+//     narxining o'zi oshadi, discount_amount 0 qoladi. Buning uchun serverga
+//     `unit_price_override` yuboriladi - server uni FAQAT katalogdan KATTA
+//     bo'lsa qabul qiladi (order_service), ya'ni client narxni o'zi uchun
+//     arzonlashtira olmaydi.
+const PRICE_MAX = 999999999;   // fat-finger himoyasi
+
+// Hisob-kitob uchun AMALDAGI birlik narx. Oshirilgan bo'lsa - yangi narx
+// (server ham shuni ishlatadi), aks holda katalog narxi. Tushirish bu yerda
+// AKS ETMAYDI: u chegirma bo'lib alohida ayiriladi, aks holda ikki marta
+// hisoblangan bo'lardi.
+function effPrice(item) {
+  const p = Number(item.price) || 0;
+  const n = item._priceNew;
+  return (n != null && n > p) ? n : p;
+}
+
+// Kelishuv natijasida kelib chiqqan CHEGIRMA (faqat tushirish yo'nalishi).
+function priceEditDiscount(cart) {
+  return (cart || []).reduce((s, i) => {
+    const p = Number(i.price) || 0;
+    return s + (i._priceNew != null && i._priceNew < p ? (p - i._priceNew) * i.qty : 0);
+  }, 0);
+}
+
 // ─── Totals ───────────────────────────────────────────────────────────────────
 // ── #34 1-bosqich: AVTOMATIK chegirma (POS'da qo'llash) ──────────────────────────
 // Faol chegirmalar (loadData'da /discounts/active dan; offline IndexedDB'dan).
@@ -249,7 +291,11 @@ function computeAutoDiscounts() {
   const ids = new Set();
   let itemTotal = 0;
   cart.forEach((it, idx) => {
-    const line = it.price * it.qty;
+    // effPrice: narx OSHIRILGAN bo'lsa aksiya ham shu narxdan hisoblanadi -
+    // server ham aynan shunday qiladi (unit_price_override qabul qilingandan
+    // KEYIN _resolve_pricing ishlaydi). Tushirish bu yerga TA'SIR QILMAYDI -
+    // aks holda chegirma ikki marta hisoblangan bo'lardi.
+    const line = effPrice(it) * it.qty;
     const p = state.products.find(x => x.id === it.id);
     const catId = p ? p.category_id : null;
     const cands = prod[it.id] || (catId != null ? cat[catId] : null) || [];
@@ -262,7 +308,7 @@ function computeAutoDiscounts() {
       }
     }
   });
-  const subAfter = cart.reduce((s, it) => s + it.price * it.qty, 0) - itemTotal;
+  const subAfter = cart.reduce((s, it) => s + effPrice(it) * it.qty, 0) - itemTotal;
   let cartDisc = 0;
   if (cartD.length && subAfter > 0) {
     const elig = cartD.filter(d => (d.min_order_amount || 0) <= subAfter);
@@ -276,7 +322,10 @@ function computeAutoDiscounts() {
 }
 
 function computeTotals() {
-  const sub = state.cart.reduce((s, i) => s + i.price * i.qty, 0);
+  // Subtotal AMALDAGI narxdan: oshirilgan narx subtotalni ko'taradi (server ham
+  // shunday), tushirilgan narx esa subtotalni O'ZGARTIRMAYDI - u pastda chegirma
+  // bo'lib ayiriladi (shunda mijoz "qancha tushdi" ni ko'radi va hisobotga tushadi).
+  const sub = state.cart.reduce((s, i) => s + effPrice(i) * i.qty, 0);
   const auto = computeAutoDiscounts();        // #34: avtomatik (aksiya) chegirma
   let disc = 0;                               // qo'lda / mijoz % (mavjud, alohida)
   if (state.discount.value > 0) {
@@ -285,12 +334,15 @@ function computeTotals() {
       : Math.min(state.discount.value, sub);
   }
   const autoDisc  = auto.total;
-  const totalDisc = Math.min(disc + autoDisc, sub);   // jami chegirma subtotaldan oshmaydi
+  const editDisc  = priceEditDiscount(state.cart);   // narx kelishuvi (tushirish)
+  // Jami chegirma subtotaldan oshmaydi - server ham aynan shu chegarani qo'yadi
+  // (order_service: total_disc = min(manual + auto, server_subtotal)).
+  const totalDisc = Math.min(disc + autoDisc + editDisc, sub);
   const afterDisc = sub - totalDisc;
   const tax       = afterDisc * MODE.taxRate;
   const service   = afterDisc * MODE.serviceRate;
   const total     = afterDisc + tax + service;
-  return { sub, disc, autoDisc, auto, totalDisc, tax, service, total };
+  return { sub, disc, autoDisc, auto, editDisc, totalDisc, tax, service, total };
 }
 
 // ─── Cart render ─────────────────────────────────────────────────────────────
@@ -331,7 +383,18 @@ function renderCart() {
         ${MODE.isDryCleaning && item._cleaning?.items ? `<div style="font-size:.7rem;color:var(--text2);margin-top:.05rem">👔 ${item._cleaning.items}</div>` : ''}
         ${MODE.isDryCleaning && item._cleaning?.pickup_date ? `<div style="font-size:.7rem;color:var(--warning);margin-top:.05rem">📦 ${new Date(item._cleaning.pickup_date).toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit'})}</div>` : ''}
         <div style="display:flex;align-items:center;gap:.5rem;margin-top:.2rem">
-          <div class="ci-price">${item._weight != null ? `${item._weight} ${item._unit || ''} — ${fmtNum(item.price)}` : `${fmtNum(item.price)} × ${item.qty}${item._unit ? ' ' + item._unit : ''}`}</div>
+          <div class="ci-price" style="display:flex;align-items:center;gap:.3rem;flex-wrap:wrap">
+            ${item._weight != null ? `<span>${item._weight} ${item._unit || ''} —</span>` : ''}
+            ${item._priceNew != null && item._priceNew !== item.price
+              ? `<span class="ci-orig">${fmtNum(item.price)}</span>` : ''}
+            <input class="price-input${item._priceNew == null || item._priceNew === item.price ? ''
+                     : (item._priceNew < item.price ? ' edited' : ' raised')}"
+                   type="text" inputmode="decimal" autocomplete="off"
+                   value="${fmtNum(item._priceNew != null ? item._priceNew : item.price)}"
+                   data-idx="${idx}" aria-label="Narx"
+                   title="Kelishilgan narxni yozib Enter bosing">
+            ${item._weight == null ? `<span>× ${item.qty}${item._unit ? ' ' + item._unit : ''}</span>` : ''}
+          </div>
           ${MODE.hasCourses ? `<select class="course-sel" data-cidx="${idx}" title="Kurs" style="background:var(--bg3);border:1px solid rgba(255,255,255,.08);border-radius:.25rem;color:var(--text2);font-size:.7rem;padding:.1rem .25rem;outline:none;cursor:pointer">
             <option value="1" ${(item.course_number||1)===1?'selected':''}>1-kurs</option>
             <option value="2" ${(item.course_number||1)===2?'selected':''}>2-kurs</option>
@@ -346,9 +409,20 @@ function renderCart() {
                title="Miqdorni yozib Enter bosing">
         <button class="qty-btn" data-action="inc" data-idx="${idx}">+</button>
       </div>
-      <div class="ci-total">${_auto.perItem[idx] > 0
-        ? `<span style="text-decoration:line-through;color:var(--text3);font-size:.72rem;display:block">${fmt(item.price * item.qty)}</span><span style="color:var(--success)">${fmt(item.price * item.qty - _auto.perItem[idx])}</span><span style="display:block;font-size:.62rem;color:var(--gold)">${_auto.labels[idx]}</span>`
-        : fmt(item.price * item.qty)}</div>
+      <div class="ci-total">${(() => {
+        // Qator jami: katalog narxidan boshlanadi, undan aksiya va narx kelishuvi
+        // ayiriladi. effPrice tushirishni HISOBGA OLMAYDI (u chegirma), shu bois
+        // kelishuv shu yerda alohida ayiriladi - jami bilan izchil bo'lsin.
+        const gross = effPrice(item) * item.qty;
+        const edit  = (item._priceNew != null && item._priceNew < item.price)
+                    ? (item.price - item._priceNew) * item.qty : 0;
+        const net   = gross - _auto.perItem[idx] - edit;
+        if (_auto.perItem[idx] <= 0 && edit <= 0) return fmt(gross);
+        const tags = [_auto.labels[idx], edit > 0 ? 'kelishuv' : null].filter(Boolean).join(' · ');
+        return `<span style="text-decoration:line-through;color:var(--text3);font-size:.72rem;display:block">${fmt(item.price * item.qty)}</span>`
+             + `<span style="color:var(--success)">${fmt(net)}</span>`
+             + `<span style="display:block;font-size:.62rem;color:var(--gold)">${tags}</span>`;
+      })()}</div>
       <button class="ci-del" data-action="del" data-idx="${idx}" title="O'chirish">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
@@ -374,6 +448,12 @@ function renderTotals() {
   if (autoRow) {
     autoRow.style.display = t.autoDisc > 0 ? '' : 'none';
     if (t.autoDisc > 0) document.getElementById('totAutoDiscount').textContent = '-' + fmt(t.autoDisc);
+  }
+  // Narx kelishuvi alohida qator - kassir chegirma qayerdan kelganini ko'rsin.
+  const peRow = document.getElementById('priceEditRow');
+  if (peRow) {
+    peRow.style.display = t.editDisc > 0 ? '' : 'none';
+    if (t.editDisc > 0) document.getElementById('totPriceEdit').textContent = '-' + fmt(t.editDisc);
   }
   broadcastToDisplay();
 }
@@ -857,6 +937,10 @@ document.getElementById('cartItems').addEventListener('click', e => {
 // Kasr miqdor (0.5 kg, 30 ml) BU YERDA EMAS — u tarozi/hajm modalidan
 // kiritiladi va `_weight` maydonida saqlanadi (doAddToCart), qty esa 1 bo'ladi.
 // Shu sabab kasr son rad etiladi — hozirgi mantiqqa aynan mos.
+//
+// v1.9.0 MERGE: miqdor (.qty-input) va narx kelishuvi (.price-input) ikki
+// ALOHIDA katakcha — ikkalasi ham savat qatorida (renderCart). Ishlovchilar
+// ham alohida: har biri o'z selektoriga ishlaydi, bir-biriga tegmaydi.
 const QTY_MAX = 9999;   // fat-finger himoyasi (masalan 20 o'rniga 200000)
 let _qtyCommitting = false;
 
@@ -918,6 +1002,94 @@ document.getElementById('cartItems').addEventListener('keydown', e => {
 document.getElementById('cartItems').addEventListener('focusout', e => {
   const inp = e.target.closest('.qty-input');
   if (inp) _commitQty(inp);
+});
+
+// ─── Savatda NARX KELISHUVI: katakcha hodisalari ──────────────────────────────
+// Naqsh c25c09d (qty-input) bilan AYNAN bir xil - kassir uchun bitta xulq:
+//   Enter    -> qo'llanadi + fokus barcodeInput ga (keyingi skanerlash)
+//   focusout -> qo'llanadi (sensor ekranda Enter bosilmasligi mumkin)
+//   Escape   -> bekor qilinadi, eski qiymat qaytadi
+//
+// ⚠️ SKANER: keyboard-wedge `document.activeElement` INPUT bo'lsa DARROV chiqib
+// ketadi -> bu katakchada yozilgan raqamlar barkod deb o'qilmaydi. Enter'da esa
+// stopPropagation - wedge'ning hujjat darajasidagi ishlovchisiga yetib bormaydi.
+//
+// RBAC: "Chegirma" tugmasi bilan BIR XIL, ya'ni qulf YO'Q. Bugun `pos.html` dagi
+// Chegirma tugmasida `data-roles` yo'q va `POST /orders/` chegirma ruxsatini
+// tekshirmaydi. Faqat narx katakchasini qulflash SOXTA xavfsizlik bo'lardi -
+// kassir baribir Chegirma tugmasidan o'tib ketardi. Ikkalasini BIRGA
+// himoyalash alohida ish sifatida qayd etildi.
+let _priceCommitting = false;
+
+// Fokusda butun matn belgilanadi - bitta tegishda yangi narx yoziladi.
+document.getElementById('cartItems').addEventListener('focusin', e => {
+  const inp = e.target.closest('.price-input');
+  if (inp) inp.select();
+});
+
+function _commitPrice(inp) {
+  if (_priceCommitting) return;
+  const idx  = +inp.dataset.idx;
+  const item = state.cart[idx];
+  if (!item) return;
+
+  const old = Number(item.price) || 0;
+  const cur = item._priceNew != null ? item._priceNew : old;
+  const raw = inp.value.trim();
+  // parseMoney "140,000" / "140 000" kabi formatlangan matnni ham o'qiydi, lekin
+  // bo'sh/matn kiritilganda 0 qaytaradi - shuning uchun avval o'zimiz tekshiramiz.
+  const hasDigit = /\d/.test(raw);
+  const n = parseMoney(raw);
+
+  let err = null;
+  if (!hasDigit || !Number.isFinite(n)) err = "Narx son bo'lishi kerak";
+  else if (n < 0)                       err = "Narx manfiy bo'lmaydi";
+  else if (n > PRICE_MAX)               err = 'Narx juda katta';
+
+  if (err) {
+    toast(err, 'warning');
+    beep('error');
+    inp.value = fmtNum(cur);        // eski qiymatga qaytaramiz - savat buzilmaydi
+    return;
+  }
+  if (n === cur) { inp.value = fmtNum(cur); return; }   // o'zgarmadi
+
+  item._priceNew = (n === old) ? null : n;   // katalog narxiga qaytsa - tahrir olib tashlanadi
+
+  if (n < old) {
+    toast(`Kelishuv: ${fmtNum(old - n)} chegirma`, 'success');
+  } else if (n > old) {
+    // Bu chegirma EMAS - sotuv narxining o'zi oshdi (tanqis mahsulot).
+    toast(`Narx oshirildi: +${fmtNum(n - old)}`, 'info');
+  }
+
+  // renderCart() butun ro'yxatni (katakchani ham) qayta chizadi - shu payt
+  // yana commit chaqirilmasin (ikki marta yozish / sikl bo'lmasin).
+  _priceCommitting = true;
+  try { renderCart(); } finally { _priceCommitting = false; }
+}
+
+document.getElementById('cartItems').addEventListener('keydown', e => {
+  const inp = e.target.closest('.price-input');
+  if (!inp) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();           // skaner/global qisqa yo'llarga yetmasin
+    _commitPrice(inp);
+    inp.blur();
+    document.getElementById('barcodeInput')?.focus();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    const it = state.cart[+inp.dataset.idx];
+    inp.value = fmtNum(it ? (it._priceNew != null ? it._priceNew : it.price) : 0);
+    inp.blur();
+  }
+});
+
+document.getElementById('cartItems').addEventListener('focusout', e => {
+  const inp = e.target.closest('.price-input');
+  if (inp) _commitPrice(inp);
 });
 
 document.getElementById('clearCartBtn').addEventListener('click', () => {
@@ -1615,6 +1787,14 @@ function buildOrderPayload() {
       // Oddiy mahsulot: qty = dona soni, price = dona narxi
       quantity      : i._weight != null ? i._weight : i.qty,
       price         : i._weight != null ? i._unitPrice : i.price,
+      // Narx kelishuvi - FAQAT OSHIRISH. Tushirish bu yerdan EMAS, chegirma
+      // kanalidan (pastdagi discount_type/discount_value) ketadi. Server
+      // override'ni faqat katalog narxidan katta bo'lsa qabul qiladi.
+      // Og'irlik qatorida `_priceNew` QATOR JAMI (ekranda shu ko'rinadi), server
+      // esa birlik narx kutadi (quantity = og'irlik) -> og'irlikka bo'lamiz.
+      unit_price_override: (i._priceNew != null && i._priceNew > i.price)
+        ? (i._weight != null && i._weight > 0 ? i._priceNew / i._weight : i._priceNew)
+        : null,
       weight_unit   : i._unit     || null,
       unit_sold     : i._unitSold || null,   // BOSQICH B4: "pachka"|"dona"|null (server base_qty/narx hisoblaydi)
       course_number : MODE.hasCourses ? (i.course_number || 1) : 1,
@@ -1630,15 +1810,34 @@ function buildOrderPayload() {
     // tiklanadi (biz_meta['cart']). Serverdagi summaga ta'sir qilmaydi.
     cart_snapshot   : state.cart.map(i => ({
       id: i.id, name: i.name, price: i.price, qty: i.qty,
+      // _priceNew snapshot'da: (1) saqlangan buyurtma qayta ochilganda kelishuv
+      // tiklanadi, (2) "katalog 145 000 -> sotildi 140 000" doimiy iz bo'lib
+      // qoladi (backend o'zgarishisiz audit izi).
+      _priceNew: i._priceNew ?? null,
       _modKey: i._modKey || '', modifiers: i.modifiers || [], modLabel: i.modLabel || null,
       _weight: i._weight ?? null, _unit: i._unit || null, _unitPrice: i._unitPrice ?? null,
       _unitSold: i._unitSold || null, _packLabel: i._packLabel || null,   // BOSQICH B4
       course_number: i.course_number || 1,
     })),
-    discount_type   : state.discount.value > 0 ? state.discount.type : null,
-    discount_value  : state.discount.value || null,
+    // ── Chegirma kanali ───────────────────────────────────────────────────────
+    // Server chegirmani discount_type/discount_value dan QAYTA hisoblaydi
+    // (client'ning tayyor discount_amount summasiga ishonmaydi) va faqat BITTA
+    // chegirma qabul qiladi. Narx kelishuvi (tushirish) ham shu yagona kanaldan
+    // o'tishi kerak, shuning uchun kelishuv BO'LGANDA qo'lda/mijoz chegirmasi
+    // bilan birga bitta `fixed` summaga yig'iladi.
+    //
+    // Kelishuv YO'Q bo'lsa payload AYNAN avvalgidek qoladi (nol regressiya) -
+    // foiz chegirma foiz bo'lib ketadi va server uni o'z subtotalidan hisoblaydi.
+    //
+    // Xavfsizlik jihatidan yangi narsa yo'q: `fixed` chegirma qiymatini client
+    // bugun ham to'liq boshqaradi va server uni `min(dv, server_subtotal)` bilan
+    // cheklaydi - ya'ni jami chegirma hech qachon subtotaldan oshmaydi.
+    discount_type   : t.editDisc > 0 ? 'fixed'
+                    : (state.discount.value > 0 ? state.discount.type : null),
+    discount_value  : t.editDisc > 0 ? Math.round(Math.min(t.disc + t.editDisc, t.sub))
+                    : (state.discount.value || null),
     total_amount    : t.sub,
-    discount_amount : t.disc,
+    discount_amount : t.disc + t.editDisc,
     tax_amount      : t.tax,
     service_amount  : t.service,
     final_amount    : t.total,
@@ -2028,9 +2227,20 @@ function renderReceiptData(rec) {
           const sub = [pk ? `📦 ${pk}` : '', ml ? `🧴 ${ml}` : '', d, m ? `✂️ ${m}` : '', dur ? `⏱ ${dur}` : '', per].filter(Boolean).join(' · ');
           // "11 x 5,000" — miqdor × birlik narx (v1.8.7, mijoz talabi).
           // LAN (ESC/POS) yo'li shu katakchani DOM'dan o'qiydi → USB va LAN bir xil.
+          //
+          // v1.9.0 MERGE (narx kelishuvi bilan): birlik narx KELISHILGAN narxdan
+          // olinadi — `effPrice(i)`. Aks holda `unitPriceOf()` KATALOG narxini
+          // qaytarardi (u `it.price` ni afzal ko'radi) va narx OSHIRILGAN holatda
+          // chekda "11 x 5,000" bilan jami 66,000 chiqib, qator o'zi bilan o'zi
+          // ziddiyatga tushardi. Narx TUSHIRILGANDA effPrice katalog narxini
+          // qaytaradi (kelishuv chegirma kanalidan ketadi va "Chegirma" qatorida
+          // ko'rinadi) — chek mantig'i o'zgarmaydi.
+          // effPrice 0 bersa (server reprint ma'lumotida `price` yo'q) — eski
+          // yo'l: `unitPriceOf` jami/miqdordan hisoblaydi.
           const qv   = i.quantity || i.qty;
-          const line = i.total || (i.price * (i.qty || i.quantity));
-          const qtyTxt = qtyPriceLabel(qv, unitPriceOf(i, line, qv), fmtNum);
+          const line = i.total || (effPrice(i) * qv);
+          const unit = effPrice(i) || unitPriceOf(i, line, qv);
+          const qtyTxt = qtyPriceLabel(qv, unit, fmtNum);
           return `<tr><td>${i.name||i.product_name||''}${sub?`<br><small style="font-size:.65rem;color:#9a9ab8">${sub}</small>`:''}</td><td>${qtyTxt}</td>
           <td style="text-align:right">${fmtNum(line)}</td></tr>`;
         }).join('')}
@@ -2038,7 +2248,12 @@ function renderReceiptData(rec) {
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>Jami:</span><span>${fmtNum(rec.subtotal||t.sub)}</span></div>
-      ${(rec.discount_amount||t.disc)>0 ? `<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(rec.discount_amount||t.disc)}</span></div>` : ''}
+      ${/* Chegirma qatori O'ZGARMADI - narx kelishuvi shu yerda ko'rinadi va mijoz
+            "qancha tushdi" ni shundan biladi. Server qaytargan discount_amount
+            kelishuvni ham o'z ichiga oladi (u chegirma kanalidan ketgan); server
+            javobi bo'lmagan LOKAL/OFFLINE chekda esa t.disc + t.editDisc.
+            Chek renderer'iga (USB/SumatraPDF, LAN/ESC-POS) TEGILMADI. */''}
+      ${(rec.discount_amount||(t.disc+t.editDisc))>0 ? `<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(rec.discount_amount||(t.disc+t.editDisc))}</span></div>` : ''}
       ${(rec.tax_amount||t.tax)>0?`<div class="rt-row"><span>Soliq (12%):</span><span>${fmtNum(rec.tax_amount||t.tax)}</span></div>`:''}
       ${(rec.service_amount||t.service)>0?`<div class="rt-row"><span>Xizmat (10%):</span><span>${fmtNum(rec.service_amount||t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(rec.final_amount||t.total)} UZS</span></div>
@@ -2405,6 +2620,7 @@ async function reopenHeldOrder(orderId) {
       _unitPrice: i._unitPrice ?? null,
       _unitSold: i._unitSold || null,      // BOSQICH B4
       _packLabel: i._packLabel || null,    // BOSQICH B4
+      _priceNew: i._priceNew ?? null,      // narx kelishuvi ham tiklanadi
       course_number: i.course_number || 1,
     }));
   } else {

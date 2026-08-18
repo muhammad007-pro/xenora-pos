@@ -33,6 +33,10 @@ from models import (
     Appointment, Service, RoomBooking, Room, Membership,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+# TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak. Avval
+# OrderItem.total_price (katalog summasi) olinardi → foyda chegirma summasiga
+# teng miqdorda oshiq chiqardi. Formula/taqsimlash izohi: utils/revenue.py
+from utils.revenue import net_revenue_expr, order_subtotal_subq
 
 router = APIRouter()
 
@@ -43,6 +47,11 @@ _COST_EXPR = func.coalesce(
     Product.cost_price,
     0.0,
 )
+
+# Bitta subquery obyekti butun modul bo'ylab qayta ishlatiladi (SQLAlchemy
+# konstruktsiyasi holatsiz — bu xavfsiz va so'rovlar orasida ajralishning oldini oladi).
+_SUB_SQ      = order_subtotal_subq()
+_REVENUE_EXPR = net_revenue_expr(_SUB_SQ)   # qator SOF tushumi (chegirma ulushi ayirilgan)
 
 _PRODUCT_TYPES     = frozenset({"restaurant", "cafe", "fast_food", "store", "supermarket", "pharmacy"})
 _SERVICE_APT_TYPES = frozenset({"salon", "fitness", "auto_service", "school", "dry_cleaning"})
@@ -77,6 +86,11 @@ def _sales_query(db: Session, current_user: User, start: date, end: date):
         db.query(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
         .join(Product, OrderItem.product_id == Product.id)
+        # Chegirmani qatorlar orasida proporsional taqsimlash uchun buyurtma
+        # subtotali. Shu yerda BIR MARTA ulanadi → _sales_query ga tayangan
+        # BARCHA hisobotlar (summary/timeline/top-products/by-category) avtomatik
+        # sof tushumga o'tadi va ajralib ketmaydi.
+        .join(_SUB_SQ, _SUB_SQ.c.order_id == OrderItem.order_id)
         .filter(
             Order.status.notin_(EXCLUDED_STATUSES),
             func.date(Order.created_at) >= start,
@@ -179,7 +193,7 @@ def _product_summary(db: Session, current_user: User, start: date, end: date) ->
     row = (
         _sales_query(db, current_user, start, end)
         .with_entities(
-            func.coalesce(func.sum(OrderItem.total_price), 0).label("revenue"),
+            func.coalesce(func.sum(_REVENUE_EXPR), 0).label("revenue"),
             func.coalesce(func.sum(_COST_EXPR * OrderItem.quantity), 0).label("cost"),
             func.count(func.distinct(OrderItem.order_id)).label("orders"),
         )
@@ -475,7 +489,7 @@ async def get_profit_timeline(
         _sales_query(db, current_user, start, end)
         .with_entities(
             bucket,
-            func.sum(OrderItem.total_price).label("revenue"),
+            func.sum(_REVENUE_EXPR).label("revenue"),
             func.sum(_COST_EXPR * OrderItem.quantity).label("cost"),
         )
         .group_by(bucket)
@@ -569,8 +583,11 @@ async def get_top_profit_items(
         return {"order": order, "days": days, "business_type": biz_type, "items": items[:limit]}
 
     # ── Mahsulot asosli: asl mantiq ───────────────────────────────────────────
-    profit_expr = func.sum(
-        (OrderItem.unit_price - _COST_EXPR) * OrderItem.quantity
+    # TUZATISH: foyda endi SOF tushumdan hisoblanadi. Avval `unit_price` (katalog
+    # narxi) olinardi — chegirma bilan sotilgan mahsulot foydali ko'rinib, "eng
+    # foydali/eng zararli" reytingi ham noto'g'ri chiqardi.
+    profit_expr = (
+        func.sum(_REVENUE_EXPR) - func.sum(_COST_EXPR * OrderItem.quantity)
     ).label("profit")
 
     q = (
@@ -581,7 +598,7 @@ async def get_top_profit_items(
             Product.price,
             Product.cost_price,
             func.sum(OrderItem.quantity).label("qty_sold"),
-            func.sum(OrderItem.total_price).label("revenue"),
+            func.sum(_REVENUE_EXPR).label("revenue"),
             func.sum(_COST_EXPR * OrderItem.quantity).label("cost"),
             profit_expr,
         )
@@ -663,11 +680,11 @@ async def get_profit_by_category(
         .with_entities(
             Category.id,
             func.coalesce(Category.name, "Boshqa").label("name"),
-            func.sum(OrderItem.total_price).label("revenue"),
+            func.sum(_REVENUE_EXPR).label("revenue"),
             func.sum(_COST_EXPR * OrderItem.quantity).label("cost"),
         )
         .group_by(Category.id, Category.name)
-        .order_by(func.sum(OrderItem.total_price).desc())
+        .order_by(func.sum(_REVENUE_EXPR).desc())
         .all()
     )
 

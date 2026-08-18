@@ -10,8 +10,16 @@ from deps import get_current_user, get_current_active_user, has_permission, appl
 from services.analytics_service import AnalyticsService
 from core.timeutils import tenant_now, to_local
 from core.tenant_config import get_tenant_config
+# TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak — avval
+# OrderItem.total_price (katalog summasi) olinardi. Izoh/formula: utils/revenue.py
+from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq
 
 router = APIRouter()
+
+# Modul bo'ylab bitta subquery obyekti (SQLAlchemy konstruktsiyasi holatsiz).
+_A_SUB_SQ       = order_subtotal_subq()
+_A_REVENUE_EXPR = net_revenue_expr(_A_SUB_SQ)   # qator SOF tushumi
+_A_COST_EXPR    = cost_expr()                   # sotuv paytidagi tan narx snapshot'i
 
 
 @router.get("/summary")
@@ -169,13 +177,20 @@ async def get_dashboard_data(
         from sqlalchemy import func as sqlfunc
 
         def _net_profit(s, e):
+            # TUZATISH 1 (daromad): chegirma AYIRILADI. Avval OrderItem.total_price
+            #   (katalog summasi) olinardi → sof foyda chegirma summasiga teng
+            #   miqdorda oshiq ko'rsatilardi.
+            # TUZATISH 2 (tan narx): Product.cost_price (BUGUNGI narx) o'rniga
+            #   OrderItem.unit_cost (SOTUV PAYTIDAGI snapshot) ustun — profit.py
+            #   _COST_EXPR bilan aynan bir xil, ya'ni ikki sahifada bir xil raqam.
             q = db.query(
-                sqlfunc.coalesce(sqlfunc.sum(OrderItem.total_price), 0).label("revenue"),
+                sqlfunc.coalesce(sqlfunc.sum(_A_REVENUE_EXPR), 0).label("revenue"),
                 sqlfunc.coalesce(
-                    sqlfunc.sum(OrderItem.quantity * sqlfunc.coalesce(Product.cost_price, 0)), 0
+                    sqlfunc.sum(OrderItem.quantity * _A_COST_EXPR), 0
                 ).label("cost"),
             ).join(Order, Order.id == OrderItem.order_id) \
              .join(Product, Product.id == OrderItem.product_id) \
+             .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id) \
              .filter(Order.created_at >= s, Order.created_at <= e, Order.status == "completed")
             q = apply_tenant_filter(q, Order, current_user)
             row = q.one()
@@ -531,13 +546,15 @@ async def get_store_margin(
         Product.price,
         Product.cost_price,
         sqlfunc.sum(OrderItem.quantity).label("qty_sold"),
-        sqlfunc.sum(OrderItem.total_price).label("revenue"),
+        # TUZATISH: marja chegirma AYIRILGAN tushumdan (avval katalog summasidan).
+        sqlfunc.sum(_A_REVENUE_EXPR).label("revenue"),
     ).join(OrderItem, OrderItem.product_id == Product.id)\
      .join(Order, Order.id == OrderItem.order_id)\
+     .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id)\
      .filter(Order.created_at >= start, Order.status == "completed")
     query = apply_tenant_filter(query, Order, current_user)
     results = query.group_by(Product.id, Product.name, Product.price, Product.cost_price)\
-        .order_by(sqlfunc.sum(OrderItem.total_price).desc()).limit(50).all()
+        .order_by(sqlfunc.sum(_A_REVENUE_EXPR).desc()).limit(50).all()
 
     total_revenue = 0.0
     total_profit  = 0.0
@@ -1095,9 +1112,12 @@ async def get_abc_analysis(
         Product.name,
         Product.cost_price,
         sqlfunc.sum(OrderItem.quantity).label("qty_sold"),
-        sqlfunc.sum(OrderItem.total_price).label("revenue"),
+        # ABC tahlili reyting hisoboti, lekin daromad shu yerda ham chegirma
+        # ayirilgan bo'lsin — mijoz turli sahifada turli raqam ko'rmasin.
+        sqlfunc.sum(_A_REVENUE_EXPR).label("revenue"),
     ).join(OrderItem, OrderItem.product_id == Product.id)\
      .join(Order, Order.id == OrderItem.order_id)\
+     .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id)\
      .filter(Order.created_at >= start, Order.status == "completed")
     rows = apply_tenant_filter(rows, Order, current_user)
     rows = rows.group_by(Product.id, Product.name, Product.cost_price).all()
@@ -1325,11 +1345,13 @@ async def get_store_dashboard(
     today_revenue = sum(o.final_amount or 0 for o in today_orders)
 
     # 2. Bugungi foyda (tan narx bo'yicha)
+    # TUZATISH: `rev` endi chegirma AYIRILGAN sof tushum (avval katalog summasi).
     today_item_rows = db.query(
         OrderItem.product_id,
         sqlfunc.sum(OrderItem.quantity).label("qty"),
-        sqlfunc.sum(OrderItem.total_price).label("rev"),
-    ).join(Order, Order.id == OrderItem.order_id).filter(
+        sqlfunc.sum(_A_REVENUE_EXPR).label("rev"),
+    ).join(Order, Order.id == OrderItem.order_id)\
+     .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id).filter(
         Order.created_at >= today_start,
         Order.status == "completed",
         Order.tenant_id == current_user.tenant_id,
@@ -1340,7 +1362,12 @@ async def get_store_dashboard(
         prod = db.query(Product).filter(Product.id == ti.product_id).first()
         if prod and prod.cost_price:
             today_cost += (prod.cost_price or 0) * float(ti.qty or 0)
-    today_profit = today_revenue - today_cost
+    # TUZATISH: foyda `final_amount` dan EMAS — u soliq va xizmat haqini ham
+    # o'z ichiga oladi (restoran rejimida 12% + 10%), ular mahsulot daromadi emas.
+    # Mahsulot sof tushumidan hisoblanadi. `today_revenue` (kassaga tushgan pul)
+    # ko'rsatkich sifatida o'z holicha qoladi.
+    today_net_revenue = sum(float(ti.rev or 0) for ti in today_item_rows)
+    today_profit = today_net_revenue - today_cost
 
     # 3. Top 5 tovar (bugun tushum bo'yicha)
     top5_list = []

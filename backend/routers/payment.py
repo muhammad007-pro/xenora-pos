@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 
 from database import get_db
-from models import Payment, Order, User, Table, Cafe, Shift
+from models import Payment, Order, User, Table, Cafe, Shift, PaymentMethod, PaymentStatus
 from schemas import PaymentCreate, PaymentInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
 from core.feature_flags import Feature, is_feature_enabled
@@ -153,8 +153,19 @@ async def create_payment(
             Payment.order_id == order.id, Payment.status == "paid"
         ).scalar() or 0.0
 
-        # Redeem = to'lov tenderi: naqd + ball qoplagan summa >= final bo'lsa yakunlanadi.
-        if total_paid + _redeem_amount >= order.final_amount:
+        # NASIYA TENDERI: pul kelmagan, lekin TOVAR SOTILDI. Buyurtma yakunlanishi
+        # SHART — aks holda ombordan chiqim bo'lmaydi, stol bo'shamaydi va sotuv
+        # hisobotlarga (Order.status == "completed") umuman tushmaydi.
+        # Nasiya to'lovi PENDING bo'lgani uchun yuqoridagi `total_paid` uni
+        # ko'rmaydi — shu sabab alohida qo'shamiz.
+        credit_tender = db.query(func.coalesce(func.sum(Payment.amount), 0.0)).filter(
+            Payment.order_id == order.id,
+            Payment.method == PaymentMethod.CREDIT,
+            Payment.status == PaymentStatus.PENDING,
+        ).scalar() or 0.0
+
+        # Redeem = to'lov tenderi: naqd + ball + nasiya qoplagan summa >= final bo'lsa yakunlanadi.
+        if total_paid + _redeem_amount + credit_tender >= order.final_amount:
             order_completed = True
             # TOCTOU: Order qatorini QULFLAB, ingredients_deducted ni DB'dan YANGI o'qiymiz.
             # Ikki qurilma bir vaqtda split-payment yakunlasa — biri qulfda kutadi, ombor

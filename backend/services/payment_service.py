@@ -29,13 +29,23 @@ class PaymentService:
         if method in ["click", "payme"]:
             return self._process_online_payment(order, amount, method, cashier_id, commit=commit)
 
+        # NASIYA (credit) — pul KELMAGAN. Yozuv yaratiladi (sotuv tenderi va
+        # Z-hisobotdagi "nasiya" qatori shundan), lekin status PAID EMAS:
+        #   - naqd/daromad hisobotlari `status == "paid"` bo'yicha filtrlaydi →
+        #     kelmagan pul daromadga KIRMAYDI
+        #   - kassa (expected_cash) ham faqat naqd `paid` dan hisoblanadi
+        # Sotuvning O'ZI baribir yakunlanadi (tovar sotildi, ombordan chiqdi) —
+        # buni routers/payment.py dagi "credit tender" mantig'i ta'minlaydi.
+        # Pul keyin kelganda `customer_debts` / `debt_payments` orqali yuriydi.
+        status = "pending" if method == "credit" else "paid"
+
         # Naqd yoki karta
         payment = Payment(
             order_id=order.id,
             cashier_id=cashier_id,
             amount=amount,
             method=method,
-            status="paid",
+            status=status,
             reference=reference,
             transaction_id=self._generate_transaction_id()
         )

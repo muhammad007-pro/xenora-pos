@@ -421,6 +421,20 @@ async def add_stock(
     inv.last_restock = datetime.now()
     inv.updated_at = datetime.now()
 
+    # KELISH NARXI (mijozda topildi): Ombor kirimida `cost_price` YANGILANMASDI,
+    # holbuki Priyomka yo'li uni yangilaydi (purchase_receipts.py:226-233).
+    # Natijada 3500 -> 3700 qilib Ombordan kirim qilinsa, tannarx 3500 bo'lib
+    # qolar va KEYINGI sotuvlarda foyda oshirib ko'rsatilardi.
+    # Endi ikkala yo'l BIR XIL naqsh: narx haqiqiy bo'lsa (>0) — yangilanadi.
+    # ESKI SOTUVLAR TEGILMAYDI: ular `OrderItem.unit_cost` snapshot'ini ishlatadi.
+    if data.unit_cost and data.unit_cost > 0:
+        product = db.query(Product).filter(
+            Product.id == inv.product_id,
+            Product.tenant_id == inv.tenant_id,
+        ).first()
+        if product:
+            product.cost_price = data.unit_cost
+
     # B2 TUZATISH — ikki parallel qarz daftari yo'q qilindi.
     #
     # ILGARI shu yerda `supplier.balance += quantity * unit_cost` turardi. O'sha

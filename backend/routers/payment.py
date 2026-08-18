@@ -291,6 +291,26 @@ async def refund_payment(
     if payment.status != "paid":
         raise HTTPException(status_code=400, detail="Faqat to'langan to'lovlarni qaytarish mumkin")
     
+    # ── IKKI PARALLEL YO'L QO'RIQCHISI ──────────────────────────────────────
+    # Vozvratning ikkinchi yo'li — `POST /returns/` hujjati (u ham omborni
+    # tiklaydi va endi pulni ham qaytaradi). Ikkalasi bir buyurtmaga
+    # qo'llanilsa ombor IKKI MARTA oshib ketardi.
+    # Qoida: qaytarish hujjati bo'lsa — pul va ombor SHU hujjat orqali yuriydi.
+    from models import Return as _Return
+    _ret = (
+        db.query(_Return)
+        .filter(_Return.order_id == payment.order_id,
+                _Return.status.in_(["pending", "approved"]))
+        .first()
+    )
+    if _ret:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Bu buyurtma uchun qaytarish hujjati bor ({_ret.return_number}, "
+                    f"holat: {_ret.status}). Pul va ombor o'sha hujjat orqali yuritiladi — "
+                    f"bu yerda qaytarish ikki marta hisoblanishiga olib keladi."),
+        )
+
     refund_amount = amount or payment.amount
     
     if refund_amount > payment.amount:

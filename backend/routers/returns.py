@@ -17,7 +17,11 @@ from datetime import datetime, date
 from typing import Optional, List
 
 from database import get_db
-from models import Return, ReturnItem, Product, Order, OrderItem, Inventory, StockMovement
+from models import (
+    Return, ReturnItem, Product, Order, OrderItem, Inventory, StockMovement,
+    Payment, CustomerDebt, Customer,
+)
+from services.payment_service import PaymentService
 from schemas import ReturnCreate, ReturnInDB, ReturnReport, MessageResponse
 from deps import get_current_active_user, apply_tenant_filter, has_permission
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
@@ -234,6 +238,117 @@ def get_return(
 
 
 # ── POST /returns/{id}/approve ───────────────────────────────────────────────
+def _refund_money(db: Session, ret: Return, current_user) -> dict:
+    """Vozvrat TASDIQLANGANDA pulni qaytarish. Ilgari bu UMUMAN yo'q edi —
+    `refund_method` shunchaki YORLIQ bo'lib qolardi: naqd/karta qaytarishning
+    izi yo'q, nasiyaga olgan mijozning QARZI ham kamaymasdi.
+
+    Uch xil usul (`exchange` UI'dan olib qo'yilgan — alohida kelajakdagi ish):
+      cash/card -> mavjud `payment_service.refund_payment()` QAYTA ISHLATILADI
+                   (manfiy Payment + status="refunded"). Yangi mexanizm o'ylab
+                   topilmaydi — aks holda ikki xil formula paydo bo'lardi.
+      credit    -> mijoz QARZI kamayadi: avval SHU buyurtmaning qarzi
+                   (CustomerDebt.order_id), keyin eng eski ochiq qarzlar (FIFO).
+                   Qarzdan oshgani AVANS bo'lib qoladi (naqd qaytarilmaydi) —
+                   firma qarzidagi avans naqshiga izchil.
+    """
+    out = {"refund_payments": [], "debt_reduced": 0.0, "advance": 0.0}
+    amount = float(ret.total_amount or 0)
+    if amount <= 0:
+        return out
+
+    method = (ret.refund_method or "cash").lower()
+
+    # ── NAQD / KARTA ────────────────────────────────────────────────────────
+    if method in ("cash", "card"):
+        if not ret.order_id:
+            return out          # buyurtmasiz vozvrat — qaytariladigan to'lov yo'q
+        svc = PaymentService(db)
+        qoldiq = amount
+        paids = (
+            db.query(Payment)
+            .filter(Payment.order_id == ret.order_id, Payment.status == "paid")
+            .order_by(Payment.id)
+            .all()
+        )
+        for pay in paids:
+            if qoldiq <= 0.009:
+                break
+            ulush = min(qoldiq, float(pay.amount or 0))
+            svc.refund_payment(pay, ulush, f"Vozvrat {ret.return_number}", commit=False)
+            out["refund_payments"].append({"payment_id": pay.id, "amount": ulush})
+            qoldiq -= ulush
+        return out
+
+    # ── NASIYA (balansga) ───────────────────────────────────────────────────
+    if method == "credit":
+        if not ret.customer_id:
+            return out
+        qoldiq = amount
+
+        # 1) shu buyurtmaning qarzi — aniq bog'lanish, taxmin qilmaymiz
+        q = db.query(CustomerDebt).filter(
+            CustomerDebt.customer_id == ret.customer_id,
+            CustomerDebt.status.in_(["open", "partial"]),
+        )
+        debts = []
+        if ret.order_id:
+            debts = q.filter(CustomerDebt.order_id == ret.order_id).all()
+        # 2) qolgani — eng eski ochiq qarzlardan (FIFO)
+        debts += [d for d in q.order_by(CustomerDebt.created_at, CustomerDebt.id).all()
+                  if d not in debts]
+
+        for d in debts:
+            if qoldiq <= 0.009:
+                break
+            ulush = min(qoldiq, float(d.remaining or 0))
+            if ulush <= 0:
+                continue
+            d.remaining = round(float(d.remaining) - ulush, 2)
+            d.paid_amount = round(float(d.paid_amount or 0) + ulush, 2)
+            if d.remaining < 0.01:
+                d.remaining = 0.0
+                d.status = "paid"
+            elif d.paid_amount > 0:
+                d.status = "partial"
+            qoldiq -= ulush
+            out["debt_reduced"] = round(out["debt_reduced"] + ulush, 2)
+
+        # 3) qarzdan OSHGANI — avans (manfiy qoldiqli yozuv). Naqd qaytarilmaydi.
+        if qoldiq > 0.009:
+            db.add(CustomerDebt(
+                tenant_id=ret.tenant_id,
+                branch_id=ret.branch_id,
+                customer_id=ret.customer_id,
+                order_id=ret.order_id,
+                amount=-qoldiq,
+                paid_amount=0.0,
+                remaining=-qoldiq,      # manfiy qoldiq = AVANS (total_debt kamayadi)
+                status="open",
+                notes=f"Vozvrat avansi ({ret.return_number}) — qarzdan oshgan summa",
+                user_id=current_user.id,
+            ))
+            out["advance"] = round(qoldiq, 2)
+
+        db.flush()
+        _recalc_customer_debt(db, ret.customer_id)
+    return out
+
+
+def _recalc_customer_debt(db: Session, customer_id: int) -> None:
+    """`customers.total_debt` ni ochiq qarzlardan qayta hisoblaydi.
+    (routers/debt.py dagi bilan bir xil qoida — manfiy qoldiq avansni bildiradi.)"""
+    total = (
+        db.query(func.coalesce(func.sum(CustomerDebt.remaining), 0.0))
+        .filter(
+            CustomerDebt.customer_id == customer_id,
+            CustomerDebt.status.in_(["open", "partial"]),
+        )
+        .scalar()
+    )
+    db.query(Customer).filter(Customer.id == customer_id).update({"total_debt": total})
+
+
 @router.post("/{return_id}/approve", response_model=ReturnInDB)
 def approve_return(
     return_id: int,
@@ -251,6 +366,23 @@ def approve_return(
     if ret.status != "pending":
         raise HTTPException(400, f"Bu qaytarish allaqachon '{ret.status}' holatida")
 
+    # ── IKKI PARALLEL YO'L QO'RIQCHISI ──────────────────────────────────────
+    # Tizimda vozvratning ikki yo'li bor: (1) shu Return hujjati,
+    # (2) `POST /payments/{id}/refund`. Ikkalasi bir-biridan BEXABAR edi va
+    # ikkalasi ham OMBORNI TIKLAYDI -> bir vozvrat ikki marta o'tkazilsa
+    # qoldiq ikki marta oshib ketardi (pul ham ikki marta qaytardi).
+    # Qoida: QAYTARISH HUJJATI — yagona manba. To'lov allaqachon qaytarilgan
+    # bo'lsa, bu hujjatni tasdiqlash BLOKLANADI (tushunarli sabab bilan).
+    if ret.order_id:
+        _pays = db.query(Payment).filter(Payment.order_id == ret.order_id).all()
+        if _pays and all(p.status == "refunded" for p in _pays):
+            raise HTTPException(
+                409,
+                "Bu buyurtma allaqachon TO'LIQ qaytarilgan (to'lovni qaytarish orqali). "
+                "Ombor va pul o'sha yo'lda tiklangan — bu hujjatni tasdiqlash ikki "
+                "marta hisoblanishiga olib keladi.",
+            )
+
     # Omborga qaytarish (faqat restore_to_inventory=True bo'lganlar)
     for item in ret.items:
         if item.restore_to_inventory:
@@ -264,12 +396,25 @@ def approve_return(
                 current_user.id,
             )
 
+    # ── PUL HARAKATI (ilgari UMUMAN yo'q edi) ───────────────────────────────
+    money = _refund_money(db, ret, current_user)
+
     ret.status = "approved"
     ret.approved_by = current_user.id
     ret.approved_at = datetime.utcnow()
 
     db.commit()
     db.refresh(ret)
+
+    log_audit(current_user, "returns", "UPDATE", ret.id, tenant_id=ret.tenant_id, detail={
+        "action": "approve",
+        "return_number": ret.return_number,
+        "total_amount": float(ret.total_amount or 0),
+        "refund_method": ret.refund_method,
+        "refund_payments": money["refund_payments"],
+        "debt_reduced": money["debt_reduced"],
+        "advance": money["advance"],
+    })
     return ret
 
 

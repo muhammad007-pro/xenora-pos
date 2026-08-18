@@ -13,10 +13,10 @@ from database import get_db
 from models import Supplier, User
 from schemas import (
     SupplierCreate, SupplierUpdate, SupplierInDB,
-    SupplierDebtSummary, PaginatedResponse, MessageResponse,
+    SupplierDebtSummary, SupplierLedgerEntry, PaginatedResponse, MessageResponse,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
-from services.supplier_debt import compute_debts
+from services.supplier_debt import compute_debts, supplier_ledger
 
 router = APIRouter()
 
@@ -90,6 +90,34 @@ async def debt_summary(
             last_purchase=str(d.last_purchase) if d.last_purchase else None,
         ).model_dump())
     return result
+
+
+@router.get("/{supplier_id}/ledger", response_model=list[SupplierLedgerEntry])
+async def supplier_ledger_view(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_reports")),
+):
+    """FAZA 4 — OBOROT VARAG'I: bitta firma bo'yicha xronologik harakat.
+
+    Do'konchi agent bilan hisob-kitob qilganda ochadigan ekran: nakladnoy /
+    to'lov / vozvrat, har qatorda yugurib boruvchi qoldiq. Hisob services/
+    supplier_debt.py da — /debt-summary bilan BIR XIL manba (oxirgi qatordagi
+    qoldiq `balance` bilan mos, test bilan qotirilgan).
+    """
+    s = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
+          .filter(Supplier.id == supplier_id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Firma topilmadi")
+
+    return [
+        SupplierLedgerEntry(
+            date=str(e.date) if e.date else None,
+            kind=e.kind, label=e.label,
+            amount=e.amount, balance=e.balance, ref_id=e.ref_id,
+        )
+        for e in supplier_ledger(db, s)
+    ]
 
 
 @router.get("/{supplier_id}", response_model=SupplierInDB)

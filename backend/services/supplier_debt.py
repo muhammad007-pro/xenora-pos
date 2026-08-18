@@ -185,6 +185,87 @@ def compute_supplier_debt(
     )
 
 
+@dataclass
+class LedgerEntry:
+    """Oborot varag'ining bitta qatori (FAZA 4)."""
+    date:    Optional[Date]
+    kind:    str              # opening | receipt | payment | return
+    label:   str              # "Priyomka #12 · INV-77", "To'lov (umumiy)" ...
+    amount:  float            # + qarz OSHDI, − qarz KAMAYDI
+    balance: float            # shu qatordan keyingi yugurib boruvchi qoldiq
+    ref_id:  Optional[int]    # hujjat id (opening uchun None)
+
+
+def build_ledger(
+    supplier: Supplier,
+    receipts: Sequence[PurchaseReceipt],
+    payments: Sequence[SupplierPayment],
+    returns:  Sequence[SupplierReturn],
+) -> List[LedgerEntry]:
+    """Bitta firma bo'yicha XRONOLOGIK oborot varag'i.
+
+    Do'konchi agent bilan hisob-kitob qilganda "qara, hammasi shu yerda" deydigan
+    ekran. Hisob mantig'i YANGIDAN o'ylab topilmaydi — shu fayldagi qoidalar:
+      • qarzga faqat DEBT_STATUSES priyomkalari kiradi (draft KIRMAYDI)
+      • boshlang'ich qarz eng birinchi qator (hujjatlardan ham eski)
+      • to'lov va vozvrat qarzni kamaytiradi
+
+    KAFOLAT (test bilan qotirilgan): oxirgi qator `balance` =
+    `compute_supplier_debt(...).balance` (ya'ni debt − advance). Ikki ekran
+    bir xil raqamni ko'rsatadi.
+
+    DIQQAT: bu yerda FIFO taqsimot YO'Q — u nakladnoy darajasidagi "muddati
+    o'tgan" hisobi uchun kerak. Oborot varag'i esa sof xronologiya.
+    """
+    items: List[tuple] = []   # (sana, tartib, kind, label, amount, ref_id)
+
+    opening = float(getattr(supplier, "opening_debt", 0) or 0)
+    if opening > _EPS:
+        # Sana yo'q — har doim eng tepada (tartib 0, Date.min).
+        items.append((Date.min, 0, "opening", "Boshlang'ich qarz", opening, None))
+
+    for r in receipts:
+        if r.status not in DEBT_STATUSES:
+            continue
+        inv = f" · {r.invoice_number}" if r.invoice_number else ""
+        items.append((r.receipt_date or Date.min, 1, "receipt",
+                      f"Priyomka #{r.id}{inv}", float(r.net_amount or 0), r.id))
+
+    for p in payments:
+        label = f"To'lov (Nakladnoy #{p.receipt_id})" if p.receipt_id else "To'lov (umumiy)"
+        items.append((p.payment_date or Date.min, 2, "payment",
+                      label, -float(p.amount or 0), p.id))
+
+    for r in returns:
+        items.append((r.return_date or Date.min, 3, "return",
+                      f"Vozvrat #{r.id}", -float(r.total_amount or 0), r.id))
+
+    # Sana bo'yicha, bir kun ichida: priyomka → to'lov → vozvrat (o'qishga qulay)
+    items.sort(key=lambda t: (t[0], t[1], t[5] or 0))
+
+    out: List[LedgerEntry] = []
+    running = 0.0
+    for dt, _ord, kind, label, amount, ref_id in items:
+        running += amount
+        out.append(LedgerEntry(
+            date=None if kind == "opening" else dt,
+            kind=kind,
+            label=label,
+            amount=round(amount, 2),
+            balance=round(running, 2),
+            ref_id=ref_id,
+        ))
+    return out
+
+
+def supplier_ledger(db: Session, supplier: Supplier) -> List[LedgerEntry]:
+    """Bitta firma uchun oborot varag'i — 3 ta so'rov."""
+    receipts = db.query(PurchaseReceipt).filter(PurchaseReceipt.supplier_id == supplier.id).all()
+    payments = db.query(SupplierPayment).filter(SupplierPayment.supplier_id == supplier.id).all()
+    returns  = db.query(SupplierReturn).filter(SupplierReturn.supplier_id == supplier.id).all()
+    return build_ledger(supplier, receipts, payments, returns)
+
+
 def compute_debts(
     db: Session,
     suppliers: Sequence[Supplier],

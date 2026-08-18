@@ -129,11 +129,19 @@ ketmasligi** kerak — kerak bo'lsa `opening_debt` ga backfill qilinadi.
 SELECT id, name, balance FROM suppliers WHERE balance <> 0 ORDER BY balance DESC;
 ```
 
-### FAZA 4 — oborot varag'i + priyomkada to'lov
-- Firma kartochkasi: xronologik harakat va yugurib boruvchi qoldiq
-  (agent bilan hisob-kitob qilish ekrani)
-- Nakladnoy oynasida "hozir to'landi" maydoni
-- Migratsiya: **YO'Q**
+### ✅ FAZA 4 — oborot varag'i + priyomkada to'lov (TUGADI)
+- **Oborot varag'i**: `GET /suppliers-b2b/{id}/ledger` — xronologik harakat
+  (boshlang'ich qarz → priyomka → to'lov → vozvrat) va yugurib boruvchi qoldiq.
+  Qarzlar tabidagi kartada "📄 Oborot" tugmasi. Hisob `supplier_debt.py` da —
+  **kafolat**: oxirgi qoldiq = `debt-summary` dagi `balance` (test bilan qotirilgan).
+- **"Hozir to'landi"**: nakladnoy oynasida ixtiyoriy maydon; priyomka
+  TASDIQLANGANDA avtomatik `SupplierPayment` (receipt_id bilan) yoziladi.
+  Draft holatda to'lov yaratilmaydi (draft hali qarz emas → "avans" ko'rinmasin).
+  Oynada "Qarzga qoladi" darhol hisoblanadi. To'liq to'lansa holat → `paid`.
+- Migratsiya: **HA** — `purchase_receipts.paid_now` (`a9b8c7d6e5f4`).
+  Yaratish va tasdiqlash orasida summa shu ustunda saqlanadi.
+- Yon tuzatish: `receipt_date` endi routerda `date` ga o'giriladi (ilgari matn
+  ketardi — PostgreSQL o'girardi, sqlite yiqilardi).
 
 ### FAZA 5 — butunlik va himoya
 - B5: to'lov o'chirilsa nakladnoy holati tiklansin

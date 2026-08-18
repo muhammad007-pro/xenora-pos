@@ -810,6 +810,11 @@ class PurchaseReceipt(Base):
     discount_amount = Column(Float, default=0.0)
     net_amount      = Column(Float, default=0.0)
     status          = Column(String(20), default="draft")   # draft, confirmed, paid
+    # FAZA 4: "Hozir to'landi" — nakladnoy kiritilayotganda darhol berilgan pul.
+    # Yaratishda SAQLANADI, to'lov yozuvi (SupplierPayment) esa TASDIQLANGANDA
+    # yaratiladi: draft hali qarz emas, unga to'lov yozish "avans" bo'lib
+    # ko'rinardi. Shu sabab qiymat oraliqda shu ustunda turadi.
+    paid_now        = Column(Numeric(14, 2), nullable=False, server_default="0")
     notes           = Column(Text, nullable=True)
     confirmed_by    = Column(Integer, ForeignKey("users.id"), nullable=True)
     confirmed_at    = Column(DateTime(timezone=True), nullable=True)

@@ -488,6 +488,16 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
       <div class="form-row"><label class="form-label">Nakladnoy raqami</label><input type="text" class="inp" id="nInvoice" placeholder="NL-001"></div>
       <div class="form-row"><label class="form-label">Chegirma (UZS)</label><input type="number" class="inp" id="nDiscount" placeholder="0" min="0"></div>
     </div>
+    <!-- FAZA 4: nakladnoy kelganda darhol berilgan pul. To'lov yozuvi priyomka
+         TASDIQLANGANDA yaratiladi va nakladnoyga bog'lanadi. Bu 1-ssenariyni
+         (tovar + qisman to'lov) 3 ekrandan 1 ekranga tushiradi. -->
+    <div class="form-row">
+      <label class="form-label">Hozir to'landi (so'm)</label>
+      <input type="number" class="inp" id="nPaidNow" placeholder="0" min="0" step="1000" oninput="recCalcTotal()">
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem" id="nPaidNowHint">
+        Ixtiyoriy. Tasdiqlanganda avtomatik to'lov yoziladi — Qarzlar tabiga alohida kirish shart emas.
+      </div>
+    </div>
     <div class="form-row"><label class="form-label">Izoh</label><input type="text" class="inp" id="nNotes" placeholder="Ixtiyoriy..."></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;margin-top:1rem">
       <strong style="font-size:.9375rem">Tovarlar</strong>
@@ -515,6 +525,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     </table>
     <div style="text-align:right;margin-top:.5rem;font-size:.875rem;color:var(--text2)">
       Jami: <strong id="totalLabel">0</strong> so'm &nbsp;|&nbsp; Net: <strong id="netLabel">0</strong> so'm
+      <span id="debtAfterBox" style="display:none">&nbsp;|&nbsp; Qarzga qoladi:
+        <strong id="debtAfterLabel" style="color:#ef4444">0</strong> so'm</span>
     </div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="recCloseNew()">Bekor</button>
@@ -578,6 +590,28 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="debtClosePay()">Bekor</button>
       <button class="btn" id="btnPaySave" onclick="debtSavePay()">To'lov qilish</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAZA 4: OBOROT VARAG'I (firma kartochkasi) — agent bilan hisob-kitob ekrani -->
+<div class="modal-overlay" id="ledgerModal">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-title" id="ledgerTitle">Oborot varag'i</div>
+    <div id="ledgerSummary" style="font-size:.875rem;color:var(--text2);margin-bottom:.75rem"></div>
+    <div class="table-wrap" style="max-height:60vh;overflow:auto">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:110px">Sana</th>
+          <th>Hujjat</th>
+          <th style="text-align:right;width:140px">Summa</th>
+          <th style="text-align:right;width:150px">Qoldiq</th>
+        </tr></thead>
+        <tbody id="ledgerBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeLedger()">Yopish</button>
     </div>
   </div>
 </div>
@@ -808,8 +842,16 @@ function recCalcTotal() {
     total += Math.max(0, qty - brak) * price;
   });
   const disc = parseFloat(document.getElementById('nDiscount').value) || 0;
+  const net  = Math.max(0, total - disc);
   document.getElementById('totalLabel').textContent = fmt(total);
-  document.getElementById('netLabel').textContent   = fmt(Math.max(0, total - disc));
+  document.getElementById('netLabel').textContent   = fmt(net);
+  // FAZA 4: "hozir to'landi" kiritilsa — qarzga nima qolishini DARHOL ko'rsatamiz
+  const paidNow = parseFloat(document.getElementById('nPaidNow')?.value) || 0;
+  const box = document.getElementById('debtAfterBox');
+  if (box) {
+    box.style.display = paidNow > 0 ? '' : 'none';
+    document.getElementById('debtAfterLabel').textContent = fmt(Math.max(0, net - paidNow));
+  }
 }
 window.recCalcTotal = recCalcTotal;
 document.getElementById('nDiscount').oninput = recCalcTotal;
@@ -838,6 +880,7 @@ window.recCreate = async () => {
     invoice_number:  document.getElementById('nInvoice').value.trim() || null,
     receipt_date:    date,
     discount_amount: parseFloat(document.getElementById('nDiscount').value) || 0,
+    paid_now:        parseFloat(document.getElementById('nPaidNow').value) || 0,
     notes:           document.getElementById('nNotes').value.trim() || null,
     items,
   });
@@ -885,6 +928,8 @@ window.recConfirm = async () => {
 };
 window.recCloseNew = () => {
   document.getElementById('newModal').classList.remove('active');
+  document.getElementById('nPaidNow').value = '';
+  document.getElementById('debtAfterBox').style.display = 'none';
   document.getElementById('itemsBody').innerHTML = '';
   recAddItemRow();
 };
@@ -1050,6 +1095,8 @@ async function loadDebt() {
         <div class="btn-row">
           <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenPay(${d.supplier_id})">To'lov qilish</button>
           <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenRet(${d.supplier_id})">Vozvrat</button>
+          <!-- FAZA 4: agent bilan hisob-kitob ekrani -->
+          <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="openLedger(${d.supplier_id}, '${(d.supplier_name||'').replace(/'/g, "\\\\'")}')">📄 Oborot</button>
         </div>
       </div>`;
   }).join('');
@@ -1110,6 +1157,46 @@ window.debtSavePay = async () => {
   if (res.id) { showToast('To\'lov saqlandi', 'success'); debtClosePay(); document.getElementById('payAmount').value=''; loadDebt(); }
   else showToast(res.detail || 'Xatolik', 'error');
 };
+
+// ════════════════ FAZA 4: OBOROT VARAG'I ════════════════
+// Do'konchi agent bilan turganda ochadigan ekran: "qara, hammasi shu yerda".
+// Hisob BACKENDDA (services/supplier_debt.py) — bu yerda YANGI mantiq yo'q,
+// shuning uchun oxirgi qoldiq Qarzlar kartasidagi raqam bilan bir xil bo'ladi.
+window.openLedger = async (supplierId, supplierName) => {
+  const body = document.getElementById('ledgerBody');
+  document.getElementById('ledgerTitle').textContent = `Oborot varag'i — ${supplierName || 'Firma #'+supplierId}`;
+  document.getElementById('ledgerSummary').textContent = 'Yuklanmoqda...';
+  body.innerHTML = '';
+  document.getElementById('ledgerModal').classList.add('active');
+
+  const res = await api.get(`/suppliers-b2b/${supplierId}/ledger`);
+  const rows = Array.isArray(res) ? res : (res?.data || []);
+  if (!rows.length) {
+    document.getElementById('ledgerSummary').textContent = 'Harakat yo\'q.';
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text3)">Hujjat topilmadi</td></tr>';
+    return;
+  }
+  const KIND = { opening: '🗂', receipt: '📦', payment: '💵', return: '↩' };
+  body.innerHTML = rows.map(e => {
+    const plus = e.amount > 0;
+    return `<tr>
+      <td style="color:var(--text3);font-size:.8125rem">${e.date || '—'}</td>
+      <td>${KIND[e.kind] || ''} ${e.label}</td>
+      <td style="text-align:right;font-weight:600;color:${plus ? '#ef4444' : '#22c55e'}">
+        ${plus ? '+' : '−'}${fmt(Math.abs(e.amount))}
+      </td>
+      <td style="text-align:right;font-weight:700">${fmt(e.balance)}</td>
+    </tr>`;
+  }).join('');
+
+  const last = rows[rows.length - 1].balance;
+  document.getElementById('ledgerSummary').innerHTML = last > 0
+    ? `Joriy qoldiq: <b style="color:#ef4444">${fmt(last)} so'm qarz</b>`
+    : (last < 0 ? `Joriy qoldiq: <b style="color:#22c55e">${fmt(-last)} so'm avans</b>`
+                : 'Joriy qoldiq: <b>0</b> — hisob-kitob yopiq');
+};
+window.closeLedger = () => document.getElementById('ledgerModal').classList.remove('active');
+document.getElementById('ledgerModal').onclick = e => { if (e.target===e.currentTarget) closeLedger(); };
 
 // ════════════════ VOZVRAT TAB ════════════════
 window.debtLoadReturns = async () => {

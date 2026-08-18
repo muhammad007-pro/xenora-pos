@@ -1409,6 +1409,16 @@ class SupplierDebtSummary(BaseModel):
     opening_debt:    float = 0.0
 
 
+class SupplierLedgerEntry(BaseModel):
+    """FAZA 4: oborot varag'ining bitta qatori (xronologik, yugurib boruvchi qoldiq)."""
+    date:    Optional[str] = None      # boshlang'ich qarzda sana yo'q
+    kind:    str                       # opening | receipt | payment | return
+    label:   str
+    amount:  float                     # + qarz oshdi, − kamaydi
+    balance: float
+    ref_id:  Optional[int] = None
+
+
 class PurchaseReceiptItemCreate(BaseModel):
     product_id: int
     quantity:   float = Field(gt=0)
@@ -1439,6 +1449,9 @@ class PurchaseReceiptCreate(BaseModel):
     invoice_number:  Optional[str] = None
     receipt_date:    str
     discount_amount: float = 0.0
+    # FAZA 4: nakladnoy bilan birga darhol berilgan pul (ixtiyoriy).
+    # To'lov yozuvi priyomka TASDIQLANGANDA yaratiladi.
+    paid_now:        float = Field(0, ge=0)
     notes:           Optional[str] = None
     items:           List[PurchaseReceiptItemCreate]
 

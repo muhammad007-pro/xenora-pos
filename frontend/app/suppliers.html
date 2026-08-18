@@ -622,6 +622,26 @@ function showToast(msg, type='info') {
   el.textContent = msg; document.body.appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
+// ── API JAVOB SHARTNOMASI (js/core/api.js) ──────────────────────────────────
+// api.get/post/patch/delete HAR DOIM O'RALGAN obyekt qaytaradi:
+//     muvaffaqiyat:  { success: true,  data: <server javobi>, status }
+//     xato:          { success: false, error: '<server matni>', status, offline }
+//
+// TUZATISH (mijozda topildi — Fazza Parfum, "Firma qo'shish" da qizil "Xatolik"):
+// bu sahifa XOM javob kutardi — `res.id`, `res.items`, `res.detail`. Ular
+// o'ralgan obyektda HECH QACHON bo'lmaydi, ya'ni:
+//   • firma muvaffaqiyatli qo'shilganda ham `res.id` undefined → qizil "Xatolik"
+//   • serverning HAQIQIY xato matni (`res.error`) hech qachon ko'rsatilmasdi
+// Naqsh `js/modules/pos.js` dan olindi (o'sha yerda to'g'ri ishlaydi).
+function apiData(res, fallback = null) {
+  return (res && res.success) ? (res.data ?? fallback) : fallback;
+}
+function apiErr(res, fallback = 'Amal bajarilmadi') {
+  if (res && res.offline) return "Server bilan aloqa yo'q — internet/ulanishni tekshiring";
+  return (res && res.error) || fallback;   // ← server matni TO'LIQ ko'rsatiladi
+}
+function apiOk(res) { return !!(res && res.success); }
+
 // Feature tekshiruvi — JWT 'features' claim orqali (ishonchli)
 function hasFeat(flag) {
   try {
@@ -666,8 +686,12 @@ window.loadFirms = async () => {
   if (search) params.set('search', search);
   if (active !== '') params.set('is_active', active);
   const res = await api.get(`/suppliers-b2b/?${params}`);
-  const rows = res.items || [];
   const tbody = document.getElementById('firmTableBody');
+  if (!apiOk(res)) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--danger,#ef4444)">${apiErr(res, "Firmalar yuklanmadi")}</td></tr>`;
+    return;
+  }
+  const rows = apiData(res, {}).items || [];
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)">Firmalar topilmadi</td></tr>'; return; }
   tbody.innerHTML = rows.map(s => `
     <tr>
@@ -727,13 +751,18 @@ window.saveFirm = async () => {
   const editId = document.getElementById('firmEditId').value;
   const res = editId ? await api.patch(`/suppliers-b2b/${editId}`, payload) : await api.post('/suppliers-b2b/', payload);
   btn.disabled = false;
-  if (res.id) { showToast(editId ? 'Yangilandi' : "Qo'shildi", 'success'); closeFirmModal(); loadFirms(); refreshSupplierDropdowns(); }
-  else showToast(res.detail || 'Xatolik', 'error');
+  if (apiOk(res) && apiData(res, {}).id) {
+    showToast(editId ? 'Yangilandi' : "Qo'shildi", 'success');
+    closeFirmModal(); loadFirms(); refreshSupplierDropdowns();
+  } else {
+    showToast(apiErr(res, "Firma saqlanmadi"), 'error');
+  }
 };
 window.archiveFirm = async (id) => {
   if (!confirm('Firmani arxivlashni tasdiqlaysizmi?')) return;
   const res = await api.patch(`/suppliers-b2b/${id}`, { is_active: false });
-  if (res.id) { showToast('Arxivlandi', 'success'); loadFirms(); } else showToast(res.detail || 'Xatolik', 'error');
+  if (apiOk(res)) { showToast('Arxivlandi', 'success'); loadFirms(); }
+  else showToast(apiErr(res, "Arxivlab bo'lmadi"), 'error');
 };
 
 // ════════════════ PRIYOMKA TAB ════════════════
@@ -748,8 +777,12 @@ window.loadReceipts = async () => {
   if (from)   params.set('date_from', from);
   if (to)     params.set('date_to', to);
   const res = await api.get(`/purchase-receipts/?${params}`);
-  const rows = res.items || [];
   const tbody = document.getElementById('recTableBody');
+  if (!apiOk(res)) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--danger,#ef4444)">${apiErr(res, 'Priyomkalar yuklanmadi')}</td></tr>`;
+    return;
+  }
+  const rows = apiData(res, {}).items || [];
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Priyomkalar topilmadi</td></tr>'; return; }
   tbody.innerHTML = rows.map(r => `
     <tr>
@@ -829,13 +862,15 @@ window.recCreate = async () => {
     items,
   });
   btn.disabled = false;
-  if (res.id) { showToast('Priyomka saqlandi', 'success'); recCloseNew(); loadReceipts(); }
-  else showToast(res.detail || 'Xatolik', 'error');
+  if (apiOk(res) && apiData(res, {}).id) { showToast('Priyomka saqlandi', 'success'); recCloseNew(); loadReceipts(); }
+  else showToast(apiErr(res, 'Priyomka saqlanmadi'), 'error');
 };
 
 window.recOpenDetail = async (id) => {
   currentReceiptId = id;
-  const rec = await api.get(`/purchase-receipts/${id}`);
+  const _r  = await api.get(`/purchase-receipts/${id}`);
+  if (!apiOk(_r)) { showToast(apiErr(_r, 'Priyomka ochilmadi'), 'error'); return; }
+  const rec = apiData(_r, {});
   const content = document.getElementById('detailContent');
   document.getElementById('btnConfirm').style.display = rec.status === 'draft' ? '' : 'none';
   content.innerHTML = `
@@ -867,8 +902,13 @@ window.recConfirm = async () => {
   btn.disabled = true;
   const res = await api.post(`/purchase-receipts/${currentReceiptId}/confirm`);
   btn.disabled = false;
-  if (res.status === 'confirmed') { showToast('Priyomka tasdiqlandi! Ombor yangilandi.', 'success'); recCloseDetail(); loadReceipts(); }
-  else showToast(res.detail || 'Xatolik', 'error');
+  // DIQQAT: `res.status` — O'RALGAN javobning HTTP statusi (200), priyomka holati EMAS.
+  // Priyomka holati `res.data.status` da.
+  if (apiOk(res) && apiData(res, {}).status === 'confirmed') {
+    showToast('Priyomka tasdiqlandi! Ombor yangilandi.', 'success'); recCloseDetail(); loadReceipts();
+  } else {
+    showToast(apiErr(res, 'Priyomka tasdiqlanmadi'), 'error');
+  }
 };
 window.recCloseNew = () => {
   document.getElementById('newModal').classList.remove('active');
@@ -895,7 +935,13 @@ async function recHandleScan(code) {
   const st = document.getElementById('scanStatus');
   st.textContent = 'Qidirilmoqda...'; st.style.color = 'var(--text3)';
   let prod = products.find(p => p.barcode === code);
-  if (!prod) { try { const r = await api.get(`/barcodes/lookup/${encodeURIComponent(code)}`); if (r && r.id) prod = r; } catch {} }
+  if (!prod) {
+    try {
+      const r = await api.get(`/barcodes/lookup/${encodeURIComponent(code)}`);
+      const found = apiData(r);
+      if (found && found.id) prod = found;
+    } catch {}
+  }
   if (!prod) { st.textContent = `✕ Topilmadi: ${code}`; st.style.color = '#ef4444'; recOpenNewProduct(code); return; }
   st.textContent = `✓ ${prod.name}`; st.style.color = '#22c55e';
   recAddScanned(prod);
@@ -958,14 +1004,16 @@ window.recSaveNewProduct = async () => {
     if (catId === '__new__') {
       const cname = document.getElementById('npNewCat').value.trim();
       if (!cname) { showToast('Yangi kategoriya nomini kiriting', 'error'); btn.disabled=false; btn.textContent='Saqlash + kirim'; return; }
-      const cat = await api.post('/categories/', { name: cname });
-      if (!cat || !cat.id) throw new Error(cat?.detail || 'Kategoriya yaratilmadi');
+      const catRes = await api.post('/categories/', { name: cname });
+      const cat = apiData(catRes);
+      if (!apiOk(catRes) || !cat?.id) throw new Error(apiErr(catRes, 'Kategoriya yaratilmadi'));
       catId = cat.id; categories.push(cat);
     }
     if (!catId) { showToast('Kategoriya tanlang', 'error'); btn.disabled=false; btn.textContent='Saqlash + kirim'; return; }
     const payload = { name, price, cost_price: parseFloat(document.getElementById('npCost').value) || 0, barcode: document.getElementById('npBarcode').value || null, category_id: parseInt(catId) };
-    const prod = await api.post('/products/', payload);
-    if (!prod || !prod.id) throw new Error(prod?.detail || 'Mahsulot yaratilmadi');
+    const prodRes = await api.post('/products/', payload);
+    const prod = apiData(prodRes);
+    if (!apiOk(prodRes) || !prod?.id) throw new Error(apiErr(prodRes, 'Mahsulot yaratilmadi'));
     if (npImageFile) { const img = await uploadProductImage(prod.id, npImageFile); if (img && img.image_url) prod.image_url = img.image_url; }
     showToast('Tovar qo\'shildi', 'success');
     document.getElementById('npModal').classList.remove('active');
@@ -981,13 +1029,19 @@ async function debtLoadPayReceipts() {
   sel.innerHTML = '<option value="">Umumiy to\'lov</option>';
   if (!supId) return;
   const res = await api.get(`/purchase-receipts/?supplier_id=${supId}&status=confirmed&page_size=50`);
-  (res.items||[]).forEach(r => sel.insertAdjacentHTML('beforeend', `<option value="${r.id}">#${r.id} ${r.invoice_number||''} — ${fmt(r.net_amount)} so'm (${r.receipt_date})</option>`));
+  if (!apiOk(res)) { showToast(apiErr(res, 'Nakladnoylar yuklanmadi'), 'error'); return; }
+  (apiData(res, {}).items || []).forEach(r => sel.insertAdjacentHTML('beforeend', `<option value="${r.id}">#${r.id} ${r.invoice_number||''} — ${fmt(r.net_amount)} so'm (${r.receipt_date})</option>`));
 }
 async function loadDebt() {
   const res = await api.get('/suppliers-b2b/debt-summary');
   const grid = document.getElementById('debtGrid');
+  if (!apiOk(res)) {
+    grid.innerHTML = `<div style="color:var(--danger,#ef4444);text-align:center;padding:2rem">${apiErr(res, 'Qarzlar yuklanmadi')}</div>`;
+    return;
+  }
   // FAZA 2: JAMI banner. Avans ALOHIDA — u boshqa firmaning qarzini yashirmasin.
-  const rows = Array.isArray(res) ? res : [];
+  const _d  = apiData(res, []);
+  const rows = Array.isArray(_d) ? _d : [];
   const tot = rows.reduce((a, d) => ({
     debt: a.debt + (d.debt || 0),
     adv:  a.adv  + (d.advance || 0),
@@ -1052,7 +1106,11 @@ window.debtLoadHistory = async () => {
   if (to)   params.set('date_to', to);
   const res = await api.get(`/supplier-payments/?${params}`);
   const list = document.getElementById('historyList');
-  const rows = res.items || [];
+  if (!apiOk(res)) {
+    list.innerHTML = `<div style="color:var(--danger,#ef4444);text-align:center;padding:2rem">${apiErr(res, "To'lovlar tarixi yuklanmadi")}</div>`;
+    return;
+  }
+  const rows = apiData(res, {}).items || [];
   if (!rows.length) { list.innerHTML = '<div style="color:var(--text3);text-align:center;padding:2rem">To\'lovlar topilmadi</div>'; return; }
   // FAZA 2: to'lov TURI (nakladnoy uchunmi / tovarsiz umumiy pulmi) + KIM kiritgani.
   // Do'konchi agent bilan hisob-kitob qilganda aynan shu ikkisini so'raydi.
@@ -1094,15 +1152,19 @@ window.debtSavePay = async () => {
     notes: document.getElementById('payNotes').value.trim() || null,
   });
   btn.disabled = false;
-  if (res.id) { showToast('To\'lov saqlandi', 'success'); debtClosePay(); document.getElementById('payAmount').value=''; loadDebt(); }
-  else showToast(res.detail || 'Xatolik', 'error');
+  if (apiOk(res) && apiData(res, {}).id) { showToast('To\'lov saqlandi', 'success'); debtClosePay(); document.getElementById('payAmount').value=''; loadDebt(); }
+  else showToast(apiErr(res, "To'lov saqlanmadi"), 'error');
 };
 
 // ════════════════ VOZVRAT TAB ════════════════
 window.debtLoadReturns = async () => {
   const res = await api.get('/supplier-returns/?page_size=100');
-  const rows = res.items || [];
   const tbody = document.getElementById('retTableBody');
+  if (!apiOk(res)) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--danger,#ef4444)">${apiErr(res, 'Vozvratlar yuklanmadi')}</td></tr>`;
+    return;
+  }
+  const rows = apiData(res, {}).items || [];
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Vozvratlar topilmadi</td></tr>'; return; }
   tbody.innerHTML = rows.map(r => {
     const sup = suppliers.find(s => s.id === r.supplier_id);
@@ -1134,14 +1196,20 @@ window.debtSaveRet = async () => {
     return_date: date, reason: document.getElementById('retReason').value,
   });
   btn.disabled = false;
-  if (res.id) { showToast('Vozvrat saqlandi', 'success'); debtCloseRet(); document.getElementById('retQty').value=''; debtLoadReturns(); if (loaded.qarzlar) loadDebt(); }
-  else showToast(res.detail || 'Xatolik', 'error');
+  if (apiOk(res) && apiData(res, {}).id) { showToast('Vozvrat saqlandi', 'success'); debtCloseRet(); document.getElementById('retQty').value=''; debtLoadReturns(); if (loaded.qarzlar) loadDebt(); }
+  else showToast(apiErr(res, 'Vozvrat saqlanmadi'), 'error');
 };
 
 // ════════════════ BUXGALTERIYA TAB (PRO) ════════════════
 async function buxLoad() {
   const res = await api.get('/suppliers-b2b/debt-summary');
-  const rows = Array.isArray(res) ? res : [];
+  if (!apiOk(res)) {
+    document.getElementById('buxTableBody').innerHTML =
+      `<tr><td colspan="5" style="text-align:center;padding:2rem;color:var(--danger,#ef4444)">${apiErr(res, 'Buxgalteriya yuklanmadi')}</td></tr>`;
+    return;
+  }
+  const _d   = apiData(res, []);
+  const rows = Array.isArray(_d) ? _d : [];
   const tot = rows.reduce((a,d) => ({ purch:a.purch+(d.total_purchases||0), paid:a.paid+(d.total_paid||0), ret:a.ret+(d.total_returned||0), debt:a.debt+(d.debt||0), adv:a.adv+(d.advance||0) }), {purch:0,paid:0,ret:0,debt:0,adv:0});
   document.getElementById('buxStats').innerHTML = `
     <div class="stat-item"><span class="stat-label">Jami xarid</span><span class="stat-val" style="font-size:1.125rem">${fmt(tot.purch)}</span></div>
@@ -1187,9 +1255,16 @@ async function masterInit() {
     api.get('/products/?page_size=500'),
     api.get('/categories/all').catch(() => null),
   ]);
-  suppliers  = supRes.items || [];
-  products   = prodRes.items || [];
-  categories = Array.isArray(catRes) ? catRes : (catRes?.items || catRes?.data || []);
+  // O'RALGAN javob: ma'lumot `res.data` da. Ilgari `supRes.items` o'qilardi —
+  // u HAR DOIM undefined bo'lgani uchun firmalar/mahsulotlar ro'yxati BO'SH
+  // qolardi (barcha dropdownlar ham bo'sh edi).
+  suppliers = apiData(supRes,  {}).items || [];
+  products  = apiData(prodRes, {}).items || [];
+  const _cats = apiData(catRes, []);
+  categories = Array.isArray(_cats) ? _cats : (_cats?.items || []);
+  if (!apiOk(supRes) || !apiOk(prodRes)) {
+    showToast(apiErr(!apiOk(supRes) ? supRes : prodRes, "Ma'lumot yuklanmadi"), 'error');
+  }
 
   refreshSupplierDropdowns();
   document.getElementById('retProduct').innerHTML = products.map(p => `<option value="${p.id}" data-price="${p.price||0}">${p.name}</option>`).join('');

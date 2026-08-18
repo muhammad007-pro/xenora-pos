@@ -11,9 +11,32 @@ Bir xil sinfdagi xato mijozda **ikki marta** jonli chiqdi:
 |---|---|---|
 | 2026-08-15 | `quickSellAdd is not defined` (`5d09bbe`) | POS "Tez sotuv" tugmasi savatga qo'shmasdi |
 | 2026-08-17 | `showAlert is not defined` (`8cf8b14`) | Mijozga nasiya yozib bo'lmasdi (7 kun davomida `POST /debts/` umuman ketmagan) |
+| 2026-08-18 | **`res.id` / `res.items` — noto'g'ri property** (`suppliers.html`) | Firma qo'shilganda ham qizil "Xatolik"; firmalar ro'yxati va dropdownlar bo'sh |
 
-Ikkalasi ham **yuklashda xato bermaydi** — kod "to'g'ri ko'rinadi", xato faqat
+Hammasi **yuklashda xato bermaydi** — kod "to'g'ri ko'rinadi", xato faqat
 foydalanuvchi tugmani bosganda chiqadi. Shu sabab qo'lda sinovdan o'tib ketadi.
+
+## ⚠️ ESLint `no-undef` UCHINCHI holatni USHLAMAYDI
+
+3-holat boshqa sinf: funksiya nomi to'g'ri, **obyekt sxemasi** noto'g'ri o'qilgan.
+`js/core/api.js` o'ralgan javob qaytaradi (`{success, data, error}`), sahifa esa
+xom javob kutgan (`res.id`, `res.items`, `res.detail`). JavaScript'da mavjud
+bo'lmagan property `undefined` beradi — xato ham, ogohlantirish ham yo'q.
+
+`no-undef` bunga ko'r. Kerak bo'ladigan qatlamlar:
+1. **TypeScript yoki JSDoc + `checkJs`** — `api.get()` qaytish turini e'lon qilib,
+   `res.items` ni kompilyatsiya vaqtida xato deb belgilaydi. Eng ishonchli, lekin
+   eng katta ish (bosqichma-bosqich: avval `js/core/api.js` ga JSDoc tur).
+2. **Shartnoma testi** (arzon, bugun qilindi):
+   `frontend/tests/test_suppliers_api_contract.mjs` — Playwright bilan HAQIQIY
+   sahifani ochib, tarmoqni mock qilib, oqimni bosib ko'radi. Xuddi shu naqshni
+   boshqa yozuv sahifalariga ham qo'llash kerak.
+3. `api.*` javobini to'g'ridan-to'g'ri ishlatishni **taqiqlovchi** ESLint qoidasi
+   (`no-restricted-syntax`): `await api.get(...)` natijasidan `.items`/`.id`
+   o'qilsa ogohlantirsin. Mo'rt, lekin arzon oraliq chora.
+
+**Xulosa:** ESLint `no-undef` — 1 va 2-holat uchun; 3-holat uchun tur tekshiruvi
+(JSDoc/TS) yoki shartnoma testi kerak. Ikkalasi ham keyingi buildga.
 
 ## Mavjud qo'riqchi va uning chegarasi
 

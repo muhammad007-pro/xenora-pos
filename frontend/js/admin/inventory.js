@@ -108,6 +108,7 @@ function invPage(dir) {
 
 // ── Restock modal (BOSQICH 16: kengaytirilgan) ───────────────────────────────
 let _restockInvId = null;
+let _restockItems = [];   // BOSQICH B: qidiruvli select uchun boshlang'ich ro'yxat
 let _restockPicker = false;   // BUG 5: header "Kirim qilish" — mahsulot tanlash rejimi
 let _suppliersList = [];
 // BOSQICH B5 (pachka/dona): kirim birligi. _restockPack = {size,price} yoki null.
@@ -245,6 +246,7 @@ async function openRestockPicker() {
     const data  = await apiFetch('/inventory/?page_size=1000');
     const items = (data.items || []).filter(inv => inv.product);
     items.sort((a, b) => (a.product.name || '').localeCompare(b.product.name || ''));
+    _restockItems = items;   // qidiruv komponentining boshlang'ich ro'yxati
     sel.innerHTML = '<option value="">Mahsulot tanlang...</option>' +
       items.map(inv => {
         const nm  = (inv.product.name || '—').replace(/</g, '&lt;');
@@ -256,6 +258,36 @@ async function openRestockPicker() {
   } catch (err) {
     sel.innerHTML = '<option value="">Yuklab bo\'lmadi</option>';
     toast(err.message, 'error');
+  }
+
+  // BOSQICH B: 794 mahsulot ichidan NOM bilan qidirish. Ro'yxat `/inventory/`
+  // dan keladi (value = INVENTORY id, product id EMAS) — qidiruv ham o'sha
+  // endpointdan (u `search` parametrini qo'llab-quvvatlaydi).
+  // `sel.value` va `dataset.unit/packSize/packPrice` o'qishlari TEGILMAYDI.
+  if (typeof window.searchableSelect === 'function') {
+    const _row = (inv) => {
+      const nm  = inv.product?.name || '—';
+      const qty = inv.quantity % 1 ? inv.quantity.toFixed(2) : inv.quantity;
+      return {
+        value: inv.id,
+        label: `${nm} — ${qty} ${inv.unit}`,
+        data: { unit: inv.unit, packSize: inv.product?.pack_size || 0,
+                packPrice: inv.product?.pack_price || 0 },
+      };
+    };
+    window.searchableSelect(sel, {
+      placeholder: 'Mahsulot nomi bilan qidirish...',
+      initial: _restockItems,
+      render: _row,
+      search: async (q) => {
+        const data = await apiFetch(`/inventory/?search=${encodeURIComponent(q)}&page_size=50`);
+        return (data.items || []).filter(inv => inv.product);
+      },
+    });
+    // Modal QAYTA ochilganda: ro'yxat yangilangan bo'lishi mumkin va eski
+    // qidiruv matni qolib ketmasin (komponent bir marta ulanadi).
+    sel._ss.setInitial(_restockItems);
+    sel._ss.reset();
   }
 
   // Tanlanganda: birlik yorlig'i + pachka toggle (agar pachkali bo'lsa)

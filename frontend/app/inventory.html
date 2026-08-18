@@ -376,6 +376,8 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0d1c33 0%,#0a1628 
 <script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
 <!-- Umumiy pul formati (vergulli) — window.fmtMoney/parseMoney/attachMoneyInput. -->
 <script src="../js/core/money.js"></script>
+<!-- Qidiruvli select (classic — window.searchableSelect) -->
+<script src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
@@ -385,7 +387,10 @@ initErrorHandler();
 // Barkod skaner UI ni faqat barcode flagi yoqilgan tenantlarga ko'rsatish
 (async () => {
   try { await features.init(); } catch {}
-  if (features.has('barcode') || features.has('multi_barcode')) {
+  // TUZATISH: FeatureManager'da `has` metodi YO'Q — u `isEnabled`.
+  // `features.has(...)` TypeError berardi va shu IIFE o'sha yerda o'lardi,
+  // ya'ni barkod skaner qutisi HECH QACHON ko'rinmasdi (jim xato).
+  if (features.isEnabled('barcode') || features.isEnabled('multi_barcode')) {
     const box = document.getElementById('scanBox');
     if (box) box.style.display = '';
   }
@@ -411,7 +416,7 @@ let addingInventoryId = null;
 async function load() {
   const [invRes, prodRes, catRes] = await Promise.all([
     api.get('/inventory/?page_size=500').catch(()=>null),
-    api.get('/products/all').catch(()=>null),
+    api.get('/products/all?limit=2000').catch(()=>null),   // 500 default -> katalog to'liq
     api.get('/categories/all').catch(()=>null),
   ]);
   items      = invRes?.items ?? (Array.isArray(invRes)?invRes:invRes?.data?.items??[]);
@@ -429,6 +434,24 @@ async function load() {
   document.getElementById('prodSel').innerHTML =
     '<option value="">Mahsulot tanlang...</option>' +
     avail.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+
+  // BOSQICH B: nom bo'yicha qidiruv. DIQQAT — bu ro'yxat "omborda HALI YO'Q"
+  // mahsulotlar (avail). Server qidiruvi butun katalogni qaytaradi, shuning
+  // uchun natijani ham `existIds` bo'yicha FILTRLAYMIZ — semantika buzilmasin.
+  if (typeof window.searchableSelect === 'function') {
+    const selEl = document.getElementById('prodSel');
+    window.searchableSelect(selEl, {
+      placeholder: 'Mahsulot nomi bilan qidirish...',
+      initial: avail,
+      render: (p) => ({ value: p.id, label: p.name }),
+      search: async (q) => {
+        const r = await api.get(`/products/?search=${encodeURIComponent(q)}&page_size=50`);
+        const rows = r?.data?.items ?? r?.items ?? [];
+        return rows.filter(p => !existIds.includes(p.id));
+      },
+    });
+    selEl._ss.setInitial(avail);
+  }
 
   updateStats();
   render();
@@ -605,7 +628,10 @@ async function handleInvScan(code) {
   } else {
     openAdd();
     const sel = document.getElementById('prodSel');
-    if (sel) sel.value = prod.id;
+    // Qidiruv filtri option'ni ro'yxatdan chiqarib yuborgan bo'lishi mumkin —
+    // `ensure` uni kafolatli qo'shib tanlaydi (jimgina ishlamay qolmasin).
+    if (sel && sel._ss) sel._ss.ensure(prod);
+    else if (sel) sel.value = prod.id;
   }
   setTimeout(() => document.getElementById('addQty')?.focus(), 120);
 }

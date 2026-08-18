@@ -3,6 +3,46 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.0] — 2026-08-18
+
+Olti branch birlashtirildi. **Migratsiya YO'Q.**
+
+### Tuzatilgan xatolar (mijozda topilgan)
+1. **Nasiya yozib bo'lmasdi** — `showAlert is not defined` (butun frontendda
+   ta'riflanmagan funksiya, 12 chaqiruv). Tugma jim o'lardi: na xabar, na so'rov.
+   Serverda 7 kun ichida bitta ham `POST /debts/` yo'q edi. → `toast()`.
+   Yoniga: POS'da nasiya qarzi yozilmasa endi kassir aniq ogohlantirish oladi
+   (ilgari `catch {}` jim yutar, baribir "Nasiya yozildi!" deyilardi).
+2. **Firma qarzi: nakladnoysiz to'lov qarzni kamaytirmasdi** — `debt-summary`
+   faqat `receipt_id` bor to'lovlarni sanardi, UI esa aynan "Umumiy to'lov"
+   variantini taklif qilardi. Qarz endi yagona servisda (`supplier_debt.py`),
+   bog'lanmagan pul FIFO bilan eng eski nakladnoydan taqsimlanadi.
+   Direktor panelidagi ikkinchi (boshqacha) formula ham shu servisga o'tdi.
+3. **Ombor kirimi firma qarzini jimgina yo'qotardi** — `supplier.balance` ga
+   yozilardi, uni hech kim ko'rmasdi va hech narsa kamaytirmasdi. Endi yozilmaydi;
+   do'konchi "qarz uchun Priyomka" deb ogohlantiriladi.
+4. **Dashboard KPI kartalari va grafik BO'SH edi** — aware/naive `datetime`
+   solishtiruvi endpointni 500 qilardi, frontend xatoni jim yutardi. Kunlar endi
+   Toshkent sanasi bo'yicha guruhlanadi; "qolgan kun" bugunni sanamaydi.
+5. **Chek qatorlari** — "11 x 5,000" (miqdor × birlik narx) + ajratuvchi;
+   USB va LAN (ESC/POS) bir xil chiqadi.
+
+### Yangi
+6. **Savatda miqdorni qo'lda kiritish** — 20 dona uchun "+" ni 20 marta
+   bosish shart emas.
+7. **Savatda narx kelishuvi** — kassir qatordagi narxni tahrirlaydi; tushirilsa
+   chegirma kanalidan ketadi, oshirilsa sotuv narxi sifatida hisoblanadi.
+   Chekda kelishilgan narx ko'rinadi.
+8. **Firmalar/Qarzlar ekrani** — jami banner (qarz qizil / avans yashil /
+   muddati o'tgan sariq), avans endi "0" bo'lib yashirinmaydi, to'lovlar
+   tarixida tur ("Nakladnoy #12" / "Umumiy to'lov") va kim kiritgani.
+   Dublikat "Firmaga qarz" sahifasi olib tashlandi (yagona ekran).
+
+### Testlar
+pytest 34 passed (2 ta eski `test_auth` xatosi — bu relizdan oldin ham bor edi);
+skript testlar: narx kelishuvi 53/53 va 20/20, daromad 15/15, timezone 8 ta,
+firma qarzi 17 ta, inline onclick qo'riqchisi 3/3.
+
 ## [1.8.6] — 2026-08-14
 
 Etiketka sahifasida mahsulotning yo'qolishi. Migratsiya YO'Q.

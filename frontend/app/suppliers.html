@@ -644,6 +644,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
   </div>
 </div>
 
+<!-- Qidiruvli select (classic — window.searchableSelect; modul bloki undan keyin ishlaydi) -->
+<script src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API } from '../js/core/api.js';
@@ -873,6 +875,11 @@ window.recAddItemRow = () => {
     <td><input type="text" placeholder="seriya" style="width:100%"></td>
     <td><input type="date" style="width:100%"></td>
     <td><button class="remove-btn" onclick="this.closest('tr').remove();recCalcTotal()">✕</button></td>`;
+  // BOSQICH A: har QATORDAGI select ustiga qidiruv (qator dinamik yasaladi,
+  // shuning uchun ulash shu yerda). `onchange="recCalcRow(this)"` va
+  // `dataset.price` TEGILMAYDI — barkod skaneri yo'li ham o'zgarmaydi
+  // (recAddScanned option'ni o'zi qo'shadi).
+  attachProductSearch(row.cells[0].querySelector('select'));
 };
 window.recCalcRow = (el) => {
   const row  = el.closest('tr');
@@ -1346,6 +1353,32 @@ async function buxLoad() {
     </tr>`).join('');
 }
 
+// ── BOSQICH A: mahsulot select'lariga qidiruv qatlami ───────────────────────
+// QOIDA: mavjud `<select>` DOM'da QOLADI. `sel.value` va `opt.dataset.price`
+// o'qiydigan joylar (debtSaveRet, recCreate, recCalcRow, recAddScanned) TEGILMADI —
+// komponent faqat option'larni almashtiradi.
+//
+// QIDIRUV SERVERDA: 794 (kelajakda ko'proq) mahsulotni brauzerga tortmaymiz.
+// Boshlang'ich ro'yxat 1000 tagacha, undan oshgani `?search=` bilan topiladi.
+function attachProductSearch(select) {
+  if (!select || typeof window.searchableSelect !== 'function') return;
+  window.searchableSelect(select, {
+    placeholder: 'Mahsulot nomi bilan qidirish...',
+    initial: products,
+    limit: 50,
+    render: (p) => ({ value: p.id, label: p.name, data: { price: p.price || 0 } }),
+    search: async (q) => {
+      const res = await api.get(`/products/?search=${encodeURIComponent(q)}&page_size=50`);
+      if (!apiOk(res)) return [];
+      const found = apiData(res, {}).items || [];
+      // Topilganlarni mahalliy ro'yxatga ham qo'shamiz — barkod/qayta tanlash
+      // yo'llari (recAddScanned) ularni keyin ham topa oladi.
+      found.forEach(p => { if (!products.some(x => x.id === p.id)) products.push(p); });
+      return found;
+    },
+  });
+}
+
 // ── Umumiy: supplier/product dropdownlarini to'ldirish ──────────────────────
 function refreshSupplierDropdowns() {
   const supOpts = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
@@ -1371,7 +1404,10 @@ async function masterInit() {
 
   const [supRes, prodRes, catRes] = await Promise.all([
     api.get('/suppliers-b2b/?page_size=200&is_active=true'),
-    api.get('/products/?page_size=500'),
+    // 500 -> 1000: Fazza Parfumda 794 faol mahsulot bor edi, ya'ni 294 tasi
+    // dropdownga UMUMAN tushmasdi (labels.html v1.8.6 xatosining takrori).
+    // 1000 dan oshsa — searchableSelect SERVERDAN qidiradi.
+    api.get('/products/?page_size=1000'),
     api.get('/categories/all').catch(() => null),
   ]);
   // O'RALGAN javob: ma'lumot `res.data` da. Ilgari `supRes.items` o'qilardi —
@@ -1388,6 +1424,9 @@ async function masterInit() {
   refreshSupplierDropdowns();
   document.getElementById('retProduct').innerHTML = products.map(p => `<option value="${p.id}" data-price="${p.price||0}">${p.name}</option>`).join('');
   document.getElementById('retProduct').onchange = function() { document.getElementById('retPrice').value = this.options[this.selectedIndex]?.dataset.price || ''; };
+  // BOSQICH A: 794 mahsulot ichidan NOM bilan qidirish. `onchange` va
+  // `dataset.price` o'qishlari TEGILMADI — faqat select ustiga qidiruv qatlami.
+  attachProductSearch(document.getElementById('retProduct'));
 
   recAddItemRow();
 

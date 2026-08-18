@@ -341,7 +341,9 @@ function renderCart() {
       </div>
       <div class="ci-qty">
         <button class="qty-btn" data-action="dec" data-idx="${idx}">−</button>
-        <span class="qty-val">${item.qty}</span>
+        <input class="qty-input" type="text" inputmode="numeric" autocomplete="off"
+               value="${item.qty}" data-idx="${idx}" aria-label="Miqdor"
+               title="Miqdorni yozib Enter bosing">
         <button class="qty-btn" data-action="inc" data-idx="${idx}">+</button>
       </div>
       <div class="ci-total">${_auto.perItem[idx] > 0
@@ -836,6 +838,86 @@ document.getElementById('cartItems').addEventListener('click', e => {
   if (action === 'dec') { state.cart[idx].qty--; if (state.cart[idx].qty <= 0) state.cart.splice(idx, 1); }
   if (action === 'del') state.cart.splice(idx, 1);
   renderCart();
+});
+
+// ─── Savatda miqdorni QO'LDA kiritish ─────────────────────────────────────────
+// MUAMMO (mijoz, Fazza Parfum): 20 dona pampers uchun "+" ni 20 marta bosish
+// kerak edi. Endi miqdor katakchasiga son yozib Enter bosiladi.
+//
+// "+" va "−" tugmalari O'ZGARMADI — ular avvalgidek ishlaydi (yuqorida).
+// Bu yerdagi mantiq FAQAT qty ni o'zgartiradi: narx, chegirma, aksiya va
+// jami hisobi renderCart()/computeTotals() orqali AVVALGIDEK qayta hisoblanadi.
+//
+// ⚠️ SKANER (keyboard-wedge, pastda ~3111-qator): u `document.activeElement`
+// INPUT bo'lsa DARROV chiqib ketadi, ya'ni bu katakchada yozilgan raqamlarni
+// barkod deb o'qimaydi. Enter'da esa stopPropagation qilamiz — wedge'ning
+// hujjat darajasidagi ishlovchisiga umuman yetib bormaydi.
+//
+// MIQDOR BUTUN SON: savat modelida `qty` doim butun (1 dan boshlanadi, ++/--).
+// Kasr miqdor (0.5 kg, 30 ml) BU YERDA EMAS — u tarozi/hajm modalidan
+// kiritiladi va `_weight` maydonida saqlanadi (doAddToCart), qty esa 1 bo'ladi.
+// Shu sabab kasr son rad etiladi — hozirgi mantiqqa aynan mos.
+const QTY_MAX = 9999;   // fat-finger himoyasi (masalan 20 o'rniga 200000)
+let _qtyCommitting = false;
+
+// Fokusda butun matn belgilanadi — kassir bitta tegishda yangi son yozadi
+// (sensor ekranda ham eski qiymatni o'chirib o'tirmaydi).
+document.getElementById('cartItems').addEventListener('focusin', e => {
+  const inp = e.target.closest('.qty-input');
+  if (inp) inp.select();
+});
+
+function _commitQty(inp) {
+  if (_qtyCommitting) return;
+  const idx  = +inp.dataset.idx;
+  const item = state.cart[idx];
+  if (!item) return;
+
+  const raw = inp.value.trim().replace(',', '.');   // "20," → "20."
+  const n   = Number(raw);
+  let err = null;
+  if (raw === '' || !Number.isFinite(n))  err = "Miqdor son bo'lishi kerak";
+  else if (!Number.isInteger(n))          err = "Miqdor butun son bo'lishi kerak";
+  else if (n <= 0)                        err = "Miqdor 0 dan katta bo'lsin — o'chirish uchun ✕ tugmasi";
+  else if (n > QTY_MAX)                   err = `Miqdor juda katta (eng ko'pi ${QTY_MAX})`;
+
+  if (err) {
+    toast(err, 'warning');
+    beep('error');
+    inp.value = item.qty;          // eski qiymatga qaytaramiz — savat buzilmaydi
+    return;
+  }
+  if (n === item.qty) return;      // o'zgarmadi → qayta render shart emas
+
+  item.qty = n;
+  // renderCart() butun ro'yxatni qayta chizadi (inputni ham) — shu payt yana
+  // commit chaqirilmasin (ikki marta yozish / sikl bo'lmasin).
+  _qtyCommitting = true;
+  try { renderCart(); } finally { _qtyCommitting = false; }
+}
+
+document.getElementById('cartItems').addEventListener('keydown', e => {
+  const inp = e.target.closest('.qty-input');
+  if (!inp) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();           // skaner/global qisqa yo'llarga yetmasin
+    _commitQty(inp);
+    inp.blur();
+    // 6-talab: fokus savatdan chiqsin — keyingi mahsulot darrov skanerlansin.
+    document.getElementById('barcodeInput')?.focus();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    inp.value = state.cart[+inp.dataset.idx]?.qty ?? inp.value;   // bekor qilish
+    inp.blur();
+  }
+});
+
+// Boshqa joyga bosilsa ham qo'llanadi (sensor ekranda Enter bosilmasligi mumkin).
+document.getElementById('cartItems').addEventListener('focusout', e => {
+  const inp = e.target.closest('.qty-input');
+  if (inp) _commitQty(inp);
 });
 
 document.getElementById('clearCartBtn').addEventListener('click', () => {

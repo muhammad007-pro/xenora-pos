@@ -1078,6 +1078,8 @@ class SupplierBase(BaseModel):
     # BOSQICH 24: B2B
     contract_number:    Optional[str] = None
     payment_delay_days: int = 0
+    # FAZA 3: tizimga o'tishdan OLDINGI qarz (ixtiyoriy, default 0)
+    opening_debt:       float = Field(0, ge=0)
 
 class SupplierCreate(SupplierBase):
     pass
@@ -1093,6 +1095,7 @@ class SupplierUpdate(BaseModel):
     notes:              Optional[str] = None
     contract_number:    Optional[str] = None
     payment_delay_days: Optional[int] = None
+    opening_debt:       Optional[float] = Field(None, ge=0)
 
 class SupplierInDB(SupplierBase):
     id:         int
@@ -1402,6 +1405,8 @@ class SupplierDebtSummary(BaseModel):
     # `balance` esa ISHORALI: musbat = qarz, manfiy = avans.
     advance:         float = 0.0
     balance:         float = 0.0
+    # FAZA 3: hujjatsiz eski qarz — UI uni alohida ko'rsatishi mumkin
+    opening_debt:    float = 0.0
 
 
 class PurchaseReceiptItemCreate(BaseModel):

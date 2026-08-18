@@ -85,6 +85,7 @@ async def debt_summary(
             debt=d.debt,
             advance=d.advance,
             balance=d.balance,
+            opening_debt=d.opening_debt,
             overdue_amount=d.overdue_amount,
             last_purchase=str(d.last_purchase) if d.last_purchase else None,
         ).model_dump())

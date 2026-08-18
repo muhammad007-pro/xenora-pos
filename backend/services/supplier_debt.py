@@ -62,7 +62,8 @@ class SupplierDebt:
     supplier_id:     int
     supplier_name:   str
     phone:           Optional[str]
-    total_purchases: float
+    opening_debt:    float          # FAZA 3: tizimga o'tishdan OLDINGI qarz
+    total_purchases: float          # faqat PRIYOMKALAR (opening_debt bu yerda EMAS)
     total_paid:      float          # BARCHA to'lovlar (bog'langan + umumiy)
     total_returned:  float
     balance:         float          # ISHORALI: musbat = biz qarzdormiz, manfiy = avans
@@ -83,6 +84,15 @@ def compute_supplier_debt(
     """Bitta firma qarzini hisoblash (DB'ga tegmaydi — sof funksiya, test qulay)."""
     today = today or Date.today()
     delay = supplier.payment_delay_days or 0
+
+    # FAZA 3: BOSHLANG'ICH QARZ — tizimga o'tishdan oldingi qarz. Unga hujjat yo'q,
+    # shuning uchun alohida qoldiq sifatida yuritiladi va FIFO'da ENG ESKI qarz
+    # hisoblanadi (pul avval shuni yopadi — buxgalteriyaning odatiy tartibi).
+    # `Numeric` -> float: qolgan summalar Float, aralashtirmaymiz (Decimal+float xato).
+    # MUDDAT: boshlang'ich qarzga "muddati o'tgan" belgisi QO'YILMAYDI — uning asl
+    # shartnoma sanasi bizda yo'q, o'ylab topilgan muddat yolg'on ogohlantirish berardi.
+    opening = float(getattr(supplier, "opening_debt", 0) or 0)
+    opening_left = opening
 
     # Qarz yaratadigan nakladnoylar, ESKIDAN YANGIGA (FIFO tartibi).
     # Sana bo'lmasa eng oxiriga tushadi (Date.max), id — barqaror tie-breaker.
@@ -113,6 +123,12 @@ def compute_supplier_debt(
     pool += total_returned
 
     # ── 3-bosqich: hovuzni FIFO bilan taqsimlash (eng eski qarzdan) ──────────
+    # Boshlang'ich qarz — hujjatlardan ham eski, shuning uchun BIRINCHI yopiladi.
+    if pool > _EPS and opening_left > 0:
+        applied = min(pool, opening_left)
+        opening_left -= applied
+        pool -= applied
+
     for r in debt_receipts:
         if pool <= _EPS:
             break
@@ -145,7 +161,10 @@ def compute_supplier_debt(
 
     total_purchases = sum(float(r.net_amount or 0) for r in debt_receipts)
     total_paid      = sum(float(p.amount or 0) for p in payments)
-    debt            = sum(remaining[r.id] for r in debt_receipts if remaining[r.id] > _EPS)
+    # FAZA 3: qoplanmagan boshlang'ich qarz ham jami qarzning bir qismi:
+    #   jami_qarz = opening_debt + priyomkalar − to'lovlar − vozvratlar
+    _opening_rem    = opening_left if opening_left > _EPS else 0.0
+    debt            = _opening_rem + sum(remaining[r.id] for r in debt_receipts if remaining[r.id] > _EPS)
     advance         = pool if pool > _EPS else 0.0
     last_purchase   = max((r.receipt_date for r in debt_receipts if r.receipt_date), default=None)
 
@@ -153,6 +172,7 @@ def compute_supplier_debt(
         supplier_id=supplier.id,
         supplier_name=supplier.name,
         phone=supplier.phone,
+        opening_debt=round(opening, 2),
         total_purchases=round(total_purchases, 2),
         total_paid=round(total_paid, 2),
         total_returned=round(total_returned, 2),

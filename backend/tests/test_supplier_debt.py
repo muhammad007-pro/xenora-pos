@@ -63,9 +63,9 @@ def db():
 
 
 # ── Yordamchilar ─────────────────────────────────────────────────────────────
-def _supplier(db, name="Fazza ta'minot", delay=0, sid=1):
+def _supplier(db, name="Fazza ta'minot", delay=0, sid=1, opening=0):
     s = Supplier(id=sid, tenant_id=1, name=name, phone="+998901112233",
-                 is_active=True, payment_delay_days=delay)
+                 is_active=True, payment_delay_days=delay, opening_debt=opening)
     db.add(s)
     db.commit()
     return s
@@ -388,6 +388,77 @@ def test_ombor_kirimi_firmasiz_ogohlantirmaydi(db):
 
     assert res["notice"] is None
     assert res["new_quantity"] == 8
+
+
+# ── FAZA 3: BOSHLANG'ICH QARZ (opening_debt) ────────────────────────────────
+def test_boshlangich_qarz_golden(db):
+    """MIJOZNING ASL SSENARIYSI — endi eski qarzni HUJJATSIZ kiritish mumkin.
+
+    Ilgari 1 500 000 eski qarz faqat oldingi priyomkalardan kelib chiqardi;
+    tizimga yangi o'tgan do'konda esa uni kiritish joyi YO'Q edi (soxta priyomka
+    yaratishga majbur bo'lardi — ombor qoldig'ini buzardi).
+    """
+    s = _supplier(db, opening=1_500_000)              # tizimdan OLDINGI qarz
+    yangi = _receipt(db, s, 1_000_000, days_ago=0)    # yangi nakladnoy
+    _payment(db, s, 500_000, receipt=yangi)           # qisman to'lov
+
+    d = _debt(db, s)
+
+    assert d.debt == 2_000_000
+    assert d.opening_debt == 1_500_000
+    assert d.total_purchases == 1_000_000    # "jami xarid" — FAQAT priyomkalar
+    assert d.total_paid == 500_000
+
+
+def test_boshlangich_qarz_fifo_birinchi_yopiladi(db):
+    """Hujjatlardan ham eski — umumiy to'lov avval SHUNI yopadi."""
+    s = _supplier(db, opening=1_000_000)
+    rec = _receipt(db, s, 800_000, days_ago=5)
+    _payment(db, s, 600_000, receipt=None)            # umumiy to'lov
+
+    d = _debt(db, s)
+    rows = {r.receipt_id: r for r in d.receipts}
+
+    assert d.debt == 1_200_000                        # 1.8M - 600k
+    assert rows[rec.id].remaining == 800_000          # nakladnoyga TEGILMADI
+    assert d.advance == 0
+
+
+def test_boshlangich_qarz_toliq_yopilishi(db):
+    """To'lov eski qarzdan oshsa — qolgani nakladnoyga o'tadi, avans emas."""
+    s = _supplier(db, opening=500_000)
+    rec = _receipt(db, s, 500_000, days_ago=2)
+    _payment(db, s, 700_000, receipt=None)
+
+    d = _debt(db, s)
+    rows = {r.receipt_id: r for r in d.receipts}
+
+    assert d.debt == 300_000
+    assert rows[rec.id].remaining == 300_000
+    assert d.advance == 0
+
+
+def test_boshlangich_qarz_muddati_otgan_deb_belgilanmaydi(db):
+    """Asl shartnoma sanasi bizda yo'q — soxta "muddati o'tgan" ogohlantirish
+    bermaymiz (aks holda do'konchi yolg'on qizil belgini ko'rardi)."""
+    s = _supplier(db, delay=10, opening=900_000)
+
+    d = _debt(db, s)
+
+    assert d.debt == 900_000
+    assert d.overdue_amount == 0
+
+
+def test_boshlangich_qarzsiz_firma_ozgarmadi(db):
+    """Regressiya: opening_debt=0 bo'lganda hamma narsa avvalgidek."""
+    s = _supplier(db)                                  # opening=0
+    _receipt(db, s, 1_000_000, days_ago=5)
+    _payment(db, s, 250_000, receipt=None)
+
+    d = _debt(db, s)
+
+    assert d.opening_debt == 0
+    assert d.debt == 750_000
 
 
 if __name__ == "__main__":

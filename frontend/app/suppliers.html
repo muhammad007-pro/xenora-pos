@@ -458,6 +458,16 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
       <div class="form-row"><label class="form-label">Otsrochka (kun)</label><input type="number" class="inp" id="fDelay" placeholder="30" min="0"></div>
     </div>
     <div class="form-row"><label class="form-label">Mas'ul shaxs</label><input type="text" class="inp" id="fContact" placeholder="F.I.Sh."></div>
+    <!-- FAZA 3: tizimga o'tishdan OLDINGI qarz. Nakladnoysiz eski qarz shu yerga
+         kiritiladi — soxta priyomka yaratish (ombor qoldig'ini buzish) shart emas. -->
+    <div class="form-row">
+      <label class="form-label">Boshlang'ich qarz (so'm)</label>
+      <input type="number" class="inp" id="fOpeningDebt" placeholder="0" min="0" step="1000">
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem">
+        Ixtiyoriy. Tizimga o'tishdan oldin bu firmaga qarzingiz bo'lsa — shu yerga yozing.
+        Nakladnoysiz qarz hisobiga qo'shiladi.
+      </div>
+    </div>
     <div class="form-row"><label class="form-label">Izoh</label><input type="text" class="inp" id="fNotes" placeholder="Ixtiyoriy..."></div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="closeFirmModal()">Bekor</button>
@@ -695,6 +705,7 @@ window.openFirmEdit = (s) => {
   document.getElementById('fAddress').value  = s.address || '';
   document.getElementById('fContract').value = s.contract_number || '';
   document.getElementById('fDelay').value    = s.payment_delay_days || 0;
+  document.getElementById('fOpeningDebt').value = s.opening_debt || 0;
   document.getElementById('fContact').value  = s.contact_person || '';
   document.getElementById('fNotes').value    = s.notes || '';
   document.getElementById('firmModal').classList.add('active');
@@ -704,6 +715,7 @@ document.getElementById('btnAddFirm').onclick = () => {
   document.getElementById('firmEditId').value = '';
   ['fName','fInn','fPhone','fAddress','fContract','fContact','fNotes'].forEach(id => document.getElementById(id).value='');
   document.getElementById('fDelay').value = 0;
+  document.getElementById('fOpeningDebt').value = 0;
   document.getElementById('firmModal').classList.add('active');
 };
 window.closeFirmModal = () => document.getElementById('firmModal').classList.remove('active');
@@ -721,6 +733,7 @@ window.saveFirm = async () => {
     address:            document.getElementById('fAddress').value.trim() || null,
     contract_number:    document.getElementById('fContract').value.trim() || null,
     payment_delay_days: parseInt(document.getElementById('fDelay').value) || 0,
+    opening_debt:       parseFloat(document.getElementById('fOpeningDebt').value) || 0,
     contact_person:     document.getElementById('fContact').value.trim() || null,
     notes:              document.getElementById('fNotes').value.trim() || null,
   };

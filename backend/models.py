@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, String, Float, Boolean, DateTime, Date,
+    Column, Integer, String, Float, Boolean, DateTime, Date, Numeric,
     ForeignKey, Text, Enum, JSON, BigInteger, Table, UniqueConstraint, Index
 )
 from sqlalchemy.orm import relationship, backref
@@ -1012,6 +1012,14 @@ class Supplier(Base):
     # BOSQICH 24: B2B yangi maydonlar
     contract_number    = Column(String(50), nullable=True)
     payment_delay_days = Column(Integer, default=0)
+    # FAZA 3: BOSHLANG'ICH QARZ — tizimga o'tishdan OLDINGI qarz.
+    # Do'kon XENORA'ni yangi o'rnatganda firmaga allaqachon qarzi bo'ladi, lekin
+    # unga mos priyomka hujjati yo'q. Ilgari uni kiritish joyi umuman yo'q edi.
+    # `balance` ustuni ATAYIN ishlatilmadi: uning tarixi iflos (Ombor kirimlari
+    # o'sha yerga yozilgan, B2 ga qarang) — semantikani chalkashtirmaslik uchun.
+    # Numeric: pul ustuni (float yaxlitlash qoldig'i bo'lmasin). Hisobda
+    # float()'ga o'tkaziladi — qolgan summalar (net_amount, amount) Float.
+    opening_debt       = Column(Numeric(14, 2), nullable=False, server_default="0")
 
     purchase_receipts = relationship("PurchaseReceipt", back_populates="supplier")
     supplier_returns  = relationship("SupplierReturn", back_populates="supplier")

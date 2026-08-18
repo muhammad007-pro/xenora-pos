@@ -100,10 +100,20 @@ hisobiga ta'sir qilmaydi. Qarzning yagona manbai — hujjatlar.
 `balance <> 0` bo'lgan bitta ham yozuv yo'q) — ya'ni yo'qoladigan ma'lumot yo'q edi,
 backfill kerak emas.
 
-### FAZA 3 — boshlang'ich qarz (migratsiya bor) — KEYINGI BUILD
-**Qaror (b):** boshlang'ich qarz uchun **yangi `suppliers.opening_debt` ustuni** +
-alembic migratsiya (mavjud `balance` ustuni ishlatilmaydi — uning tarixi iflos,
-Ombor kirimlari o'sha yerga yozilgan).
+### ✅ FAZA 3 — boshlang'ich qarz (TUGADI, migratsiya bor)
+**Qaror (b) bajarildi:** yangi `suppliers.opening_debt` ustuni (Numeric 14,2,
+default 0) + migratsiya `d4e5f6a7b8c9`. `balance` tegilmadi (tarixi iflos —
+Ombor kirimlari o'sha yerga yozilgan edi).
+
+Hisob: `jami_qarz = opening_debt + priyomkalar − to'lovlar − vozvratlar`.
+Boshlang'ich qarz FIFO'da **eng eski** qarz — umumiy to'lov avval shuni yopadi.
+"Muddati o'tgan" belgisi **qo'yilmaydi**: asl shartnoma sanasi bizda yo'q,
+o'ylab topilgan muddat do'konchiga yolg'on ogohlantirish berardi.
+`total_purchases` faqat priyomkalar bo'lib qoladi (opening alohida maydon).
+
+UI: firma formasida "Boshlang'ich qarz (so'm)" — ixtiyoriy, default 0.
+
+⚠️ Deploy: **backup-first**, migratsiya kod deployidan **alohida** qadam.
 
 ⚠️ **Migratsiya qoidalari (majburiy):**
 - backup-first (migratsiyadan oldin baza nusxasi)

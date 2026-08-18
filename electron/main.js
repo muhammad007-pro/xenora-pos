@@ -628,6 +628,16 @@ function createWindow() {
             // Desktop app + remote API uchun CORS/SOP ni o'chiramiz (faqat o'z
             // ishonchli local frontend'imiz yuklanadi, tashqi kontent emas).
             webSecurity: false,
+            // ⚠️ IFRAME (mijozda topildi, v1.9.1): preload SUKUT BO'YICHA faqat
+            // ASOSIY freymda ishlaydi. Admin panelidagi "Firmalar" bo'limi esa
+            // iframe (admin.html:2073 → suppliers.html?embed=1) — u yerda
+            // `window.XENORA_SERVER` UNDEFINED bo'lib, so'rovlar noto'g'ri
+            // manzilga ketardi ("Server bilan aloqa yo'q").
+            // Bu bayroq preload'ni BARCHA freymlarda ishga tushiradi.
+            // Xavfsizlik: nodeIntegration=false va contextIsolation=true
+            // O'ZGARMAYDI — subframe'ga Node berilmaydi, faqat preload'ning
+            // contextBridge orqali ochgan qiymatlari ko'rinadi.
+            nodeIntegrationInSubFrames: true,
             preload: path.join(__dirname, 'preload.js')
         },
         icon: path.join(__dirname, 'assets', 'icon.ico'),

@@ -1397,6 +1397,11 @@ class SupplierDebtSummary(BaseModel):
     debt:            float
     overdue_amount:  float
     last_purchase:   Optional[str] = None
+    # FAZA 1: avans (ortiqcha to'langan pul) endi yo'qolmaydi.
+    # `debt` eski UI uchun o'zgarishsiz qoladi (manfiysi kesilgan),
+    # `balance` esa ISHORALI: musbat = qarz, manfiy = avans.
+    advance:         float = 0.0
+    balance:         float = 0.0
 
 
 class PurchaseReceiptItemCreate(BaseModel):
@@ -1474,6 +1479,13 @@ class SupplierPaymentInDB(BaseModel):
     payment_method: str = "cash"
     notes:          Optional[str] = None
     created_at:     datetime
+    # FAZA 2 — do'konchi agent bilan turganda tarixni bir qarashda tushunsin:
+    #   payment_type    "receipt" = nakladnoy uchun, "general" = tovarsiz umumiy to'lov
+    #   receipt_label   "Nakladnoy #12 · INV-77" (bog'langan bo'lsa)
+    #   created_by_name kim kiritgan (user_id/created_by bazada BOR edi, chiqmasdi)
+    payment_type:    str = "general"
+    receipt_label:   Optional[str] = None
+    created_by_name: Optional[str] = None
     class Config:
         from_attributes = True
 

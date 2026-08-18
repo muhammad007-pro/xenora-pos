@@ -3890,6 +3890,11 @@ document.addEventListener('click', (e) => {
         <select id="rmSupplierId" style="width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit">
           <option value="">Tanlanmagan</option>
         </select>
+        <!-- B2: bu kirim firma QARZINI yaratmaydi — do'konchi buni OLDINDAN bilsin,
+             sotib bo'lgandan keyin emas. Qarz yuritish faqat Priyomka orqali. -->
+        <div id="rmSupplierHint" style="display:none;margin-top:.375rem;font-size:.75rem;line-height:1.35;color:var(--warning);background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.35);border-radius:var(--r);padding:.4rem .55rem">
+          Bu kirim firma <b>qarzini yaratmaydi</b> — firma bilan qarz yuritish uchun <b>Priyomka</b> bo'limidan foydalaning.
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
         <div>

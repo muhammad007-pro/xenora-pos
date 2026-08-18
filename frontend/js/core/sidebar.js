@@ -216,9 +216,13 @@ const NAV_CONFIG = [
                   </svg>`,
     },
     {
+        // FAZA 2: "Firmaga qarz" endi ALOHIDA sahifa emas — u suppliers.html ning
+        // "Qarzlar" tabi (ikkalasi bir xil kod nusxasi edi, tuzatish har safar
+        // ikki joyda qilinishi kerak bo'lardi va ekranlar bir-biridan uzoqlashardi).
+        // Eski `/app/supplier_debt.html` havolasi shu manzilga yo'naltiradi.
         id:      'nav-supplier-debt',
         label:   'Firmaga qarz',
-        href:    '/app/supplier_debt.html',
+        href:    '/app/suppliers.html?tab=qarzlar',
         feature: Feature.SUPPLIER_DEBT,
         roles:   ['admin', 'manager'],
         icon:    `<svg width="24" height="24" viewBox="0 0 24 24" fill="none">

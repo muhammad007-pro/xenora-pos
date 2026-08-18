@@ -152,12 +152,21 @@ function _updateRestockUnitUI() {
 document.getElementById('rmUnitDona')?.addEventListener('click', () => _setRestockUnitMode('dona'));
 document.getElementById('rmUnitPack')?.addEventListener('click', () => _setRestockUnitMode('pachka'));
 
+// B2: firma tanlanganda ogohlantirishni ko'rsatish/yashirish.
+// Ombor kirimi qarz YARATMAYDI — do'konchi buni tanlash paytida bilsin.
+function _rmToggleSupplierHint() {
+  const hint = document.getElementById('rmSupplierHint');
+  const sel  = document.getElementById('rmSupplierId');
+  if (hint && sel) hint.style.display = sel.value ? '' : 'none';
+}
+
 async function _loadSuppliersForModal() {
+  const sel = document.getElementById('rmSupplierId');
+  if (sel && !sel._hintBound) { sel.addEventListener('change', _rmToggleSupplierHint); sel._hintBound = true; }
   if (_suppliersList.length) return;
   try {
     const data = await apiFetch('/suppliers-b2b/?page_size=200');
     _suppliersList = data.items || [];
-    const sel = document.getElementById('rmSupplierId');
     if (sel) {
       _suppliersList.forEach(s => {
         const opt = document.createElement('option');
@@ -187,6 +196,7 @@ function openRestockModal(invId, productName, unit, currentQty, packSize, packPr
   document.getElementById('rmTotalCostBox').style.display = 'none';
   document.getElementById('restockModal').classList.add('open');
   _loadSuppliersForModal();
+  _rmToggleSupplierHint();   // B2: tozalangan tanlov -> ogohlantirish yashirin
   setTimeout(() => document.getElementById('rmQty').focus(), 100);
 
   const calcTotal = () => {
@@ -229,6 +239,7 @@ async function openRestockPicker() {
   sel.innerHTML = '<option value="">Yuklanmoqda...</option>';
   document.getElementById('restockModal').classList.add('open');
   _loadSuppliersForModal();
+  _rmToggleSupplierHint();   // B2
 
   try {
     const data  = await apiFetch('/inventory/?page_size=1000');
@@ -299,8 +310,12 @@ async function saveRestock() {
       body: JSON.stringify(body)
     });
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
+    const out = await res.json().catch(() => ({}));
     closeRestockModal();
     toast(isPack ? `${qty} dona (${qtyInput} pachka) kiritildi` : `${qty} kiritildi`, 'success');
+    // B2: firma tanlangan bo'lsa server ogohlantiradi — bu kirim QARZ yaratmaydi.
+    // Uzoqroq turadi, chunki do'konchi buni o'qib ulgurishi kerak.
+    if (out.notice) toast(out.notice, 'warning', 9000);
     loadInventory();
     updateLowStockBadge();
   } catch (err) { toast(err.message, 'error'); }

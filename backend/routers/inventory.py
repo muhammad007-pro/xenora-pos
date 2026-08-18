@@ -421,11 +421,25 @@ async def add_stock(
     inv.last_restock = datetime.now()
     inv.updated_at = datetime.now()
 
-    # Yetkazib beruvchi balansini yangilash
+    # B2 TUZATISH — ikki parallel qarz daftari yo'q qilindi.
+    #
+    # ILGARI shu yerda `supplier.balance += quantity * unit_cost` turardi. O'sha
+    # ustunni HECH BIR ekran ko'rsatmaydi va HECH NARSA kamaytirmaydi (firmaga
+    # to'lov `balance` ga tegmaydi). Natijada:
+    #   - Ombor orqali kirim  -> qarz `suppliers.balance` da, Qarzlar tabida YO'Q
+    #   - Priyomka orqali kirim -> qarz hujjatlardan hisoblanadi, `balance` da YO'Q
+    # Ya'ni do'konchi Ombordan kirim qilsa, firma qarzi UMUMAN paydo bo'lmasdi —
+    # pul jimgina yo'qolardi.
+    #
+    # Endi qarzning YAGONA manbai — hujjatlar (Priyomka + to'lov + vozvrat,
+    # services/supplier_debt.py). Ombor kirimi faqat OMBORNI o'zgartiradi.
+    # supplier_id StockMovement'da saqlanadi (kim keltirgani ko'rinib tursin),
+    # lekin qarz YARATMAYDI. Do'konchiga buni AYTAMIZ — jim qolmaymiz.
+    notice = None
     if data.supplier_id:
-        supplier = db.query(Supplier).filter(Supplier.id == data.supplier_id).first()
-        if supplier:
-            supplier.balance += round(data.quantity * data.unit_cost, 2)
+        notice =("Ombor qoldig'i yangilandi. DIQQAT: bu kirim firma qarzini "
+                  "YARATMAYDI — firma bilan qarz yuritish uchun Priyomka "
+                  "bo'limidan foydalaning.")
 
     mv = _save_movement(
         db, inv, movement_type='in', quantity=data.quantity,
@@ -446,6 +460,7 @@ async def add_stock(
         "message": f"{data.quantity} {inv.unit} qo'shildi. Yangi miqdor: {inv.quantity} {inv.unit}",
         "new_quantity": inv.quantity,
         "movement_id": mv.id,
+        "notice": notice,      # firma tanlangan bo'lsa — qarz yaratilmagani haqida
     }
 
 

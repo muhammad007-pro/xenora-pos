@@ -713,5 +713,75 @@ def test_b6_vozvrat_ochirilsa_ombor_tiklanadi(db):
     assert _debt(db, s).total_returned == 0                                     # qarz ham tiklandi
 
 
+# ── KELISH NARXI: Ombor kirimi ham Priyomka kabi cost_price ni yangilasin ───
+def test_ombor_kirimi_cost_price_yangilaydi(db):
+    """Ilgari faqat Priyomka yangilardi — Ombordan kirim qilinsa tannarx eski
+    qolib, keyingi sotuvlarda foyda OSHIRIB ko'rsatilardi."""
+    import routers.inventory as inv_router
+    from models import Inventory
+    from schemas import StockInCreate
+
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=10, unit="dona"))
+    db.commit()
+    assert db.query(Product).filter(Product.id == 1).one().cost_price == 30000
+
+    asyncio.run(inv_router.add_stock(
+        inventory_id=1, data=StockInCreate(quantity=5, unit_cost=37_000),
+        db=db, current_user=_User(),
+    ))
+
+    assert db.query(Product).filter(Product.id == 1).one().cost_price == 37_000
+    assert db.query(Inventory).filter(Inventory.id == 1).one().quantity == 15
+
+
+def test_ombor_kirimi_narxsiz_cost_price_ga_tegmaydi(db):
+    """unit_cost berilmasa (0) — eski tannarx SAQLANADI, 0 ga tushmaydi."""
+    import routers.inventory as inv_router
+    from models import Inventory
+    from schemas import StockInCreate
+
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=10, unit="dona"))
+    db.commit()
+
+    asyncio.run(inv_router.add_stock(
+        inventory_id=1, data=StockInCreate(quantity=5),
+        db=db, current_user=_User(),
+    ))
+
+    assert db.query(Product).filter(Product.id == 1).one().cost_price == 30000
+
+
+def test_ikki_yol_bir_xil_cost_price(db):
+    """Priyomka va Ombor kirimi BIR XIL natija bersin (izchillik)."""
+    import routers.inventory as inv_router
+    import routers.purchase_receipts as rec_router
+    from models import Inventory
+    from schemas import StockInCreate, PurchaseReceiptCreate, PurchaseReceiptItemCreate
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=0, unit="dona"))
+    db.commit()
+
+    # 1-yo'l: Priyomka -> tasdiqlash
+    created = asyncio.run(rec_router.create_receipt(
+        data=PurchaseReceiptCreate(
+            supplier_id=s.id, receipt_date=str(TODAY),
+            items=[PurchaseReceiptItemCreate(product_id=1, quantity=2, unit_price=41_000)],
+        ), db=db, current_user=_User(),
+    ))
+    asyncio.run(rec_router.confirm_receipt(receipt_id=created["id"], db=db, current_user=_User()))
+    narx_priyomka = db.query(Product).filter(Product.id == 1).one().cost_price
+
+    # 2-yo'l: Ombor kirimi
+    asyncio.run(inv_router.add_stock(
+        inventory_id=1, data=StockInCreate(quantity=2, unit_cost=41_000),
+        db=db, current_user=_User(),
+    ))
+    narx_ombor = db.query(Product).filter(Product.id == 1).one().cost_price
+
+    assert narx_priyomka == 41_000
+    assert narx_ombor == narx_priyomka
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

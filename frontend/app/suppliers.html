@@ -736,6 +736,11 @@ window.loadFirms = async () => {
     return;
   }
   const rows = apiData(res, {}).items || [];
+  // Filtrsiz ro'yxat = dropdown manbai bilan bir xil -> QO'SHIMCHA so'rovsiz
+  // massivni ham yangilaymiz (yangi firma darrov dropdownlarda paydo bo'ladi).
+  // Qidiruv/holat filtri yoqilgan bo'lsa massivga TEGMAYMIZ (cheklangan ro'yxat
+  // dropdownlarni qisqartirib qo'ymasin).
+  if (!search && active === '') { suppliers = rows; refreshSupplierDropdowns(); }
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text3)">Firmalar topilmadi</td></tr>'; return; }
   tbody.innerHTML = rows.map(s => `
     <tr>
@@ -800,7 +805,7 @@ window.saveFirm = async () => {
   btn.disabled = false;
   if (apiOk(res) && apiData(res, {}).id) {
     showToast(editId ? 'Yangilandi' : "Qo'shildi", 'success');
-    closeFirmModal(); loadFirms(); refreshSupplierDropdowns();
+    closeFirmModal(); loadFirms(); reloadSupplierList();
   } else {
     showToast(apiErr(res, "Firma saqlanmadi"), 'error');
   }
@@ -824,7 +829,7 @@ window.archiveFirm = async (id) => {
   } catch { /* qoldiqni olib bo'lmasa — oddiy tasdiq bilan davom etamiz */ }
   if (!confirm(ogoh)) return;
   const res = await api.patch(`/suppliers-b2b/${id}`, { is_active: false });
-  if (apiOk(res)) { showToast('Arxivlandi', 'success'); loadFirms(); }
+  if (apiOk(res)) { showToast('Arxivlandi', 'success'); loadFirms(); reloadSupplierList(); }
   else showToast(apiErr(res, "Arxivlab bo'lmadi"), 'error');
 };
 
@@ -1347,6 +1352,26 @@ async function buxLoad() {
 }
 
 // ── Umumiy: supplier/product dropdownlarini to'ldirish ──────────────────────
+// TUZATISH (mijozda topildi — KERASYS qo'shildi, "+ To'lov" ro'yxatida CHIQMADI):
+// `suppliers` massivi FAQAT masterInit'da (sahifa yuklanganda) to'ldirilardi.
+// `loadFirms()` jadvalni yangi so'rovdan chizardi, lekin massivga TEGMASDI —
+// shuning uchun yangi firma jadvalda va Qarzlar kartalarida ko'rinar, LEKIN
+// to'lov/vozvrat/priyomka dropdownlarida yo'q edi. Admin panelida "Firmalar"
+// iframe bir marta yuklanadi va qayta yuklanmaydi → firma sessiya oxirigacha
+// dropdownlarda paydo bo'lmasdi (F5 shart edi).
+//
+// DIQQAT: dropdown manbai FILTRSIZ bo'lishi shart. `loadFirms()` natijasi
+// qidiruv/holat filtri bilan cheklangan — uni to'g'ridan-to'g'ri massivga
+// yozsak, do'konchi "KER" deb qidirganda dropdownlarda faqat bitta firma
+// qolardi. Shuning uchun alohida, filtrsiz so'rov ishlatiladi.
+async function reloadSupplierList() {
+  const res = await api.get('/suppliers-b2b/?page_size=200&is_active=true');
+  if (!apiOk(res)) return false;
+  suppliers = apiData(res, {}).items || [];
+  refreshSupplierDropdowns();
+  return true;
+}
+
 function refreshSupplierDropdowns() {
   const supOpts = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   // filtr (Barcha firmalar default)

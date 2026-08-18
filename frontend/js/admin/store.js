@@ -528,6 +528,25 @@ async function openDebtModal() {
       });
     } catch {}
   }
+  // QIDIRUV: mijozlar soni tez o'sadi (nasiya endi ishlaydi) — 500 talik
+  // ro'yxatdan sichqoncha bilan topish real emas. Server qidiruvi
+  // (`/customers/?search=`) bilan istalgan mijoz topiladi.
+  // `dmCustomer.value` o'qiydigan joy (saveDebt) TEGILMAYDI.
+  if (typeof window.searchableSelect === 'function' && !sel._ss) {
+    window.searchableSelect(sel, {
+      placeholder: 'Ism yoki telefon bilan qidirish...',
+      initial: _debtCustomers,
+      render: (c) => ({ value: c.id, label: `${c.name}${c.phone ? ' · ' + c.phone : ''}` }),
+      search: async (q) => {
+        const r = await apiFetch(`/customers/?search=${encodeURIComponent(q)}&page_size=50`);
+        const list = Array.isArray(r) ? r : (r.items || []);
+        list.forEach(c => { if (!_debtCustomers.some(x => x.id === c.id)) _debtCustomers.push(c); });
+        return list;
+      },
+    });
+  }
+  if (sel._ss) { sel._ss.setInitial(_debtCustomers); sel._ss.reset(); }
+
   document.getElementById('dmAmount').value = '';
   document.getElementById('dmDueDate').value = '';
   document.getElementById('dmNotes').value = '';
@@ -563,7 +582,7 @@ async function dmAddNewCustomer() {
   // Mahalliy dublikat: shu do'kon ro'yxatida telefon bo'lsa — mavjudni tanla (yangi yaratma)
   const existing = _debtCustomers.find(c => (c.phone || '') === phone);
   if (existing) {
-    sel.value = String(existing.id);
+    if (sel._ss) sel._ss.ensure(existing); else sel.value = String(existing.id);
     _dmToggleNewCust(false);
     toast('Mavjud mijoz tanlandi', 'info');
     return;
@@ -573,12 +592,20 @@ async function dmAddNewCustomer() {
   btn.disabled = true; btn.textContent = '...';
   try {
     const c = await apiFetchPost('/customers/', { name, phone, discount_percent: disc }, 'POST');
-    const o = document.createElement('option');
-    o.value = String(c.id);
-    o.textContent = `${c.name}${c.phone ? ' · ' + c.phone : ''}`;
-    sel.appendChild(o);
-    sel.value = String(c.id);
     _debtCustomers.push(c);
+    // Qidiruv filtri yoqilgan bo'lsa yangi option ro'yxatga tushmasligi mumkin —
+    // `ensure` uni kafolatli qo'shib tanlaydi (aks holda mijoz "tanlanmagan"
+    // bo'lib qolardi va qarz saqlanmasdi).
+    if (sel._ss) {
+      sel._ss.setInitial(_debtCustomers);
+      sel._ss.ensure(c);
+    } else {
+      const o = document.createElement('option');
+      o.value = String(c.id);
+      o.textContent = `${c.name}${c.phone ? ' · ' + c.phone : ''}`;
+      sel.appendChild(o);
+      sel.value = String(c.id);
+    }
     _dmToggleNewCust(false);
     toast("Mijoz qo'shildi va tanlandi", 'success');
   } catch (e) {

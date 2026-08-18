@@ -778,7 +778,23 @@ window.saveFirm = async () => {
   else showToast(res.detail || 'Xatolik', 'error');
 };
 window.archiveFirm = async (id) => {
-  if (!confirm('Firmani arxivlashni tasdiqlaysizmi?')) return;
+  // B7: qarzi bor firmani arxivlash — QARZ JIMGINA YO'QOLADI (arxivlangan firma
+  // Qarzlar tabida ko'rinmaydi). Do'konchi buni BILIB turib qilsin.
+  // Qoldiq oborot varag'idan olinadi (Faza 4) — yangi hisob mantig'i yo'q.
+  let ogoh = 'Firmani arxivlashni tasdiqlaysizmi?';
+  try {
+    const led  = await api.get(`/suppliers-b2b/${id}/ledger`);
+    const rows = Array.isArray(led) ? led : (led?.data || []);
+    const bal  = rows.length ? rows[rows.length - 1].balance : 0;
+    if (bal > 0) {
+      ogoh = `⚠️ Bu firmaning ${fmt(bal)} so'm QARZI bor.\n\n`
+           + `Arxivlangan firma Qarzlar ro'yxatida ko'rinmaydi — qarz ko'zdan yo'qoladi `
+           + `(o'chib ketmaydi, firmani qayta faollashtirsangiz qaytadi).\n\nDavom etasizmi?`;
+    } else if (bal < 0) {
+      ogoh = `Bu firmada ${fmt(-bal)} so'm AVANSINGIZ bor (firma sizga qarzdor).\n\nDavom etasizmi?`;
+    }
+  } catch { /* qoldiqni olib bo'lmasa — oddiy tasdiq bilan davom etamiz */ }
+  if (!confirm(ogoh)) return;
   const res = await api.patch(`/suppliers-b2b/${id}`, { is_active: false });
   if (res.id) { showToast('Arxivlandi', 'success'); loadFirms(); } else showToast(res.detail || 'Xatolik', 'error');
 };

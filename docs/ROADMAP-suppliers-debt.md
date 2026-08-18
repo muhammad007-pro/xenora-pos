@@ -143,12 +143,25 @@ SELECT id, name, balance FROM suppliers WHERE balance <> 0 ORDER BY balance DESC
 - Yon tuzatish: `receipt_date` endi routerda `date` ga o'giriladi (ilgari matn
   ketardi — PostgreSQL o'girardi, sqlite yiqilardi).
 
-### FAZA 5 — butunlik va himoya
-- B5: to'lov o'chirilsa nakladnoy holati tiklansin
-- B6: vozvrat StockMovement yozsin; o'chirilganda ombor tiklansin
-- B7: qarzi bor firmani arxivlashda ogohlantirish
-- To'lov va vozvrat uchun audit yozuvi
+### ✅ FAZA 5 — butunlik va himoya (TUGADI)
+- ✅ **B5**: to'lov o'chirilganda nakladnoy holati qayta hisoblanadi
+  (to'liq to'lanmagan bo'lsa `paid` → `confirmed`). Ilgari `paid` bo'lib qolib,
+  nakladnoy "muddati o'tgan" hisobidan abadiy chiqib ketardi.
+- ✅ **B6**: vozvrat endi `StockMovement` yozadi (`movement_type="return"`,
+  `reference_type="supplier_return"`); o'chirilganda tovar **omborga qaytadi**
+  va teskari harakat yoziladi. Ilgari har o'chirish omborda abadiy kamomad
+  qoldirardi.
+- ✅ **B7**: qarzi bor firmani arxivlashda ogohlantirish (qoldiq oborot
+  varag'idan olinadi; avans holatida ham alohida matn).
+- ✅ **Audit**: to'lov (CREATE/DELETE) va vozvrat (CREATE/DELETE) `audit_log` ga
+  yoziladi — kim, qachon, qancha. "Kim qancha to'lov kiritdi" endi tekshiriladi.
 - Migratsiya: **YO'Q**
+- Yon tuzatish: `return_date` ham routerda `date` ga o'giriladi (Faza 4 dagi
+  `receipt_date` bilan bir xil sabab).
+
+### Qolgan (kelajak uchun qayd)
+- Qarzdan tushgan pul (`DebtPayment`) hech bir naqd hisobotda ko'rinmaydi —
+  mijoz nasiyasi bo'yicha alohida ish (qarang: nasiya B varianti qarori).
 
 ---
 

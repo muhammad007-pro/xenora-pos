@@ -610,5 +610,108 @@ def test_priyomka_hozir_tolandisiz_ozgarmadi(db):
     assert _debt(db, s).debt == 500_000
 
 
+# ── FAZA 5 / B5: to'lov o'chirilsa nakladnoy holati tiklanadi ───────────────
+def test_b5_tolov_ochirilsa_nakladnoy_confirmed_ga_qaytadi(db):
+    """Ilgari yozuv o'chirilar, `status` esa "paid" bo'lib QOLAVERARDI —
+    nakladnoy "muddati o'tgan" hisobidan abadiy chiqib ketardi."""
+    import routers.supplier_payments as pay_router
+
+    s = _supplier(db)
+    rec = _receipt(db, s, 1_000_000, days_ago=5)
+    p = _payment(db, s, 1_000_000, receipt=rec)
+    rec.status = "paid"                      # to'liq to'langan holat
+    db.commit()
+
+    asyncio.run(pay_router.delete_payment(payment_id=p.id, db=db, current_user=_User()))
+    db.refresh(rec)
+
+    assert rec.status == "confirmed", "to'lov yo'q, lekin nakladnoy hamon 'paid'"
+    assert _debt(db, s).debt == 1_000_000    # qarz qaytdi
+
+
+def test_b5_qisman_tolov_ochirilsa_paid_bolib_qolmaydi(db):
+    """Ikki to'lovdan biri o'chsa — qolgani yetmasa `confirmed`."""
+    import routers.supplier_payments as pay_router
+
+    s = _supplier(db)
+    rec = _receipt(db, s, 1_000_000, days_ago=5)
+    p1 = _payment(db, s, 600_000, receipt=rec)
+    _payment(db, s, 400_000, receipt=rec)
+    rec.status = "paid"
+    db.commit()
+
+    asyncio.run(pay_router.delete_payment(payment_id=p1.id, db=db, current_user=_User()))
+    db.refresh(rec)
+
+    assert rec.status == "confirmed"
+    assert _debt(db, s).debt == 600_000
+
+
+def test_b5_umumiy_tolov_ochirilsa_nakladnoyga_tegmaydi(db):
+    """receipt_id yo'q to'lov — hech qaysi nakladnoy holatini o'zgartirmaydi."""
+    import routers.supplier_payments as pay_router
+
+    s = _supplier(db)
+    rec = _receipt(db, s, 1_000_000, days_ago=5)
+    p = _payment(db, s, 300_000, receipt=None)
+
+    asyncio.run(pay_router.delete_payment(payment_id=p.id, db=db, current_user=_User()))
+    db.refresh(rec)
+
+    assert rec.status == "confirmed"
+    assert _debt(db, s).debt == 1_000_000
+
+
+# ── FAZA 5 / B6: vozvrat — StockMovement + o'chirishda ombor tiklash ────────
+def test_b6_vozvrat_stockmovement_yozadi(db):
+    """Ilgari ombor kamayardi, lekin harakat tarixida IZ QOLMASDI."""
+    import routers.supplier_returns as ret_router
+    from schemas import SupplierReturnCreate
+    from models import Inventory, StockMovement
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=50, unit="dona"))
+    db.commit()
+
+    asyncio.run(ret_router.create_return(
+        data=SupplierReturnCreate(supplier_id=s.id, product_id=1, quantity=10,
+                                  unit_price=45_000, return_date=str(TODAY),
+                                  reason="brak"),
+        db=db, current_user=_User(),
+    ))
+
+    inv = db.query(Inventory).filter(Inventory.id == 1).one()
+    mv  = db.query(StockMovement).filter(StockMovement.reference_type == "supplier_return").one()
+
+    assert inv.quantity == 40                    # ombor kamaydi (avvalgidek)
+    assert mv.movement_type == "return"
+    assert mv.quantity == 10
+    assert mv.supplier_id == s.id
+    assert _debt(db, s).total_returned == 450_000
+
+
+def test_b6_vozvrat_ochirilsa_ombor_tiklanadi(db):
+    """Ilgari o'chirish omborda ABADIY kamomad qoldirardi."""
+    import routers.supplier_returns as ret_router
+    from schemas import SupplierReturnCreate
+    from models import Inventory
+
+    s = _supplier(db)
+    db.add(Inventory(id=1, tenant_id=1, product_id=1, quantity=50, unit="dona"))
+    db.commit()
+
+    created = asyncio.run(ret_router.create_return(
+        data=SupplierReturnCreate(supplier_id=s.id, product_id=1, quantity=10,
+                                  unit_price=45_000, return_date=str(TODAY)),
+        db=db, current_user=_User(),
+    ))
+    assert db.query(Inventory).filter(Inventory.id == 1).one().quantity == 40
+
+    asyncio.run(ret_router.delete_return(return_id=created["id"], db=db, current_user=_User()))
+
+    assert db.query(Inventory).filter(Inventory.id == 1).one().quantity == 50   # tiklandi
+    assert _debt(db, s).total_returned == 0                                     # qarz ham tiklandi
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

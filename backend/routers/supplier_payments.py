@@ -5,6 +5,7 @@ To'lov qilinganда qarz kamayadi.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import date as Date
 from typing import Optional
 
@@ -15,6 +16,7 @@ from schemas import (
     PaginatedResponse, MessageResponse,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+from core.audit import log_audit   # kim qancha to'lov kiritgani keyin tekshirilsin
 
 router = APIRouter()
 
@@ -114,6 +116,14 @@ async def create_payment(
 
     db.commit()
     db.refresh(p)
+
+    # AUDIT: firmaga to'lov — sof pul harakati. "Kim qancha to'lov kiritdi"
+    # degan savolga keyin javob topilsin (ilgari hech qanday iz qolmasdi).
+    log_audit(current_user, "supplier_payments", "CREATE", p.id,
+              tenant_id=p.tenant_id,
+              detail={"supplier_id": p.supplier_id, "amount": float(p.amount or 0),
+                      "receipt_id": p.receipt_id, "method": p.payment_method,
+                      "payment_date": str(p.payment_date) if p.payment_date else None})
     return SupplierPaymentInDB.model_validate(p)
 
 
@@ -127,6 +137,26 @@ async def delete_payment(
           .filter(SupplierPayment.id == payment_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="To'lov topilmadi")
+
+    _rec_id, _amount, _sup_id = p.receipt_id, float(p.amount or 0), p.supplier_id
     db.delete(p)
+    db.flush()
+
+    # B5 TUZATISH: to'lov o'chirilsa nakladnoy holati QAYTA HISOBLANADI.
+    # Ilgari yozuv o'chirilar, `status` esa "paid" bo'lib QOLAVERARDI — natijada
+    # o'sha nakladnoy "muddati o'tgan" hisobidan abadiy chiqib ketardi va
+    # do'konchi to'lanmagan qarzni ko'rmasdi.
+    if _rec_id:
+        rec = db.query(PurchaseReceipt).filter(PurchaseReceipt.id == _rec_id).first()
+        if rec and rec.status in ("confirmed", "paid"):
+            qolgan = db.query(func.coalesce(func.sum(SupplierPayment.amount), 0.0)).filter(
+                SupplierPayment.receipt_id == rec.id
+            ).scalar() or 0.0
+            rec.status = "paid" if qolgan >= float(rec.net_amount or 0) else "confirmed"
+
     db.commit()
+
+    log_audit(current_user, "supplier_payments", "DELETE", payment_id,
+              tenant_id=resolve_tenant_id(db, current_user),
+              detail={"supplier_id": _sup_id, "amount": _amount, "receipt_id": _rec_id})
     return MessageResponse(message="To'lov o'chirildi")

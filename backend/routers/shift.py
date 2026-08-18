@@ -136,27 +136,43 @@ async def close_shift(
     order_ids = [o.id for o in orders]
 
     # ── To'lovlar — smena buyurtmalariga tegishli (legacy: vaqt oralig'i) ───────
+    # NASIYA: `credit` to'lovi PENDING holatda saqlanadi (pul kelmagan), shuning
+    # uchun `status == "paid"` filtri uni TASHLAB YUBORARDI va Z-hisobotdagi
+    # "nasiya" qatori doim 0 chiqardi. Endi paid + (pending nasiya) olinadi;
+    # naqd/karta qatorlari esa AVVALGIDEK faqat `paid` dan hisoblanadi.
+    _status_ok = Payment.status.in_(("paid", "pending"))
     if legacy_fallback:
         payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
             Payment.created_at >= shift.start_time,
             Payment.created_at <= now,
-            Payment.status == "paid",
+            _status_ok,
         ).all()
     elif order_ids:
         payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
             Payment.order_id.in_(order_ids),
-            Payment.status == "paid",
+            _status_ok,
         ).all()
     else:
         payments = []
 
-    cash_sales   = sum(p.amount for p in payments if p.method == "cash")
-    card_sales   = sum(p.amount for p in payments if p.method in ("card", "payme", "click"))
+    # PaymentStatus — str-enum, ya'ni PaymentStatus.PAID == "paid" (True).
+    # Eski yozuvlarda status oddiy matn bo'lishi mumkin — `getattr(...,'value')` shuni qoplaydi.
+    def _paid(p):
+        return str(getattr(p.status, "value", p.status)) == "paid"
+
+    # Naqd va karta — FAQAT haqiqatan to'langan (pul keldi).
+    cash_sales   = sum(p.amount for p in payments if p.method == "cash" and _paid(p))
+    card_sales   = sum(p.amount for p in payments if p.method in ("card", "payme", "click") and _paid(p))
+    # Nasiya — pul kelmagan, lekin TOVAR SOTILGAN: Z-hisobotda alohida qator.
+    # Kassada bo'lishi kerak bo'lgan naqd (expected_cash) faqat `cash_sales` dan
+    # hisoblanadi — nasiya u yerga KIRMAYDI (pastda).
     credit_total = sum(p.amount for p in payments if p.method == "credit")
     total_sales  = cash_sales + card_sales + credit_total
 
-    # Sotuvlar soni — to'langan cheklar (distinct order) soni
-    paid_order_ids = {p.order_id for p in payments if p.order_id}
+    # Sotuvlar soni — to'langan YOKI nasiyaga berilgan cheklar (distinct order).
+    # Tugallanmagan online to'lov (click/payme, pending) sotuv deb sanalmaydi.
+    paid_order_ids = {p.order_id for p in payments
+                      if p.order_id and (_paid(p) or p.method == "credit")}
     sales_count    = len(paid_order_ids)
 
     # Chegirmalar jami — to'langan buyurtmalar bo'yicha
@@ -273,19 +289,26 @@ async def get_shift_report(
     total_revenue  = sum(o.final_amount for o in orders)
     discount_total = sum(o.discount_amount or 0 for o in orders)
 
+    # Nasiya (credit) PENDING holatda saqlanadi — "usullar bo'yicha" taqsimotda
+    # u ham ko'rinishi kerak (aks holda X/Z hisobotда sotuv "yo'qolgan" bo'lib
+    # tuyuladi). Naqd/karta esa avvalgidek faqat `paid`.
+    _status_ok2 = Payment.status.in_(("paid", "pending"))
     if legacy_fallback:
         payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
             Payment.created_at >= start,
             Payment.created_at <= end,
-            Payment.status == "paid",
+            _status_ok2,
         ).all()
     elif order_ids:
         payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
             Payment.order_id.in_(order_ids),
-            Payment.status == "paid",
+            _status_ok2,
         ).all()
     else:
         payments = []
+    # tugallanmagan online to'lov (pending click/payme) taqsimotga kirmasin
+    payments = [p for p in payments
+                if p.method == "credit" or str(getattr(p.status, "value", p.status)) == "paid"]
 
     # Qaytarishlar jami — vaqt oralig'i bo'yicha
     returns = apply_tenant_filter(db.query(Return), Return, current_user).filter(

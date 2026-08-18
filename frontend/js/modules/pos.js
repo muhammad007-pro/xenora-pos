@@ -1704,6 +1704,13 @@ async function doPayment() {
     }
 
     // BOSQICH 19: Nasiya bo'lsa qarz yozuvini yaratish
+    //
+    // TUZATISH: ilgari bu yerda `catch { }` turardi — qarz yozilmasa xato JIMGINA
+    // yutilar, kassirga esa baribir "Nasiya yozildi!" deb ko'rsatilardi. Ya'ni tovar
+    // ketardi, qarz esa hech qayerda qolmasdi — jimgina pul yo'qotish.
+    // Sotuvni BEKOR QILMAYMIZ (to'lov allaqachon serverda tasdiqlangan), lekin
+    // kassir nima bo'lganini va nima qilish kerakligini ANIQ bilishi shart.
+    let _debtFailed = false;
     if (payMethod === 'credit' && state.customer?.id) {
       try {
         await api.post('/debts/', {
@@ -1712,7 +1719,10 @@ async function doPayment() {
           amount: t.total,
           notes: 'POS dan nasiya',
         });
-      } catch { /* qarz yozilmasa to'lov baribir tasdiqlangan */ }
+      } catch (debtErr) {
+        _debtFailed = true;
+        console.error('Nasiya qarzi yozilmadi:', debtErr);
+      }
     }
 
     closeModal('paymentModal');
@@ -1721,7 +1731,12 @@ async function doPayment() {
     // LOKAL CHEK (B1): order yaratishda saqlangan meta (daily_number/order_number)
     // + shu yerdagi lastLoyalty — server /receipt ga BORMAYMIZ.
     showReceiptLocal(orderId, { loyalty: lastLoyalty });
-    toast(payMethod === 'credit' ? 'Nasiya yozildi!' : 'To\'lov qabul qilindi!', 'success');
+    if (_debtFailed) {
+      // Uzoq turadigan (15s) va yashil EMAS — kassir e'tibor bermay o'tib ketmasin.
+      toast("Sotuv o'tdi, LEKIN qarz yozilmadi — mijoz qarzini Nasiya bo'limidan QO'LDA kiriting!", 'error', 15000);
+    } else {
+      toast(payMethod === 'credit' ? 'Nasiya yozildi!' : 'To\'lov qabul qilindi!', 'success');
+    }
     clearOrderState();
     loadHeldOrders();   // to'langan buyurtma held ro'yxatidan tushadi
   } catch (err) {

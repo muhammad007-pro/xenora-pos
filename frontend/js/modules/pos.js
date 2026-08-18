@@ -7,7 +7,8 @@ import { AuthService, clearTenantSession } from '../core/auth.js';
 import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
-import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow } from '../core/receipt-print.js';
+import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow,
+         qtyPriceLabel, unitPriceOf } from '../core/receipt-print.js';
 import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
 
 const api = new API();
@@ -1943,8 +1944,13 @@ function renderReceiptData(rec) {
           const ml  = i._weight != null ? `${i._weight} ${i._unit || 'ml'}`
                     : (i.sale_unit === 'ml' && i.unit_sold !== 'pachka' && (i.quantity || i.qty) ? `${i.quantity || i.qty} ml` : '');
           const sub = [pk ? `📦 ${pk}` : '', ml ? `🧴 ${ml}` : '', d, m ? `✂️ ${m}` : '', dur ? `⏱ ${dur}` : '', per].filter(Boolean).join(' · ');
-          return `<tr><td>${i.name||i.product_name||''}${sub?`<br><small style="font-size:.65rem;color:#9a9ab8">${sub}</small>`:''}</td><td>${i.quantity||i.qty}</td>
-          <td style="text-align:right">${fmtNum(i.total||(i.price*(i.qty||i.quantity)))}</td></tr>`;
+          // "11 x 5,000" — miqdor × birlik narx (v1.8.7, mijoz talabi).
+          // LAN (ESC/POS) yo'li shu katakchani DOM'dan o'qiydi → USB va LAN bir xil.
+          const qv   = i.quantity || i.qty;
+          const line = i.total || (i.price * (i.qty || i.quantity));
+          const qtyTxt = qtyPriceLabel(qv, unitPriceOf(i, line, qv), fmtNum);
+          return `<tr><td>${i.name||i.product_name||''}${sub?`<br><small style="font-size:.65rem;color:#9a9ab8">${sub}</small>`:''}</td><td>${qtyTxt}</td>
+          <td style="text-align:right">${fmtNum(line)}</td></tr>`;
         }).join('')}
       </tbody>
     </table>

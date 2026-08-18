@@ -3,6 +3,45 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.1] — 2026-08-18
+
+Uch branch birlashtirildi. **Migratsiya BOR** (3 ta, backup-first deploy).
+
+### Tuzatilgan
+- **Nasiya (credit) bilan sotuv umuman saqlanmasdi** — `paymentmethod` enumida
+  `credit` yo'q edi (POS'da tugma bor, bazada qiymat yo'q) → har urinish 500 va
+  butun sotuv rollback. Enumga `credit` va `room_charge` qo'shildi. Nasiya to'lovi
+  endi `pending` holatda yoziladi: sotuv yakunlanadi (tovar chiqadi, hisobotga
+  tushadi), lekin kelmagan pul daromadga KIRMAYDI va kassa qoldig'iga qo'shilmaydi.
+- **Firma qo'shish va ro'yxati ishlamasdi** — sahifa xom javob kutardi
+  (`res.id`/`res.items`), `api.js` esa o'ralgan javob qaytaradi. Muvaffaqiyatli
+  qo'shilganda ham qizil "Xatolik" chiqardi, ro'yxat va dropdownlar bo'sh qolardi.
+  Endi serverning xato matni TO'LIQ ko'rsatiladi.
+- **To'lov o'chirilganda** nakladnoy `paid` bo'lib qolardi — endi holat qayta
+  hisoblanadi (`confirmed` ga qaytadi).
+- **Vozvrat ombor butunligi** — endi `StockMovement` yoziladi; vozvrat
+  o'chirilganda tovar omborga qaytariladi (ilgari abadiy kamomad qolardi).
+
+### Yangi — firma qarzi
+- **Boshlang'ich qarz**: tizimga o'tishdan oldingi qarzni hujjatsiz kiritish
+  (soxta priyomka yaratish shart emas).
+- **Oborot varag'i**: bitta firma bo'yicha xronologik harakat va yugurib boruvchi
+  qoldiq — agent bilan hisob-kitob ekrani.
+- **Priyomkada "Hozir to'landi"**: nakladnoy bilan birga berilgan pul tasdiqlashda
+  avtomatik to'lovga aylanadi (3 ekran → 1 ekran).
+- Qarzi bor firmani arxivlashda ogohlantirish; to'lov va vozvrat `audit_log` ga
+  yoziladi (kim, qachon, qancha).
+
+### v1.9.0 dan meros (shu relizda ham)
+- Chek: mahsulotlar ajratilgan, "miqdor × birlik narx" ko'rinishi
+- POS: savatda son va narxni to'g'ridan-to'g'ri tahrirlash
+- Tez sotuv paneli, dashboard bo'sh kartalari va timezone tuzatildi
+- Mijozga nasiya yozish (admin panel) tuzatildi
+
+### Migratsiyalar
+`e7f8a9b0c1d2` (paymentmethod enum) → `d4e5f6a7b8c9` (suppliers.opening_debt) →
+`a9b8c7d6e5f4` (purchase_receipts.paid_now). Hammasi idempotent, backfill yo'q.
+
 ## [1.9.0] — 2026-08-18
 
 Olti branch birlashtirildi. **Migratsiya YO'Q.**

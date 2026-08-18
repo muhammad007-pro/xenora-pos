@@ -44,6 +44,14 @@ class PaymentMethod(str, enum.Enum):
     CLICK = "click"
     PAYME = "payme"
     QR = "qr"
+    # v1.9.1: POS'da tugmasi BOR edi, enumda YO'Q edi -> nasiya bilan sotuv
+    # `invalid input value for enum paymentmethod: "credit"` berib 500 qilardi
+    # va BUTUN sotuv rollback bo'lardi (jonli, Fazza Parfum).
+    # DIQQAT: `credit` — pul KELMAGAN tender. To'lov yozuvi PENDING holatda
+    # yaratiladi, ya'ni "paid" bo'yicha filtrlaydigan naqd hisobotlariga
+    # KIRMAYDI (qarang: services/payment_service.py, routers/shift.py).
+    CREDIT = "credit"            # nasiya (qarzga)
+    ROOM_CHARGE = "room_charge"  # mehmonxona: xona hisobiga
 
 class TableStatus(str, enum.Enum):
     FREE = "free"

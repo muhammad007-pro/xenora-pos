@@ -3,6 +3,21 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.2] — 2026-08-18
+
+Migratsiya YO'Q. Faqat client-side (frontend + Electron) — backend tegilmagan.
+
+### Tuzatilgan
+- **Firmalar bo'limi (iframe) serverga ulanmasdi** — admin panelidagi "Firmalar"
+  iframe orqali ochiladi, Electron'da esa `preload.js` sukut bo'yicha faqat asosiy
+  freymda ishlaydi. Natijada iframe ichida server manzili topilmay, so'rovlar
+  `localhost:8000` ga ketardi va har amal "Server bilan aloqa yo'q" berardi —
+  holbuki POS, nasiya va qolgan hamma narsa ishlab turardi.
+  Uch qatlamli tuzatish: server manzili ota freymdan ham olinadi; `file://` uchun
+  `localhost` taxmini olib tashlandi; `nodeIntegrationInSubFrames` yoqildi.
+
+⚠️ Bu tuzatish **yangi .exe** bilan yetadi (frontend ilova ichida ketadi).
+
 ## [1.9.1] — 2026-08-18
 
 Uch branch birlashtirildi. **Migratsiya BOR** (3 ta, backup-first deploy).

@@ -196,6 +196,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
   </div>
 </div>
 
+<!-- Qidiruvli select (classic — window.searchableSelect) -->
+<script src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API }     from '../js/core/api.js';
@@ -211,15 +213,36 @@ let allProducts = [];
 async function loadSupport() {
   const [catRes, prodRes] = await Promise.all([
     api.get('/categories/?page_size=200'),
-    api.get('/products/?page_size=500'),
+    api.get('/products/?page_size=1000'),   // 500 -> 1000; undan oshgani qidiruvdan
   ]);
-  categories  = catRes.items || catRes || [];
-  allProducts = prodRes.items || prodRes || [];
+  // O'RALGAN javob ({success,data}) — ma'lumot `res.data` da. Ilgari `catRes.items`
+  // o'qilardi: u undefined bo'lib, `categories` o'rniga WRAPPER obyekt tushardi va
+  // keyingi `.map(...)` "categories.map is not a function" bilan sahifani O'LDIRARDI.
+  const _un = (r) => (r && r.success ? (r.data ?? r) : (r ?? {}));
+  const _cat = _un(catRes), _prod = _un(prodRes);
+  categories  = Array.isArray(_cat)  ? _cat  : (_cat.items  || []);
+  allProducts = Array.isArray(_prod) ? _prod : (_prod.items || []);
 
   const catSel  = document.getElementById('fCategory');
   const prodSel = document.getElementById('fProduct');
   catSel.innerHTML  = '<option value="">— tanlang —</option>' + categories.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
   prodSel.innerHTML = '<option value="">— tanlang —</option>' + allProducts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+
+  // BOSQICH C: nom bo'yicha qidiruv (A/B bilan bir xil naqsh).
+  // `fProduct.value` o'qiydigan joylar (saqlash va tahrirlash) TEGILMAYDI.
+  if (typeof window.searchableSelect === 'function') {
+    window.searchableSelect(prodSel, {
+      placeholder: 'Mahsulot nomi bilan qidirish...',
+      initial: allProducts,
+      render: (p) => ({ value: p.id, label: p.name }),
+      search: async (q) => {
+        const r = await api.get(`/products/?search=${encodeURIComponent(q)}&page_size=50`);
+        const rows = r?.data?.items ?? r?.items ?? [];
+        rows.forEach(x => { if (!allProducts.some(y => y.id === x.id)) allProducts.push(x); });
+        return rows;
+      },
+    });
+  }
 }
 
 window.onScopeChange = function() {
@@ -235,7 +258,8 @@ window.load = async function() {
   if (scope)  url += `&scope=${scope}`;
   if (active) url += `&is_active=${active}`;
   const res = await api.get(url);
-  policies = res.items || res || [];
+  const _p = (res && res.success) ? (res.data ?? {}) : {};
+  policies = Array.isArray(_p) ? _p : (_p.items || []);
 
   document.getElementById('kpiTotal').textContent  = policies.length;
   document.getElementById('kpiActive').textContent = policies.filter(p=>p.is_active).length;
@@ -273,7 +297,8 @@ window.previewPolicy = async function(id, name, pct) {
   document.getElementById('previewTbody').innerHTML = '<tr><td colspan="5" style="text-align:center">Yuklanmoqda...</td></tr>';
   document.getElementById('modalPreview').classList.add('active');
 
-  const rows = await api.get(`/markup-policies/preview/${id}`);
+  const _pr = await api.get(`/markup-policies/preview/${id}`);
+  const rows = (_pr && _pr.success) ? (_pr.data ?? []) : [];
   document.getElementById('previewTbody').innerHTML = rows.map(r => {
     const diff = r.diff || 0;
     const cls  = diff > 0 ? 'price-up' : diff < 0 ? 'price-down' : 'price-same';
@@ -308,7 +333,15 @@ window.editPolicy = function(id) {
   document.getElementById('fMinPrice').value = p.min_price || '';
   document.getElementById('fActive').checked = p.is_active;
   document.getElementById('fCategory').value = p.category_id || '';
-  document.getElementById('fProduct').value  = p.product_id  || '';
+  // Qidiruv filtri option'ni chiqarib yuborgan bo'lishi mumkin — `ensure` uni
+  // kafolatli qo'shib tanlaydi (aks holda tahrirlashda maydon BO'SH ko'rinardi).
+  const _fp = document.getElementById('fProduct');
+  if (p.product_id && _fp._ss) {
+    const known = allProducts.find(x => x.id === p.product_id);
+    _fp._ss.ensure(known || { id: p.product_id, name: `Mahsulot #${p.product_id}` });
+  } else {
+    _fp.value = p.product_id || '';
+  }
   onScopeChange();
   document.getElementById('modalCreate').classList.add('active');
 };

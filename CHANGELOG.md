@@ -331,7 +331,10 @@ Shoshilinch tuzatish: etiketka sahifasi ochilmasdi. Migratsiya YO'Q.
 - `bonus_cards.html`, `markirovka.html`, `markup_policy.html`, `promotions.html`
   — `../js/core/toast.js` faylini import qiladi, **u fayl yo'q** → ayni shu
   sabab bilan bu 4 sahifa ham ochilmaydi. (`error-handler.js` da `showToast` bor.)
-- `js/modules/admin.js` — 7 ta import mavjud bo'lmagan papkalarga (o'lik kod).
+- ~~`js/modules/admin.js` — 7 ta import mavjud bo'lmagan papkalarga (o'lik kod).~~
+  **TOZALANDI (2026-08-19):** fayl o'chirildi va service-worker keshlash
+  ro'yxatidan olib tashlandi. Uni hech bir sahifa yuklamasdi; jonli admin kodi
+  — `js/admin/*.js`.
 - `labels.html` JsBarcode'ni CDN'dan yuklaydi — do'konda internet bo'lmasa
   A4 rejimida barcode chizilmaydi (TSPL rejimiga ta'siri yo'q).
 

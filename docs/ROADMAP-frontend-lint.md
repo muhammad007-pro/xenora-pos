@@ -7,16 +7,19 @@ skaner tayyor. Topilgan xatolar HALI TUZATILMAGAN (qaror keyin).
 
 `npm run lint` → **3 ta haqiqiy xato** (75 fayl):
 
-| Fayl | Xato | Turi |
-|---|---|---|
-| `js/payments.js:22` | `?.value = ...` — ixtiyoriy zanjir chap tomonda | **Sintaksis** — fayl umuman yuklanmaydi |
-| `js/promo.js:169` | `import` lar kod OXIRIGA yopishgan, `API` ikki marta e'lon | **Sintaksis** — fayl umuman yuklanmaydi |
-| `js/modules/admin.js:422` | `formatTime` import qilinmagan (`formatMoney/formatDate/formatDateTime` bor) | `no-undef` — `showAlert` bilan bir sinf |
+| Fayl | Xato | Turi | Holat |
+|---|---|---|---|
+| `js/payments.js:22` | `?.value = ...` — ixtiyoriy zanjir chap tomonda | **Sintaksis** — fayl umuman yuklanmaydi | ✅ tuzatildi |
+| `js/promo.js:169` | fayl IKKI MARTA nusxalangan, `API` ikki marta e'lon | **Sintaksis** — fayl umuman yuklanmaydi | ✅ tuzatildi |
+| `js/modules/admin.js:422` | `formatTime` import qilinmagan | `no-undef` — `showAlert` bilan bir sinf | ✅ fayl o'chirildi (o'lik kod) |
 
-Yo'l-yo'lakay: `js/modules/admin.js` import yo'llari `'../../core/api.js'`
-(ya'ni `frontend/core/...`) — bunday papka yo'q. Fayl faqat service-worker
-ro'yxatida uchraydi, ya'ni **o'lik/legacy** bo'lishi mumkin. Tuzatishdan oldin
-shu aniqlansin.
+`js/modules/admin.js` — **o'lik kod** ekani tasdiqlandi va fayl o'chirildi:
+hech bir HTML uni yuklamasdi, hech bir JS import qilmasdi (yagona havola —
+service-worker keshlash ro'yxati); 6 ta import yo'lining hammasi mavjud
+bo'lmagan papkaga qarardi (`'../../core/api.js'` -> `frontend/core/...`);
+oxirgi o'zgarish 2026-07-09, jonli admin kodi esa `js/admin/*.js`
+(2026-08-16). `CHANGELOG` v1.8.2 auditi ham uni o'lik deb belgilagan edi.
+Shu sabab `formatTime` ni qo'shish ma'nosiz bo'lardi — u faylni tiriltirmasdi.
 
 Boshlang'ich skaner 538 ta bergan edi; 535 tasi **konfiguratsiya teshigi** edi
 (classic `<script src>` to'plamining fayllararo global'lari, Playwright

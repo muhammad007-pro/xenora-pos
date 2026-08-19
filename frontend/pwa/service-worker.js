@@ -56,7 +56,10 @@ const STATIC_ASSETS = [
     '/js/main.js',
     '/js/modules/pos.js',
     '/js/modules/kitchen.js',
-    '/js/modules/admin.js',
+    // '/js/modules/admin.js' — O'CHIRILDI (o'lik kod). Uni hech bir sahifa
+    // yuklamasdi va importlari mavjud bo'lmagan papkalarga qarardi. Ro'yxatda
+    // qolsa `cache.addAll` 404 da REJECT bo'lib, SW o'rnatilishi butunlay
+    // yiqilardi — ya'ni offline rejim ishlamay qolardi.
     '/js/modules/barcode.js',
     '/js/modules/camera-scanner.js',
     '/js/ui/toast.js',

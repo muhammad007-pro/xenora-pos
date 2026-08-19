@@ -1,7 +1,55 @@
-# Frontend lint — ta'riflanmagan funksiya chaqiruvlari (keyingi build)
+# Frontend lint — ta'riflanmagan funksiya chaqiruvlari
 
-Holat: **rejalashtirilgan, hali qilinmagan.** Build oldida vaqt yo'q edi
-(2026-08-18 qarori), keyingi buildga qoldirildi.
+Holat: **BAJARILDI** (2026-08-19, branch `chore/eslint-setup`) — sozlama va
+skaner tayyor. Topilgan xatolar HALI TUZATILMAGAN (qaror keyin).
+
+## Natija (birinchi to'liq skaner, 2026-08-19)
+
+`npm run lint` → **3 ta haqiqiy xato** (75 fayl):
+
+| Fayl | Xato | Turi |
+|---|---|---|
+| `js/payments.js:22` | `?.value = ...` — ixtiyoriy zanjir chap tomonda | **Sintaksis** — fayl umuman yuklanmaydi |
+| `js/promo.js:169` | `import` lar kod OXIRIGA yopishgan, `API` ikki marta e'lon | **Sintaksis** — fayl umuman yuklanmaydi |
+| `js/modules/admin.js:422` | `formatTime` import qilinmagan (`formatMoney/formatDate/formatDateTime` bor) | `no-undef` — `showAlert` bilan bir sinf |
+
+Yo'l-yo'lakay: `js/modules/admin.js` import yo'llari `'../../core/api.js'`
+(ya'ni `frontend/core/...`) — bunday papka yo'q. Fayl faqat service-worker
+ro'yxatida uchraydi, ya'ni **o'lik/legacy** bo'lishi mumkin. Tuzatishdan oldin
+shu aniqlansin.
+
+Boshlang'ich skaner 538 ta bergan edi; 535 tasi **konfiguratsiya teshigi** edi
+(classic `<script src>` to'plamining fayllararo global'lari, Playwright
+testlaridagi `page.evaluate` brauzer kodi, `Chart`). Sozlama tuzatilgach faqat
+haqiqiylari qoldi — roadmapdagi "shovqin bo'lsa hech kim ishlatmaydi" sharti
+bajarildi.
+
+## Isbot: `showAlert` ushlanadimi?
+
+`8cf8b14` dan OLDINGI `store.js` ni shu sozlama bilan tekshirdik:
+
+```
+$ git show 8cf8b14^:frontend/js/admin/store.js | npx eslint --stdin \
+    --stdin-filename frontend/js/admin/store.js
+  546:17  error  'showAlert' is not defined  no-undef
+  ... (12 ta)
+```
+
+Ya'ni bu qo'riqchi o'rnatilgan bo'lsa, nasiya 7 kun buzuq turmasdi.
+
+## Qaysi xato sinfini USHLAYDI, qaysinisini YO'Q
+
+| Holat | Ushlanadimi | Nima bilan |
+|---|---|---|
+| `showAlert is not defined` (nom hech qayerda yo'q) | ✅ HA | `no-undef` (12 ta belgilandi) |
+| `quickSellAdd is not defined` (modul funksiyasi, inline `onclick`) | ❌ YO'Q | Chaqiruv **satr ichida** (`\`<button onclick="...">\``) — ESLint uni kod deb ko'rmaydi. Buni mavjud `tests/test_module_inline_onclick.js` ushlaydi |
+| `js/core/toast.js` fayli yo'q edi (4 sahifa import qiladi) | ❌ YO'Q | Import yo'lini tekshirish yadro ESLintda yo'q (`eslint-plugin-import` + HTML linting kerak); importlar HTML ichida edi |
+| `features.has(...)` — metod nomi noto'g'ri (`isEnabled`) | ❌ YO'Q | Bu **tur** xatosi, doira xatosi emas — JSDoc/TS `checkJs` kerak |
+| `res.items` / `res.id` — API shartnomasi | ❌ YO'Q | Xuddi shu sabab (roadmapda ilgari ham yozilgan) — shartnoma testi yoki JSDoc/TS |
+
+Xulosa: `no-undef` 5 holatning **1 tasini** ushlaydi, ammo aynan o'sha eng
+uzoq yashiringani (7 kun) edi. Qolgan 4 tasi uchun keyingi qatlamlar kerak
+(pastdagi ro'yxat).
 
 ## Nima uchun
 

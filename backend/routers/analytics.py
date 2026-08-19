@@ -1356,6 +1356,18 @@ async def get_store_dashboard(
         Order.created_at >= today_start,
         Order.status == "completed",
     ).all()
+    # ⚠️ NOM ANIQLIGI (2026-08-19): `today_revenue` — bu ACCRUAL SOTUV, ya'ni
+    # BUGUN SOTILGAN tovar summasi. Nasiyaga berilgan tovar ham shu yerda
+    # (sotuv sodir bo'lgan, pul esa hali kelmagan).
+    #
+    # Bu "kassaga tushgan pul" EMAS — quyida ilgari shunday deb yozilgan edi va
+    # o'sha izoh chalg'ituvchi edi. Kassaga tushgan pul boshqa endpointda:
+    # `/analytics/dashboard` (`total_cash_in`, `utils/cashflow.py`).
+    #
+    # Shu sababli nasiya qarzi to'lovlari BU YERGA QO'SHILMAYDI — qo'shilsa
+    # sotuv ikki marta hisoblanardi (tovar sotilgan kunda bir marta, qarz
+    # to'langan kunda yana bir marta). 2026-08 auditidagi vozvrat xatosining
+    # aynan takrori bo'lardi.
     today_revenue = sum(o.final_amount or 0 for o in today_orders)
 
     # 2. Bugungi foyda (tan narx bo'yicha)
@@ -1378,8 +1390,9 @@ async def get_store_dashboard(
             today_cost += (prod.cost_price or 0) * float(ti.qty or 0)
     # TUZATISH: foyda `final_amount` dan EMAS — u soliq va xizmat haqini ham
     # o'z ichiga oladi (restoran rejimida 12% + 10%), ular mahsulot daromadi emas.
-    # Mahsulot sof tushumidan hisoblanadi. `today_revenue` (kassaga tushgan pul)
-    # ko'rsatkich sifatida o'z holicha qoladi.
+    # Mahsulot sof tushumidan hisoblanadi. `today_revenue` (ACCRUAL SOTUV —
+    # yuqoridagi izohga qara, "kassaga tushgan pul" EMAS) ko'rsatkich sifatida
+    # o'z holicha qoladi.
     today_net_revenue = sum(float(ti.rev or 0) for ti in today_item_rows)
     today_profit = today_net_revenue - today_cost
 

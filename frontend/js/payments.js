@@ -19,8 +19,15 @@ class PaymentsModule {
     
     setupEventListeners() {
         document.getElementById('filterBtn')?.addEventListener('click', () => this.loadPayments());
-        document.getElementById('dateFrom')?.value = this.getDefaultDate();
-        document.getElementById('dateTo')?.value = this.getDefaultDate();
+        // ⚠️ Ilgari bu yerda `document.getElementById('dateFrom')?.value = ...` turardi.
+        // Ixtiyoriy zanjir (`?.`) tenglikning CHAP tomonida bo'lishi mumkin emas —
+        // bu SINTAKSIS xatosi, ya'ni butun modul parse bo'lmasdi va `payments.html`
+        // da HECH NARSA ishlamasdi (sahifa ofitsiant oqimidan ochiladi:
+        // js/waiter.js -> `payments.html?order=...`).
+        const dateFrom = document.getElementById('dateFrom');
+        const dateTo   = document.getElementById('dateTo');
+        if (dateFrom) dateFrom.value = this.getDefaultDate();
+        if (dateTo)   dateTo.value   = this.getDefaultDate();
     }
     
     getDefaultDate() {

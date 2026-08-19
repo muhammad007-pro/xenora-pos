@@ -36,7 +36,7 @@ from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak. Avval
 # OrderItem.total_price (katalog summasi) olinardi → foyda chegirma summasiga
 # teng miqdorda oshiq chiqardi. Formula/taqsimlash izohi: utils/revenue.py
-from utils.revenue import net_revenue_expr, order_subtotal_subq
+from utils.revenue import net_revenue_expr, order_subtotal_subq, returns_totals
 
 router = APIRouter()
 
@@ -199,10 +199,17 @@ def _product_summary(db: Session, current_user: User, start: date, end: date) ->
         )
         .one()
     )
+    # QAYTARISH (Return) — yagona manbadan ayiriladi (utils/revenue.py).
+    # Ilgari umuman ayirilmasdi: tovar qaytsa ham foyda o'sha sotuvdan
+    # olingandek qolaverardi. Sana — QAYTARILGAN sana (sotuv sanasi emas).
+    ret = returns_totals(db, current_user, start, end)
     return {
-        "revenue": float(row.revenue or 0),
-        "cost": float(row.cost or 0),
+        "revenue": round(float(row.revenue or 0) - ret["revenue"], 2),
+        "cost": round(float(row.cost or 0) - ret["cost"], 2),
         "orders_count": int(row.orders or 0),
+        "returns_revenue": ret["revenue"],
+        "returns_cost": ret["cost"],
+        "returns_count": ret["count"],
     }
 
 

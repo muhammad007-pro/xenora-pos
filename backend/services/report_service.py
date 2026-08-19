@@ -7,7 +7,10 @@ import os
 from models import (Order, OrderItem, Payment, Product, Category, User, Shift,
                     Customer, Inventory)
 # Chegirma AYIRILGAN daromad — yagona manba (izohli formula shu faylda).
-from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq
+from utils.revenue import (
+    cost_expr, net_revenue_expr, order_subtotal_subq,
+    returns_by_day, returns_totals,
+)
 
 
 class ReportService:
@@ -96,8 +99,13 @@ class ReportService:
             q = q.filter(Order.branch_id == branch_id)
         daily = q.group_by(func.date(Order.created_at)).order_by('d').all()
 
-        total_revenue = sum(float(d.revenue or 0) for d in daily)
-        total_cost = sum(float(d.cost or 0) for d in daily)
+        # QAYTARISH (Return) — yagona manbadan (utils/revenue.py), QAYTARILGAN
+        # sana bo'yicha. Ilgari foyda hisobotidan umuman ayirilmasdi.
+        ret_days = returns_by_day(self.db, current_user, date_from, date_to)
+        ret_tot  = returns_totals(self.db, current_user, date_from, date_to)
+
+        total_revenue = sum(float(d.revenue or 0) for d in daily) - ret_tot["revenue"]
+        total_cost = sum(float(d.cost or 0) for d in daily) - ret_tot["cost"]
         total_profit = total_revenue - total_cost
         margin = (total_profit / total_revenue * 100) if total_revenue else 0
 
@@ -130,16 +138,23 @@ class ReportService:
             "total_cost": total_cost,
             "total_profit": total_profit,
             "margin_pct": round(margin, 1),
+            # KUNLIK qatorlar ham qaytarish AYIRILGAN holda (jami bilan izchil).
+            # Vozvrat o'zi QAYTARILGAN kunga tushadi — sotuv kuniga emas.
             "daily": [
                 {
                     "date": str(d.d),
-                    "revenue": float(d.revenue or 0),
-                    "cost": float(d.cost or 0),
-                    "profit": float(d.revenue or 0) - float(d.cost or 0),
-                    "orders": d.orders
+                    "revenue": round(float(d.revenue or 0) - ret_days.get(str(d.d), {}).get("revenue", 0.0), 2),
+                    "cost": round(float(d.cost or 0) - ret_days.get(str(d.d), {}).get("cost", 0.0), 2),
+                    "profit": round(
+                        (float(d.revenue or 0) - ret_days.get(str(d.d), {}).get("revenue", 0.0))
+                        - (float(d.cost or 0) - ret_days.get(str(d.d), {}).get("cost", 0.0)), 2),
+                    "orders": d.orders,
+                    "returns": round(ret_days.get(str(d.d), {}).get("revenue", 0.0), 2),
                 }
                 for d in daily
             ],
+            "returns_total": ret_tot["revenue"],
+            "returns_count": ret_tot["count"],
             "top_products": [
                 {
                     "name": p.name,

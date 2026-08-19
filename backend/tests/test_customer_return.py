@@ -271,5 +271,86 @@ def test_buyurtmasiz_naqd_vozvrat_qulamaydi(db):
     assert _inv(db) == 11
 
 
+# ── BOSQICH B: FOYDA HISOBOTI ───────────────────────────────────────────────
+def _totals(db, start, end):
+    from utils.revenue import returns_totals
+    return returns_totals(db, _User(), start, end)
+
+
+def test_GOLDEN_vozvrat_foydadan_ayriladi(db):
+    """MIJOZ MISOLI (egasi bergan raqamlar):
+        Sotuv   2 × 45 000 = 90 000, tannarx 2 × 30 000 = 60 000  -> foyda 30 000
+        Vozvrat 1 × 45 000 (tannarx 30 000)
+        Kutiladi: sof tushum 45 000, foyda 15 000, ombor +1
+    Ilgari vozvrat foydadan UMUMAN ayirilmasdi -> foyda 30 000 bo'lib qolaverardi.
+    """
+    from datetime import timedelta
+    import routers.profit as profit_router
+
+    _sale(db)                       # 90 000 / tannarx 60 000
+    r = _make_return(db, "cash")    # 1 dona qaytdi
+    _approve(db, r.id)
+
+    bugun = datetime.now().date()
+    ret = _totals(db, bugun - timedelta(days=1), bugun + timedelta(days=1))
+    assert ret["revenue"] == 45000
+    assert ret["cost"] == 30000
+    assert ret["count"] == 1
+
+    summary = profit_router._product_summary(
+        db, _User(), bugun - timedelta(days=1), bugun + timedelta(days=1))
+    assert summary["revenue"] == 45000                     # 90 000 - 45 000
+    assert summary["cost"] == 30000                        # 60 000 - 30 000
+    assert summary["revenue"] - summary["cost"] == 15000   # FOYDA
+    assert _inv(db) == 11
+
+
+def test_REGRESSIYA_vozvratsiz_sotuv_ozgarmaydi(db):
+    """Vozvrat yo'q bo'lsa raqamlar AVVALGIDEK."""
+    from datetime import timedelta
+    import routers.profit as profit_router
+
+    _sale(db)
+    bugun = datetime.now().date()
+    summary = profit_router._product_summary(
+        db, _User(), bugun - timedelta(days=1), bugun + timedelta(days=1))
+
+    assert summary["revenue"] == 90000
+    assert summary["cost"] == 60000
+    assert summary["revenue"] - summary["cost"] == 30000
+    assert summary["returns_revenue"] == 0
+
+
+def test_vozvrat_QAYTARILGAN_sanaga_yoziladi(db):
+    """Yopilgan davr hisoboti ORQAGA o'zgarmasin: vozvrat sotuv sanasiga emas,
+    tasdiqlangan sanaga tushadi."""
+    from datetime import timedelta
+    _sale(db)
+    r = _make_return(db, "cash")
+    _approve(db, r.id)
+
+    # Sotuv sanasi (kecha) oralig'ida vozvrat KO'RINMAYDI
+    kecha = datetime.now().date() - timedelta(days=1)
+    eski = _totals(db, kecha - timedelta(days=1), kecha)
+    assert eski["revenue"] == 0
+
+    # Bugungi oraliqda esa bor
+    bugun = datetime.now().date()
+    yangi = _totals(db, bugun - timedelta(hours=1), bugun + timedelta(days=1))
+    assert yangi["revenue"] == 45000
+
+
+def test_tasdiqlanmagan_vozvrat_hisobga_kirmaydi(db):
+    """`pending` vozvrat foydaga ta'sir qilmaydi (ombor ham tiklanmagan)."""
+    from datetime import timedelta
+    _sale(db)
+    _make_return(db, "cash")        # tasdiqlanmadi
+
+    bugun = datetime.now().date()
+    ret = _totals(db, bugun - timedelta(days=1), bugun + timedelta(days=1))
+    assert ret["revenue"] == 0
+    assert _inv(db) == 10
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

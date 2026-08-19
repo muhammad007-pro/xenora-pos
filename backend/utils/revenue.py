@@ -43,12 +43,13 @@ mahsulotning bugungi `cost_price` ga tushadi. Ilgari ba'zi hisobotlar to'g'ridan
      u to'lov (Payment) summasini kamaytiradi, buyurtmani emas. Ball ishlatilgan
      sotuvlarda daromad hamon ozgina oshiq ko'rinadi. Mavjud xato, bu tuzatishdan
      mustaqil.
-  2) Qaytarish (Return): foyda hisobotlaridan ayirilmaydi.
+  2) Qaytarish (Return): TUZATILDI — pastdagi `returns_totals()` bilan
+     foyda hisobotlaridan ayiriladi (qaytarilgan SANA bo'yicha).
 Ikkalasi ham SHU tuzatish doirasidan tashqarida — ataylab tegilmadi.
 """
 from sqlalchemy import case, func, select
 
-from models import Order, OrderItem, Product
+from models import Order, OrderItem, Product, Return, ReturnItem
 
 
 def order_subtotal_subq():
@@ -98,3 +99,104 @@ def cost_expr():
         Product.cost_price,
         0.0,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QAYTARISH (Return) — foyda hisobotidan ayirish. YAGONA MANBA.
+#
+# MUAMMO (audit): mijoz tovarni qaytarsa ombor tiklanardi va Z-hisobotda
+# ko'rinardi, LEKIN foyda hisobotlari o'zgarmasdi — sotuv qaytarilgan bo'lsa ham
+# foyda o'sha sotuvdan olingandek qolaverardi. `supplier_debt.py` dagi B4 bilan
+# bir xil sinf: bitta ko'rsatkich ikki xil haqiqatni aytardi.
+#
+# QOIDA 1 — SANA: vozvrat SOTUV sanasiga emas, QAYTARILGAN sanaga yoziladi.
+#   Aks holda yopilgan davr hisoboti ORQAGA o'zgarardi (kecha topshirilgan
+#   hisobot bugun boshqa raqam ko'rsatardi).
+# QOIDA 2 — FAQAT `approved`: kutilayotgan (pending) yoki rad etilgan vozvrat
+#   hisobga olinmaydi (ombor ham o'shanda tiklanadi).
+# QOIDA 3 — TAN NARX: sotuv paytidagi snapshot (`OrderItem.unit_cost`) ustun,
+#   u yo'q bo'lsa mahsulotning bugungi `cost_price` (cost_expr bilan bir xil
+#   mantiq) — foyda ikkala tomondan izchil hisoblansin.
+# ═══════════════════════════════════════════════════════════════════════════
+
+RETURN_COUNTED_STATUSES = ("approved",)
+
+
+def return_date_expr():
+    """Vozvratning HISOBOT SANASI — tasdiqlangan sana, bo'lmasa yaratilgan."""
+    return func.coalesce(Return.approved_at, Return.created_at)
+
+
+def returns_totals(db, current_user, start, end) -> dict:
+    """Davr ichida QAYTARILGAN tushum va tan narx.
+
+    Qaytadi: {"revenue": float, "cost": float, "count": int}
+    Uchala iste'molchi (profit.py, report_service.py, analytics.py) SHU
+    funksiyani chaqiradi — har biri o'z formulasini yozmaydi.
+    """
+    from deps import apply_tenant_filter
+
+    dt = return_date_expr()
+    cost = func.coalesce(
+        func.nullif(OrderItem.unit_cost, 0.0),
+        Product.cost_price,
+        0.0,
+    )
+    q = (
+        db.query(
+            func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
+            func.coalesce(
+                func.sum(func.coalesce(ReturnItem.base_qty, ReturnItem.quantity) * cost), 0.0
+            ).label("cost"),
+            func.count(func.distinct(Return.id)).label("cnt"),
+        )
+        .select_from(ReturnItem)
+        .join(Return, Return.id == ReturnItem.return_id)
+        .outerjoin(OrderItem, OrderItem.id == ReturnItem.order_item_id)
+        .outerjoin(Product, Product.id == ReturnItem.product_id)
+        .filter(Return.status.in_(RETURN_COUNTED_STATUSES), dt >= start, dt <= end)
+    )
+    if current_user is not None:
+        q = apply_tenant_filter(q, Return, current_user)
+
+    row = q.one()
+    return {
+        "revenue": round(float(row.revenue or 0), 2),
+        "cost":    round(float(row.cost or 0), 2),
+        "count":   int(row.cnt or 0),
+    }
+
+
+def returns_by_day(db, current_user, start, end) -> dict:
+    """Kun kesimida qaytarish: {"YYYY-MM-DD": {"revenue": x, "cost": y}}.
+    Kunlik grafik/jadvalli hisobotlar uchun (report_service)."""
+    from deps import apply_tenant_filter
+
+    dt = return_date_expr()
+    cost = func.coalesce(
+        func.nullif(OrderItem.unit_cost, 0.0),
+        Product.cost_price,
+        0.0,
+    )
+    q = (
+        db.query(
+            func.date(dt).label("d"),
+            func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
+            func.coalesce(
+                func.sum(func.coalesce(ReturnItem.base_qty, ReturnItem.quantity) * cost), 0.0
+            ).label("cost"),
+        )
+        .select_from(ReturnItem)
+        .join(Return, Return.id == ReturnItem.return_id)
+        .outerjoin(OrderItem, OrderItem.id == ReturnItem.order_item_id)
+        .outerjoin(Product, Product.id == ReturnItem.product_id)
+        .filter(Return.status.in_(RETURN_COUNTED_STATUSES), dt >= start, dt <= end)
+        .group_by(func.date(dt))
+    )
+    if current_user is not None:
+        q = apply_tenant_filter(q, Return, current_user)
+
+    return {
+        str(r.d): {"revenue": float(r.revenue or 0), "cost": float(r.cost or 0)}
+        for r in q.all()
+    }

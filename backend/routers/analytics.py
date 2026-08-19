@@ -12,7 +12,7 @@ from core.timeutils import tenant_now, to_local
 from core.tenant_config import get_tenant_config
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak — avval
 # OrderItem.total_price (katalog summasi) olinardi. Izoh/formula: utils/revenue.py
-from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq
+from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq, returns_totals
 
 router = APIRouter()
 
@@ -194,7 +194,14 @@ async def get_dashboard_data(
              .filter(Order.created_at >= s, Order.created_at <= e, Order.status == "completed")
             q = apply_tenant_filter(q, Order, current_user)
             row = q.one()
-            return round(float(row.revenue or 0) - float(row.cost or 0), 0)
+            # QAYTARISH — yagona manbadan (utils/revenue.py). Dashboard'dagi
+            # "Sof foyda" ham profit.py bilan BIR XIL raqam ko'rsatsin: vozvrat
+            # QAYTARILGAN sana bo'yicha ayiriladi.
+            _r = returns_totals(db, current_user, s, e)
+            return round(
+                (float(row.revenue or 0) - _r["revenue"]) - (float(row.cost or 0) - _r["cost"]),
+                0,
+            )
 
         net_profit = _net_profit(start_date, end_date)
         prev_profit = _net_profit(previous_start, previous_end)

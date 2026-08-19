@@ -149,11 +149,40 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
   </div>
 </div>
 
+<!-- Qidiruvli select (classic — window.searchableSelect; modul bloki undan keyin).
+     `defer`: parserni to'sadigan skript modul importlarini osib qo'yishi mumkin. -->
+<script defer src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API } from '../js/core/api.js';
 Sidebar.init();
 const api = new API();
+
+// ⚠️ API SHARTNOMASI: `js/core/api.js` O'RALGAN javob qaytaradi
+// ({success, data, error}) — ma'lumot `res.data` da. Ilgari shu sahifa
+// `prodRes.items` va `branchRes.items || branchRes` o'qirdi: birinchisi
+// `undefined` (mahsulot ro'yxati BO'SH), ikkinchisi esa WRAPPER obyektini
+// qaytarib `branches.map is not a function` bilan `init()` ni O'LDIRARDI —
+// ya'ni sahifa umuman ishlamasdi. (suppliers/markup_policy bilan bir xil sinf.)
+const unwrap = (r) => (r && typeof r === 'object' && 'success' in r ? (r.data ?? {}) : (r ?? {}));
+const _rows  = (r) => { const d = unwrap(r); return Array.isArray(d) ? d : (d.items || []); };
+
+// ── Mahsulot select'iga qidiruv (searchable-select, Priyomka naqshi) ────────
+// Boshlang'ich ro'yxat 1000 tagacha; undan oshgani SERVERDAN `?search=` bilan.
+function attachProductSearch(select) {
+  if (!select || typeof window.searchableSelect !== 'function') return;
+  window.searchableSelect(select, {
+    placeholder: 'Mahsulot nomi bilan qidirish...',
+    initial: products,
+    limit: 50,
+    render: (p) => ({ value: p.id, label: p.name, data: { cost: p.cost_price || p.price || 0 } }),
+    search: async (q) => {
+      const found = _rows(await api.get(`/products/?search=${encodeURIComponent(q)}&page_size=50`));
+      found.forEach(p => { if (!products.some(x => x.id === p.id)) products.push(p); });
+      return found;
+    },
+  });
+}
 let products = [];
 let branches  = [];
 let detailId  = null;
@@ -165,11 +194,13 @@ async function init() {
   document.getElementById('filterTo').value   = today;
 
   const [prodRes, branchRes] = await Promise.all([
-    api.get('/products/?page_size=500'),
+    // 500 -> 1000 (endpoint maksimumi): Fazza Parfumda 794 faol mahsulot bor,
+    // ya'ni 294 tasi ro'yxatga UMUMAN tushmasdi. 1000 dan oshgani qidiruvdan.
+    api.get('/products/?page_size=1000'),
     api.get('/branches/?page_size=50'),
   ]);
-  products = prodRes.items || [];
-  branches  = branchRes.items || branchRes || [];
+  products = _rows(prodRes);
+  branches = _rows(branchRes);
 
   const branchOpts = branches.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
   document.getElementById('fFromBranch').insertAdjacentHTML('beforeend', branchOpts);
@@ -187,7 +218,7 @@ window.load = async () => {
   if (f) p.set('date_from', f);
   if (t) p.set('date_to', t);
   const res = await api.get(`/internal-transfers/?${p}`);
-  const rows = res.items || [];
+  const rows = _rows(res);          // o'ralgan javob ({success,data}) — yuqoriga qara
   const tbody = document.getElementById('tableBody');
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Ko\'chirmalar topilmadi</td></tr>';
@@ -209,7 +240,7 @@ window.load = async () => {
 
 window.openDetail = async (id) => {
   detailId = id;
-  const tr = await api.get(`/internal-transfers/${id}`);
+  const tr = unwrap(await api.get(`/internal-transfers/${id}`));   // o'ralgan javob
   document.getElementById('detailTitle').textContent = `Ko'chirma #${tr.id}`;
   document.getElementById('detailContent').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.5rem;align-items:center;margin-bottom:1rem;padding:.75rem;background:var(--surface2);border-radius:.5rem">
@@ -235,7 +266,7 @@ window.openDetail = async (id) => {
 };
 
 window.confirmTransfer = async () => {
-  const res = await api.post(`/internal-transfers/${detailId}/confirm`, {});
+  const res = unwrap(await api.post(`/internal-transfers/${detailId}/confirm`, {}));
   if (res.status === 'confirmed') {
     showToast("Ko'chirma tasdiqlandi, inventory yangilandi", 'success');
     closeDetail(); load();
@@ -244,7 +275,7 @@ window.confirmTransfer = async () => {
 
 window.deleteDraft = async (id) => {
   if (!confirm("Qoralamani o'chirasizmi?")) return;
-  const res = await api.delete(`/internal-transfers/${id}`);
+  const res = unwrap(await api.delete(`/internal-transfers/${id}`));
   if (res.message) { showToast("O'chirildi",'success'); load(); }
   else showToast(res.detail||'Xatolik','error');
 };
@@ -271,6 +302,9 @@ window.addItemRow = () => {
     <div><input type="number" class="inp qty-inp" value="1" min="0.001" step="0.001"></div>
     <div><input type="number" class="inp price-inp" value="0" min="0"></div>
     <div><button type="button" class="btn btn-secondary" style="padding:.35rem .625rem;color:#ef4444" onclick="this.closest('.item-row').remove()">✕</button></div>`;
+  // Qator DINAMIK yasaladi — qidiruv shu yerda ulanadi (Priyomka naqshi).
+  // `sel.value` va `dataset.cost` o'qishlari TEGILMAYDI.
+  attachProductSearch(div.querySelector('.prod-sel'));
   document.getElementById('itemRows').appendChild(div);
   const sel = div.querySelector('.prod-sel');
   const priceInp = div.querySelector('.price-inp');

@@ -403,7 +403,10 @@ let currentDetailId = null;
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 async function load() {
-  const res = await api.get('/customers/?page_size=500').catch(()=>null);
+  // 500 -> 1000 (endpoint maksimumi): mijozlar soni tez o'sadi va 500 dan
+  // keyingi mijoz ro'yxatga UMUMAN tushmasdi — qidiruv ham uni topmasdi,
+  // chunki filtr MAHALLIY (`all` massivi ustidan) ishlaydi.
+  const res = await api.get('/customers/?page_size=1000').catch(()=>null);
   all = res?.items ?? (Array.isArray(res) ? res : res?.data?.items ?? []);
   applyFilter();
   updateStats();

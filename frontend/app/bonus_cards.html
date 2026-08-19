@@ -229,6 +229,9 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
   </div>
 </div>
 
+<!-- Qidiruvli select (classic — window.searchableSelect). `defer`: parserni
+     to'sadigan skript modul importlarini osib qo'yishi mumkin. -->
+<script defer src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API }     from '../js/core/api.js';
@@ -240,12 +243,37 @@ await Sidebar.init();
 let cards = [];
 let customers = [];
 
+// ⚠️ API SHARTNOMASI: `js/core/api.js` O'RALGAN javob qaytaradi
+// ({success, data, error}) — ma'lumot `res.data` da. Ilgari `res.items || res`
+// o'qilardi: `items` yo'q, `res` esa WRAPPER obyekti — natijada
+// `customers.map is not a function` bilan sahifa O'LARDI (mijoz ro'yxati ham,
+// karta ro'yxati ham chiqmasdi). suppliers/markup_policy bilan bir xil sinf.
+const unwrap = (r) => (r && typeof r === 'object' && 'success' in r ? (r.data ?? {}) : (r ?? {}));
+const _rows  = (r) => { const d = unwrap(r); return Array.isArray(d) ? d : (d.items || []); };
+
 async function loadCustomers() {
-  const res = await api.get('/customers/?page_size=500');
-  customers = res.items || res || [];
+  // 500 -> 1000: mijozlar soni tez o'sadi; undan oshgani SERVER qidiruvidan.
+  customers = _rows(await api.get('/customers/?page_size=1000'));
   const sel = document.getElementById('fCustomer');
   sel.innerHTML = '<option value="">— bog\'lash shart emas —</option>' +
     customers.map(c=>`<option value="${c.id}">${c.name}${c.phone?' ('+c.phone+')':''}</option>`).join('');
+  attachCustomerSearch(sel);
+}
+
+// ── Mijoz select'iga qidiruv (dmCustomer naqshi) ───────────────────────────
+function attachCustomerSearch(select) {
+  if (!select || typeof window.searchableSelect !== 'function' || select._ss) return;
+  window.searchableSelect(select, {
+    placeholder: 'Ism yoki telefon bilan qidirish...',
+    initial: customers,
+    limit: 50,
+    render: (c) => ({ value: c.id, label: `${c.name}${c.phone ? ' (' + c.phone + ')' : ''}` }),
+    search: async (q) => {
+      const found = _rows(await api.get(`/customers/?search=${encodeURIComponent(q)}&page_size=50`));
+      found.forEach(c => { if (!customers.some(x => x.id === c.id)) customers.push(c); });
+      return found;
+    },
+  });
 }
 
 window.load = async function() {
@@ -255,7 +283,7 @@ window.load = async function() {
   if (isActive) url += `&is_active=${isActive}`;
   if (search)   url += `&search=${encodeURIComponent(search)}`;
   const res = await api.get(url);
-  cards = res.items || res || [];
+  cards = _rows(res);              // o'ralgan javob ({success,data})
 
   document.getElementById('kpiTotal').textContent   = cards.length;
   document.getElementById('kpiActive').textContent  = cards.filter(c=>c.is_active).length;
@@ -358,7 +386,7 @@ window.openHistory = async function(id, num) {
   document.getElementById('txList').innerHTML = '<div style="text-align:center;padding:1rem">Yuklanmoqda...</div>';
   document.getElementById('modalHistory').classList.add('active');
   const res = await api.get(`/bonus-cards/${id}/transactions?page_size=50`);
-  const txs = res.items || res || [];
+  const txs = _rows(res);          // o'ralgan javob
   const typeLabel = { earn:'To\'plash', spend:'Sarflash', manual:'Qo\'lda', expire:'Muddati o\'tgan' };
   document.getElementById('txList').innerHTML = txs.length === 0
     ? '<div style="text-align:center;padding:1rem;color:var(--text2)">Tranzaksiya yo\'q</div>'

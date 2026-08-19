@@ -228,7 +228,14 @@ async def get_dashboard_data(
         days_left = last_day - now.day
 
     return {
+        # "total_revenue" — ORQAGA MOSLIK uchun saqlangan nom. Ma'nosi:
+        # KASSAGA TUSHGAN PUL (cash-basis) = to'langan sotuvlar + nasiya qarzi
+        # to'lovlari. Bu SOTUV (accrual) ko'rsatkichi EMAS — sotuv/foyda
+        # `utils/revenue.py` va `/analytics/store-dashboard` da.
         "total_revenue": current_data["total_revenue"],
+        "total_cash_in": current_data["total_cash_in"],   # aniq nom
+        "sales_paid":    current_data["sales_paid"],      # shundan sotuv to'lovi
+        "debt_payments": current_data["debt_payments"],   # shundan nasiya to'lovi
         "total_orders": current_data["total_orders"],
         "total_customers": current_data["total_customers"],
         "average_check": current_data["average_check"],

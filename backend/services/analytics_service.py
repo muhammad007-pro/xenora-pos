@@ -24,7 +24,13 @@ class AnalyticsService:
         total_orders = orders_query.count()
         completed_orders = orders_query.filter(Order.status == "completed").count()
 
-        # Daromad
+        # ── KASSAGA TUSHGAN PUL (cash-basis) ────────────────────────────────
+        # DIQQAT: bu ko'rsatkich SOTUV (accrual) EMAS. U faqat HAQIQATAN kelgan
+        # pulni sanaydi: `Payment.status == "paid"`. Nasiyaga berilgan sotuv
+        # bu yerga KIRMAYDI, chunki uning to'lovi `pending` holatda qoladi
+        # (services/payment_service.py) — pul hali kelmagan.
+        # Accrual (sotuv/foyda) tomoni butunlay boshqa manbada:
+        # `utils/revenue.py` + `/analytics/store-dashboard`.
         payments_query = self.db.query(Payment).filter(
             Payment.created_at >= start_date,
             Payment.created_at <= end_date,
@@ -33,7 +39,20 @@ class AnalyticsService:
         if current_user is not None:
             payments_query = apply_tenant_filter(payments_query, Payment, current_user)
 
-        total_revenue = payments_query.with_entities(func.sum(Payment.amount)).scalar() or 0
+        sales_paid = payments_query.with_entities(func.sum(Payment.amount)).scalar() or 0
+
+        # Nasiya qarzi to'lovlari — ilgari HECH QAYERDA ko'rinmasdi. Ular
+        # `Payment` yozuvi yaratmaydi, ya'ni yuqoridagi so'rov ularni ko'rmaydi.
+        # Bu yerga qo'shish IKKI MARTA HISOBLASH EMAS: nasiya sotuvi bu
+        # ko'rsatkichga sotuv kunida umuman kirmagan (to'lovi `pending` edi).
+        debt_paid = 0.0
+        if current_user is not None:
+            from utils.cashflow import debt_payments_totals
+            debt_paid = debt_payments_totals(
+                self.db, current_user, start_date, end_date
+            )["total"]
+
+        total_cash_in = float(sales_paid or 0) + float(debt_paid or 0)
 
         # Mijozlar
         customers_query = self.db.query(Customer).filter(
@@ -44,11 +63,18 @@ class AnalyticsService:
             customers_query = apply_tenant_filter(customers_query, Customer, current_user)
         total_customers = customers_query.count()
         
-        # O'rtacha chek
-        average_check = total_revenue / completed_orders if completed_orders > 0 else 0
-        
+        # O'rtacha chek — FAQAT sotuv qismidan. Qarz to'lovi buyurtma emas,
+        # uni bo'linmaga qo'shsak o'rtacha chek soxta oshib ketardi.
+        average_check = float(sales_paid or 0) / completed_orders if completed_orders > 0 else 0
+
         return {
-            "total_revenue": total_revenue,
+            # Nomi orqaga moslik uchun saqlandi (frontend shu kalitni o'qiydi),
+            # MA'NOSI esa aniq: "kassaga tushgan pul" = sotuv to'lovlari + qarz
+            # to'lovlari. Sotuv (accrual) ko'rsatkichi bu EMAS.
+            "total_revenue": total_cash_in,
+            "total_cash_in": total_cash_in,   # aniq nom — yangi kod shuni o'qisin
+            "sales_paid": float(sales_paid or 0),
+            "debt_payments": float(debt_paid or 0),
             "total_orders": total_orders,
             "total_customers": total_customers,
             "average_check": average_check,

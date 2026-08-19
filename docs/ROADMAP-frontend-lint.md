@@ -54,6 +54,65 @@ Xulosa: `no-undef` 5 holatning **1 tasini** ushlaydi, ammo aynan o'sha eng
 uzoq yashiringani (7 kun) edi. Qolgan 4 tasi uchun keyingi qatlamlar kerak
 (pastdagi ro'yxat).
 
+## ⏸️ KECHIKTIRILGAN: `payments.html` — 3 ta runtime xato
+
+> **Qachon: RESTORAN MIJOZI KELGANDA tuzatiladi.** Hozirgi mijozlar magazin
+> (Fazza Parfum, lux-parfum) — ular POS'dan to'g'ridan-to'g'ri sotadi va bu
+> sahifaga kirmaydi. Sahifa faqat **ofitsiant oqimidan** ochiladi
+> (`js/waiter.js:149` → `payments.html?order=<id>`), ya'ni restoran/kafe
+> funksiyasi.
+
+2026-08-19 Playwright smoke sinovida topildi (sintaksis tuzatilgandan keyin
+sahifa ochiladi va JS xatosi yo'q — quyidagilar **mantiqiy** xatolar, shuning
+uchun ESLint ularni ko'rmaydi).
+
+### 1) Filtr tugmasi ma'lumotni yuklaydi, lekin EKRANNI YANGILAMAYDI
+
+**`frontend/js/payments.js:21`**
+```js
+document.getElementById('filterBtn')?.addEventListener('click', () => this.loadPayments());
+```
+`loadPayments()` faqat `this.payments` ni to'ldiradi. `renderPayments()` (49-qator)
+va `updateSummary()` (69-qator) chaqirilmaydi — ular faqat `init()` (13-qator)
+ichida ishlaydi.
+
+Isbot: mock server `date_from=2026-08-01` da 1 ta yozuv qaytardi; so'rov ketdi,
+javob keldi, ammo jadval **3 qatorda**, jami **195 000 da** qotib qoldi.
+Foydalanuvchi uchun filtr **umuman ishlamaydi** va xato xabari ham chiqmaydi.
+
+Yechim (taxminiy): ishlovchi `async () => { await this.loadPayments();
+this.renderPayments(); this.updateSummary(); }` bo'lsin.
+
+### 2) 🖨️ tugmasi bosilsa TypeError
+
+**`frontend/js/payments.js:61`** — har qatorda
+`onclick="window.printReceipt(${p.id})"`, ammo `window.printReceipt` butun
+loyihada **ta'riflanmagan** (sinovda `typeof` → `undefined`). Mavjud chop etish
+yordamchilari boshqa nomda: `window.printReceiptDoc` (`app/admin.html:3594`) va
+`printReceiptHTML` (`js/core/receipt-print.js`).
+
+`quickSellAdd` bilan bir sinf, lekin chaqiruv **satr ichida** bo'lgani uchun
+`no-undef` ko'rmaydi.
+
+### 3) `?order=` parametri E'TIBORGA OLINMAYDI
+
+`js/waiter.js:149` sahifani `payments.html?order=<id>` bilan ochadi, ammo
+**`frontend/js/payments.js` bu parametrni hech qayerda o'qimaydi**
+(`location.search` / `URLSearchParams` yo'q). Natijada ofitsiant bitta
+buyurtmaning to'lovini emas, **hamma to'lovlar ro'yxatini** ko'radi.
+
+Backend tayyor: `GET /api/v1/payments/` da `order_id` filtri bor
+(`backend/routers/payment.py:59`). Ya'ni faqat frontend uzatmayapti —
+`loadPayments()` (37-qator) `params` ga `order_id` qo'shsa yetadi.
+
+### Sinovdan o'tgan holat (bular ISHLAYDI, qayta tekshirish shart emas)
+
+`payments.html`: sahifa ochiladi, `pageerror`/konsol toza, 3 qator chiziladi,
+`dateFrom`/`dateTo` avtomatik to'ladi, yig'indilar (jami/naqd/karta/online)
+to'g'ri. `promo.html`: to'liq ishlaydi — `/discounts` chaqiriladi, kartalar
+chiziladi, "Yangi promo" modali ochiladi, maydon nomlari `DiscountInDB`
+(`backend/schemas.py:700`) bilan mos.
+
 ## Nima uchun
 
 Bir xil sinfdagi xato mijozda **ikki marta** jonli chiqdi:

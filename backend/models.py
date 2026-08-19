@@ -1321,10 +1321,14 @@ class Return(Base):
     #         wrong_item=noto'g'ri tovar, other=boshqa
     reason           = Column(String(50), default="other", nullable=False)
     total_amount     = Column(Float, default=0.0)
-    # refund_method: cash=naqd, card=karta, credit=balansdaga, exchange=almashtirish
+    # refund_method: cash=naqd, card=karta, credit=balansdaga
+    # BOSQICH D: `exchange` (almashtirish) olib tashlandi — `ReturnCreate` uni rad
+    # etadi (pul harakati yo'q edi, jimgina "tasdiqlangan" vozvrat qolardi).
     refund_method    = Column(String(20), default="cash", nullable=False)
     # status: pending=kutilmoqda, approved=tasdiqlandi, rejected=rad etildi
     status           = Column(String(20), default="pending", index=True)
+    # ESKIRGAN (BOSQICH D): almashtirish olib tashlangach ishlatilmaydi. Ustun
+    # BAZADA QOLADI (migratsiya yo'q) — hech qayerda yozilmaydi/o'qilmaydi.
     exchange_order_id = Column(Integer, ForeignKey("orders.id"),  nullable=True)
     notes            = Column(Text, nullable=True)
     user_id          = Column(Integer, ForeignKey("users.id"),    nullable=True)

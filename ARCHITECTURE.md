@@ -203,7 +203,7 @@ Ikki daraja — **tenant-scoped** (do'kon egasi, izolyatsiyalangan) va **server*
 | Tier | Misol flaglar |
 |---|---|
 | **FREE** | `inventory`, `barcode`, `multi_barcode`, `cash_register`, `z_report`, `receipt_settings`, `returns`, `quick_sell`, `loyalty`, `kitchen_display`, `table_management`, `qr_menu`, `modifiers`, `happy_hour`, `recipe`, dorixona/salon flaglari |
-| **PRO** | `wholesale_pricing`, `departments`, `supplier_accounting`, `supplier_card`, `purchase_receipt`, `supplier_debt`, `supplier_return`, `write_off`, `goods_regrade`, `customer_return_ext`, `internal_transfer`, `markup_policy`, `bonus_card`, `markirovka`, `abc_analysis`, `auto_reorder`, `turnover_analysis`, `peak_hours`, `loss_report` |
+| **PRO** | `wholesale_pricing`, `departments`, `supplier_accounting`, `supplier_card`, `purchase_receipt`, `supplier_debt`, `supplier_return`, `write_off`, `goods_regrade`, `internal_transfer`, `markup_policy`, `bonus_card`, `markirovka`, `abc_analysis`, `auto_reorder`, `turnover_analysis`, `peak_hours`, `loss_report` |
 
 **Frontend ↔ backend mosligi:** `frontend/js/core/features.js` (`features.has(...)`) backend `resolve_enabled_features` bilan bir xil enum/mantiqdan foydalanadi; `/cafes/my/features` orqali yuklab, localStorage'da keshlaydi. `FEATURE_MATRIX` (offline/fallback default) backend bilan **sinxron** — supplier PRO flaglar retail/pharmacy default'idan olib tashlangan (monetizatsiya teshigi yopildi).
 

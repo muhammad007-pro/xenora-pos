@@ -96,7 +96,7 @@ const FLAG_LABELS = {
   write_off:'Utilizatsiya/spisaniye',goods_regrade:'Peresort',markup_policy:'Naценка siyosati',
   bonus_card:'Bonus karta',abc_analysis:'ABC tahlil',auto_reorder:'Avto-zakaz',
   turnover_analysis:'Oborot tahlili',peak_hours:'Peak soatlar',loss_report:'Zarar hisoboti',
-  customer_return_ext:'Kengaytirilgan vozvrat',internal_transfer:'Ichki ko\'chirish',markirovka:'Asl belgisi',
+  internal_transfer:'Ichki ko\'chirish',markirovka:'Asl belgisi',
 };
 
 let _settingsData = null;

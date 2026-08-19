@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, validator, computed_field
+from pydantic import BaseModel, EmailStr, Field, validator, field_validator, computed_field
 from typing import Optional, List, Any, Dict
 from datetime import datetime, date
 from enum import Enum
@@ -1173,13 +1173,36 @@ class ReturnItemCreate(BaseModel):
     unit_price: float = Field(gt=0)
     restore_to_inventory: bool = True
 
+# BOSQICH D: `exchange` (almashtirish) OLIB TASHLANDI. Sabab: pul harakati
+# (`returns._refund_money`) faqat cash/card/credit ni biladi — `exchange` kelsa
+# JIMGINA hech narsa qilmasdi: pul ham qaytmasdi, qarz ham kamaymasdi, ammo
+# vozvrat "tasdiqlangan" bo'lib turaverardi. Almashtirish alohida ish sifatida
+# (yangi buyurtma + vozvrat) keyinchalik qilinadi.
+REFUND_METHODS = ("cash", "card", "credit")
+
+
 class ReturnCreate(BaseModel):
     order_id: Optional[int] = None
     customer_id: Optional[int] = None
     reason: str = "other"       # broken|dislike|expired|wrong_item|other
-    refund_method: str = "cash" # cash|card|credit|exchange
+    refund_method: str = "cash" # cash|card|credit
     notes: Optional[str] = None
     items: List[ReturnItemCreate]
+
+    @field_validator("refund_method")
+    @classmethod
+    def _check_refund_method(cls, v: str) -> str:
+        m = (v or "").strip().lower()
+        if m == "exchange":
+            raise ValueError(
+                "Almashtirish (exchange) qo'llab-quvvatlanmaydi — pul harakati "
+                "bo'lmagani uchun olib tashlandi. Naqd/karta/balansga tanlang."
+            )
+        if m not in REFUND_METHODS:
+            raise ValueError(
+                f"Noma'lum qaytarish usuli: {v!r}. Ruxsat: {', '.join(REFUND_METHODS)}"
+            )
+        return m
 
 class ReturnItemInDB(BaseModel):
     id: int

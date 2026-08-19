@@ -164,7 +164,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <option value="cash">Naqd pul</option>
           <option value="card">Karta</option>
           <option value="credit">Balansga</option>
-          <option value="exchange">Almashtirish</option>
+          <!-- BOSQICH D: "Almashtirish" OLIB TASHLANDI — bu usulda pul harakati
+               umuman bo'lmasdi (pul qaytmasdi, qarz kamaymasdi), lekin vozvrat
+               tasdiqlangan bo'lib turaverardi. Backend ham endi rad etadi. -->
         </select>
       </div>
     </div>
@@ -247,7 +249,10 @@ const REASON_LABELS = {
   wrong_item: "Noto'g'ri tovar", other: "Boshqa"
 };
 const REFUND_LABELS = {
-  cash: 'Naqd', card: 'Karta', credit: 'Balansga', exchange: 'Almashtirish'
+  // `exchange` YORLIG'I qoldirildi (yangi yozuvda uchramaydi — BOSQICH D da
+  // kiritishdan olib tashlangan), aks holda eski yozuv jadvalda xom "exchange"
+  // bo'lib ko'rinardi.
+  cash: 'Naqd', card: 'Karta', credit: 'Balansga', exchange: 'Almashtirish (eskirgan)'
 };
 
 async function init() {

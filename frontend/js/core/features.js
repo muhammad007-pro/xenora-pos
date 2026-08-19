@@ -91,7 +91,6 @@ export const Feature = Object.freeze({
     // BOSQICH 25: Tovar harakati va hisobdan chiqarish
     WRITE_OFF:            'write_off',
     GOODS_REGRADE:        'goods_regrade',
-    CUSTOMER_RETURN_EXT:  'customer_return_ext',
     INTERNAL_TRANSFER:    'internal_transfer',
     LOSS_REPORT:          'loss_report',
     // BOSQICH 26: Narx, Aksiya va Markirovka
@@ -131,7 +130,7 @@ const FEATURE_MATRIX = {
         // BOSQICH 24: Firma (FREE) — supplier_accounting PRO qoladi (backend bilan mos)
         Feature.SUPPLIER_CARD, Feature.PURCHASE_RECEIPT, Feature.SUPPLIER_DEBT, Feature.SUPPLIER_RETURN,
         // BOSQICH 25: Tovar harakati
-        Feature.WRITE_OFF, Feature.GOODS_REGRADE, Feature.CUSTOMER_RETURN_EXT,
+        Feature.WRITE_OFF, Feature.GOODS_REGRADE,
         Feature.INTERNAL_TRANSFER, Feature.LOSS_REPORT,
         // BOSQICH 26: Narx, Aksiya va Markirovka
         Feature.MARKUP_POLICY, Feature.BONUS_CARD, Feature.MARKIROVKA,
@@ -145,7 +144,7 @@ const FEATURE_MATRIX = {
         // BOSQICH 24: Firma (FREE) — supplier_accounting PRO qoladi (backend bilan mos)
         Feature.SUPPLIER_CARD, Feature.PURCHASE_RECEIPT, Feature.SUPPLIER_DEBT, Feature.SUPPLIER_RETURN,
         // BOSQICH 25: Tovar harakati
-        Feature.WRITE_OFF, Feature.GOODS_REGRADE, Feature.CUSTOMER_RETURN_EXT,
+        Feature.WRITE_OFF, Feature.GOODS_REGRADE,
         Feature.INTERNAL_TRANSFER, Feature.LOSS_REPORT,
         // BOSQICH 26: Narx, Aksiya va Markirovka
         Feature.MARKUP_POLICY, Feature.BONUS_CARD, Feature.MARKIROVKA,

@@ -243,7 +243,9 @@ def _refund_money(db: Session, ret: Return, current_user) -> dict:
     `refund_method` shunchaki YORLIQ bo'lib qolardi: naqd/karta qaytarishning
     izi yo'q, nasiyaga olgan mijozning QARZI ham kamaymasdi.
 
-    Uch xil usul (`exchange` UI'dan olib qo'yilgan — alohida kelajakdagi ish):
+    Uch xil usul (`exchange` BOSQICH D da butunlay olib tashlandi: UI'da ham yo'q,
+    `ReturnCreate` ham uni rad etadi — aks holda pul harakatisiz "tasdiqlangan"
+    vozvrat qolardi; almashtirish alohida kelajakdagi ish):
       cash/card -> mavjud `payment_service.refund_payment()` QAYTA ISHLATILADI
                    (manfiy Payment + status="refunded"). Yangi mexanizm o'ylab
                    topilmaydi — aks holda ikki xil formula paydo bo'lardi.

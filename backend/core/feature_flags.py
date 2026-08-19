@@ -102,7 +102,9 @@ class Feature(str, Enum):
     # BOSQICH 25: Tovar harakati va hisobdan chiqarish
     WRITE_OFF           = "write_off"           # Utilizatsiya / Spisaniye
     GOODS_REGRADE       = "goods_regrade"       # Peresort (xato kirim tuzatish)
-    CUSTOMER_RETURN_EXT = "customer_return_ext" # Vozvrat kengaytirilgan (brak/almashtirish)
+    # BOSQICH D: CUSTOMER_RETURN_EXT ("customer_return_ext") OLIB TASHLANDI —
+    # `returns-ext` routeri o'chirildi (pastdagi izohga qarang). Eskirgan kod
+    # tenant `enabled_features` da qolsa `_feature_value` uni e'tiborsiz qoldiradi.
     INTERNAL_TRANSFER   = "internal_transfer"   # Ichki ko'chirish (filiallar orasida)
     LOSS_REPORT         = "loss_report"         # Zarar hisoboti (utilizatsiya+brak jami)
     # BOSQICH 26: Narx, Aksiya va Markirovka
@@ -135,7 +137,7 @@ FOOD_FEATURES: frozenset[Feature] = frozenset({
 # 🏪 Chakana savdo (retail): store + supermarket — bir xil to'plam.
 # FAQAT FREE flaglar (14). PRO flaglar (wholesale_pricing, supplier_accounting,
 # departments, supplier_card/debt/return, purchase_receipt, write_off, goods_regrade,
-# customer_return_ext, internal_transfer, loss_report, markup_policy, bonus_card,
+# internal_transfer, loss_report, markup_policy, bonus_card,
 # markirovka, abc_analysis, auto_reorder, turnover_analysis, peak_hours) DEFAULT'DAN
 # OLIB TASHLANDI — ular pulli (PRO). FEATURE_TIERS'da PRO bo'lib qoladi va super-admin
 # enabled_features override orqali tenantga qo'lda yoqa oladi (monetizatsiya).
@@ -229,7 +231,6 @@ _RETAIL_ONLY_PRO: frozenset[Feature] = frozenset({
     Feature.DEPARTMENTS,           # bo'limlar/seksiyalar
     Feature.GOODS_REGRADE,         # peresort
     Feature.MARKUP_POLICY,         # avto-narx siyosati
-    Feature.CUSTOMER_RETURN_EXT,   # kengaytirilgan qaytarish
     Feature.MARKIROVKA,            # DataMatrix markirovka
 })
 
@@ -333,7 +334,6 @@ FEATURE_TIERS: dict[Feature, FeatureTier] = {
     Feature.TURNOVER_ANALYSIS:    FeatureTier.PRO,
     Feature.PEAK_HOURS:           FeatureTier.PRO,
     Feature.LOSS_REPORT:          FeatureTier.PRO,
-    Feature.CUSTOMER_RETURN_EXT:  FeatureTier.PRO,
     Feature.INTERNAL_TRANSFER:    FeatureTier.PRO,
     Feature.MARKIROVKA:           FeatureTier.PRO,
 }
@@ -415,13 +415,27 @@ def resolve_enabled_features(
     if is_pro_plan(subscription_plan):
         features |= {f.value for f in get_business_pro_features(business_type)}
 
+    # OLIB TASHLANGAN FLAGLARGA CHIDAMLILIK (BOSQICH D): tenant `enabled_features`
+    # da endi mavjud bo'lmagan kod qolishi mumkin — masalan `customer_return_ext`
+    # (jonli bazada lux-parfum tenantida qolgan). Ilgari `Feature(f)` shu yerda
+    # ValueError berardi va o'sha do'konning BUTUN funksiya hisoblashi yiqilardi
+    # (ya'ni bitta eskirgan yozuv butun panelni o'chirib qo'yardi). Endi noma'lum
+    # kod shunchaki E'TIBORSIZ qoldiriladi — baza tozalash MAJBURIY emas.
     if enabled_overrides:
-        features |= {Feature(f).value for f in enabled_overrides}
+        features |= {v for v in (_feature_value(f) for f in enabled_overrides) if v}
 
     if disabled_overrides:
-        features -= {Feature(f).value for f in disabled_overrides}
+        features -= {v for v in (_feature_value(f) for f in disabled_overrides) if v}
 
     return features
+
+
+def _feature_value(code: str) -> str | None:
+    """Flag kodini normallashtiradi; noma'lum (eskirgan/olib tashlangan) bo'lsa None."""
+    try:
+        return Feature(code).value
+    except ValueError:
+        return None
 
 
 def is_feature_enabled(

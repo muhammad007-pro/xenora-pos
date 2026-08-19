@@ -49,7 +49,10 @@ from routers import supplier_payments             # BOSQICH 24: firmaga to'lov
 from routers import supplier_returns              # BOSQICH 24: vozvrat postavshchikka
 from routers import write_offs                    # BOSQICH 25: utilizatsiya/spisaniye
 from routers import goods_regrade                 # BOSQICH 25: peresort
-from routers import customer_returns_ext          # BOSQICH 25: kengaytirilgan vozvrat
+# BOSQICH D: `customer_returns_ext` (returns-ext) OLIB TASHLANDI — mijoz vozvrati
+# uchun YAGONA manba `returns` routeri (pul harakati + hisobotdan ayirish o'sha
+# yerda). Ext router `returns` jadvaliga REXT... raqami bilan yozardi, ammo PUL
+# HARAKATI QILMASDI — ikkinchi, jimgina noto'g'ri yo'l edi. UI ham ulanmagan.
 from routers import internal_transfers            # BOSQICH 25: ichki ko'chirish
 from routers import loss_report                   # BOSQICH 25: zarar hisoboti
 from routers import markup_policy                 # BOSQICH 26: naценka siyosati
@@ -217,7 +220,6 @@ app.include_router(supplier_payments.router,prefix=f"{api_prefix}/supplier-payme
 app.include_router(supplier_returns.router, prefix=f"{api_prefix}/supplier-returns",  tags=["Supplier Returns / Vozvrat"])    # BOSQICH 24
 app.include_router(write_offs.router,           prefix=f"{api_prefix}/write-offs",          tags=["Write Offs / Utilizatsiya"])        # BOSQICH 25
 app.include_router(goods_regrade.router,        prefix=f"{api_prefix}/goods-regrades",      tags=["Goods Regrade / Peresort"])         # BOSQICH 25
-app.include_router(customer_returns_ext.router, prefix=f"{api_prefix}/returns-ext",         tags=["Customer Returns Ext / Vozvrat+"])  # BOSQICH 25
 app.include_router(internal_transfers.router,   prefix=f"{api_prefix}/internal-transfers",  tags=["Internal Transfers / Ko'chirish"])  # BOSQICH 25
 app.include_router(loss_report.router,          prefix=f"{api_prefix}/loss-report",         tags=["Loss Report / Zarar Hisoboti"])     # BOSQICH 25
 app.include_router(markup_policy.router,        prefix=f"{api_prefix}/markup-policies",     tags=["Markup Policy / Naценka Siyosati"])  # BOSQICH 26

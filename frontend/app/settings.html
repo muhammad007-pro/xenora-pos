@@ -674,16 +674,9 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
               <span class="toggle-slider"></span>
             </label>
           </div>
-          <div class="toggle-row">
-            <div>
-              <div class="toggle-label">↩ Vozvrat+ (kengaytirilgan)</div>
-              <div class="toggle-desc">Brak/omborga yo'naltirish tanlovi, chek bo'yicha qidirish, almashtirish</div>
-            </div>
-            <label class="toggle-switch">
-              <input type="checkbox" data-feature="customer_return_ext">
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
+<!-- BOSQICH D: "Vozvrat+ (kengaytirilgan)" toggle OLIB TASHLANDI — ortidagi
+     `returns-ext` routeri o'chirildi. UI ham hech qachon unga ulanmagan edi
+     (faqat shu tugma bor edi), mijoz vozvrati YAGONA `returns` yo'lidan boradi. -->
           <div class="toggle-row">
             <div>
               <div class="toggle-label">🚚 Ichki ko'chirish</div>
@@ -842,7 +835,7 @@ const PRO_FLAGS = new Set([
   'supplier_accounting','supplier_card','supplier_debt','supplier_return',
   'purchase_receipt','write_off','goods_regrade','markup_policy',
   'bonus_card','abc_analysis','auto_reorder','turnover_analysis',
-  'peak_hours','loss_report','customer_return_ext','internal_transfer',
+  'peak_hours','loss_report','internal_transfer',
   'markirovka'
 ]);
 
@@ -1266,7 +1259,7 @@ setTimeout(detectPlanAndLock, 400);
 const B2B_FLAGS = [
     'supplier_card','purchase_receipt','supplier_debt','supplier_return',
     // BOSQICH 25: Tovar harakati
-    'write_off','goods_regrade','customer_return_ext','internal_transfer','loss_report',
+    'write_off','goods_regrade','internal_transfer','loss_report',
     // BOSQICH 26: Narx, Aksiya va Markirovka
     'markup_policy','bonus_card','markirovka',
 ];

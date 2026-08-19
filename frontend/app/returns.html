@@ -216,6 +216,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </div>
 </div>
 
+<!-- Qidiruvli select (classic — window.searchableSelect; modul bloki undan keyin ishlaydi).
+     `defer` MAJBURIY: parserni to'sadigan oddiy <script> bu sahifada quyidagi
+     modul importlarini (config.js, error-handler.js) OSIB QO'YARDI — sahifa
+     "Yuklanmoqda..." holatida qotib qolardi. `defer` bilan ikkalasi ham
+     "hujjat tugagach" ro'yxatiga tushadi va HUJJAT TARTIBIDA bajariladi,
+     ya'ni `window.searchableSelect` modul blokidan OLDIN tayyor bo'ladi. -->
+<script defer src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { API_BASE } from '../js/core/config.js';
 import { initErrorHandler, showToast } from '../js/core/error-handler.js';
@@ -250,7 +257,10 @@ async function init() {
 
 async function loadProducts() {
   try {
-    const r = await fetch(`${API}/products/?page_size=500`, { headers: h() });
+    // 500 -> 1000 (endpoint maksimumi): Fazza Parfumda 794 faol mahsulot bor
+    // edi, ya'ni 294 tasi dropdownga UMUMAN tushmasdi. 1000 dan oshgani
+    // searchableSelect orqali SERVERDAN topiladi.
+    const r = await fetch(`${API}/products/?page_size=1000`, { headers: h() });
     if (r.ok) {
       const d = await r.json();
       allProducts = Array.isArray(d) ? d : (d.items || []);
@@ -260,7 +270,9 @@ async function loadProducts() {
 
 async function loadCustomers() {
   try {
-    const r = await fetch(`${API}/customers/?page_size=500`, { headers: h() });
+    // 500 -> 1000: mahsulot bilan bir xil kesilish sinfi. Mijozlar soni tez
+    // o'sadi (nasiya v1.9.1 dan ishlaydi) — undan oshgani server qidiruvida.
+    const r = await fetch(`${API}/customers/?page_size=1000`, { headers: h() });
     if (r.ok) {
       const d = await r.json();
       const list = Array.isArray(d) ? d : (d.items || []);
@@ -272,8 +284,57 @@ async function loadCustomers() {
         sel.appendChild(o);
       });
       allCustomers = list;
+      attachCustomerSearch(sel);
     }
   } catch {}
+}
+
+// ── BOSQICH C: qidiruv qatlami (Priyomka/dmCustomer naqshi) ─────────────────
+// QOIDA: mavjud `<select>` DOM'da QOLADI. `sel.value` va `opt.dataset.price`
+// o'qiydigan joylar (submitReturn, ip${idx}.onchange, calcTotal) TEGILMADI —
+// komponent faqat option'larni almashtiradi.
+//
+// QIDIRUV SERVERDA: 794 (kelajakda ko'proq) mahsulotni brauzerga tortmaymiz.
+function attachProductSearch(select) {
+  if (!select || typeof window.searchableSelect !== 'function') return;
+  window.searchableSelect(select, {
+    placeholder: 'Mahsulot nomi bilan qidirish...',
+    initial: allProducts,
+    limit: 50,
+    render: (p) => ({ value: p.id, label: p.name, data: { price: p.price || 0 } }),
+    search: async (q) => {
+      try {
+        const r = await fetch(`${API}/products/?search=${encodeURIComponent(q)}&page_size=50`, { headers: h() });
+        if (!r.ok) return [];
+        const d = await r.json();
+        const found = Array.isArray(d) ? d : (d.items || []);
+        // Topilganlarni mahalliy ro'yxatga ham qo'shamiz — tafsilot modalidagi
+        // nom qidiruvi (allProducts.find) ularni keyin ham topa olsin.
+        found.forEach(p => { if (!allProducts.some(x => x.id === p.id)) allProducts.push(p); });
+        return found;
+      } catch { return []; }
+    },
+  });
+}
+
+function attachCustomerSearch(select) {
+  if (!select || typeof window.searchableSelect !== 'function' || select._ss) return;
+  window.searchableSelect(select, {
+    placeholder: 'Ism yoki telefon bilan qidirish...',
+    initial: allCustomers,
+    limit: 50,
+    render: (c) => ({ value: c.id, label: `${c.name}${c.phone ? ' · ' + c.phone : ''}` }),
+    search: async (q) => {
+      try {
+        const r = await fetch(`${API}/customers/?search=${encodeURIComponent(q)}&page_size=50`, { headers: h() });
+        if (!r.ok) return [];
+        const d = await r.json();
+        const list = Array.isArray(d) ? d : (d.items || []);
+        list.forEach(c => { if (!allCustomers.some(x => x.id === c.id)) allCustomers.push(c); });
+        return list;
+      } catch { return []; }
+    },
+  });
 }
 
 window.load = async function() {
@@ -341,7 +402,12 @@ window.openCreateModal = function() {
   document.getElementById('cTotal').textContent = '';
   document.getElementById('cOrderId').value = '';
   document.getElementById('cNotes').value = '';
-  document.getElementById('cCustomerId').value = '';
+  const cs = document.getElementById('cCustomerId');
+  // Modal QAYTA ochilganda eski qidiruv matni qolmasin va ro'yxat yangilansin
+  // (dmCustomer naqshi) — `reset()` dan KEYIN tozalaymiz, aks holda filtrdan
+  // qolgan option qayta tanlanib qolardi.
+  if (cs._ss) { cs._ss.setInitial(allCustomers); cs._ss.reset(); }
+  cs.value = '';
   itemRowCount = 0;
   addItemRow();
   document.getElementById('createModal').classList.add('open');
@@ -355,8 +421,14 @@ window.addItemRow = function() {
   const row = document.createElement('div');
   row.className = 'item-row';
   row.id = `irow${idx}`;
+  // Select <div> ichida: searchableSelect qidiruv inputini select'ning OTA
+  // elementiga qo'yadi — to'g'ridan-to'g'ri qatorga tushsa 4 ustunli grid
+  // (mahsulot/miqdor/narx/tugma) surilib ketardi. O'ram faqat layout uchun,
+  // `getElementById('ip..')` o'qishlari o'zgarmaydi.
   row.innerHTML = `
-    <select class="form-control" id="ip${idx}" onchange="calcTotal()"><option value="">— Mahsulot —</option>${opts}</select>
+    <div>
+      <select class="form-control" id="ip${idx}" onchange="calcTotal()" style="width:100%"><option value="">— Mahsulot —</option>${opts}</select>
+    </div>
     <input class="form-control" type="number" id="iq${idx}" value="1" min="0.01" step="any" oninput="calcTotal()">
     <input class="form-control" type="number" id="ipr${idx}" value="" placeholder="narx" oninput="calcTotal()">
     <button class="btn btn-red btn-sm" onclick="removeRow(${idx})">✕</button>
@@ -371,6 +443,11 @@ window.addItemRow = function() {
       calcTotal();
     }
   });
+
+  // Qator DINAMIK yasaladi — shuning uchun qidiruv shu yerda ulanadi.
+  // Listener'dan KEYIN: bitta natija qolganda komponent `change` yuboradi va
+  // narx maydoni o'sha zahoti to'lishi kerak.
+  attachProductSearch(document.getElementById(`ip${idx}`));
 };
 
 window.removeRow = function(idx) {

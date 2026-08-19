@@ -3,6 +3,45 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.3] — 2026-08-19
+
+Mijoz vozvrati to'liq tuzatildi (A–D bosqichlari). **Migratsiya YO'Q**, lekin
+backend TEGILGAN — `systemctl restart xenora` SHART.
+
+### Tuzatilgan
+- **Mijoz vozvratida PUL HARAKATI umuman yo'q edi** — `approve` faqat omborni
+  tiklardi va statusni o'zgartirardi, `refund_method` esa shunchaki yorliq bo'lib
+  qolardi: naqd/karta qaytarishning hech qanday izi yozilmasdi, nasiyaga olgan
+  mijozning QARZI ham kamaymasdi (tovar qaytdi — qarz qoldi). Endi naqd/karta
+  mavjud `refund_payment()` orqali (manfiy Payment), nasiya esa qarzni kamaytiradi
+  (avval shu buyurtmaning qarzi, keyin eng eski ochiqlari; qarzdan oshgani avans).
+  `POST /payments/{id}/refund` bilan ikki marta ombor oshib ketmasligi uchun
+  ikkala tomonga qo'riqchi qo'yildi.
+- **Vozvrat foyda hisobotidan ayirilmasdi** — qaytarilgan tovar daromadda
+  qolaverardi va foyda ko'tarilib ko'rinardi. Endi yagona manbadan
+  (`utils/revenue.py`) ayiriladi — analytics, profit va report bir xil raqam
+  beradi.
+- **Almashtirish (exchange)** olib tashlandi: bu usulda pul harakati umuman
+  bo'lmasdi (pul qaytmasdi, qarz kamaymasdi), lekin vozvrat "tasdiqlangan"
+  bo'lib turaverardi. Endi UI'da yo'q va backend ham rad etadi.
+
+### Yaxshilangan
+- **Mahsulot va mijoz QIDIRUVI** — Vozvrat, Priyomka, Ombor kirimi, Nasiya va
+  Narx siyosati oynalarida ro'yxat `page_size=500` bilan yuklanardi: 794 faol
+  mahsulotli do'konda 294 tasi dropdownga UMUMAN tushmasdi va uni tanlab
+  bo'lmasdi (mijozlarda ham xuddi shunday). Endi ro'yxat 1000 tagacha, undan
+  oshgani esa nom/telefon bo'yicha SERVERDAN qidiriladi.
+
+### Tozalangan
+- **`/returns-ext` (kengaytirilgan vozvrat) o'chirildi** — u alohida jadval emas,
+  o'sha `returns` jadvaliga `REXT...` raqami bilan yozardi, ammo pul harakatini
+  QILMASDI va darhol "tasdiqlangan" qo'yardi. UI unga hech qachon ulanmagan edi.
+  Jonli bazada bunday yozuv 0 ta — ma'lumot yo'qolmadi.
+- Eskirgan funksiya-flag (`customer_return_ext`) barcha joydan olib tashlandi.
+  Bazada qolgan eski flag endi ilovani buzmaydi: noma'lum kod e'tiborsiz
+  qoldiriladi (ilgari bitta eskirgan yozuv o'sha do'konning butun funksiya
+  hisoblashini yiqitardi).
+
 ## [1.9.2] — 2026-08-18
 
 Migratsiya YO'Q. Faqat client-side (frontend + Electron) — backend tegilmagan.

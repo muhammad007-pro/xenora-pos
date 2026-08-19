@@ -273,6 +273,10 @@ function showShiftReceipt(r, shiftId) {
     ${row('JAMI SAVDO:', money(r.total_sales), true)}
     ${line}
     ${row('Boshlang\'ich naqd:', money(r.starting_cash))}
+    ${/* Nasiya to'lovi — kassaga tushgan pul, LEKIN sotuv emas: shu sabab
+          "JAMI SAVDO" dan yuqorida emas, kassa blokida turadi. */''}
+    ${(r.debt_paid_cash > 0) ? row('Nasiya to\'lovi (naqd):', money(r.debt_paid_cash)) : ''}
+    ${(r.debt_paid_card > 0) ? row('Nasiya to\'lovi (karta):', money(r.debt_paid_card)) : ''}
     ${row('Kutilgan naqd:', money(r.expected_cash))}
     ${row('Sanaldi (haqiqiy):', money(r.counted_cash))}
     ${row(shortage < 0 ? 'Kamomad:' : (shortage > 0 ? 'Ortiqcha:' : 'Farq:'), shTxt, true)}
@@ -325,6 +329,8 @@ function buildZReport58(r) {
     </div>
     <div class="receipt-totals">
       <div class="rt-row"><span>Boshlang'ich naqd:</span><span>${m(r.starting_cash)}</span></div>
+      ${(r.debt_paid_cash > 0) ? `<div class="rt-row"><span>Nasiya to'lovi (naqd):</span><span>+${m(r.debt_paid_cash)}</span></div>` : ''}
+      ${(r.debt_paid_card > 0) ? `<div class="rt-row"><span>Nasiya to'lovi (karta):</span><span>${m(r.debt_paid_card)}</span></div>` : ''}
       <div class="rt-row"><span>Kutilgan naqd:</span><span>${m(r.expected_cash)}</span></div>
       <div class="rt-row"><span>Sanaldi (haqiqiy):</span><span>${m(r.counted_cash)}</span></div>
       <div class="rt-row bold"><span>${shLabel}:</span><span>${sh < 0 ? '-' : ''}${m(Math.abs(sh))}</span></div>

@@ -373,6 +373,12 @@ def build_z_report(data: Dict[str, Any], width_mm: int = 80) -> bytes:
     d.text(_row("Naqd savdo:", "+" + _money(data.get("cash_sales")), w) + "\n")
     if (data.get("cash_refunds") or 0) > 0:
         d.text(_row("Naqd qaytarish:", "-" + _money(data["cash_refunds"]), w) + "\n")
+    # Nasiya qarzi to'lovi — kassaga tushgan pul, LEKIN sotuv emas (sotuv o'z
+    # kunida hisoblangan). Faqat NAQD qismi "bo'lishi kerak" ga kiradi.
+    if (data.get("debt_paid_cash") or 0) > 0:
+        d.text(_row("Nasiya to'lovi (naqd):", "+" + _money(data["debt_paid_cash"]), w) + "\n")
+    if (data.get("debt_paid_card") or 0) > 0:
+        d.text(_row("Nasiya to'lovi (karta):", _money(data["debt_paid_card"]), w) + "\n")
     d.text(_row("Bo'lishi kerak:", _money(data.get("expected_cash")), w) + "\n")
     d.text(_row("Sanaldi:", _money(data.get("counted_cash")), w) + "\n")
     d.text("=" * w + "\n")
@@ -440,6 +446,11 @@ def render_z_report(data: Dict[str, Any], width_mm: int = 80) -> str:
     L.append(_row("Naqd savdo:", "+" + _money(data.get("cash_sales")), w))
     if (data.get("cash_refunds") or 0) > 0:
         L.append(_row("Naqd qaytarish:", "-" + _money(data["cash_refunds"]), w))
+    # Nasiya qarzi to'lovi — sotuv emas; faqat NAQD qismi kassa hisobiga kiradi
+    if (data.get("debt_paid_cash") or 0) > 0:
+        L.append(_row("Nasiya to'lovi (naqd):", "+" + _money(data["debt_paid_cash"]), w))
+    if (data.get("debt_paid_card") or 0) > 0:
+        L.append(_row("Nasiya to'lovi (karta):", _money(data["debt_paid_card"]), w))
     L.append(_row("Bo'lishi kerak:", _money(data.get("expected_cash")), w))
     L.append(_row("Sanaldi:", _money(data.get("counted_cash")), w))
     L.append("=" * w)

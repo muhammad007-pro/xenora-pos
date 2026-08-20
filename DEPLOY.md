@@ -15,7 +15,9 @@
 | | |
 |---|---|
 | **Provayder** | DigitalOcean droplet |
-| **IP** | `178.128.251.218` |
+| **IP** | `178.128.251.218` (SSH shu IP orqali — DNS'ga bog'liq emas) |
+| **Domen** | **`https://xenora.uz`** + `https://www.xenora.uz` — mijoz/client manzili (2026-08-20 dan) |
+| **SSL** | Let's Encrypt, certbot 5.7.0 (snap); avto-yangilanish `snap.certbot.renew.timer` |
 | **Host / user** | `root@xenora-2pos` (Ubuntu 24.04.4 LTS) |
 | **Resurs** | 1 vCPU, 1 GB RAM (+ **2 GB swap** `/swapfile`, fstab'da), 33 GB disk |
 | **Kod joyi** | `/opt/xenora` (git `main` branch) |
@@ -23,14 +25,26 @@
 | **Backend runtime** | venv uvicorn → `127.0.0.1:8000` (**1 worker** — WebSocket in-process broadcast; ko'p worker BUZADI) |
 | **Web server** | nginx 1.24 — `/opt/xenora/frontend` ni serve qiladi + `/api` `/ws` `/health` `/uploads` `/static` `/public` `/docs` → `127.0.0.1:8000` proxy |
 | **DB** | PostgreSQL **16.14** (native) — baza `xenora_db`, user `xenora_user`; migratsiya venv alembic bilan |
-| **Firewall** | UFW **faol** — faqat `22/tcp` va `80/tcp` ochiq, qolgani deny |
+| **Firewall** | UFW **faol** — `22/tcp`, `80/tcp`, `443/tcp` ochiq, qolgani deny |
 | **SSH** | **Faqat kalit** (`PasswordAuthentication no`) — parol bilan kirish o'chirilgan |
 
 Muhim yo'llar:
 - venv: `/opt/xenora/backend/venv`
 - alembic: `/opt/xenora/backend/venv/bin/alembic` (WorkingDirectory = `/opt/xenora/backend`)
 - `.env`: `/opt/xenora/backend/.env` (ruxsat 600, **faqat serverda**, git'da yo'q)
-- nginx config: `/etc/nginx/sites-available/xenora` (default_server)
+- nginx config: `/etc/nginx/sites-available/xenora` — **3 ta server bloki**, umumiy qoidalar
+  `/etc/nginx/snippets/xenora-common.conf` ichida:
+  1. `listen 80 default_server; server_name _;` — IP va noma'lum Host. **SSL yo'q, redirect YO'Q.**
+  2. `listen 80; server_name xenora.uz www.xenora.uz;` — faqat `return 301` HTTPS'ga.
+  3. `listen 443 ssl http2;` — asosiy blok + HSTS (`max-age=300`, sinov qiymati).
+
+  > ⚠️ **1-blokka hech qachon `ssl`/`return 301`/HSTS qo'shmang.** Mijozlarning tarqatilgan
+  > `.exe` fayllari hali `http://178.128.251.218` ga bog'langan; sertifikat IP uchun yaroqsiz,
+  > shuning uchun IP HTTPS'ga majburlansa mijozlar butunlay ulanolmay qoladi.
+  > `certbot --nginx` ni **`--no-redirect`** bilan ishlating — aks holda u blokni bo'lib
+  > HTTP tomoniga `return 404` qo'yadi va aynan shu nosozlikni keltiradi.
+  > nginx 1.24 — `http2 on;` YO'Q, faqat `listen 443 ssl http2;` sintaksisi.
+  > Har o'zgarishdan keyin tekshiring: `curl -o /dev/null -w '%{http_code} %{redirect_url}' http://178.128.251.218/` → **200, redirect'siz**.
 - systemd unit: `/etc/systemd/system/xenora.service`
 - **Maxfiy qiymatlar:** `/root/.xenora/` (700) — `dbpw`, `secret_key`, `su_password`, `root_password` (har biri 600).
   DO web-konsoli uchun root parol shu yerda (SSH orqali parol ishlamaydi).

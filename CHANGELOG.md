@@ -3,6 +3,29 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.4] — 2026-08-20
+
+**Migratsiya YO'Q.** Backend TEGILGAN (nasiya kassa oqimi) — `systemctl restart xenora` SHART.
+
+### Qo'shilgan
+- **Domen: `https://xenora.uz`** (+ `www`) — Let's Encrypt SSL, WebSocket `wss://`,
+  HTTP→HTTPS majburiy yo'naltirish va HSTS (`max-age=300`, sinov qiymati).
+  Client manzili (frontend sahifalar, Electron `SERVER_URL`/`preload`) domenga o'tdi.
+  ⚠️ **Eski `.exe`'lar `http://178.128.251.218` da ishlashda davom etadi** — nginx'da
+  IP uchun alohida `default_server` bloki HTTP'da qoldirildi (sertifikat IP uchun
+  yaroqsiz), CORS'ga domenlar IP yoniga QO'SHILDI, IP olib tashlanmadi.
+- **ESLint qo'riqchisi** (`eslint.config.mjs`, `npm run lint`) — frontend JS uchun.
+
+### Tuzatilgan
+- ESLint topgan **3 sintaksis/o'lik kod** xatosi (`payments.js`, `promo.js`,
+  o'lik `js/modules/admin.js` olib tashlandi).
+- **6 sahifada `page_size` va API javob shartnomasi** — ulardan **3 tasi umuman
+  ishlamasdi** (ro'yxat bo'sh kelardi). Bonus kartalar, Peresort, Ichki ko'chirish,
+  Kombo, Mijozlar, Muddat nazorati.
+- **Nasiya (qarz) to'lovi kassa hisobotida ko'rinmasdi** — Z-hisobot va dashboard
+  pul oqimida qarz to'lovi endi hisobga olinadi (yagona manba `utils/cashflow.py`,
+  golden testlar 12/12).
+
 ## [1.9.3] — 2026-08-19
 
 Mijoz vozvrati to'liq tuzatildi (A–D bosqichlari). **Migratsiya YO'Q**, lekin

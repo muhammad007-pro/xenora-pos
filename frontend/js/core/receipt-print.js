@@ -1,7 +1,7 @@
 /**
  * XENORA — Chek LOKAL chop etish (silent print) qatlami.
  *
- * NEGA: Backend SERVERda ishlaydi (178.128.251.218), XP-58 esa DO'KON
+ * NEGA: Backend SERVERda ishlaydi (xenora.uz), XP-58 esa DO'KON
  * kompyuteriga USB orqali ulangan. Server do'kondagi USB printerga yeta
  * olmaydi. Shu sabab chek MIJOZ tomonda (Electron) — yashirin oynada
  * yuklanib — LOKAL printerga silent (dialogsiz) yuboriladi.

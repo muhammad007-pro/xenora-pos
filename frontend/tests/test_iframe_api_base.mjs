@@ -31,7 +31,7 @@ const CHILD = `<!doctype html><meta charset="utf-8"><body>
 </script></body>`;
 
 const PARENT_WITH_SERVER = `<!doctype html><meta charset="utf-8"><body>
-<script>window.XENORA_SERVER = 'http://178.128.251.218';</script>
+<script>window.XENORA_SERVER = 'https://xenora.uz';</script>
 <iframe id="f" src="/tests/_child.html" style="width:300px;height:100px"></iframe>
 </body>`;
 
@@ -80,8 +80,8 @@ async function childResult(parentUrl) {
 // ── T1: IFRAME — ota freymda XENORA_SERVER bor (Electron holati) ────────────
 {
   const r = await childResult(`${BASE}/tests/_parent_server.html`);
-  check('T1_iframe_ota_freymdan_oldi', r.API_BASE, 'http://178.128.251.218/api/v1');
-  check('T1_ws_ham_togri',             r.WS_BASE,  'ws://178.128.251.218');
+  check('T1_iframe_ota_freymdan_oldi', r.API_BASE, 'https://xenora.uz/api/v1');
+  check('T1_ws_ham_togri',             r.WS_BASE,  'wss://xenora.uz');
 }
 
 // ── T2: IFRAME — hech qayerda XENORA_SERVER yo'q (oddiy brauzer/nginx) ──────

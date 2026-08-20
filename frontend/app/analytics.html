@@ -105,9 +105,14 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
   <!-- Stats -->
   <div class="sg">
     <div class="sc">
-      <div class="sl">Daromad</div>
+      <!-- ANIQ NOM: bu SOTUV emas, KASSAGA TUSHGAN PUL (cash-basis) —
+           to'langan sotuvlar + nasiya qarzi to'lovlari. Nasiyaga berilgan
+           tovar bu yerga sotuv kunida KIRMAYDI (pul kelmagan). Sotuv/foyda
+           (accrual) — "Hisobotlar > Foyda" bo'limida. -->
+      <div class="sl">Kassaga tushgan pul</div>
       <div class="sv" id="stRev">—</div>
       <div class="ss" id="stRevT"></div>
+      <div class="ss" id="stRevDebt" style="opacity:.75"></div>
     </div>
     <div class="sc">
       <div class="sl">Buyurtmalar</div>
@@ -217,6 +222,11 @@ function trend(val, elId) {
 
 function updateStats(d) {
   document.getElementById('stRev').textContent  = fmtN(d.total_revenue) + ' so\'m';
+  // Nasiya to'lovi bo'lsa — ichidan qanchasi ekanini ko'rsatamiz, aks holda
+  // do'konchi "bu pul qayerdan chiqdi?" deb chalkashadi.
+  const _dp = Number(d.debt_payments || 0);
+  document.getElementById('stRevDebt').textContent =
+    _dp > 0 ? `shundan nasiya to'lovi: ${fmtN(_dp)} so'm` : '';
   document.getElementById('stOrd').textContent  = d.total_orders || 0;
   document.getElementById('stAvg').textContent  = fmtN(d.average_check) + ' so\'m';
   document.getElementById('stCust').textContent = d.total_customers || 0;

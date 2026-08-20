@@ -12,6 +12,10 @@ from core.feature_flags import Feature, is_feature_enabled
 from services import printer_service
 from core.tenant_config import get_tenant_config  # BOSQICH 40 (3c): printer tenant-scoped
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
+# Kassaga tushgan pul — YAGONA manba. Nasiya qarzi to'lovlari `Payment` yozuvi
+# yaratmaydi, shuning uchun ular shu yerdan olinadi (tenant izolyatsiyasi
+# CustomerDebt join'i orqali ta'minlanadi).
+from utils.cashflow import debt_payments_totals, expected_cash as _expected_cash
 
 router = APIRouter()
 
@@ -187,8 +191,18 @@ async def close_shift(
     returns_total = sum(r.total_amount or 0 for r in returns)
     cash_refunds  = sum((r.total_amount or 0) for r in returns if r.refund_method == "cash")
 
-    # Naqd kassada bo'lishi kerak: boshlang'ich + naqd savdo − naqd qaytarishlar
-    expected_cash = (shift.starting_cash or 0) + cash_sales - cash_refunds
+    # ── NASIYA QARZI TO'LOVLARI ─────────────────────────────────────────────
+    # Mijoz eski qarzini to'lasa pul KASSAGA tushadi, lekin `Payment` yozuvi
+    # yaratilmaydi (routers/debt.py faqat DebtPayment yozadi). Ilgari bu pul
+    # `expected_cash` da yo'q edi va yashikdagi ortiqcha naqd "ortiqcha"
+    # (shortage > 0) bo'lib chiqardi — kassir asossiz ayblanardi.
+    # Vaqt oralig'i bilan olinadi (DebtPayment da `shift_id` yo'q) — Return
+    # ham yuqorida aynan shu naqsh bilan olingan.
+    debt_pay = debt_payments_totals(db, current_user, shift.start_time, now)
+
+    # Naqd kassada bo'lishi kerak: boshlang'ich + naqd savdo − naqd qaytarish
+    # + NAQD qarz to'lovlari. Karta bilan to'langan qarz yashikka tushmaydi.
+    expected_cash = _expected_cash(shift.starting_cash, cash_sales, cash_refunds, debt_pay["cash"])
     shortage      = counted_cash - expected_cash  # musbat=ortiqcha, manfiy=kamomad
 
     shift.end_time     = now
@@ -229,6 +243,13 @@ async def close_shift(
         "discount_total": round(discount_total, 0),
         "returns_total":  round(returns_total, 0),
         "cash_refunds":   round(cash_refunds, 0),
+        # Nasiya to'lovlari — ALOHIDA qator. Bu SOTUV EMAS (sotuv o'z kunida
+        # hisoblangan), shuning uchun `total_sales` ga QO'SHILMAYDI — faqat
+        # kassaga tushgan pul sifatida ko'rsatiladi.
+        "debt_paid_cash": round(debt_pay["cash"], 0),
+        "debt_paid_card": round(debt_pay["card"], 0),
+        "debt_paid_total": round(debt_pay["total"], 0),
+        "debt_paid_count": debt_pay["count"],
         "expected_cash":  round(expected_cash, 0),
         "counted_cash":   counted_cash,
         "shortage":       round(shortage, 0),
@@ -431,7 +452,11 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
     returns_total = sum(r.total_amount or 0 for r in returns)
     cash_refunds  = sum((r.total_amount or 0) for r in returns if r.refund_method == "cash")
 
-    expected_cash = (shift.starting_cash or 0) + cash_sales - cash_refunds
+    # Nasiya qarzi to'lovlari — yopish (close_shift) bilan AYNAN bir xil hisob,
+    # aks holda Z-hisobotni qayta ochganda boshqa `expected_cash` chiqardi.
+    debt_pay = debt_payments_totals(db, current_user, start, end)
+
+    expected_cash = _expected_cash(shift.starting_cash, cash_sales, cash_refunds, debt_pay["cash"])
     counted_cash  = shift.counted_cash if shift.counted_cash is not None else 0
     shortage      = (counted_cash - expected_cash) if shift.end_time else 0
 
@@ -455,6 +480,11 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
         "discount_total": round(discount_total, 0),
         "returns_total":  round(returns_total, 0),
         "cash_refunds":   round(cash_refunds, 0),
+        # Nasiya to'lovlari — SOTUV EMAS, `total_sales` ga qo'shilmaydi
+        "debt_paid_cash": round(debt_pay["cash"], 0),
+        "debt_paid_card": round(debt_pay["card"], 0),
+        "debt_paid_total": round(debt_pay["total"], 0),
+        "debt_paid_count": debt_pay["count"],
         "expected_cash":  round(expected_cash, 0),
         "counted_cash":   counted_cash,
         "shortage":       round(shortage, 0),

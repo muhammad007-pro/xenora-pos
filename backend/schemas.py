@@ -1122,10 +1122,33 @@ class DebtCreate(BaseModel):
     due_date: Optional[date] = None
     notes: Optional[str] = None
 
+# Qarz to'lovida ruxsat etilgan usullar. `credit` ATAYLAB YO'Q: nasiya bilan
+# nasiyani to'lash mantiqsiz — qarz kamayardi, lekin hech qanday pul kelmasdi.
+# Bema'ni qiymat esa `utils/cashflow.py` da naqd/kartaga taqsimlanmay, kassa
+# hisobidan JIMGINA tushib qolardi (`exchange` bilan bir xil sinf, v1.9.3).
+DEBT_PAYMENT_METHODS = ("cash", "card", "click", "payme")
+
+
 class DebtPaymentCreate(BaseModel):
     amount: float = Field(gt=0)
     payment_method: str = "cash"
     notes: Optional[str] = None
+
+    @field_validator("payment_method")
+    @classmethod
+    def _check_payment_method(cls, v: str) -> str:
+        m = (v or "").strip().lower()
+        if m == "credit":
+            raise ValueError(
+                "Nasiya qarzini yana nasiyaga yozib bo'lmaydi — qarz kamayardi, "
+                "lekin kassaga pul tushmasdi. Naqd yoki karta tanlang."
+            )
+        if m not in DEBT_PAYMENT_METHODS:
+            raise ValueError(
+                f"Noma'lum to'lov usuli: {v!r}. "
+                f"Ruxsat: {', '.join(DEBT_PAYMENT_METHODS)}"
+            )
+        return m
 
 class DebtPaymentInDB(BaseModel):
     id: int

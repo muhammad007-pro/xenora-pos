@@ -131,9 +131,12 @@ const api={get:u=>fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}})
 let all=[], flt='';
 
 async function loadExpiry(){
-  const r=await api.get('/products/?page_size=500&has_expiry=true').catch(()=>null);
+  // 500 -> 1000 (endpoint maksimumi): 794 mahsulotli do'konda muddati o'tayotgan
+  // tovar 500-o'rindan keyin bo'lsa ogohlantirish UMUMAN chiqmasdi — bu sahifada
+  // eng xavfli oqibat (yaroqsiz tovar sotilib ketishi).
+  const r=await api.get('/products/?page_size=1000&has_expiry=true').catch(()=>null);
   const prods=r?.items||[];
-  const inv=await api.get('/inventory/?page_size=500').catch(()=>({items:[]}));
+  const inv=await api.get('/inventory/?page_size=1000').catch(()=>({items:[]}));
   const invMap=Object.fromEntries((inv.items||[]).map(i=>[i.product_id,i]));
   const now=new Date();
   all=prods.filter(p=>p.expiry_date).map(p=>{

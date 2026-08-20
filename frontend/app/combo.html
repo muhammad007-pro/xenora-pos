@@ -134,6 +134,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 </div>
 
 <script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
+<!-- Qidiruvli select (classic — window.searchableSelect). `defer`: parserni
+     to'sadigan skript modul importlarini osib qo'yishi mumkin. -->
+<script defer src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
@@ -158,7 +161,9 @@ let combos=[],products=[],editId=null;
 async function load(){
   const [cRes,pRes]=await Promise.all([
     api.get('/combos/?is_active=null').catch(()=>api.get('/combos/').catch(()=>null)),
-    api.get('/products/?page_size=500').catch(()=>null),
+    // 500 -> 1000 (endpoint maksimumi): 794 mahsulotli do'konda 294 tasi
+    // kombo tarkibiga qo'shish ro'yxatiga UMUMAN tushmasdi.
+    api.get('/products/?page_size=1000').catch(()=>null),
   ]);
   combos=Array.isArray(cRes)?cRes:cRes?.items??[];
   products=pRes?.items??(Array.isArray(pRes)?pRes:[]);
@@ -204,8 +209,35 @@ function prodOptions(selId=null){
 
 function addItemRow(pid=null,qty=1){
   const row=document.createElement('div');row.className='item-row';
-  row.innerHTML=`<select>${prodOptions(pid)}</select><input type="number" value="${qty}" min="1" max="99" style="width:60px"><div class="rm" onclick="this.parentElement.remove()">×</div>`;
+  // Select <div> ichida: searchableSelect qidiruv inputini select'ning OTA
+  // elementiga qo'yadi — to'g'ridan-to'g'ri qatorga tushsa qator tartibi
+  // buzilardi. `row.querySelector('select')` o'qishlari (save) o'zgarmaydi.
+  row.innerHTML=`<div><select style="width:100%">${prodOptions(pid)}</select></div><input type="number" value="${qty}" min="1" max="99" style="width:60px"><div class="rm" onclick="this.closest('.item-row').remove()">×</div>`;
   document.getElementById('itemsList').appendChild(row);
+  // Qator DINAMIK — qidiruv shu yerda ulanadi; tahrirlashda tanlangan
+  // mahsulot filtr tufayli yo'qolmasligi uchun `ensure()`.
+  const sel = row.querySelector('select');
+  attachProductSearch(sel);
+  if (pid && sel._ss) {
+    const p = products.find(x => x.id === pid);
+    if (p) sel._ss.ensure(p);
+  }
+}
+
+// ── Mahsulot select'iga qidiruv (Priyomka naqshi) ──────────────────────────
+function attachProductSearch(select){
+  if(!select || typeof window.searchableSelect!=='function') return;
+  window.searchableSelect(select,{
+    placeholder:'Mahsulot nomi bilan qidirish...',
+    initial:products, limit:50,
+    render:(p)=>({value:p.id,label:`${p.name} — ${fmtN(p.price)}`}),
+    search:async(q)=>{
+      const r=await api.get(`/products/?search=${encodeURIComponent(q)}&page_size=50`).catch(()=>null);
+      const found=r?.items??(Array.isArray(r)?r:[]);
+      found.forEach(p=>{ if(!products.some(x=>x.id===p.id)) products.push(p); });
+      return found;
+    },
+  });
 }
 
 function openAdd(){

@@ -5,9 +5,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Peresort — XENORA</title>
-<link rel="stylesheet" href="../css/main.css">
 <style>
-/* SELF-CONTAINED tema - /css/main.css YO'Q (404). Orphaned --var (zumrad-tilla). */
+/* SELF-CONTAINED tema, main.css olib tashlandi (404 edi). Orphaned --var (zumrad-tilla). */
 :root{--surface1:#0a1628;--surface2:#0f2038;--surface3:#16294a;--text1:#e8eef5;--text2:#8b9bb0;--text3:#6b7d94;--primary:#0d9488;--accent:#22c55e;--border:rgba(34,197,94,.18);--bg:#070f1e;}
 [data-theme="light"]{--surface1:#ffffff;--surface2:#eef2f9;--surface3:#e6ecf6;--text1:#0f2038;--text2:#5a6b82;--text3:#677689;--primary:#0a7d72;--accent:#0a7d72;--border:rgba(0,0,0,.1);--bg:#f4f6fb;}
 body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
@@ -137,6 +136,9 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
   </div>
 </div>
 
+<!-- Qidiruvli select (classic — window.searchableSelect). `defer`: parserni
+     to'sadigan skript modul importlarini osib qo'yishi mumkin. -->
+<script defer src="../js/ui/searchable-select.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API } from '../js/core/api.js';
@@ -145,13 +147,37 @@ const api = new API();
 let products = [];
 let detailId = null;
 
+// ⚠️ API SHARTNOMASI: `js/core/api.js` O'RALGAN javob qaytaradi
+// ({success, data, error}) — ma'lumot `res.data` da. Ilgari `res.items`
+// o'qilardi: u `undefined` bo'lib, mahsulot ro'yxati JIMGINA bo'sh qolardi
+// (peresort oynasida tanlash uchun hech narsa yo'q edi, xato ham chiqmasdi).
+const unwrap = (r) => (r && typeof r === 'object' && 'success' in r ? (r.data ?? {}) : (r ?? {}));
+const _rows  = (r) => { const d = unwrap(r); return Array.isArray(d) ? d : (d.items || []); };
+
+// ── Mahsulot select'iga qidiruv (Priyomka naqshi) ──────────────────────────
+function attachProductSearch(select) {
+  if (!select || typeof window.searchableSelect !== 'function') return;
+  window.searchableSelect(select, {
+    placeholder: 'Mahsulot nomi bilan qidirish...',
+    initial: products,
+    limit: 50,
+    render: (p) => ({ value: p.id, label: p.name }),
+    search: async (q) => {
+      const found = _rows(await api.get(`/products/?search=${encodeURIComponent(q)}&page_size=50`));
+      found.forEach(p => { if (!products.some(x => x.id === p.id)) products.push(p); });
+      return found;
+    },
+  });
+}
+
 async function init() {
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('fDate').value      = today;
   document.getElementById('filterFrom').value = today.slice(0,7)+'-01';
   document.getElementById('filterTo').value   = today;
-  const res = await api.get('/products/?page_size=500');
-  products = res.items || [];
+  // 500 -> 1000 (endpoint maksimumi): 794 mahsulotli do'konda 294 tasi
+  // ro'yxatga UMUMAN tushmasdi. 1000 dan oshgani qidiruvdan topiladi.
+  products = _rows(await api.get('/products/?page_size=1000'));
   load();
 }
 
@@ -164,7 +190,7 @@ window.load = async () => {
   if (f) p.set('date_from', f);
   if (t) p.set('date_to', t);
   const res = await api.get(`/goods-regrades/?${p}`);
-  const rows = res.items || [];
+  const rows = _rows(res);          // o'ralgan javob ({success,data})
   const tbody = document.getElementById('tableBody');
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Peresortlar topilmadi</td></tr>';
@@ -185,7 +211,7 @@ window.load = async () => {
 
 window.openDetail = async (id) => {
   detailId = id;
-  const gr = await api.get(`/goods-regrades/${id}`);
+  const gr = unwrap(await api.get(`/goods-regrades/${id}`));   // o'ralgan javob
   document.getElementById('detailTitle').textContent = `Peresort #${gr.id} — ${gr.regrade_date}`;
   document.getElementById('detailContent').innerHTML = `
     ${gr.notes ? `<div style="margin-bottom:.75rem;font-size:.875rem;color:var(--text2)">Izoh: ${gr.notes}</div>` : ''}
@@ -204,7 +230,7 @@ window.openDetail = async (id) => {
 };
 
 window.confirmRegrade = async () => {
-  const res = await api.post(`/goods-regrades/${detailId}/confirm`, {});
+  const res = unwrap(await api.post(`/goods-regrades/${detailId}/confirm`, {}));
   if (res.status === 'confirmed') {
     showToast('Peresort tasdiqlandi, inventory yangilandi', 'success');
     closeDetail(); load();
@@ -213,7 +239,7 @@ window.confirmRegrade = async () => {
 
 window.deleteDraft = async (id) => {
   if (!confirm("Qoralamani o'chirasizmi?")) return;
-  const res = await api.delete(`/goods-regrades/${id}`);
+  const res = unwrap(await api.delete(`/goods-regrades/${id}`));
   if (res.message) { showToast("O'chirildi",'success'); load(); }
   else showToast(res.detail||'Xatolik','error');
 };
@@ -243,6 +269,10 @@ window.addRow = () => {
   document.getElementById('itemRows').appendChild(div);
   const toSel = div.querySelector('.to-sel');
   if (products.length > 1) toSel.value = products[1].id;
+  // Ikkala select ham DINAMIK — qidiruv shu yerda ulanadi. `sel.value`
+  // o'qishlari (save) TEGILMAYDI, komponent faqat option'larni almashtiradi.
+  attachProductSearch(div.querySelector('.from-sel'));
+  attachProductSearch(toSel);
 };
 
 window.save = async () => {

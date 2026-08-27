@@ -11,6 +11,9 @@ Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version)
 **kerak emas**. Shu sababli faqat `backend/config.py` versiyasi ko'tarildi
 (`electron/package.json`, `build.gradle`, `frontend/shared/version.js` — 1.9.4 da qoldi).
 
+**Qisqacha:** Xavfsizlik — `/auth/register` endi autentifikatsiya talab qiladi;
+`tenant_id` / `role_id` / `branch_id` server tomonda tekshiriladi.
+
 ### Tuzatilgan — KRITIK
 
 - **`POST /api/v1/auth/register` orqali begona do'konni to'liq egallash mumkin edi.**

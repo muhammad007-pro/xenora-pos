@@ -9,6 +9,14 @@ from contextvars import ContextVar
 # Request ID context variable (middleware tomonidan o'rnatiladi)
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
+# Mijoz IP va User-Agent — RequestIDMiddleware o'rnatadi, audit jurnali o'qiydi.
+# ContextVar tanlandi (endpoint imzosiga `request: Request` qo'shish o'rniga):
+# `log_audit` 18 ta joyda chaqiriladi, ularning birortasi ham Request olmaydi.
+# Shu yo'l bilan chaqiruv joylari TEGILMAYDI va yangi chaqiruv ham avtomatik
+# IP oladi (kelajakda kimdir uzatishni unutib qolmaydi).
+client_ip_var:   ContextVar[str] = ContextVar("client_ip",  default=None)
+user_agent_var:  ContextVar[str] = ContextVar("user_agent", default=None)
+
 
 class JSONFormatter(logging.Formatter):
     """Production uchun JSON formatli log."""

@@ -67,6 +67,7 @@ async def list_audit_logs(
         "resource_id": r.resource_id,
         "detail":      r.detail,
         "ip_address":  r.ip_address,
+        "user_agent":  r.user_agent,
         "created_at":  r.created_at.isoformat() if r.created_at else None,
     } for r in rows]
 

@@ -423,7 +423,7 @@ async function loadAuditLog(){
       _auditStaffLoaded = true;
     }catch{}
   }
-  body.innerHTML = Array.from({length:6}).map(()=>`<tr class="sk-row"><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:80%"></span></td><td><span class="sk-line" style="width:90px;margin-left:auto"></span></td></tr>`).join('');
+  body.innerHTML = Array.from({length:6}).map(()=>`<tr class="sk-row"><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:80%"></span></td><td><span class="sk-line" style="width:70px"></span></td><td><span class="sk-line" style="width:80px"></span></td><td><span class="sk-line" style="width:90px;margin-left:auto"></span></td></tr>`).join('');
   const u  = document.getElementById('auditUserFilter').value;
   const a  = document.getElementById('auditActionFilter').value;
   const df = document.getElementById('auditDateFrom').value;
@@ -436,7 +436,7 @@ async function loadAuditLog(){
   try{
     const d = await apiFetch('/audit-logs'+qs);
     if (!d.items.length){
-      body.innerHTML = `<tr><td colspan="4" class="audit-empty"><div class="ae-ico">👁</div><div class="ae-title">Faoliyat topilmadi</div><div class="ae-hint">Xodimlar harakatlari (buyurtma, qaytarish, narx...) shu yerда ko'rinadi</div></td></tr>`;
+      body.innerHTML = `<tr><td colspan="6" class="audit-empty"><div class="ae-ico">👁</div><div class="ae-title">Faoliyat topilmadi</div><div class="ae-hint">Xodimlar harakatlari (buyurtma, qaytarish, narx...) shu yerда ko'rinadi</div></td></tr>`;
       document.getElementById('auditPager').style.display='none';
       return;
     }
@@ -446,6 +446,8 @@ async function loadAuditLog(){
         <td class="td-bold">${_aesc(it.user_name||'—')}</td>
         <td><span class="audit-badge ${ai.cls}">${ai.label}</span></td>
         <td>${auditText(it)}</td>
+        <td class="td-sub" style="white-space:nowrap" title="${_aesc(it.user_agent||'')}">${auditDevice(it.user_agent)}</td>
+        <td class="td-sub" style="white-space:nowrap;font-variant-numeric:tabular-nums">${it.ip_address ? _aesc(it.ip_address) : '<span style="opacity:.45">—</span>'}</td>
         <td class="td-sub" style="text-align:right;white-space:nowrap" title="${_aesc(it.created_at||'')}">${auditTime(it.created_at)}</td>
       </tr>`;
     }).join('');
@@ -456,8 +458,22 @@ async function loadAuditLog(){
     document.getElementById('auditPrev').disabled = auditPage<=1;
     document.getElementById('auditNext').disabled = auditPage>=pages;
   }catch(e){
-    body.innerHTML = `<tr><td colspan="4" class="audit-empty"><div class="ae-title">Xatolik: ${_aesc(e.message)}</div></td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="audit-empty"><div class="ae-title">Xatolik: ${_aesc(e.message)}</div></td></tr>`;
   }
+}
+// User-Agent'dan SODDA qurilma nomi. To'liq satr <td> title'ida qoladi.
+// Eski yozuvlarda user_agent NULL (2026-08-27 dan oldin yozilmagan) → "—".
+function auditDevice(ua){
+  if(!ua) return '<span style="opacity:.45">—</span>';
+  const s = String(ua);
+  // Tartib MUHIM: Electron ham, Capacitor ham ichida "Chrome"/"Mobile" bo'ladi.
+  if(/Electron/i.test(s))                       return '💻 Windows POS';
+  if(/Capacitor|Android/i.test(s))              return '📱 Android';
+  if(/iPhone|iPad|iOS/i.test(s))                return '📱 iOS';
+  if(/curl|wget|python|axios|okhttp|Postman|Go-http/i.test(s))
+                                                return '<span style="color:var(--danger)">⚠ Skript</span>';
+  if(/Mozilla|Chrome|Safari|Firefox|Edg/i.test(s)) return '🌐 Brauzer';
+  return _aesc(s.slice(0,24));
 }
 function auditAction(a){
   return ({

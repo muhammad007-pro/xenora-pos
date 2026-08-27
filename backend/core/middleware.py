@@ -5,7 +5,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from core.logger import request_id_var
+from core.logger import request_id_var, client_ip_var, user_agent_var
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +17,19 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     """Har so'rovga X-Request-ID header qo'shadi va context'ga yozadi."""
 
     async def dispatch(self, request: Request, call_next):
+        from core.audit import client_ip   # kech import — aylanma bog'liqlik bo'lmasin
+
         rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
         token = request_id_var.set(rid)
+        # Audit jurnali uchun mijoz IP + User-Agent (chaqiruv joylari tegilmasin).
+        ip_token = client_ip_var.set(client_ip(request))
+        ua_token = user_agent_var.set((request.headers.get("user-agent") or None))
         try:
             response = await call_next(request)
         finally:
             request_id_var.reset(token)
+            client_ip_var.reset(ip_token)
+            user_agent_var.reset(ua_token)
         response.headers["X-Request-ID"] = rid
         return response
 

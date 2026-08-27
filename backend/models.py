@@ -1217,7 +1217,8 @@ class AuditLog(Base):
     action      = Column(String(20), nullable=False)                # CREATE | UPDATE | DELETE | LOGIN
     resource_id = Column(String(50), nullable=True)
     detail      = Column(JSON, nullable=True)
-    ip_address  = Column(String(45), nullable=True)
+    ip_address  = Column(String(45), nullable=True)   # middleware avtomatik to'ldiradi (core/audit.py)
+    user_agent  = Column(String(255), nullable=True)  # qaysi ilova: Electron .exe / APK / brauzer / curl
     created_at  = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     user = relationship("User", backref=backref("audit_logs", lazy="dynamic"))

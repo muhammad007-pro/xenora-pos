@@ -3,6 +3,65 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.5] — 2026-08-27
+
+🔴 **XAVFSIZLIK RELIZI.** Migratsiya YO'Q. Backend TEGILGAN — `systemctl restart xenora` SHART.
+
+⚠️ **FAQAT BACKEND.** Frontend/Electron/Android tegilmagan — mijozlarga yangi `.exe`/`.apk`
+**kerak emas**. Shu sababli faqat `backend/config.py` versiyasi ko'tarildi
+(`electron/package.json`, `build.gradle`, `frontend/shared/version.js` — 1.9.4 da qoldi).
+
+### Tuzatilgan — KRITIK
+
+- **`POST /api/v1/auth/register` orqali begona do'konni to'liq egallash mumkin edi.**
+  Endpoint autentifikatsiyasiz ochiq edi va so'rov tanasidan `tenant_id` bilan
+  `role_id` ni to'g'ridan-to'g'ri ishlatardi. Ya'ni internetdagi istalgan odam
+  `{"phone":…, "password":…, "tenant_id": <begona>, "role_id": <admin>}` yuborib,
+  boshqa mijozning do'koniga **admin** bo'lib qo'shila olardi va telefon+parol bilan
+  kirardi (login do'kon kodini so'ramaydi). Rate limit (20/daq) to'siq emas edi.
+  `is_superuser` berib bo'lmagani uchun platforma emas, **bitta tenant** to'liq
+  egallanardi: sotuvlar, mijozlar, narxlar, hisobotlar.
+
+  **Tekshiruv natijasi: bu teshikdan FOYDALANILMAGAN.** Prod bazadagi 9 ta
+  foydalanuvchining hammasi ma'lum qonuniy yo'ldan yaratilgan (tenant adminlari —
+  `create_tenant`, avto-email `admin<N>@restopos.uz`, `created_at` do'kon
+  yaratilgan soniya bilan bir xil; kassirlar — xodim+PIN oqimi). nginx, backend
+  va `journalctl` loglarida `/auth/register` ga **0 ta so'rov** (12.08–27.08;
+  undan oldingi loglar server qayta qurilishida yo'qolgan). Audit jurnalidagi
+  51 ta `LOGIN` — faqat 5 ta ma'lum foydalanuvchi.
+
+  **Yechim** — yangi `backend/core/role_guard.py` (yagona tekshiruv joyi):
+  - `manage_users` ruxsati majburiy → autentifikatsiyasiz **401**, ruxsatsiz **403**;
+  - `tenant_id` tanadan **umuman olinmaydi** — server tokendan aniqlaydi
+    (super-admin bundan mustasno, lekin unda ham kafe mavjud+faol bo'lishi tekshiriladi);
+  - `role_id` yaratuvchining ruxsat darajasidan **oshib keta olmaydi**
+    (masalan `menejer` `admin` rolini bera olmaydi);
+  - `branch_id` faqat o'sha tenant'ning filiali bo'lishi mumkin;
+  - tarif limiti `POST /users/` bilan izchil (FREE cheklovini chetlab o'tish yopildi).
+
+- **Bir xil teshik `POST /users/` da ham qisman bor edi** — filial tekshiruvi yo'q edi;
+  endi u ham `role_guard` dan foydalanadi (ikki endpoint bitta mantiq).
+- **`PATCH /users/{id}` da rol/filial `setattr` bilan ko'r-ko'rona yozilardi** — rolni
+  yangilash orqali imtiyoz oshirish yo'li ham yopildi.
+- `/auth/register` da username unikalligi GLOBAL tekshirilardi → boshqa do'konda
+  "admin" bor bo'lsa noto'g'ri "band" xatosi berardi. Endi tenant ichida (create/`/users/`
+  bilan izchil).
+
+### Qo'shilgan
+- `backend/tests/test_register_privilege_escalation.py` — **12 ta xavfsizlik testi**:
+  autentifikatsiyasiz/soxta token → 401, tenant sakrash, begona filial, rol ko'tarish
+  (create ham, PATCH ham), ruxsatsiz rol. Regressiya kafolati sifatida "mavjud
+  foydalanuvchi login qila oladi" va "pin-login buzilmagan" testlari ham bor.
+- `docs/PRODUCT-AUDIT-2026-08.md` — to'liq mahsulot auditi (biznes to'siqlari,
+  modul to'liqligi, tizim sifati, UX; ish hajmi baholari bilan).
+
+### Ta'sir qilmaydi
+Mavjud mijozlarning (Fazza Parfum, Eco Aroma, lux-parfum, qpa) **kirishiga ta'sir yo'q** —
+`/auth/login` va `/auth/pin-login` tegilmagan, faqat YANGI hisob yaratish yopildi.
+Yangi do'kon ochish yo'li ham o'zgarmadi: `POST /super-admin/tenants` (`owner/cafes.html`).
+Frontend `/auth/register` ni hech qayerda chaqirmasdi (`auth.js:91` dagi `register()`
+metodi o'lik kod edi) — UI o'zgarishi kerak emas.
+
 ## [1.9.4] — 2026-08-20
 
 **Migratsiya YO'Q.** Backend TEGILGAN (nasiya kassa oqimi) — `systemctl restart xenora` SHART.

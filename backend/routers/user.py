@@ -3,12 +3,15 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from database import get_db
-from models import User, Role, Cafe
+from models import User, Cafe
 from schemas import UserCreate, UserUpdate, UserInDB, PaginatedResponse, MessageResponse
-from deps import resolve_tenant_id, get_current_user, has_permission, get_current_active_user, apply_tenant_filter
+from deps import get_current_user, has_permission, get_current_active_user, apply_tenant_filter
 from core.security import get_password_hash, hash_pin
 from core.password_policy import validate_password, validate_pin
 from core.subscription import get_plan_limits, is_within_user_limit
+from core.role_guard import (
+    resolve_target_tenant, assert_can_assign_role, assert_branch_in_tenant,
+)
 
 router = APIRouter()
 
@@ -78,16 +81,14 @@ async def create_user(
     if norm_phone and db.query(User).filter(User.phone == norm_phone).first():
         raise HTTPException(status_code=400, detail="Bu telefon band")
 
-    # Tenant biriktirishni oldinroq aniqlaymiz (username tenant-scoped tekshiruvi uchun kerak)
-    if current_user.is_superuser or current_user.tenant_id is None:
-        if not user_data.tenant_id:
-            raise HTTPException(status_code=400, detail="Super-admin user yaratishda tenant_id (kafe) majburiy")
-        cafe = db.query(Cafe).filter(Cafe.id == user_data.tenant_id, Cafe.is_active == True).first()
-        if not cafe:
-            raise HTTPException(status_code=400, detail="Bunday faol kafe yo'q")
-        tenant_id = user_data.tenant_id
-    else:
-        tenant_id = resolve_tenant_id(db, current_user)  # yaratuvchi tenant'iga biriktiriladi
+    # Tenant biriktirishni oldinroq aniqlaymiz (username tenant-scoped tekshiruvi uchun kerak).
+    # SERVER aniqlaydi: kafe admini uchun tanadagi `tenant_id` e'tiborsiz qoldiriladi,
+    # super-admin esa aniq faol kafe ko'rsatishi shart. Mantiq `core/role_guard` da —
+    # `/auth/register` bilan AYNAN bir xil (ikki xil xulq bo'lib ketmasligi uchun).
+    tenant_id = resolve_target_tenant(db, current_user, user_data.tenant_id)
+
+    # Filial — faqat shu tenant'niki (begona do'kon filialiga biriktirib bo'lmaydi).
+    assert_branch_in_tenant(db, user_data.branch_id, tenant_id)
 
     # Username — ixtiyoriy; unikallik TENANT ICHIDA tekshiriladi (global emas).
     # Shu tufayli har do'konda "admin"/"cashier" kabi nomlar takrorlanishi mumkin.
@@ -101,11 +102,9 @@ async def create_user(
     if user_data.email and db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(status_code=400, detail="Bu email band")
 
-    # Rol tekshirish
-    if user_data.role_id:
-        role = db.query(Role).filter(Role.id == user_data.role_id).first()
-        if not role:
-            raise HTTPException(status_code=404, detail="Rol topilmadi")
+    # Rol tekshirish — mavjudligi + IMTIYOZ DARAJASI (yaratuvchi o'zidan kuchliroq
+    # rol bera olmaydi; masalan `menejer` `admin` yarata olmaydi).
+    assert_can_assign_role(db, current_user, user_data.role_id)
 
     # BOSQICH 2.2: tarif limiti tekshirish (superuser cheksiz)
     if not current_user.is_superuser and current_user.tenant_id is not None:
@@ -191,6 +190,14 @@ async def update_user(
         raise HTTPException(status_code=404, detail="Foydalanuvchi topilmadi")
     
     update_data = user_data.model_dump(exclude_unset=True)
+
+    # ⚠️ XAVFSIZLIK: rol/filial `setattr` bilan ko'r-ko'rona yozilardi — yaratishdagi
+    # bilan bir xil imtiyoz oshirish yo'li. Yangilashда ham xuddi shu qoida:
+    # o'zidan kuchliroq rol berib bo'lmaydi, begona filialga ko'chirib bo'lmaydi.
+    if "role_id" in update_data:
+        assert_can_assign_role(db, current_user, update_data["role_id"])
+    if "branch_id" in update_data and update_data["branch_id"] is not None:
+        assert_branch_in_tenant(db, update_data["branch_id"], user.tenant_id)
 
     # Username o'zgarsa — unikallik TENANT ICHIDA tekshiriladi (create bilan izchil).
     # Ilgari tekshiruvsiz setattr qilinar, DB constraint (uq tenant_id+username) 500

@@ -3,6 +3,71 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [Nashr qilinmagan] — UCH TARIF (Boshlang'ich / Standart / Pro)
+
+Branch `feature/three-tier-plans`. **MIGRATSIYA YO'Q** (`subscription_plan` —
+oddiy `varchar(50)`, PostgreSQL enum emas). Backend + frontend tegilgan →
+`systemctl restart xenora`. Client `.exe`/`.apk` **kerak emas** (sahifalar
+serverdan yuklanadi).
+
+### PRINSIP
+**Standart = kundalik ish. Pro = tahlil va avtomatlashtirish.**
+
+| | Boshlang'ich (`free`) | Standart (`standart`) | Pro (`pro`) |
+|---|---|---|---|
+| Narx (UZS/oy) | 249 000 | 449 000 | 749 000 |
+| Foydalanuvchi | 3 | 10 | 20 |
+| Filial | 1 | 2 | 5 |
+| Buyurtma/oy | 100 | cheksiz | cheksiz |
+
+⚠️ **DB kodlari ATAYLAB o'zgarmadi** (`free`/`pro` qoldi) — 5 jonli tenantda
+`'pro'` matni yozilgan; qayta nomlash ma'lumot migratsiyasi va eski tokenlar
+oynasini talab qilardi. Ko'rinadigan nom kod bilan ajratilgan.
+
+### Qo'shilgan
+- **`standart` tarifi** — `PLAN_LIMITS`, `VALID_PLANS`, `PUBLIC_PLANS`.
+- **`BUSINESS_STANDART_MATRIX`** — har biznes turi uchun Standart funksiyalari.
+  ⚠️ U PRO to'plamining **kichik to'plami sifatida HISOBLANADI**, qo'lda
+  yozilmaydi. Sabab: `pro = free|standart|pro` va `standart ⊆ pro` bo'lgani uchun
+  natija `free|pro` ga teng — ya'ni **mavjud PRO mijozlar uchun AYNAN o'zgarmaydi**.
+  Import paytida `assert` bilan qulflangan.
+- **`GET /super-admin/plans`** — tarif katalogi (nom, narx, limitlar). Narxning
+  yagona manbai; frontend shu yerdan o'qiydi.
+- **`frontend/js/core/plans.js`** — nom xaritasi + narxni backenddan yuklash.
+- **`is_within_branch_limit()`** va `branch.py` da **402** — filial limiti
+  2026-08-27 gacha e'lon qilingan-u **hech qayerda tekshirilmasdi**.
+- `backend/tests/test_three_tier_plans.py` — **64 test**.
+
+### Tuzatilgan
+- **`is_pro_plan()` IKKILIK edi** (`plan != "free"`) → **daraja (rank)** asosiga:
+  free=0, standart=1, pro=2, enterprise=3. Tegilmasa `standart` avtomatik
+  to'liq PRO bo'lib qolardi, ya'ni o'rta tarif bekorga.
+  Xuddi shu ikkilik tekshiruv **yana ikki joyda** dublikat bo'lib yotgan edi va
+  ikkalasi ham tuzatildi: `routers/cafe.py` (funksiya toggle API) va
+  `frontend/app/settings.html` (mijozga ko'rinadigan toggle ekrani).
+- **Noma'lum tarif JIMGINA `free` ga tushardi** (`get_plan_limits`). Endi
+  `WARNING` yoziladi. Xavfi real edi: `"standard"` (imlo xatosi) yozilsa mijoz
+  sababsiz 3 foydalanuvchi / 100 buyurtma limitiga tushib qolardi va hech kim
+  sezmasdi. `plan_rank()` ham xuddi shunday ogohlantiradi.
+- **Narx ikki ZID joyda** edi: `super_admin.py PLAN_PRICES` (USD: free=$10,
+  pro=$50) va `owner/subscriptions.html` (UZS: free=0 "bepul"). Ya'ni moliya
+  paneli Boshlang'ich mijozni pullik, mijoz ekrani bepul deb ko'rsatardi.
+  Endi ikkalasi ham `core/subscription.PLAN_PRICES_UZS` dan o'qiydi.
+- `/super-admin/stats` endi `VALID_PLANS` bo'yicha aylanadi (qattiq yozilgan
+  ro'yxat o'rniga) — yangi tarif avtomatik statistikaga tushadi.
+
+### Ko'rinadigan nom
+`Boshlang'ich` / `Standart` / `Pro` — `owner/cafes.html`, `owner/dashboard.html`,
+`owner/subscriptions.html`, `app/cafes.html`, `js/admin/settings.js`.
+"LITE" va "bepul" yozuvlari olib tashlandi (Boshlang'ich endi pullik).
+
+### Tasdiqlash kutilmoqda
+`fitness` va `school` biznes turlarida PRO to'plamida faqat 2 ta tahlil flagi
+bor, shuning uchun umumiy qoida bo'yicha Standart **hech narsa qo'shmasdi**.
+Taklif: `peak_hours` shu ikki tur uchun Standart'ga tushirilsin (ular uchun bu
+tahlil emas, smena rejalashtirish vositasi). Amalga oshirildi — tasdiqlashingiz
+kerak.
+
 ## [1.9.6] — 2026-08-27 — audit kuzatuv tuzatishlari
 
 ⚠️ **MIGRATSIYA BOR** (`72d684a734c4`) — deploy'da `alembic upgrade head` SHART,

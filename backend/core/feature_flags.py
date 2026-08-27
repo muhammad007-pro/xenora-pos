@@ -8,8 +8,11 @@ xohlasa qo'shimcha funksiyalarni qo'lda yoqishi mumkin (`enabled_features`
 va `disabled_features` orqali, `Cafe` modelida saqlanadi).
 """
 
+import logging
 from enum import Enum
 from typing import Iterable, FrozenSet
+
+log = logging.getLogger(__name__)
 
 
 class FeatureTier(str, Enum):
@@ -263,6 +266,60 @@ BUSINESS_PRO_MATRIX: dict[BusinessType, frozenset[Feature]] = {
 }
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# STANDART (o'rta tarif) — 2026-08-27
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# PRINSIP:  Standart = KUNDALIK ISH.   Pro = TAHLIL va AVTOMATLASHTIRISH.
+#
+# ⚠️ MUHIM DIZAYN QARORI: STANDART to'plami PRO to'plamining KICHIK TO'PLAMI
+# (subset) sifatida HISOBLANADI, alohida qo'lda yozilmaydi. Buning sababi —
+# PRO mijozlar uchun natija AYNAN o'zgarmasligi kerak:
+#       PRO  =  free | standart | pro   va   standart ⊆ pro
+#       =>     free | pro                (ya'ni o'zgarishdan OLDINGI holat)
+# Qo'lda yozilsa, kimdir STANDART'ga PRO'da yo'q flag qo'shib qo'yishi va jonli
+# PRO mijozning funksiyalari jimgina o'zgarib ketishi mumkin edi.
+_STANDART_OPERATIONAL: frozenset[Feature] = frozenset({
+    Feature.SUPPLIER_ACCOUNTING,   # firma bilan hisob-kitob — kundalik
+    Feature.WHOLESALE_PRICING,     # optom narx — kundalik sotuv
+    Feature.INTERNAL_TRANSFER,     # filiallar orasida ko'chirish — kundalik
+    Feature.GOODS_REGRADE,         # peresort — kundalik ombor ishi
+    Feature.WRITE_OFF,             # hisobdan chiqarish — kundalik ombor ishi
+    Feature.LOSS_REPORT,           # yo'qotish hisoboti — kundalik nazorat
+})
+
+# ISTISNO: fitness va school'ning PRO to'plamida faqat 2 ta tahlil flagi bor
+# (abc_analysis, peak_hours) — yuqoridagi kesishma BO'SH chiqadi va Standart
+# tarif ular uchun funksiya jihatidan Boshlang'ichdan farq qilmasdi.
+# `peak_hours` (gavjum soatlar) bu ikki biznes uchun TAHLIL emas, SMENA
+# REJALASHTIRISH vositasi — shu sababli Standart'ga tushiriladi.
+# ⚠️ Bu MENING taklifim — tasdiqlashingiz kerak (qarang: hisobot).
+_STANDART_EXTRA: dict[BusinessType, frozenset[Feature]] = {
+    BusinessType.FITNESS: frozenset({Feature.PEAK_HOURS}),
+    BusinessType.SCHOOL:  frozenset({Feature.PEAK_HOURS}),
+}
+
+BUSINESS_STANDART_MATRIX: dict[BusinessType, frozenset[Feature]] = {
+    bt: (pro & _STANDART_OPERATIONAL) | _STANDART_EXTRA.get(bt, frozenset())
+    for bt, pro in BUSINESS_PRO_MATRIX.items()
+}
+
+# Invariant qulfi: STANDART hech qachon PRO'dan chiqib ketmasin (aks holda
+# PRO mijozning funksiyalari o'zgarardi). Import paytida tekshiriladi.
+for _bt, _std in BUSINESS_STANDART_MATRIX.items():
+    assert _std <= BUSINESS_PRO_MATRIX[_bt], (
+        f"STANDART PRO ning kichik to'plami bo'lishi SHART: {_bt} "
+        f"ortiqcha: {_std - BUSINESS_PRO_MATRIX[_bt]}"
+    )
+
+
+def get_business_standart_features(business_type: BusinessType | str) -> frozenset[Feature]:
+    """Shu biznes turida STANDART tarifda ochiladigan funksiyalar."""
+    if not isinstance(business_type, BusinessType):
+        business_type = BusinessType(business_type)
+    return BUSINESS_STANDART_MATRIX.get(business_type, frozenset())
+
+
 # ── Har bir flag uchun tarif darajasi ──────────────────────────────────────────
 # FREE  — tenant egasi settings.html orqali o'zi yoqib/o'chira oladi
 # PRO   — faqat super-admin yoqa oladi (tenant PRO tarif sotib olishi kerak)
@@ -381,9 +438,54 @@ def get_all_business_features(business_type: BusinessType | str) -> frozenset[Fe
     return get_default_features(business_type) | get_business_pro_features(business_type)
 
 
+# ── TARIF DARAJASI (rank) ─────────────────────────────────────────────────────
+# ⚠️ 2026-08-27 gacha bu IKKILIK edi: `plan != "free"` → PRO. Uch tarifga
+# o'tishda shu qator eng nozik joy: tegilmasa `standart` AVTOMATIK to'liq PRO
+# bo'lib qolardi (ya'ni o'rta tarif bekorga).
+PLAN_RANK: dict[str, int] = {
+    "free":       0,   # Boshlang'ich
+    "basic":      0,   # eski nom
+    "standart":   1,   # Standart — kundalik ish
+    "pro":        2,   # Pro — tahlil va avtomatlashtirish
+    "premium":    2,   # eski nom
+    "enterprise": 3,   # hammasi
+}
+
+RANK_STANDART = 1
+RANK_PRO      = 2
+
+
+def plan_rank(subscription_plan: str | None) -> int:
+    """Tarif darajasi. Noma'lum tarif → 0 (eng past) + OGOHLANTIRISH.
+
+    Jimgina 0 ga tushish xavfli: mijoz haqiqiy tarifi bo'la turib eng past
+    funksiya to'plamini olardi va hech kim sezmasdi (qarang: subscription.get_plan_limits).
+    """
+    key = (subscription_plan or "").strip().lower()
+    if not key:
+        return 0
+    rank = PLAN_RANK.get(key)
+    if rank is None:
+        log.warning(
+            "[TARIF] Noma'lum tarif '%s' — daraja 0 (Boshlang'ich funksiyalari) "
+            "qo'llanildi. Ma'lum tariflar: %s", subscription_plan, sorted(PLAN_RANK),
+        )
+        return 0
+    return rank
+
+
 def is_pro_plan(subscription_plan: str | None) -> bool:
-    """Tarif PRO darajasidami? free'dan boshqasi (pro/enterprise) — PRO."""
-    return bool(subscription_plan) and str(subscription_plan).strip().lower() != "free"
+    """Tarif PRO darajasidami (>= pro)?
+
+    Eski nom saqlanadi (chaqiruvchilar buzilmasin), lekin endi DARAJA asosida:
+    `standart` PRO EMAS — bu uch tarif tizimining butun mohiyati.
+    """
+    return plan_rank(subscription_plan) >= RANK_PRO
+
+
+def is_standart_plan(subscription_plan: str | None) -> bool:
+    """Tarif kamida STANDART darajasidami?"""
+    return plan_rank(subscription_plan) >= RANK_STANDART
 
 
 def resolve_enabled_features(
@@ -411,8 +513,12 @@ def resolve_enabled_features(
     """
     features = {f.value for f in get_default_features(business_type)}
 
-    # PRO tarif → SHU biznes turining PRO flaglari avtomatik yoqiladi (global emas).
-    if is_pro_plan(subscription_plan):
+    # TARIF DARAJASI bo'yicha bosqichma-bosqich qo'shiladi (2026-08-27, uch tarif).
+    # standart ⊆ pro bo'lgani uchun PRO natijasi o'zgarishdan OLDINGIDEK qoladi.
+    rank = plan_rank(subscription_plan)
+    if rank >= RANK_STANDART:
+        features |= {f.value for f in get_business_standart_features(business_type)}
+    if rank >= RANK_PRO:
         features |= {f.value for f in get_business_pro_features(business_type)}
 
     # OLIB TASHLANGAN FLAGLARGA CHIDAMLILIK (BOSQICH D): tenant `enabled_features`

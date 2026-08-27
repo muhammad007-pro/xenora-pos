@@ -108,8 +108,9 @@ async function loadSettings() {
     const data = await apiFetch('/cafes/my/features');
     _settingsData = data;
     const plan = data.subscription_plan || 'free';
-    // "free" kaliti o'zgarmaydi — faqat ko'rinadigan nom "LITE".
-    const planLabel = plan === 'free' ? 'LITE' : plan.toUpperCase();
+    // Kod (DB) o'zgarmaydi — faqat ko'rinadigan nom. Yagona manba: js/core/plans.js.
+    const planLabel = (window.planName ? window.planName(plan)
+                       : ({free:"Boshlang'ich", standart:'Standart', pro:'Pro'}[plan] || plan));
     const isProPlan = plan !== 'free';   // Lite'dan boshqasi (pro) — PRO ochiq
     document.getElementById('settingsPlanBadge').textContent = planLabel + ' tarif';
 

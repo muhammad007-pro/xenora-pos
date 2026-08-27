@@ -11,9 +11,12 @@ Eski nom mos kelishi (backward compat):
   premium -> PRO cheklovlari
 """
 
+import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 UNLIMITED = 0  # 0 qiymati = cheksiz
 
@@ -29,19 +32,78 @@ class PlanLimits:
 
 
 PLAN_LIMITS: dict[str, PlanLimits] = {
-    "free":       PlanLimits(max_users=3,  max_branches=1, max_orders_month=100),
+    # ── Ko'rinadigan uch tarif ────────────────────────────────────────────────
+    "free":       PlanLimits(max_users=3,  max_branches=1, max_orders_month=100),        # Boshlang'ich
+    "standart":   PlanLimits(max_users=10, max_branches=2, max_orders_month=UNLIMITED),  # Standart
+    "pro":        PlanLimits(max_users=20, max_branches=5, max_orders_month=UNLIMITED),  # Pro
+    # ── Eski nomlar (backward compat; UI'da ko'rinmaydi) ─────────────────────
     "basic":      PlanLimits(max_users=3,  max_branches=1, max_orders_month=100),
-    "pro":        PlanLimits(max_users=20, max_branches=5, max_orders_month=UNLIMITED),
     "premium":    PlanLimits(max_users=20, max_branches=5, max_orders_month=UNLIMITED),
     "enterprise": PlanLimits(max_users=UNLIMITED, max_branches=UNLIMITED, max_orders_month=UNLIMITED),
 }
 
-VALID_PLANS = ("free", "pro", "enterprise")
+# UI'da ko'rinadigan nom — kod (DB qiymati) bilan ATAYLAB ajratilgan.
+# Nomni o'zgartirish uchun bazaga tegish SHART EMAS.
+PLAN_DISPLAY_NAMES: dict[str, str] = {
+    "free":       "Boshlang'ich",
+    "standart":   "Standart",
+    "pro":        "Pro",
+    "enterprise": "Enterprise",
+}
+
+# ── NARX — YAGONA MANBA (UZS/oy) ──────────────────────────────────────────────
+# Ilgari ikki ZID jadval bor edi: routers/super_admin.py PLAN_PRICES (USD,
+# free=$10) va frontend/owner/subscriptions.html (UZS, free=0 "bepul").
+# Moliya paneli LITE'ni pullik, mijoz ekrani bepul deb ko'rsatardi. Endi ikkalasi
+# ham SHU YERDAN o'qiydi (frontend `GET /super-admin/plans` orqali).
+PLAN_PRICES_UZS: dict[str, int] = {
+    "free":       249_000,
+    "standart":   449_000,
+    "pro":        749_000,
+    "enterprise": 0,        # ko'rinmaydi; narx kelishuv asosida
+}
+
+VALID_PLANS = ("free", "standart", "pro", "enterprise")
+
+# UI dropdownida ko'rsatiladigan tariflar (enterprise ataylab yo'q — u
+# kelishuv asosidagi maxsus holat, o'z-o'zidan tanlanmaydi).
+PUBLIC_PLANS = ("free", "standart", "pro")
 
 
 def get_plan_limits(plan: str) -> PlanLimits:
-    """Tarif nomi bo'yicha cheklovlarni qaytaradi; noma'lum tarif -> FREE cheklovlari."""
-    return PLAN_LIMITS.get(plan.lower(), PLAN_LIMITS["free"])
+    """Tarif nomi bo'yicha cheklovlarni qaytaradi.
+
+    ⚠️ NOMA'LUM TARIF — JIMGINA emas, OGOHLANTIRISH bilan FREE'ga tushadi.
+    Ilgari bu jim edi va XAVFLI natija berardi: tarif nomida xato bo'lsa
+    (masalan "standard" vs "standart") mijoz sababsiz 3 foydalanuvchi va
+    100 buyurtma/oy limitiga tushib qolardi va HECH KIM sezmasdi.
+    Endi logda aniq WARNING chiqadi.
+
+    Xato (exception) ATAYLAB tashlanmaydi: bu funksiya sotuv/login yo'lida
+    chaqiriladi, bitta noto'g'ri yozuv butun do'konni to'xtatib qo'ymasligi kerak.
+    """
+    key = (plan or "").strip().lower()
+    limits = PLAN_LIMITS.get(key)
+    if limits is None:
+        logger.warning(
+            "[TARIF] Noma'lum tarif '%s' — FREE cheklovlari qo'llanildi "
+            "(max_users=%d, max_orders_month=%d). Ma'lum tariflar: %s",
+            plan, PLAN_LIMITS["free"].max_users,
+            PLAN_LIMITS["free"].max_orders_month, sorted(PLAN_LIMITS),
+        )
+        return PLAN_LIMITS["free"]
+    return limits
+
+
+def is_within_branch_limit(current_count: int, plan: str) -> bool:
+    """Hozirgi filiallar soni tarif limitiga sig'adimi?
+
+    2026-08-27 gacha `max_branches` E'LON QILINGAN-u, hech qayerda
+    TEKSHIRILMASDI — "1 filial" va'dasi bo'sh gap edi. `routers/branch.py`
+    endi shu funksiyani ishlatadi.
+    """
+    limits = get_plan_limits(plan)
+    return limits.max_branches == UNLIMITED or current_count < limits.max_branches
 
 
 def is_within_user_limit(current_count: int, plan: str) -> bool:

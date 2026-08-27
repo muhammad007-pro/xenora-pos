@@ -15,9 +15,13 @@ from core.security import (
 from core.exceptions import InvalidCredentialsError, UserNotFoundError
 from core.password_policy import validate_password
 from core.feature_flags import resolve_enabled_features
+from core.subscription import get_plan_limits, is_within_user_limit
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
+from core.role_guard import (
+    resolve_target_tenant, assert_can_assign_role, assert_branch_in_tenant,
+)
 from services.auth_service import AuthService
-from deps import get_current_user, get_current_active_user
+from deps import get_current_user, get_current_active_user, has_permission
 
 
 def _build_token_data(user: User, db: Session, branch_id=None) -> dict:
@@ -49,11 +53,49 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 @router.post("/register", response_model=UserInDB)
 async def register(
     user_data: UserCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_users")),
 ):
-    """Yangi foydalanuvchi ro'yxatdan o'tkazish (BOSQICH 38: telefon majburiy + unikal)"""
+    """Yangi foydalanuvchi yaratish (telefon + parol bilan kiruvchi hisob).
+
+    ⚠️ XAVFSIZLIK (2026-08-27): bu endpoint ILGARI autentifikatsiyasiz OCHIQ edi va
+    tanadagi `tenant_id` + `role_id` ni to'g'ridan-to'g'ri ishlatardi. Natijada
+    istalgan odam istalgan do'konga admin bo'lib qo'shila olardi. Endi:
+      • `manage_users` ruxsati MAJBURIY (autentifikatsiyasiz → 401, ruxsatsiz → 403);
+      • `tenant_id` tanadan OLINMAYDI — server tokendan aniqlaydi (super-admin
+        bundan mustasno, u aniq kafe ko'rsatishi shart);
+      • `role_id` yaratuvchining ruxsat darajasidan oshib keta olmaydi;
+      • `branch_id` faqat o'sha tenant'ning filiali bo'lishi mumkin.
+
+    Mavjud foydalanuvchilarning KIRISHIGA (`/auth/login`, `/auth/pin-login`) ta'sir yo'q —
+    faqat YANGI hisob yaratish yopildi. Yangi do'kon (tenant) ochish yo'li o'zgarmadi:
+    `POST /super-admin/tenants` (owner paneli, `owner/cafes.html`).
+    """
     from utils.helpers import normalize_phone
     auth_service = AuthService(db)
+
+    # 1) Tenant — SERVER aniqlaydi (tanadagi qiymat e'tiborsiz qoldiriladi).
+    tenant_id = resolve_target_tenant(db, current_user, user_data.tenant_id)
+
+    # 2) Rol — yaratuvchi o'zidan kuchliroq rol bera olmaydi (imtiyoz oshirish yo'q).
+    assert_can_assign_role(db, current_user, user_data.role_id)
+
+    # 3) Filial — faqat shu tenant'niki.
+    assert_branch_in_tenant(db, user_data.branch_id, tenant_id)
+
+    # 4) Tarif limiti — `POST /users/` bilan izchil. Aks holda bu endpoint
+    #    FREE tarifning foydalanuvchi cheklovini chetlab o'tish yo'li bo'lib qolardi.
+    if not current_user.is_superuser:
+        cafe = db.query(Cafe).filter(Cafe.id == tenant_id).first()
+        if cafe:
+            user_count = db.query(User).filter(User.tenant_id == tenant_id).count()
+            if not is_within_user_limit(user_count, cafe.subscription_plan):
+                limits = get_plan_limits(cafe.subscription_plan)
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"'{cafe.subscription_plan}' tarifi faqat {limits.max_users} ta "
+                           f"foydalanuvchiga ruxsat beradi. Tarifni yangilang.",
+                )
 
     # Parol siyosati (8+ belgi, harf+raqam, zaif emas). FAQAT yaratishда — login'da emas.
     validate_password(user_data.password)
@@ -65,13 +107,25 @@ async def register(
     if db.query(User).filter(User.phone == norm_phone).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu telefon band")
 
-    # Username/email — ixtiyoriy; berilgan bo'lsa unikallik tekshiriladi
-    if user_data.username and db.query(User).filter(User.username == user_data.username).first():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu username band")
+    # Username — unikallik TENANT ICHIDA (composite unique: tenant_id + username),
+    # `POST /users/` bilan izchil. Ilgari GLOBAL tekshirilardi → boshqa do'konda
+    # "admin" bor bo'lsa noto'g'ri "band" xatosi berardi.
+    if user_data.username and db.query(User).filter(
+        User.username == user_data.username,
+        User.tenant_id == tenant_id,
+    ).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu username shu do'konda band")
     if user_data.email and db.query(User).filter(User.email == user_data.email).first():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bu email band")
 
-    user = auth_service.create_user(user_data)
+    # Tenant'ni tanadan EMAS, server aniqlagan qiymatdan biriktiramiz.
+    safe_data = user_data.model_copy(update={"tenant_id": tenant_id})
+    user = auth_service.create_user(safe_data)
+
+    log_audit(current_user, "users", "CREATE", user.id, tenant_id=tenant_id, detail={
+        "created_username": user.username, "created_phone": user.phone,
+        "role_id": user.role_id, "via": "auth/register",
+    })
     return user
 
 @router.post("/login", response_model=Token)

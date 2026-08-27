@@ -3,6 +3,63 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [Nashr qilinmagan] — audit kuzatuv tuzatishlari
+
+Branch `fix/audit-followups`. **MIGRATSIYA BOR** (`72d684a734c4`) — deploy'da
+`alembic upgrade head` SHART, keyin `systemctl restart xenora`.
+Frontend'da faqat bitta matn o'zgardi → yangi `.exe`/`.apk` **kerak emas**.
+
+### Tuzatilgan
+
+- **POS: "To'lov (F9)" yorlig'i noto'g'ri edi — aslida F4.** `pos.js:2839` da
+  to'lov F4 ga bog'langan, F9 esa savatdan OXIRGI TOVARNI O'CHIRADI
+  (`pos.js:2843`). Kassir yozuvga ishonib F9 bossa — pul olish o'rniga tovar
+  savatdan yo'qolardi. **Kod emas, yozuv** to'g'rilandi (kassirlar mavjud
+  yorliqlarga o'rganib qolgan bo'lishi mumkin). Barcha yorliqlar tekshirildi —
+  boshqa nomuvofiqlik yo'q (Ctrl+K, F2, F3, F8 hammasi mos).
+  ⚠️ F9 (savatdan o'chirish) hech qayerda **yozilmagan** — yashirin yorliq.
+
+- **Audit jurnalida `ip_address` HAMMA qatorda NULL edi.** Ustun ham,
+  `client_ip()` helper ham bor edi, lekin helper hech qayerda import
+  qilinmagan va 18 ta `log_audit()` chaqiruvining birortasi `ip_address=`
+  uzatmasdi. 2026-08-27 xavfsizlik tekshiruvida aynan shu ma'lumot kerak
+  bo'ldi va yo'q edi. Endi IP + User-Agent `RequestIDMiddleware` orqali
+  **avtomatik** yoziladi (ContextVar) — chaqiruv joylari tegilmadi, kelajakdagi
+  yangi chaqiruvlar ham avtomatik oladi.
+
+- **`X-Forwarded-For` ni birinchi bo'g'indan olish audit izini soxtalashtirishga
+  ochiq edi.** nginx `$proxy_add_x_forwarded_for` ishlatadi — u mijoz yuborgan
+  sarlavhaga haqiqiy IP ni *qo'shib qo'yadi*, ya'ni birinchi bo'g'in **mijoz
+  nazoratida**. Endi tartib: `X-Real-IP` (nginx qayta yozadi → ishonchli) →
+  XFF ning **oxirgi** bo'g'ini → `request.client.host`.
+
+- **Test fixture buzilgan edi → `test_orders` va `test_products` JIMGINA skip
+  bo'lardi** (API integratsiya testlari amalda yo'q edi). Uch sabab:
+  (1) test bazasi urug'lantirilmasdi — ilovaning `init_db()` esa `SessionLocal`
+  ni to'g'ridan-to'g'ri chaqirgani uchun `dependency_overrides` unga ta'sir
+  qilmasdi; (2) fixture `username="admin"` bilan kirardi, holbuki login kaliti
+  **telefon** (BOSQICH 38); (3) `test_auth.py` `pytest` ni import qilmasdan
+  `pytest.skip` chaqirardi (NameError).
+
+- **Testlar DEV BAZASIGA yozardi.** `init_db()` va `log_audit()` `SessionLocal`
+  ni to'g'ridan-to'g'ri chaqiradi → har test yugurishi dev ma'lumotini
+  o'zgartirardi. Endi conftest uni test bazasiga yo'naltiradi.
+
+### Qo'shilgan
+- `audit_logs.user_agent` ustuni (255) — IP o'zgaruvchan (NAT/mobil), UA esa
+  qaysi ILOVA ekanini aytadi: Electron `.exe` / Capacitor APK / brauzer /
+  `curl` (skript = shubhali). `/audit` javobiga ham qo'shildi.
+- `backend/tests/test_audit_client_ip.py` — 14 ta test. Ulardan **ikkitasi
+  uchdan-uchgacha**: haqiqiy login yuborib, `audit_logs` qatoriga IP tushganini
+  va soxta XFF tushmaganini tekshiradi. (Birlik testlari asl xatoni tutmagan
+  bo'lardi — muammo `client_ip()` da emas, uni hech kim chaqirmasligida edi.)
+
+### Ma'lum cheklov
+`test_create_order_*` testlari sqlite'da **skip** bo'ladi: kunlik chek raqami
+`func.timezone('Asia/Tashkent', ...)` — PostgreSQL funksiyasi
+(`order_service.py:38`), sqlite'da yo'q. Bu prod xatosi EMAS. Skip sababi endi
+**aniq ko'rinadi** va test bazasi PostgreSQL'ga o'tkazilsa avtomatik yuguradi.
+
 ## [1.9.5] — 2026-08-27
 
 🔴 **XAVFSIZLIK RELIZI.** Migratsiya YO'Q. Backend TEGILGAN — `systemctl restart xenora` SHART.

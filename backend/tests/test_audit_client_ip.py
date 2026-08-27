@@ -223,3 +223,76 @@ def test_soro_konteksti_yoq_bolsa_yiqilmaydi(monkeypatch):
     assert yozilgan.get("ip_address") is None
     assert yozilgan.get("user_agent") is None
     assert yozilgan.get("resource") == "shifts"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 4) UCHDAN-UCHGACHA — middleware HAQIQIY so'rovda ContextVar'ni to'ldiradimi
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# ⚠️ BU ENG MUHIM TEST. Yuqoridagi birlik testlari ContextVar'ni QO'LDA
+# o'rnatadi — ular asl xatoni TUTMAGAN bo'lardi, chunki `client_ip()` o'shanda
+# ham to'g'ri ishlardi; muammo uni HECH KIM CHAQIRMASLIGIDA edi. Faqat haqiqiy
+# so'rov yuborib, bazaga yozilganini tekshirish shu bo'shliqni yopadi.
+
+def test_haqiqiy_sorov_audit_qatoriga_ip_yozadi(client):
+    """Login -> log_audit(LOGIN) -> audit_logs.ip_address to'lgan bo'lishi SHART."""
+    from tests.conftest import (
+        SEED_ADMIN_PHONE, SEED_ADMIN_PASSWORD, TestingSessionLocal,
+    )
+    from models import AuditLog
+
+    r = client.post(
+        "/api/v1/auth/login",
+        data={"username": SEED_ADMIN_PHONE, "password": SEED_ADMIN_PASSWORD},
+        headers={
+            "X-Real-IP":  "203.0.113.55",
+            "User-Agent": "xenora/1.9.5 Electron/27.3.11",
+        },
+    )
+    assert r.status_code == 200, r.text
+
+    db = TestingSessionLocal()
+    try:
+        row = (db.query(AuditLog)
+                 .filter(AuditLog.action == "LOGIN")
+                 .order_by(AuditLog.id.desc())
+                 .first())
+    finally:
+        db.close()
+
+    assert row is not None, "LOGIN audit qatori umuman yozilmadi"
+    assert row.ip_address == "203.0.113.55", (
+        f"IP yozilmadi (kelgani: {row.ip_address!r}). Aynan shu holat "
+        "2026-08-27 gacha davom etgan: ustun bor, helper bor, lekin NULL."
+    )
+    assert row.user_agent == "xenora/1.9.5 Electron/27.3.11"
+
+
+def test_haqiqiy_sorovda_soxta_xff_yozilmaydi(client):
+    """nginx naqshi: mijoz XFF yuborgan, oxirgi bo'g'in haqiqiy.
+
+    Soxta birinchi bo'g'in ("1.2.3.4") audit jurnaliga TUSHMASLIGI shart.
+    """
+    from tests.conftest import (
+        SEED_ADMIN_PHONE, SEED_ADMIN_PASSWORD, TestingSessionLocal,
+    )
+    from models import AuditLog
+
+    r = client.post(
+        "/api/v1/auth/login",
+        data={"username": SEED_ADMIN_PHONE, "password": SEED_ADMIN_PASSWORD},
+        headers={"X-Forwarded-For": "1.2.3.4, 203.0.113.99"},
+    )
+    assert r.status_code == 200, r.text
+
+    db = TestingSessionLocal()
+    try:
+        row = (db.query(AuditLog)
+                 .filter(AuditLog.action == "LOGIN")
+                 .order_by(AuditLog.id.desc())
+                 .first())
+    finally:
+        db.close()
+
+    assert row.ip_address == "203.0.113.99"
+    assert row.ip_address != "1.2.3.4", "SOXTA IP audit jurnaliga tushdi!"

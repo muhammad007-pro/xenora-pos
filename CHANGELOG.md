@@ -3,11 +3,23 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
-## [Nashr qilinmagan] — audit kuzatuv tuzatishlari
+## [1.9.6] — 2026-08-27 — audit kuzatuv tuzatishlari
 
-Branch `fix/audit-followups`. **MIGRATSIYA BOR** (`72d684a734c4`) — deploy'da
-`alembic upgrade head` SHART, keyin `systemctl restart xenora`.
-Frontend'da faqat bitta matn o'zgardi → yangi `.exe`/`.apk` **kerak emas**.
+⚠️ **MIGRATSIYA BOR** (`72d684a734c4`) — deploy'da `alembic upgrade head` SHART,
+keyin `systemctl restart xenora`.
+Rollback nuqtalari: kod `07a52da`, alembic `a9b8c7d6e5f4`.
+
+Frontend o'zgardi (`admin.html`, `js/admin/core.js`, `pos.html`), lekin ular
+serverdan yuklanadi → mijozlarga yangi `.exe`/`.apk` **kerak emas**.
+
+### Qo'shilgan — audit paneli
+- **"Xodimlar faoliyati" paneliga IP va Qurilma ustunlari.** Avval IP hamma
+  qatorda NULL bo'lgani uchun ko'rsatilmasdi; endi ma'lumot bor va panelning
+  o'zidan buzilishni tekshirish mumkin. Qurilma `user_agent`dan sodda
+  ko'rinishga aylantiriladi (to'liq satr — katak `title`ida):
+  `Windows POS` (Electron `.exe`), `Android`, `iOS`, `Brauzer`, va
+  **`Skript`** (curl/python/wget/okhttp/Postman) — qizil rangda, chunki bu
+  odam emas. Eski yozuvlarda ikkalasi ham bo'sh chiziq ("—"), xato emas.
 
 ### Tuzatilgan
 

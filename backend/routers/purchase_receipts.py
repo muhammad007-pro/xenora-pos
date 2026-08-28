@@ -47,6 +47,7 @@ def _enrich(rec: PurchaseReceipt) -> dict:
         "net_amount":      rec.net_amount,
         "status":          rec.status,
         "paid_now":        float(rec.paid_now or 0),
+        "is_manual_debt":  bool(rec.is_manual_debt),
         "notes":           rec.notes,
         "created_at":      rec.created_at,
         "items":           items_out,
@@ -65,6 +66,12 @@ async def list_receipts(
     current_user: User = Depends(get_current_active_user),
 ):
     q = apply_tenant_filter(db.query(PurchaseReceipt), PurchaseReceipt, current_user)
+    # QO'LDA QARZ bu ro'yxatda KO'RINMAYDI: u nakladnoy emas — tovar qatorlari,
+    # invoice raqami va ombor kirimi yo'q. Priyomkalar ro'yxatida chiqsa
+    # do'konchi uni "tasdiqlash"/"tahrirlash"ga urinardi. U Firmalar → Qarzlar
+    # bo'limidagi o'z oynasida boshqariladi (GET /suppliers-b2b/{id}/debts).
+    # Mavjud ma'lumotga ta'siri YO'Q: bunday yozuv hozircha umuman yo'q.
+    q = q.filter(PurchaseReceipt.is_manual_debt == False)   # noqa: E712
     if supplier_id:
         q = q.filter(PurchaseReceipt.supplier_id == supplier_id)
     if status:

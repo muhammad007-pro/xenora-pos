@@ -351,7 +351,12 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     <div id="panelQarzlar" style="display:none">
       <div class="page-header">
         <div></div>
-        <button class="btn" id="btnPay">+ To'lov</button>
+        <div style="display:flex;gap:.5rem">
+          <!-- Priyomkasiz qarz: do'kon tovar hisobini yuritmasa ham nasiyani
+               yozib borishi kerak ("Kerasys dan tovar oldim"). -->
+          <button class="btn btn-secondary" id="btnManualDebt">+ Qarz qo'shish</button>
+          <button class="btn" id="btnPay">+ To'lov</button>
+        </div>
       </div>
       <div class="sub-tab-bar">
         <button class="tab-btn active" id="dtabDebt" onclick="debtSubTab('debt')">Qarzlar</button>
@@ -612,6 +617,47 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     </div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
       <button class="btn btn-secondary" onclick="closeLedger()">Yopish</button>
+    </div>
+  </div>
+</div>
+
+<!-- QO'LDA QARZ — priyomkasiz nasiya ("firmadan qarz oldim").
+     Do'kon tovar hisobini yuritmasa ham qarzni yozib borishi kerak. Yozuv
+     qarz hisobiga oddiy nakladnoy kabi tushadi (FIFO, oborot varag'i). -->
+<div class="modal-overlay" id="manualDebtModal">
+  <div class="modal-box" style="max-width:720px">
+    <div class="modal-title" id="mdTitle">Qo'lda qarz</div>
+
+    <div class="form-row"><label class="form-label">Firma *</label><select class="inp" id="mdSupplier"></select></div>
+    <div class="form-grid">
+      <div class="form-row"><label class="form-label">Summa (UZS) *</label>
+        <input type="number" class="inp" id="mdAmount" placeholder="0" min="1"></div>
+      <div class="form-row"><label class="form-label">Sana *</label>
+        <input type="date" class="inp" id="mdDate"></div>
+    </div>
+    <div class="form-row"><label class="form-label">Izoh</label>
+      <input type="text" class="inp" id="mdNotes" maxlength="500" placeholder="Masalan: Kerasys dan tovar oldim"></div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin:.5rem 0 1.25rem">
+      <button class="btn btn-secondary" id="mdCancelEdit" style="display:none" onclick="mdResetForm()">Bekor</button>
+      <button class="btn" id="mdSaveBtn" onclick="mdSave()">Qarz qo'shish</button>
+    </div>
+
+    <div class="modal-title" style="font-size:.9375rem;margin-top:.5rem">Kiritilgan qarzlar</div>
+    <div class="table-wrap" style="max-height:40vh;overflow:auto">
+      <table class="data-table">
+        <thead><tr>
+          <th style="width:105px">Sana</th>
+          <th>Izoh</th>
+          <th style="text-align:right;width:120px">Summa</th>
+          <th style="text-align:right;width:120px">Qoldiq</th>
+          <th style="width:90px"></th>
+        </tr></thead>
+        <tbody id="mdBody"></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
+      <button class="btn btn-secondary" onclick="closeManualDebt()">Yopish</button>
     </div>
   </div>
 </div>
@@ -1180,6 +1226,7 @@ async function loadDebt() {
         <div class="btn-row">
           <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenPay(${d.supplier_id})">To'lov qilish</button>
           <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="debtOpenRet(${d.supplier_id})">Vozvrat</button>
+          <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="openManualDebt(${d.supplier_id}, '${(d.supplier_name||'').replace(/'/g, "\\\\'")}')">➕ Qarz</button>
           <!-- FAZA 4: agent bilan hisob-kitob ekrani -->
           <button class="btn btn-secondary" style="font-size:.8125rem;padding:.3rem .75rem" onclick="openLedger(${d.supplier_id}, '${(d.supplier_name||'').replace(/'/g, "\\\\'")}')">📄 Oborot</button>
         </div>
@@ -1265,7 +1312,7 @@ window.openLedger = async (supplierId, supplierName) => {
     body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text3)">Hujjat topilmadi</td></tr>';
     return;
   }
-  const KIND = { opening: '🗂', receipt: '📦', payment: '💵', return: '↩' };
+  const KIND = { opening: '🗂', receipt: '📦', manual_debt: '✍️', payment: '💵', return: '↩' };
   body.innerHTML = rows.map(e => {
     const plus = e.amount > 0;
     return `<tr>
@@ -1286,6 +1333,111 @@ window.openLedger = async (supplierId, supplierName) => {
 };
 window.closeLedger = () => document.getElementById('ledgerModal').classList.remove('active');
 document.getElementById('ledgerModal').onclick = e => { if (e.target===e.currentTarget) closeLedger(); };
+
+// ════════════════ QO'LDA QARZ (priyomkasiz nasiya) ════════════════
+// Hisob BACKENDDA — bu yerda formula yo'q. Yozuv qarz hisobiga oddiy
+// nakladnoy kabi tushadi, shuning uchun qo'shgandan keyin Qarzlar tabi
+// va oborot varag'i qayta yuklanadi (raqamlar ajralib qolmasin).
+let _mdEditId = null;
+
+function mdFillSuppliers(selectedId) {
+  const sel = document.getElementById('mdSupplier');
+  sel.innerHTML = suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  if (selectedId) sel.value = selectedId;
+}
+
+window.mdResetForm = () => {
+  _mdEditId = null;
+  document.getElementById('mdAmount').value = '';
+  document.getElementById('mdNotes').value  = '';
+  document.getElementById('mdDate').value   = new Date().toISOString().slice(0, 10);
+  document.getElementById('mdSaveBtn').textContent = "Qarz qo'shish";
+  document.getElementById('mdCancelEdit').style.display = 'none';
+  document.getElementById('mdSupplier').disabled = false;
+};
+
+window.openManualDebt = async (supplierId, supplierName) => {
+  mdFillSuppliers(supplierId);
+  mdResetForm();
+  document.getElementById('mdTitle').textContent =
+    supplierName ? `Qo'lda qarz — ${supplierName}` : "Qo'lda qarz";
+  document.getElementById('manualDebtModal').classList.add('active');
+  await mdLoadList();
+};
+window.closeManualDebt = () => document.getElementById('manualDebtModal').classList.remove('active');
+document.getElementById('manualDebtModal').onclick = e => { if (e.target===e.currentTarget) closeManualDebt(); };
+document.getElementById('btnManualDebt').onclick = () => openManualDebt(suppliers[0]?.id || '', suppliers[0]?.name || '');
+document.getElementById('mdSupplier').onchange = () => { mdResetForm(); mdLoadList(); };
+
+async function mdLoadList() {
+  const supId = document.getElementById('mdSupplier').value;
+  const body  = document.getElementById('mdBody');
+  if (!supId) { body.innerHTML = ''; return; }
+  body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1rem;color:var(--text3)">Yuklanmoqda...</td></tr>';
+
+  const res  = await api.get(`/suppliers-b2b/${supId}/debts`);
+  const rows = Array.isArray(res) ? res : (res?.data || []);
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:var(--text3)">Hozircha qo\'lda qarz yo\'q</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td style="color:var(--text3);font-size:.8125rem">${r.debt_date}</td>
+      <td>${r.notes ? r.notes.replace(/</g,'&lt;') : '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="text-align:right;font-weight:600">${fmt(r.amount)}</td>
+      <td style="text-align:right;font-weight:700;color:${r.remaining > 0 ? '#ef4444' : '#22c55e'}">${fmt(r.remaining)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary" style="font-size:.75rem;padding:.2rem .45rem"
+                onclick="mdEdit(${r.id}, ${r.amount}, '${r.debt_date}', '${(r.notes||'').replace(/'/g,"\\'").replace(/</g,'&lt;')}')">✎</button>
+        <button class="btn btn-secondary" style="font-size:.75rem;padding:.2rem .45rem"
+                onclick="mdDelete(${r.id})">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+window.mdEdit = (id, amount, date, notes) => {
+  _mdEditId = id;
+  document.getElementById('mdAmount').value = amount;
+  document.getElementById('mdDate').value   = date;
+  document.getElementById('mdNotes').value  = notes || '';
+  document.getElementById('mdSaveBtn').textContent = 'Saqlash';
+  document.getElementById('mdCancelEdit').style.display = '';
+  // Tahrirlashda firmani almashtirib bo'lmaydi — yozuv o'sha firmaniki.
+  document.getElementById('mdSupplier').disabled = true;
+};
+
+window.mdSave = async () => {
+  const supId  = document.getElementById('mdSupplier').value;
+  const amount = parseFloat(document.getElementById('mdAmount').value);
+  const date   = document.getElementById('mdDate').value;
+  const notes  = document.getElementById('mdNotes').value.trim();
+  if (!supId)                      return showToast('Firmani tanlang', 'error');
+  if (!(amount > 0))               return showToast('Summa 0 dan katta bo\'lishi kerak', 'error');
+  if (!date)                       return showToast('Sanani tanlang', 'error');
+
+  const btn = document.getElementById('mdSaveBtn'); btn.disabled = true;
+  const res = _mdEditId
+    ? await api.patch(`/suppliers-b2b/debts/${_mdEditId}`, { amount, debt_date: date, notes })
+    : await api.post(`/suppliers-b2b/${supId}/debts`,      { amount, debt_date: date, notes });
+  btn.disabled = false;
+
+  if (!apiOk(res)) return showToast(apiErr(res, 'Saqlanmadi'), 'error');
+  showToast(_mdEditId ? 'Qarz yangilandi' : 'Qarz qo\'shildi', 'success');
+  mdResetForm();
+  await mdLoadList();
+  loadDebt();          // Qarzlar kartalari darhol yangi raqamni ko'rsatsin
+};
+
+window.mdDelete = async (id) => {
+  if (!confirm('Bu qarz yozuvi o\'chirilsinmi? Firma qarzi shu summaga kamayadi.')) return;
+  const res = await api.delete(`/suppliers-b2b/debts/${id}`);
+  if (!apiOk(res)) return showToast(apiErr(res, 'O\'chirilmadi'), 'error');
+  showToast('Qarz yozuvi o\'chirildi', 'success');
+  if (_mdEditId === id) mdResetForm();
+  await mdLoadList();
+  loadDebt();
+};
 
 // ════════════════ VOZVRAT TAB ════════════════
 window.debtLoadReturns = async () => {

@@ -3,6 +3,80 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.7] — 2026-08-29 — foyda hisobi tuzatishlari (Fazza tashxisi)
+
+⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.
+Rollback nuqtasi: kod `491bbe1` (v1.9.6).
+
+**FAQAT BACKEND** o'zgardi (`routers/`, `services/`, `utils/`, `schemas.py`).
+Frontendga TEGILMADI → yangi `.exe`/`.apk` **kerak emas**.
+
+### Kelib chiqishi
+
+Fazza Perfum (magazin) "bugun savdo qildik, foyda −4 489 080 ko'rsatyapti"
+deb murojaat qildi. Jonli baza tekshirildi. Asosiy sabab kod emas, XATO
+MA'LUMOT bo'lib chiqdi: `PCHYOLKA gupka` kartochkasida `pack_size = 7000`
+(egasi dona soni o'rniga narx yozgan). Sotuv paytida
+`order_service.py:280` uni tekshirmasdan `unit_cost = 700 × 7000 = 4 900 000`
+qilib hisoblagan va 8 000 so'mlik bitta sotuvga 4,9 mln tan narx yozgan.
+Ma'lumot alohida tuzatildi (kodda emas). Tekshiruv yo'lida esa quyidagi
+TO'RT haqiqiy kod xatosi topildi va shu relizda tuzatildi.
+
+### Tuzatilgan
+
+- **Foyda hisobotida tan narx yo'qolardi** (`services/report_service.py`).
+  `sum(OrderItem.quantity * OrderItem.unit_cost)` — `COALESCE` yo'q edi, ya'ni
+  `unit_cost` NULL bo'lgan qator yig'indidan JIMGINA tushib qolardi (eski va
+  import qilingan sotuvlar). Tan narx kam → foyda oshiq ko'rinardi. Vozvrat
+  tomonida esa `COALESCE` BOR edi — assimetriya: sotuv tan narxi 0 deb
+  olinardi, vozvrat tan narxi to'liq ayirilardi. Endi ikkala tomon ham
+  `utils/revenue.py:cost_expr()` dan o'qiydi.
+
+- **Vozvrat tan narxi `pack_size` marta shishardi** (`utils/revenue.py`).
+  `COALESCE(base_qty, quantity) * unit_cost` ikki xil birlikni ko'paytirardi:
+  `base_qty` — DONA/ml miqdori, `unit_cost` — PACHKA tan narxi. Atir uchun
+  (`pack_size = 100`) bu 100 BAROBAR xato. U `cost` dan AYIRILGANI uchun
+  foyda haddan tashqari OSHIB ketardi: bitta 1 mln lik flakon qaytarilsa
+  hisobot 100 mln tan narx ayirib, ~99 mln soxta "foyda" ko'rsatardi.
+  Yangi `return_cost_expr()` birlikni moslaydi: `unit_cost` bo'lsa
+  `quantity` ga, `cost_price` ga tushsa `base_qty` ga ko'paytiriladi.
+  Fazza va Eco Aroma'da tasdiqlangan vozvrat yo'q edi — xato hali
+  portlamagan, oldi olindi.
+
+- **"Bugun" hisoboti har doim 0 so'm chiqardi** (`routers/report.py`).
+  `_dates()` ikkala chegarani ham 00:00 qilib qaytarardi, servislar esa
+  `created_at <= date_to` bilan filtrlaydi → tugash kunining O'ZI qamralmasdi.
+  `report.html` standart holatda `date_from = date_to = bugun` yuboradi, ya'ni
+  POS "Hisobotlar → Foyda" sahifasi bo'sh ko'rinardi va buni hech kim xato deb
+  o'ylamasdi ("bugun savdo yo'q ekan"). Endi mahalliy zonada to'liq kun
+  oralig'i. Bu `/reports/sales`, `/products`, `/staff`, `/tax`, `/customers`
+  va `/export` ga ham tegishli — ularda ham oxirgi kun qo'shildi.
+
+- **"Bugun" davrida vozvrat hech qachon ayirilmasdi** (`routers/profit.py`).
+  `returns_totals()` ga `date` obyekti uzatilardi; u TIMESTAMP ustuni bilan
+  solishtirilganda kun 00:00 ga qisilardi. "Hafta"/"Oy" da esa oxirgi kun
+  tushib qolardi.
+
+### Qo'shilgan — himoya
+
+- **`pack_size` qo'riqchisi** (`schemas.py`, 0…1000). Yuqoridagi hodisaning
+  ildizi: 1 pachkadagi DONA SONI maydoniga hech qanday tekshiruvsiz NARX
+  kiritilishi mumkin edi. Chegara "son"ni "narx"dan ajratadi — eng katta
+  haqiqiy qiymatlar atir uchun 100 (ml) va 68 (dona), narx esa ming/o'n
+  minglab.
+  ⚠️ Qo'riqcha ATAYIN `ProductCreate`/`ProductUpdate` da, `ProductBase` da
+  EMAS: `ProductInDB` ham `ProductBase` dan meros oladi va u BAZADAN
+  O'QIShda ishlatiladi. Bazada buzuq yozuv qolgan bo'lsa, validator
+  `ProductBase` da bo'lganida mahsulot ro'yxati 500 qaytarardi — ya'ni
+  tuzatish do'konni ishdan chiqarardi. Qoida: KIRISHni tekshiramiz,
+  mavjud ma'lumotni o'qishni bloklamaymiz.
+
+### Testlar
+
+`backend/tests/test_profit_p0_fixes.py` (19 tekshiruv) — har biri jonli
+hodisadan kelib chiqqan, jumladan "mavjud buzuq yozuv o'qilishi kerak"
+regressiya qulfi. To'liq to'plam: 135 passed, 2 skipped.
+
 ## [1.9.6] — 2026-08-27 — audit kuzatuv tuzatishlari
 
 ⚠️ **MIGRATSIYA BOR** (`72d684a734c4`) — deploy'da `alembic upgrade head` SHART,

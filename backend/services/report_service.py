@@ -81,13 +81,24 @@ class ReportService:
         # chiqardi). Formula va taqsimlash izohi: utils/revenue.py
         sq = order_subtotal_subq()
         net = net_revenue_expr(sq)
+        # TUZATISH (P0-1): tan narx `cost_expr()` orqali — ilgari to'g'ridan
+        # `OrderItem.unit_cost` olinardi, COALESCE'siz. `unit_cost` NULL/0 bo'lgan
+        # qator SUM dan JIMGINA tushib qolardi (eski/import qilingan sotuvlar) →
+        # tan narx kam, foyda oshiq. Vozvrat tomonida esa `returns_totals()`
+        # allaqachon COALESCE ishlatardi — ya'ni assimetriya bor edi: sotuv
+        # tan narxi 0, vozvrat tan narxi to'liq ayirilardi.
+        cost = OrderItem.quantity * cost_expr()
 
         q = self.db.query(
             func.date(Order.created_at).label('d'),
             func.sum(net).label('revenue'),
-            func.sum(OrderItem.quantity * OrderItem.unit_cost).label('cost'),
+            func.sum(cost).label('cost'),
             func.count(func.distinct(Order.id)).label('orders')
         ).join(Order, Order.id == OrderItem.order_id
+        # `cost_expr()` Product.cost_price ga tushadi → Product ulanishi SHART.
+        # outerjoin: mahsulot o'chirilgan bo'lsa ham sotuv qatori yo'qolmasin
+        # (many-to-one — qator SONI o'zgarmaydi, dekart ko'paytmasi yo'q).
+        ).outerjoin(Product, Product.id == OrderItem.product_id
         ).join(sq, sq.c.order_id == OrderItem.order_id).filter(
             Order.created_at >= date_from,
             Order.created_at <= date_to,
@@ -114,7 +125,7 @@ class ReportService:
         pq = self.db.query(
             Product.name,
             func.sum(net).label('revenue'),
-            func.sum(OrderItem.quantity * OrderItem.unit_cost).label('cost'),
+            func.sum(cost).label('cost'),          # P0-1: cost_expr (COALESCE'li)
             func.sum(OrderItem.quantity).label('qty')
         ).join(OrderItem, OrderItem.product_id == Product.id
         ).join(Order, Order.id == OrderItem.order_id
@@ -128,7 +139,7 @@ class ReportService:
         if branch_id:
             pq = pq.filter(Order.branch_id == branch_id)
         products = pq.group_by(Product.id, Product.name).order_by(
-            (func.sum(net) - func.sum(OrderItem.quantity * OrderItem.unit_cost)).desc()
+            (func.sum(net) - func.sum(cost)).desc()   # P0-1: cost_expr bilan izchil
         ).limit(20).all()
 
         return {

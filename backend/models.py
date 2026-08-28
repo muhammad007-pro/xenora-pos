@@ -823,6 +823,16 @@ class PurchaseReceipt(Base):
     # yaratiladi: draft hali qarz emas, unga to'lov yozish "avans" bo'lib
     # ko'rinardi. Shu sabab qiymat oraliqda shu ustunda turadi.
     paid_now        = Column(Numeric(14, 2), nullable=False, server_default="0")
+    # QO'LDA QARZ: tovar qatorlarisiz, faqat summa sifatida kiritilgan nasiya
+    # ("firmadan 500 000 qarz oldim"). Qarz hisobi uchun oddiy nakladnoydan
+    # farq qilmaydi (FIFO, oborot varag'i, /debt-summary bir xil) — faqat
+    # ko'rinishi va boshqaruv endpointlari boshqa.
+    # NEGA ALOHIDA USTUN, "qatori yo'q" deb TAXMIN QILINMAYDI: semantik
+    # xossani tasodifiy xossaga bog'lash — shu loyihada qayta-qayta uchragan
+    # xato sinfi (bitta ko'rsatkich ikki xil haqiqatni aytadi). Kelajakda
+    # import yoki xato tufayli qatorsiz nakladnoy paydo bo'lsa, u JIMGINA
+    # "qo'lda qarz" bo'lib qolardi.
+    is_manual_debt  = Column(Boolean, nullable=False, server_default="false", default=False)
     notes           = Column(Text, nullable=True)
     confirmed_by    = Column(Integer, ForeignKey("users.id"), nullable=True)
     confirmed_at    = Column(DateTime(timezone=True), nullable=True)

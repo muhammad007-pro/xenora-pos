@@ -43,6 +43,39 @@ DEBT_STATUSES = ("confirmed", "paid")
 _EPS = 0.01
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# QO'LDA QARZ (manual debt) — "priyomkasiz qarz"
+#
+# TALAB (Fazza Parfum): do'kon firmadan tovarni nasiyaga oladi, LEKIN tovar
+# hisobini yuritmaydi — faqat pul oldi-berdi. Ularga kerak bo'lgani: "falon
+# firmadan 500 000 qarz oldim" deb yozib qo'yish, keyin to'lovlarni shunga
+# yozish.
+#
+# NEGA YANGI JADVAL EMAS: iqtisodiy ma'noda bu AYNAN nasiyaga xarid — faqat
+# tovar taqsimoti yo'q. Ya'ni "summasi bor, qatorlari yo'q priyomka". Shu
+# sababli mavjud `PurchaseReceipt` qayta ishlatiladi va FIFO, oborot varag'i,
+# muddati o'tgan hisobi, /debt-summary — HAMMASI o'z-o'zidan ishlaydi.
+# `compute_supplier_debt()` ga BITTA QATOR ham qo'shilmadi → mavjud qarz
+# raqamlari o'zgarishi MUMKIN EMAS (golden test buni qotiradi).
+#
+# MARKER: `purchase_receipts.is_manual_debt` ustuni (migratsiya 3f7a2c9e1b04).
+#
+# ⚠️ AVVAL "qatori yo'q" deb TAXMIN QILINGAN edi va u mavjud testni buzdi:
+# test fixture'i qatorsiz nakladnoy yaratardi va u JIMGINA "qo'lda qarz" bo'lib
+# ko'rindi. Semantik xossani (bu — qo'lda qarz) tasodifiy xossaga (qatorlari
+# yo'q) bog'lash — shu loyihada qayta-qayta uchragan xato sinfi. Endi ustun
+# aniq: eski qatorlar `false`, ya'ni hammasi oddiy nakladnoy.
+#
+# NEGA `opening_debt` EMAS: u BITTA son (Numeric ustun) — sanasi, izohi va
+# tarixi yo'q. Har safar ustiga qo'shsa kim/qachon/qancha yozgani yo'qoladi va
+# xato kiritilganini alohida bekor qilib bo'lmaydi.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def is_manual_debt(receipt) -> bool:
+    """Bu priyomka — qo'lda kiritilgan qarzmi?"""
+    return bool(getattr(receipt, "is_manual_debt", False))
+
+
 @dataclass
 class ReceiptDebt:
     """Bitta nakladnoy bo'yicha qoldiq (FIFO taqsimotdan keyin)."""
@@ -226,6 +259,16 @@ def build_ledger(
 
     for r in receipts:
         if r.status not in DEBT_STATUSES:
+            continue
+        # Qo'lda qarz alohida `kind` va yorliq oladi — do'konchi oborot
+        # varag'ida "Priyomka #12" ni ko'rib "qaysi tovar edi?" deb izlamasin.
+        # Summa/sana/FIFO mantig'i AYNAN bir xil — faqat ko'rinish farq qiladi.
+        if is_manual_debt(r):
+            label = "Qo'lda qarz"
+            if r.notes:
+                label += f" · {r.notes}"
+            items.append((r.receipt_date or Date.min, 1, "manual_debt",
+                          label, float(r.net_amount or 0), r.id))
             continue
         inv = f" · {r.invoice_number}" if r.invoice_number else ""
         items.append((r.receipt_date or Date.min, 1, "receipt",

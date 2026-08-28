@@ -1502,11 +1502,41 @@ class SupplierDebtSummary(BaseModel):
 class SupplierLedgerEntry(BaseModel):
     """FAZA 4: oborot varag'ining bitta qatori (xronologik, yugurib boruvchi qoldiq)."""
     date:    Optional[str] = None      # boshlang'ich qarzda sana yo'q
-    kind:    str                       # opening | receipt | payment | return
+    kind:    str                       # opening | receipt | manual_debt | payment | return
     label:   str
     amount:  float                     # + qarz oshdi, − kamaydi
     balance: float
     ref_id:  Optional[int] = None
+
+
+# ── QO'LDA QARZ (priyomkasiz) ────────────────────────────────────────────────
+# Nima uchun alohida jadval emas va marker nima ekani:
+# services/supplier_debt.py dagi "QO'LDA QARZ" izohiga qara.
+
+class ManualDebtCreate(BaseModel):
+    amount:    float = Field(gt=0, description="Qarz summasi (so'm)")
+    debt_date: str   = Field(description="Sana: YYYY-MM-DD")
+    notes:     Optional[str] = Field(None, max_length=500,
+                                     description="Izoh: 'Kerasys dan tovar oldim'")
+
+
+class ManualDebtUpdate(BaseModel):
+    amount:    Optional[float] = Field(None, gt=0)
+    debt_date: Optional[str]   = None
+    notes:     Optional[str]   = Field(None, max_length=500)
+
+
+class ManualDebtInDB(BaseModel):
+    id:            int
+    supplier_id:   int
+    supplier_name: Optional[str] = None
+    amount:        float
+    debt_date:     str
+    notes:         Optional[str] = None
+    # FIFO taqsimotidan keyingi holat (qarz servisidan olinadi)
+    paid:          float = 0.0
+    remaining:     float = 0.0
+    created_at:    Optional[datetime] = None
 
 
 class PurchaseReceiptItemCreate(BaseModel):
@@ -1543,7 +1573,10 @@ class PurchaseReceiptCreate(BaseModel):
     # To'lov yozuvi priyomka TASDIQLANGANDA yaratiladi.
     paid_now:        float = Field(0, ge=0)
     notes:           Optional[str] = None
-    items:           List[PurchaseReceiptItemCreate]
+    # `min_length=1` — bo'sh priyomka ma'nosiz (0 so'mlik hujjat). Qarz esa
+    # "qo'lda qarz" endpointi orqali kiritiladi (POST /suppliers-b2b/{id}/debts),
+    # bo'sh nakladnoy orqali emas.
+    items:           List[PurchaseReceiptItemCreate] = Field(min_length=1)
 
 class PurchaseReceiptUpdate(BaseModel):
     invoice_number:  Optional[str] = None

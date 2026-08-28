@@ -171,6 +171,59 @@ def t_p0_4():
     check("P0-4_oraliq_bir_kun", (e - s).total_seconds(), 86400 - 1e-6, tol=1e-3)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# P0-5 — pack_size qo'riqchisi (ASOSIY SABAB, Fazza hodisasi)
+#
+# JONLI HOLAT (tenant 26, product 870 "PCHYOLKA gupka"):
+#   price=1 000  cost_price=700  pack_size=7000(!)  pack_price=8 000
+#   -> order_service.py:280:  unit_cost = 700 * 7000 = 4 900 000
+#   -> 8 000 so'mlik BITTA sotuv 4,9 mln tan narx yozdi
+#   -> 28-avgust foydasi: 2 003 000 - 6 492 080 = -4 489 080
+# ═══════════════════════════════════════════════════════════════════════════
+def t_p0_5():
+    from pydantic import ValidationError
+    from schemas import ProductCreate, ProductInDB, ProductUpdate
+
+    global _total
+    base = dict(name="PCHYOLKA gupka", price=1000, cost_price=700, category_id=31)
+
+    # 1) Haqiqiy qiymat o'tadi (regressiya yo'q): 8 dona pachka, atir 100 ml
+    check("P0-5_pack_8_otadi",   ProductCreate(**base, pack_size=8,   pack_price=8000).pack_size, 8)
+    check("P0-5_pack_100_otadi", ProductCreate(**base, pack_size=100, pack_price=1400000).pack_size, 100)
+
+    # 2) Jonli xato (7000) BLOKLANADI — create ham, update ham
+    for label, fn in (
+        ("create", lambda: ProductCreate(**base, pack_size=7000, pack_price=8000)),
+        ("update", lambda: ProductUpdate(pack_size=7000)),
+    ):
+        _total += 1
+        try:
+            fn()
+            _fails.append(f"P0-5_{label}_7000_bloklanmadi")
+            print(f"[FAIL] P0-5_{label}_7000_bloklanmadi: qabul qilindi")
+        except ValidationError:
+            print(f"[OK  ] P0-5_{label}_7000_bloklandi")
+
+    # 3) ⚠️ MUHIM: bazadagi MAVJUD buzuq yozuvni O'QISH bloklanmasligi kerak.
+    #    Aks holda tuzatish do'konni ishdan chiqarardi (mahsulot ro'yxati 500).
+    _total += 1
+    try:
+        row = ProductInDB.model_validate(
+            type("R", (), dict(
+                id=870, name="PCHYOLKA gupka", price=1000.0, cost_price=700.0,
+                category_id=31, pack_size=7000, pack_price=8000.0, sale_unit="pcs",
+                preparation_time=10, requires_prescription=False,
+                is_active=True, is_available=True, created_at=datetime(2026, 8, 28),
+            ))(),
+            from_attributes=True,
+        )
+        assert row.pack_size == 7000
+        print("[OK  ] P0-5_mavjud_buzuq_yozuv_oqiladi")
+    except Exception as e:
+        _fails.append("P0-5_mavjud_buzuq_yozuv_oqilmadi")
+        print(f"[FAIL] P0-5_mavjud_buzuq_yozuv_oqilmadi: {e}")
+
+
 def main():
     print("=== P0 FOYDA TUZATISHLARI ===\n")
     db = _session()
@@ -181,6 +234,8 @@ def main():
     print()
     t_p0_3()
     t_p0_4()
+    print()
+    t_p0_5()
     db.close()
 
     print()

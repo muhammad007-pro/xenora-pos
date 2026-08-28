@@ -122,6 +122,32 @@ def cost_expr():
 RETURN_COUNTED_STATUSES = ("approved",)
 
 
+def return_cost_expr():
+    """Bitta ReturnItem qatorining tan narxi — BIRLIK MOSLIGI bilan.
+
+    ═══ TUZATILGAN XATO (P0-2) ═══
+    Avval bitta ko'paytma bor edi:
+        COALESCE(base_qty, quantity) * COALESCE(NULLIF(unit_cost,0), cost_price, 0)
+    Bu IKKI XIL BIRLIKNI ko'paytirardi:
+      • `base_qty`          — DONA/ml miqdori   (pachka bo'lsa = pack_size × quantity)
+      • `OrderItem.unit_cost` — PACHKA tan narxi (order_service.py: dona_cost × pack_size)
+    Natijada pachka vozvratida tan narx `pack_size` MARTA shishardi
+    (atir: pack_size=100 → 100 barobar). U `cost` dan AYIRILGANI uchun foyda
+    haddan tashqari OSHIB ketardi — bitta flakon vozvrati o'nlab million
+    "foyda" yaratishi mumkin edi.
+
+    ═══ TO'G'RI QOIDA ═══
+      • `unit_cost` mavjud  → u SOTUV birligida  → `ReturnItem.quantity` ga ko'paytiriladi
+      • fallback `cost_price` → u BAZA birligida (dona/ml) → `base_qty` ga ko'paytiriladi
+    Ikkalasi ham bo'lmasa 0.
+    """
+    return func.coalesce(
+        func.nullif(OrderItem.unit_cost, 0.0) * ReturnItem.quantity,
+        Product.cost_price * func.coalesce(ReturnItem.base_qty, ReturnItem.quantity),
+        0.0,
+    )
+
+
 def return_date_expr():
     """Vozvratning HISOBOT SANASI — tasdiqlangan sana, bo'lmasa yaratilgan."""
     return func.coalesce(Return.approved_at, Return.created_at)
@@ -137,17 +163,11 @@ def returns_totals(db, current_user, start, end) -> dict:
     from deps import apply_tenant_filter
 
     dt = return_date_expr()
-    cost = func.coalesce(
-        func.nullif(OrderItem.unit_cost, 0.0),
-        Product.cost_price,
-        0.0,
-    )
+    cost = return_cost_expr()          # P0-2: birlik mosligi (yuqoridagi izoh)
     q = (
         db.query(
             func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
-            func.coalesce(
-                func.sum(func.coalesce(ReturnItem.base_qty, ReturnItem.quantity) * cost), 0.0
-            ).label("cost"),
+            func.coalesce(func.sum(cost), 0.0).label("cost"),
             func.count(func.distinct(Return.id)).label("cnt"),
         )
         .select_from(ReturnItem)
@@ -173,18 +193,12 @@ def returns_by_day(db, current_user, start, end) -> dict:
     from deps import apply_tenant_filter
 
     dt = return_date_expr()
-    cost = func.coalesce(
-        func.nullif(OrderItem.unit_cost, 0.0),
-        Product.cost_price,
-        0.0,
-    )
+    cost = return_cost_expr()          # P0-2: birlik mosligi (returns_totals bilan bir xil)
     q = (
         db.query(
             func.date(dt).label("d"),
             func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
-            func.coalesce(
-                func.sum(func.coalesce(ReturnItem.base_qty, ReturnItem.quantity) * cost), 0.0
-            ).label("cost"),
+            func.coalesce(func.sum(cost), 0.0).label("cost"),
         )
         .select_from(ReturnItem)
         .join(Return, Return.id == ReturnItem.return_id)

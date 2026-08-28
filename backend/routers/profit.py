@@ -74,6 +74,19 @@ def _period_range(period: str, start_date: Optional[date], end_date: Optional[da
     return today, today
 
 
+def _dt_bounds(start: date, end: date):
+    """(start_date, end_date) → to'liq TIMESTAMP oralig'i, mahalliy zonada.
+
+    `Expense.expense_date` DATE ustuni — u bilan `date` solishtirish to'g'ri.
+    Ammo `Return.approved_at` TIMESTAMP — unga `date` berilsa kun 00:00 ga
+    keltiriladi va kunning o'zi qamralmaydi (P0-4 izohiga qara).
+    """
+    from core.timeutils import day_bounds
+    s, _        = day_bounds(start)
+    _, next_day = day_bounds(end)
+    return s, next_day - timedelta(microseconds=1)
+
+
 def _get_biz_type(db: Session, current_user: User) -> str:
     if not current_user.tenant_id:
         return "restaurant"
@@ -202,7 +215,15 @@ def _product_summary(db: Session, current_user: User, start: date, end: date) ->
     # QAYTARISH (Return) — yagona manbadan ayiriladi (utils/revenue.py).
     # Ilgari umuman ayirilmasdi: tovar qaytsa ham foyda o'sha sotuvdan
     # olingandek qolaverardi. Sana — QAYTARILGAN sana (sotuv sanasi emas).
-    ret = returns_totals(db, current_user, start, end)
+    #
+    # TUZATISH (P0-4): bu yerga `date` obyekti uzatilardi. `returns_totals()`
+    # ichida solishtirish TIMESTAMP ustuni bilan ketadi (`approved_at`), va
+    # PostgreSQL `date` ni o'sha kunning 00:00 iga keltiradi. Ya'ni shart
+    # `dt >= 28-avgust 00:00 AND dt <= 28-avgust 00:00` bo'lib qolardi va
+    # AYNAN YARIM TUNDAGIdan boshqa hech qanday vozvrat tushmasdi:
+    # "Bugun" davrida vozvrat AMALDA HECH QACHON ayirilmasdi, "Hafta"/"Oy" da esa
+    # oxirgi kun tushib qolardi. Endi to'liq kun oralig'i (mahalliy zona) beriladi.
+    ret = returns_totals(db, current_user, *_dt_bounds(start, end))
     return {
         "revenue": round(float(row.revenue or 0) - ret["revenue"], 2),
         "cost": round(float(row.cost or 0) - ret["cost"], 2),

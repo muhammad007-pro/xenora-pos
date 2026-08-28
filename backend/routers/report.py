@@ -9,16 +9,34 @@ from database import get_db
 from models import User, Branch
 from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, user_has_permission
 from services.report_service import ReportService
-from core.timeutils import day_bounds
+from core.timeutils import day_bounds, tenant_now
 
 router = APIRouter()
 
 def _dates(date_from, date_to):
-    if not date_from:
-        date_from = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-    if not date_to:
-        date_to = datetime.now().strftime("%Y-%m-%d")
-    return datetime.strptime(date_from, "%Y-%m-%d"), datetime.strptime(date_to, "%Y-%m-%d")
+    """Hisobot oralig'i → (boshlanish 00:00.000, tugash 23:59:59.999999) MAHALLIY zonada.
+
+    ═══ TUZATILGAN XATO (P0-3) ═══
+    Avval ikkala chegara ham `strptime(...)` = o'sha kun 00:00:00 edi. Chaqiruvchi
+    servislar `created_at <= date_to` filtri bilan ishlaydi, ya'ni TUGASH KUNINING
+    O'ZI QAMRALMASDI. `report.html` standart holatda `date_from = date_to = bugun`
+    yuboradi → "Bugun" foyda/savdo hisoboti HAR DOIM BO'SH (0 so'm) chiqardi va
+    buni hech kim xato deb tushunmasdi ("bugun savdo yo'q ekan" deb o'ylanardi).
+
+    Ikkinchi xato: naive `datetime` — server UTC, shuning uchun kun chegarasi
+    Toshkent kunidan 5 soat siljirdi. Endi `day_bounds()` (tenant mahalliy,
+    aware) ishlatiladi — `/reports/daily` allaqachon shu naqshda ishlaydi.
+    """
+    today_local = tenant_now().date()
+    d_from = (datetime.strptime(date_from, "%Y-%m-%d").date()
+              if date_from else today_local - timedelta(days=30))
+    d_to   = (datetime.strptime(date_to, "%Y-%m-%d").date()
+              if date_to else today_local)
+
+    start, _        = day_bounds(d_from)   # d_from 00:00 (mahalliy)
+    _, next_day     = day_bounds(d_to)     # d_to + 1 kun 00:00 (mahalliy)
+    # Servislar `<=` ishlatadi → ertangi yarim tunni QAMRAMASLIK uchun 1 mks orqaga.
+    return start, next_day - timedelta(microseconds=1)
 
 
 @router.get("/branches")

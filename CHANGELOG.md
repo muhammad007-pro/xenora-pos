@@ -3,6 +3,64 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.8] — 2026-08-29 — firmalarga qo'lda qarz qo'shish
+
+⚠️ **MIGRATSIYA BOR** (`3f7a2c9e1b04`) — deploy'da `alembic upgrade head` SHART,
+keyin `systemctl restart xenora`.
+Rollback nuqtalari: kod `e2d5fca` (v1.9.7), alembic `72d684a734c4`.
+
+Frontend ham o'zgardi (`app/suppliers.html`) — u serverdan yuklanadi, shuning
+uchun mijozlarga yangi `.exe`/`.apk` **shart emas**. Versiya fayllari baribir
+sinxron ko'tarildi (SW keshi v1.52.0 → v1.53.0, Android versionCode 29 → 30).
+
+### Qo'shilgan
+
+- **Firmalarga QO'LDA QARZ qo'shish (priyomkasiz) — "Qarzlar" tabida.**
+  Do'kon tovar hisobini yuritmasa ham nasiyani yozib borishi mumkin:
+  *"Kerasys dan tovar oldim — 500 000"*. Ilgari qarzni oshirishning yagona
+  yo'li tovarli nakladnoy kiritish edi, ya'ni ombor hisobini yuritish
+  MAJBURIY bo'lardi. `opening_debt` esa bitta son — sanasi, izohi va tarixi
+  yo'q, xato kiritilganini bekor qilib ham bo'lmasdi.
+
+  Qarzlar tabida "+ Qarz qo'shish" tugmasi va har firma kartasida "➕ Qarz".
+  Modalda: summa, sana, izoh + kiritilgan qarzlar jadvali (qoldiq bilan),
+  tahrirlash va o'chirish. Oborot varag'ida alohida ✍️ "Qo'lda qarz" qatori.
+
+  To'lov qilinganda FIFO uni ham hisobga oladi — eng eski qarzdan boshlab
+  (nakladnoy va qo'lda qarz sana bo'yicha aralash tartibda). Ortiqcha to'lov
+  avans bo'lib qoladi. Har amal audit logga yoziladi.
+
+### Texnik
+
+- Yangi jadval YARATILMADI: qo'lda qarz — "summasi bor, tovar qatorlari yo'q"
+  priyomka (`purchase_receipts.is_manual_debt`). Iqtisodiy ma'noda bu aynan
+  nasiyaga xarid, shuning uchun FIFO, oborot varag'i, muddat hisobi,
+  `/debt-summary` va `/store-dashboard` o'z-o'zidan ishlaydi.
+  **`compute_supplier_debt()` ga bitta qator ham qo'shilmadi** — mavjud qarz
+  raqamlari o'zgarishi mumkin emas (golden test bilan qotirilgan).
+- Marker ustun, TAXMIN emas. Dastlab "qatori yo'q priyomka = qo'lda qarz"
+  qoidasi ishlatilgan edi va u mavjud testni buzdi: test fixture'i qatorsiz
+  nakladnoy yaratadi va u jimgina "qo'lda qarz" bo'lib ko'rindi. Semantik
+  xossani tasodifiy xossaga bog'lash — shu loyihada takrorlangan xato sinfi.
+- Qo'riqchalar: tovarli nakladnoyga tegib bo'lmaydi; bog'langan to'lovi bor
+  qarz o'chirilmaydi (aks holda to'lov FIFO orqali boshqa qarzga sirg'anardi);
+  tenant izolyatsiyasi.
+- Qo'lda qarz **Priyomkalar ro'yxatida ko'rinmaydi** — u nakladnoy emas
+  (tovar qatori, invoice va ombor kirimi yo'q).
+- `PurchaseReceiptCreate.items` endi `min_length=1` (bo'sh priyomka ma'nosiz).
+- Testlar: `tests/test_manual_supplier_debt.py` — 19 ta (GOLDEN bloki mavjud
+  mantiqni qotiradi), `test_supplier_debt.py` 37/37 buzilmadi.
+
+### Ma'lum, TUZATILMAGAN (alohida ish sifatida qayd etildi)
+
+- **Xarajat (Expense) yaratish/o'chirish audit logga YOZILMAYDI**
+  (`routers/profit.py` da `log_audit` chaqiruvi yo'q). Shu sabab "Xodimlar
+  faoliyati" panelida xarajat KO'RINMAYDI, garchi u pulga bevosita ta'sir
+  qiladigan amal bo'lsa ham. Fazza Parfum tekshiruvida aniqlandi.
+- **Vozvrat `approved_at` UTC'da yoziladi** (`routers/returns.py:406`
+  `datetime.utcnow()`), hisobotlar esa Toshkent kunidan foydalanadi. Toshkent
+  00:00–05:00 oralig'ida tasdiqlangan vozvrat KECHAgi hisobotga tushadi.
+
 ## [1.9.7] — 2026-08-29 — foyda hisobi tuzatishlari (Fazza tashxisi)
 
 ⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.

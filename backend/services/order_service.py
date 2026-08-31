@@ -358,6 +358,21 @@ class OrderService:
                         "notes":       f"Aksiya (bepul): {g['name']}",
                     })
                     applied_promotion_ids.append(g["promo_id"])   # used_count + biz_meta izи
+
+        # ── OMBOR QO'RIQCHISI ────────────────────────────────────────────────
+        # Do'kon sozlamasi YOQIQ bo'lsa (Cafe.block_oversell) qoldiq yetmagan
+        # sotuv shu yerda TO'XTAYDI. Nega aynan bu yerda:
+        #   • BEPUL AKSIYA qatorlari allaqachon qo'shilgan — ular ham ombordan
+        #     ayiriladi, demak tekshiruvga kirishi shart
+        #   • DB ga hech narsa yozilmagan (Order pastda yaratiladi) — rollback
+        #     kerak emas
+        #   • to'lov paytida bloklash KECH bo'lardi: mijoz xizmat olib bo'lgan,
+        #     kassir chekni yopolmay qolardi
+        # Istisnolar (retsept / inventorysiz tovar / inventarizatsiya):
+        # services/stock_guard.py
+        from services.stock_guard import check as _stock_check
+        _stock_check(self.db, tenant_id, items_data)
+
         # Qo'lda/mijoz % chegirma — discount_type/value dan QAYTA hisoblanadi (client'ning
         # tayyor discount_amount summasiga ISHONILMAYDI): foiz 0–100, fixed subtotaldan oshmaydi.
         dv = order_data.discount_value or 0

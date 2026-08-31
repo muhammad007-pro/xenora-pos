@@ -197,6 +197,13 @@ async def get_pos_stock(
     resp = {"items": out, "can_cost": can_cost}
     if can_cost:
         resp["total_value"] = round(total_value, 2)
+    # OMBOR QO'RIQCHISI holati — POS savatga qo'shishda ERTA ogohlantirish
+    # ko'rsatadimi yoki yo'qmi, shundan biladi. Qo'riqcha o'chiq do'konda
+    # ogohlantirish ham chiqmaydi (ortiqcha shovqin bo'lmasin).
+    # ⚠️ Bu SERVER TEKSHIRUVINI ALMASHTIRMAYDI — u order_service.create_order
+    # da, client'ga ishonilmaydi (services/stock_guard.py).
+    from services.stock_guard import is_enabled as _guard_on
+    resp["block_oversell"] = _guard_on(db, resolve_tenant_id(db, current_user))
     return resp
 
 

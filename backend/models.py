@@ -652,6 +652,13 @@ class Cafe(Base):
     disabled_features = Column(JSON, default=list)
 
     is_active = Column(Boolean, default=True)
+    # OMBOR QO'RIQCHISI: qoldiq yetmasa sotuvni BLOKLAYDI (400).
+    # `server_default="true"` — YANGI do'konlar to'g'ri standart bilan boshlaydi.
+    # MAVJUD do'konlarga migratsiya `false` yozadi: Fazza'da 92, Eco Aroma'da 7
+    # mahsulot hozir qoldiq 0 — bir kechada savdo to'xtab qolmasin. Ular
+    # inventarizatsiya qilgach Sozlamalardan o'zi yoqadi.
+    # Qoida va istisnolar: services/stock_guard.py
+    block_oversell = Column(Boolean, nullable=False, server_default="true", default=True)
     subscription_plan = Column(String(50), default="free")  # free, pro, enterprise (BOSQICH 2.2)
     subscription_expires = Column(DateTime, nullable=True)
 

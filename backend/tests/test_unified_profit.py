@@ -17,7 +17,9 @@ Ishga tushirish:  cd backend && py -m pytest tests/test_unified_profit.py -v
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import date as Date_, datetime, timedelta, timezone as _tz
+
+_UTC = _tz.utc
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -234,3 +236,106 @@ def test_bosh_davr_nol_qaytaradi(db):
     t = period_totals(db, _User(), START, END)
     assert t == {"revenue": 0.0, "cost": 0.0, "gross_profit": 0.0,
                  "returns_revenue": 0.0, "returns_cost": 0.0, "returns_count": 0}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. `/profit/summary` — STATUS FILTRI va TOSHKENT KUNI (2026-09 tuzatishlari)
+# ═══════════════════════════════════════════════════════════════════════════
+def test_profit_summary_pending_daromad_sanalmaydi(db):
+    """Ilgari `status notin (cancelled)` edi — PENDING ham daromad edi.
+    Endi boshqa uch ekran bilan izchil: FAQAT `completed`.
+
+    Jonli bazada ta'sir 0 (Fazza/Eco'da PENDING yo'q), lekin kelajakda
+    yarim yopilgan buyurtma foydani shishirmasin."""
+    import routers.profit as pr
+    from core.timeutils import tenant_now
+
+    bugun = tenant_now()
+    naive = bugun.replace(tzinfo=None) if bugun.tzinfo else bugun
+    _prod(db, 1, "Atir", price=100_000, cost_price=60_000)
+    _order(db, 1, [(1, 1, 100_000, 60_000)], status="pending",   when=naive)
+    _order(db, 2, [(1, 1, 100_000, 60_000)], status="cancelled", when=naive)
+
+    d = pr._product_summary(db, _User(), bugun.date(), bugun.date())
+    assert d["revenue"] == 0          # ESKI mantiqda 100 000 bo'lardi
+
+    _order(db, 3, [(1, 1, 100_000, 60_000)], status="completed", when=naive)
+    d2 = pr._product_summary(db, _User(), bugun.date(), bugun.date())
+    assert d2["revenue"] == 100_000
+    assert d2["cost"] == 60_000
+
+
+def test_profit_summary_toshkent_kun_chegarasi():
+    """Kun chegarasi TOSHKENT zonasida kesilsin (server UTC bo'lsa ham).
+
+    Ilgari `_sales_query` `func.date(Order.created_at)` ishlatardi — u SERVER
+    zonasida (UTC) kesardi. Natijada Toshkent 00:00–05:00 oralig'idagi sotuv
+    KECHAgi hisobotga tushardi, boshqa uch ekran esa uni bugungi kunga
+    yozardi (ular `day_bounds` ishlatadi).
+
+    ⚠️ Bu SOF MANTIQ testi — DB aylanmasi YO'Q. Sabab: SQLite naive va aware
+    qiymatlarni MATN sifatida solishtiradi, shuning uchun u yerda tz-aware
+    chegara ishonchli sinalmaydi. Uchdan-uchiga xatti-harakat JONLI
+    PostgreSQL'da tekshirilgan (buyurtma 425: UTC 29-avg 19:00 -> Toshkent
+    kuni 30-avgust; 29-avgust oynasiga TUSHMADI, 30-avgustga TUSHDI)."""
+    import routers.profit as pr
+
+    kun = Date_(2026, 8, 30)
+    s, e = pr._dt_bounds(kun, kun)
+
+    # Toshkent yarim tuni = UTC 19:00 (oldingi kun) — AYNAN shu siljish kerak
+    assert s.utcoffset().total_seconds() == 5 * 3600
+    assert s.replace(tzinfo=None) == datetime(2026, 8, 30, 0, 0)
+    assert s.astimezone(_UTC).replace(tzinfo=None) == datetime(2026, 8, 29, 19, 0)
+
+    # Tugash — o'sha kunning oxiri (ertangi yarim tundan 1 mks oldin)
+    assert e.astimezone(_UTC).replace(tzinfo=None) == datetime(2026, 8, 30, 18, 59, 59, 999999)
+
+    # Toshkent 00:30 dagi sotuv (UTC'da hali 29-avgust) SHU oynaga tushadi
+    tosh_0030 = s + timedelta(minutes=30)
+    assert s <= tosh_0030 <= e
+
+
+def test_profit_summary_bugun_toshkent_sanasi():
+    """`_period_range("today")` Toshkent kunini bersin (server UTC bo'lsa ham)."""
+    import routers.profit as pr
+    from core.timeutils import tenant_now
+    s, e = pr._period_range("today", None, None)
+    assert s == e == tenant_now().date()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. store-margin / abc-analysis — SNAPSHOT tan narx (2026-09)
+#
+# JONLI ISBOT (Fazza, BVLGARI AQUA, 100 ml flakon):
+#   qator 1212: unit_sold='pachka', quantity=1, unit_cost=1 000 000
+#   ESKI:  quantity × cost_price(per-ml 10 000) =    10 000   ← FLAKON 10 ming!
+#   YANGI: quantity × unit_cost                 = 1 000 000   ← to'g'ri
+# ═══════════════════════════════════════════════════════════════════════════
+def test_store_margin_va_abc_snapshot_tan_narx(db):
+    import routers.analytics as an
+    from core.timeutils import tenant_now
+
+    bugun = tenant_now()
+    naive = bugun.replace(tzinfo=None) if bugun.tzinfo else bugun
+
+    # 100 ml flakon: per-ml tan narx 10 000, butun flakon 1 000 000
+    db.add(Product(id=1, name="BVLGARI AQUA", price=17_000, cost_price=10_000,
+                   pack_size=100, pack_price=1_400_000, sale_unit="ml",
+                   category_id=1, tenant_id=TID))
+    db.commit()
+    _order(db, 1, [(1, 1, 1_400_000, 1_000_000)], when=naive)   # PACHKA sotuvi
+
+    m = asyncio.run(an.get_store_margin(period="month", db=db, current_user=_User()))
+    it = next(x for x in m["items"] if x["id"] == 1)
+    assert it["cost"] == 1_000_000            # ESKI mantiqda 10 000 bo'lardi
+    assert it["profit"] == 400_000            # 1 400 000 − 1 000 000
+    assert it["margin_pct"] == 28.6           # ESKI: 99.3% (soxta)
+
+    a = asyncio.run(an.get_abc_analysis(period="month", db=db, current_user=_User()))
+    ai = next(x for x in a["items"] if x["name"] == "BVLGARI AQUA")
+    assert ai["profit"] == 400_000            # abc ham BIR XIL qoidada
+
+    # Va bu period_totals bilan ham izchil
+    s = bugun.replace(hour=0, minute=0, second=0, microsecond=0)
+    assert period_totals(db, _User(), s, bugun)["gross_profit"] == 400_000

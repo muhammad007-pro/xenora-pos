@@ -13,7 +13,7 @@ Endpointlar:
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional, List
 
 from database import get_db
@@ -403,7 +403,14 @@ def approve_return(
 
     ret.status = "approved"
     ret.approved_by = current_user.id
-    ret.approved_at = datetime.utcnow()
+    # AWARE UTC (`utcnow()` NAIVE qaytaradi). Ustun `timestamptz` bo'lgani uchun
+    # naive qiymatni PostgreSQL SESSIYA ZONASIDA talqin qiladi — hozir u UTC,
+    # shuning uchun natija TO'G'RI edi. Ammo bu sozlamaga bog'liqlik: sessiya
+    # zonasi o'zgarsa vozvrat sanasi jimgina 5 soatga siljigan bo'lardi.
+    # Aware qiymat bu bog'liqlikni butunlay olib tashlaydi.
+    # ⚠️ XATTI-HARAKAT O'ZGARMAYDI — bu mustahkamlash, xato tuzatish emas
+    #    (tekshirildi: hisobot chegarasi ham tz-aware, solishtirish to'g'ri).
+    ret.approved_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(ret)

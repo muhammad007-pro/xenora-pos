@@ -13,7 +13,7 @@ from core.tenant_config import get_tenant_config
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak — avval
 # OrderItem.total_price (katalog summasi) olinardi. Izoh/formula: utils/revenue.py
 from utils.revenue import (
-    net_revenue_expr, order_subtotal_subq, period_totals, returns_totals,
+    cost_expr, net_revenue_expr, order_subtotal_subq, period_totals, returns_totals,
 )
 
 router = APIRouter()
@@ -558,6 +558,11 @@ async def get_store_margin(
         sqlfunc.sum(OrderItem.quantity).label("qty_sold"),
         # TUZATISH: marja chegirma AYIRILGAN tushumdan (avval katalog summasidan).
         sqlfunc.sum(_A_REVENUE_EXPR).label("revenue"),
+        # TUZATISH (2026-09): tan narx SOTUV PAYTIDAGI snapshot'dan.
+        # Ilgari `Product.cost_price × qty` (BUGUNGI narx) olinardi — priyomka
+        # `cost_price` ni qayta yozgach eski sotuvlar marjasi ORQAGA o'zgarardi.
+        # Endi `period_totals()` va boshqa foyda ekranlari bilan BIR XIL qoida.
+        sqlfunc.sum(OrderItem.quantity * cost_expr()).label("cost_snap"),
     ).join(OrderItem, OrderItem.product_id == Product.id)\
      .join(Order, Order.id == OrderItem.order_id)\
      .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id)\
@@ -572,7 +577,7 @@ async def get_store_margin(
     for r in results:
         revenue = float(r.revenue or 0)
         qty     = int(r.qty_sold or 0)
-        cost    = (r.cost_price or 0) * qty
+        cost    = float(r.cost_snap or 0)        # snapshot (yuqoridagi izoh)
         profit  = revenue - cost
         margin  = round(profit / revenue * 100, 1) if revenue > 0 else 0
         total_revenue += revenue
@@ -1125,6 +1130,8 @@ async def get_abc_analysis(
         # ABC tahlili reyting hisoboti, lekin daromad shu yerda ham chegirma
         # ayirilgan bo'lsin — mijoz turli sahifada turli raqam ko'rmasin.
         sqlfunc.sum(_A_REVENUE_EXPR).label("revenue"),
+        # TUZATISH (2026-09): tan narx snapshot (store-margin bilan bir xil izoh)
+        sqlfunc.sum(OrderItem.quantity * cost_expr()).label("cost_snap"),
     ).join(OrderItem, OrderItem.product_id == Product.id)\
      .join(Order, Order.id == OrderItem.order_id)\
      .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id)\
@@ -1136,7 +1143,7 @@ async def get_abc_analysis(
     for r in rows:
         revenue = float(r.revenue or 0)
         qty     = float(r.qty_sold or 0)
-        cost    = (r.cost_price or 0) * qty
+        cost    = float(r.cost_snap or 0)        # snapshot (yuqoridagi izoh)
         profit  = revenue - cost
         items.append({
             "id": r.id, "name": r.name,

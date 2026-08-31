@@ -771,6 +771,48 @@ function collectModifiers() {
   return selected;
 }
 
+// ─── OMBOR QO'RIQCHISI: kassirga ERTA ogohlantirish ─────────────────────────
+// ⚠️ Bu SERVER TEKSHIRUVINI ALMASHTIRMAYDI. Haqiqiy to'siq backendda
+// (services/stock_guard.py, order_service.create_order -> 400). Bu yerda faqat
+// ogohlantirish: kassir savatni to'ldirib bo'lgach 400 olishdan ko'ra, darhol
+// bilgani yaxshi. Xarita eskirishi mumkin (boshqa kassa sotgan bo'lishi), shuning
+// uchun BLOKLAMAYDI — server so'nggi so'zni aytadi.
+let _stockMap  = new Map();   // product_id -> { quantity, unit }
+let _guardOn   = false;
+
+async function refreshStockMap() {
+  try {
+    const res = await api.get('/inventory/pos-stock?limit=1000');
+    const d = res?.data ?? res;
+    if (!d || !Array.isArray(d.items)) return;
+    _guardOn = !!d.block_oversell;
+    _stockMap = new Map(d.items.map(r => [r.product_id, { quantity: r.quantity, unit: r.unit }]));
+  } catch { /* ogohlantirish ixtiyoriy — sotuvni to'xtatmaydi */ }
+}
+window.refreshStockMap = refreshStockMap;
+
+// Savat qatorining BAZA birligidagi miqdori (ombor shu birlikda yuritiladi)
+function _lineBaseQty(line, product) {
+  if (line._weight != null)          return line._weight * (line.qty || 1);   // ml / kg
+  if (line._unitSold === 'pachka')   return (product?.pack_size || 1) * (line.qty || 1);
+  return line.qty || 1;
+}
+
+function _warnIfShort(product, weight, isPack) {
+  if (!_guardOn) return;
+  const st = _stockMap.get(product.id);
+  if (!st) return;                       // ombor nazorati yo'q (xizmat) — bloklanmaydi
+  const adding = weight != null ? weight : (isPack ? (product.pack_size || 1) : 1);
+  const inCart = state.cart
+    .filter(x => x.id === product.id)
+    .reduce((s, x) => s + _lineBaseQty(x, product), 0);
+  const need = inCart + adding;
+  if (need > (st.quantity || 0)) {
+    toast(`⚠️ "${product.name}" omborda yetarli emas — mavjud: ${_stockNum(st.quantity)} ${st.unit || ''}, kerak: ${_stockNum(need)}`,
+          'error', 5000);
+  }
+}
+
 function doAddToCart(product, modifiers, weight = null, unitMode = null) {
   const modKey   = modifiers.map(m => m.modifier_id).sort().join(',');
   const modDelta = modifiers.reduce((s, m) => s + (m.price_delta || 0), 0);
@@ -778,6 +820,8 @@ function doAddToCart(product, modifiers, weight = null, unitMode = null) {
   // weight=null bo'lgani uchun bu branch'ga kirmaydi → pack branch (pastda).
   const isWeight = isWeightUnit(product.sale_unit) || product.sale_unit === 'ml';
   const isPack   = unitMode === 'pachka' && isPackProduct(product);
+
+  _warnIfShort(product, isWeight ? weight : null, isPack);
 
   if (isWeight && weight != null) {
     // Og'irlik mahsulot: narx = baho_per_unit × og'irlik; har bir bor yangi qator
@@ -2504,6 +2548,9 @@ document.getElementById('holdBtn').addEventListener('click', async () => {
 });
 
 function clearOrderState() {
+  // Sotuv yakunlandi -> ombor xaritasi eskirdi. Fon rejimida yangilanadi
+  // (kutilmaydi — kassir keyingi mijozga o'tishi kechikmasin).
+  refreshStockMap();
   state.cart = []; state.discount = { type: 'pct', value: 0 }; state.discountSource = null;   // BOSQICH S2
   state.customer = null; state.table = null; state.pendingOrderId = null; state.pendingOrderMeta = null;
   state.rxInfo       = null;
@@ -3276,6 +3323,9 @@ async function loadData() {
   const prods = Array.isArray(prodsRes?.data) ? prodsRes.data : null;
   state.products = prods ?? await localDB.getAll(STORES.PRODUCTS);
   if (prods) await localDB.saveAll(STORES.PRODUCTS, prods);
+  // Ombor xaritasi — savatga qo'shishda erta ogohlantirish uchun (ixtiyoriy,
+  // `await` qilinmaydi: sekin javob POS ochilishini kechiktirmasin).
+  refreshStockMap();
   document.getElementById('ldBar').style.width = '65%';
 
   const tblsRes = await api.get('/tables/').catch(() => null);

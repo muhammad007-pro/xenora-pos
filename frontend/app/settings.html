@@ -294,6 +294,25 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
         </div>
       </div>
 
+      <!-- OMBOR QO'RIQCHISI -->
+      <div class="setting-card">
+        <div class="setting-card-title">📦 Ombor nazorati</div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Qoldiq tugagan mahsulot sotilmasin</div>
+            <div class="toggle-hint">
+              Yoqilsa: omborda yetarli miqdor bo'lmasa POS sotuvni qabul qilmaydi.<br>
+              ⚠️ <b>Avval inventarizatsiya qiling.</b> Hozir qoldig'i 0 bo'lgan
+              mahsulotlar darhol sotilmaydigan bo'ladi.<br>
+              Retseptli taomlar va ombor nazorati yo'q xizmatlar bloklanmaydi.
+              Inventarizatsiya davomida qo'riqchi o'zi vaqtincha o'chadi.
+            </div>
+            <div class="toggle-hint" id="sgStatus" style="margin-top:.375rem"></div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="cfgBlockOversell"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
       <!-- POS terminal: sotuvchi avto-qulf (qurilma sozlamasi — localStorage) -->
       <div class="setting-card">
         <div class="setting-card-title">🔒 Sotuvchi avto-qulf (POS terminal)</div>
@@ -1002,6 +1021,44 @@ async function loadAppSettings() {
   document.getElementById('cfgShowService').checked = !!r.show_service;
 }
 
+// ── Ombor qo'riqchisi ────────────────────────────────────────────────────────
+// Darhol saqlanadi (alohida "Saqlash" tugmasi yo'q) — bu bitta bayroq va uni
+// inventarizatsiya paytida tez yoqib/o'chirish kerak bo'lishi mumkin.
+async function loadStockGuard() {
+  const r = await api.get('/settings/stock-guard').catch(()=>null);
+  if (!r || r.detail) return;
+  document.getElementById('cfgBlockOversell').checked = !!r.enabled;
+  const st = document.getElementById('sgStatus');
+  if (r.counting) {
+    st.innerHTML = '🔄 <b>Inventarizatsiya ochiq</b> — qo\'riqcha vaqtincha o\'chiq. Sanoq tasdiqlangach o\'zi yoqiladi.';
+  } else if (r.enabled) {
+    st.innerHTML = '✅ Faol — qoldiq yetmasa sotuv to\'xtatiladi.';
+  } else {
+    st.innerHTML = '⚪ O\'chiq — hozirgi holat (qoldiq tugasa ham sotiladi).';
+  }
+}
+
+document.getElementById('cfgBlockOversell').onchange = async (e) => {
+  const on = e.target.checked;
+  if (on && !confirm(
+        "Ombor qo'riqchisi yoqilsinmi?\n\n" +
+        "Qoldig'i 0 bo'lgan mahsulotlar SHU ONDAN sotilmaydi.\n" +
+        "Avval inventarizatsiya qilib, haqiqiy qoldiqni kiritganingizga ishonch hosil qiling.")) {
+    e.target.checked = false;
+    return;
+  }
+  const res = await api.patch('/settings/stock-guard', { enabled: on });
+  if (res && res.message) {
+    toast(res.message + (on && res.zero_stock_count
+          ? ` — hozir ${res.zero_stock_count} ta mahsulot qoldig'i 0` : ''),
+          on ? 'success' : 'info');
+  } else {
+    toast(res?.detail || 'Xatolik', 'error');
+    e.target.checked = !on;
+  }
+  loadStockGuard();
+};
+
 document.getElementById('saveAppBtn').onclick = async () => {
   const d = {
     currency:     document.getElementById('cfgCurrency').value.trim()||'UZS',
@@ -1248,7 +1305,7 @@ document.getElementById('savePharmacyFlags')?.addEventListener('click', () =>
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 renderBtypes();
-Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings(), loadLoyaltySettings()]);
+Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings(), loadLoyaltySettings(), loadStockGuard()]);
 loadPharmacyFlags();
 loadSalonFlags();
 loadB2bFlags();

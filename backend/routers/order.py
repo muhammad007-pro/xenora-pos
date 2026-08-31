@@ -7,6 +7,7 @@ from database import get_db
 from models import Order, OrderItem, Product, Table, User, Cafe, ReceiptSettings
 from schemas import OrderCreate, OrderUpdate, OrderInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, apply_tenant_filter
+from services.stock_guard import InsufficientStock
 from services.order_service import OrderService
 from services.kitchen_service import KitchenService
 from services.printer_service import PrinterService, print_receipt as escpos_print_receipt
@@ -118,11 +119,21 @@ async def create_order(
 
     # Buyurtmani yaratish — tenant_id servisga uzatiladi (kunlik chek raqami shu bo'yicha)
     tenant_id = resolve_tenant_id(db, current_user)
-    order = order_service.create_order(
-        order_data=order_data,
-        waiter_id=current_user.id,
-        tenant_id=tenant_id,
-    )
+    try:
+        order = order_service.create_order(
+            order_data=order_data,
+            waiter_id=current_user.id,
+            tenant_id=tenant_id,
+        )
+    except InsufficientStock as e:
+        # OMBOR QO'RIQCHISI (services/stock_guard.py). Buyurtma DB ga
+        # YOZILMAGAN — tekshiruv Order yaratilishidan OLDIN o'tadi.
+        # `shortages` — kassir savatni tuzatishi uchun qator-qator ma'lumot.
+        raise HTTPException(
+            status_code=400,
+            detail=e.message,
+            headers={"X-Stock-Shortage": str(len(e.shortages))},
+        )
 
     # Stol statusini yangilash (faqat stol bor bo'lsa)
     if table:

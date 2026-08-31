@@ -7,6 +7,7 @@ from models import User
 from deps import get_current_user, has_permission, resolve_tenant_id, get_current_active_user
 from schemas import MessageResponse
 from core.tenant_config import get_tenant_config, set_tenant_config
+from core.audit import log_audit
 
 router = APIRouter()
 
@@ -216,6 +217,73 @@ async def update_label_printer_settings(
 
     set_tenant_config(db, tid, "label_printer", saved)
     return saved
+
+
+@router.get("/stock-guard")
+async def get_stock_guard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_settings")),
+):
+    """Ombor qo'riqchisi holati.
+
+    `enabled`  — do'kon sozlamasi (Cafe.block_oversell)
+    `active`   — HOZIR amalda ishlayaptimi (ochiq inventarizatsiya uni
+                 vaqtincha o'chiradi — services/stock_guard.py)
+    `counting` — shu sabab: inventarizatsiya ochiq
+    """
+    from models import Cafe, InventoryCount
+    from services.stock_guard import is_enabled
+
+    tid = resolve_tenant_id(db, current_user)
+    cafe = db.query(Cafe).filter(Cafe.id == tid).first() if tid else None
+    counting = bool(
+        tid and db.query(InventoryCount.id).filter(
+            InventoryCount.tenant_id == tid, InventoryCount.status == "draft"
+        ).first()
+    )
+    return {
+        "enabled":  bool(cafe and cafe.block_oversell),
+        "active":   is_enabled(db, tid),
+        "counting": counting,
+    }
+
+
+@router.patch("/stock-guard")
+async def update_stock_guard(
+    settings: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_settings")),
+):
+    """Ombor qo'riqchisini yoqish/o'chirish.
+
+    ⚠️ Yoqishdan OLDIN do'kon inventarizatsiya qilishi kerak: qoldig'i 0
+    bo'lgan mahsulotlar darhol sotilmaydigan bo'lib qoladi. Shu sabab javobda
+    nechta mahsulot ta'sirlanishi qaytariladi — egasi bilib turib yoqsin.
+    """
+    from models import Cafe, Inventory
+
+    tid = resolve_tenant_id(db, current_user)
+    if tid is None:
+        raise HTTPException(status_code=400, detail="Tenant (do'kon) aniqlanmadi")
+    cafe = db.query(Cafe).filter(Cafe.id == tid).first()
+    if not cafe:
+        raise HTTPException(status_code=404, detail="Do'kon topilmadi")
+
+    if "enabled" in settings:
+        cafe.block_oversell = bool(settings["enabled"])
+        db.commit()
+        log_audit(current_user, "settings", "UPDATE", cafe.id, tenant_id=tid,
+                  detail={"block_oversell": cafe.block_oversell})
+
+    zero = db.query(Inventory).filter(
+        Inventory.tenant_id == tid, Inventory.quantity <= 0
+    ).count()
+    return {
+        "enabled": bool(cafe.block_oversell),
+        "zero_stock_count": zero,
+        "message": ("Ombor qo'riqchisi YOQILDI" if cafe.block_oversell
+                    else "Ombor qo'riqchisi o'chirildi"),
+    }
 
 
 @router.get("/fiscal")

@@ -572,6 +572,12 @@ class Expense(Base):
     recurrence_period = Column(String(10), nullable=False, default="monthly")  # monthly | weekly
     recurrence_day = Column(Integer, nullable=True)                      # oyning kuni (monthly uchun, 1-31)
     recurrence_parent_id = Column(Integer, ForeignKey("expenses.id"), nullable=True, index=True)  # generatsiya qilingan nusxa -> shablon
+    # AMORTIZATSIYA: xarajat QAYSI DAVRNI qoplaydi (oylik ijara/maosh kunlarga
+    # bo'linadi, bir kun sun'iy minusga tushmaydi). Ikkalasi NULL = taqsimlanmaydi
+    # (eski xatti-harakat). Hisob va nega `is_recurring` ishlatilmagani:
+    # services/expense_allocation.py
+    amortize_from  = Column(Date, nullable=True)
+    amortize_to    = Column(Date, nullable=True)
 
 
 class Employee(Base):

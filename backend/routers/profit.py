@@ -33,6 +33,7 @@ from models import (
     Appointment, Service, RoomBooking, Room, Membership,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+from core.audit import log_audit
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak. Avval
 # OrderItem.total_price (katalog summasi) olinardi → foyda chegirma summasiga
 # teng miqdorda oshiq chiqardi. Formula/taqsimlash izohi: utils/revenue.py
@@ -87,6 +88,45 @@ def _dt_bounds(start: date, end: date):
     return s, next_day - timedelta(microseconds=1)
 
 
+def _parse_amortize(db: Session, data: dict, exp_date: date, current_user: User):
+    """(amortize_from, amortize_to) ni so'rovdan aniqlaydi. Ikkalasi None = taqsimlanmaydi.
+
+    Ikki yo'l:
+      • `amortize: true`            -> `exp_date` tushgan KALENDAR OY (1–31)
+      • `amortize_from`/`amortize_to` -> aniq davr (yillik litsenziya kabi)
+
+    NEGA kalendar oyi: takrorlanuvchi xarajatlar ustma-ust tushmasligi kerak
+    (batafsil: services/expense_allocation.month_bounds).
+    """
+    from services.expense_allocation import clamp_from, month_bounds
+
+    raw_from = data.get("amortize_from")
+    raw_to   = data.get("amortize_to")
+
+    if raw_from or raw_to:
+        try:
+            p_from = date.fromisoformat(raw_from) if raw_from else exp_date
+            p_to   = date.fromisoformat(raw_to)   if raw_to   else exp_date
+        except ValueError:
+            raise HTTPException(status_code=400, detail="amortize sanasi noto'g'ri (YYYY-MM-DD)")
+    elif data.get("amortize"):
+        p_from, p_to = month_bounds(exp_date)
+    else:
+        return None, None
+
+    if p_to < p_from:
+        raise HTTPException(status_code=400, detail="Taqsimlash davri: tugash sanasi boshlanishdan oldin")
+
+    # Do'kon tizimga kirgan sanadan oldinga tarqalmasin — aks holda do'kon hali
+    # ishlamagan kunlar sun'iy zararli bo'lib ko'rinardi.
+    cafe = db.query(Cafe).filter(Cafe.id == resolve_tenant_id(db, current_user)).first()
+    t_start = cafe.created_at.date() if (cafe and cafe.created_at) else None
+    p_from = clamp_from(p_from, t_start)
+    if p_to < p_from:          # clamp davrni bo'shatib yuborgan bo'lsa
+        p_to = p_from
+    return p_from, p_to
+
+
 def _get_biz_type(db: Session, current_user: User) -> str:
     if not current_user.tenant_id:
         return "restaurant"
@@ -114,11 +154,19 @@ def _sales_query(db: Session, current_user: User, start: date, end: date):
 
 
 def _fetch_expenses(db: Session, current_user: User, start: date, end: date) -> float:
-    exp_q = db.query(func.coalesce(func.sum(Expense.amount), 0)).filter(
-        Expense.expense_date >= start,
-        Expense.expense_date <= end,
-    )
-    return float(apply_tenant_filter(exp_q, Expense, current_user).scalar() or 0)
+    """Davrga TEGISHLI xarajat (ACCRUAL).
+
+    AMORTIZATSIYA: `amortize_from/to` belgilangan xarajat kunlarga
+    proporsional taqsimlanadi — oylik ijara bir kunni sun'iy minusga
+    tushirmasin. Taqsimlanmagan xarajat (ikkala maydon NULL) AVVALGIDEK
+    `expense_date` kuniga to'liq yoziladi.
+
+    ⚠️ Bu KASSA ko'rsatkichi EMAS. "Pul qachon chiqdi" — `/profit/expenses`
+    ro'yxatida, u `expense_date` ni o'zgarishsiz ko'rsatadi. Ikkalasini
+    aralashtirish = ikki marta hisoblash (utils/cashflow.py dagi qoida).
+    """
+    from services.expense_allocation import total_in_range
+    return total_in_range(db, current_user, start, end)
 
 
 # ─── Takroriy xarajatlar (BOSQICH 37): lazy generatsiya ───────────────────────
@@ -338,7 +386,15 @@ async def get_profit_summary(
     start, end = _period_range(period, start_date, end_date)
     biz_type  = _get_biz_type(db, current_user)
     expenses  = _fetch_expenses(db, current_user, start, end)
-    base = {"period": {"from": start.isoformat(), "to": end.isoformat()}, "business_type": biz_type}
+    # UI uchun: "Bu davrga tegishli X so'm (jami Y so'm dan)". Do'konchi
+    # 5 800 000 kiritgan bo'lsa-yu kartada 1 850 000 ko'rsa, buni XATO deb
+    # o'ylamasligi kerak — farq shu yerdan tushuntiriladi.
+    from services.expense_allocation import breakdown_in_range
+    base = {
+        "period": {"from": start.isoformat(), "to": end.isoformat()},
+        "business_type": biz_type,
+        "expense_info": breakdown_in_range(db, current_user, start, end),
+    }
 
     # ── Mahsulot asosli (restoran, kafe, magazin, dorixona, ...) ──────────────
     if biz_type in _PRODUCT_TYPES:
@@ -441,18 +497,13 @@ async def get_profit_timeline(
     trunc = {"day": "day", "week": "week", "month": "month"}.get(group, "day")
     biz_type = _get_biz_type(db, current_user)
 
-    # Xarajatlar xaritasi (barcha turlarda bir xil)
-    exp_bucket = func.date_trunc(trunc, Expense.expense_date).label("bucket")
-    exp_q = (
-        db.query(exp_bucket, func.sum(Expense.amount).label("amount"))
-        .filter(Expense.expense_date >= start, Expense.expense_date <= end)
-        .group_by(exp_bucket)
-    )
-    exp_map = {
-        r.bucket.date().isoformat(): float(r.amount or 0)
-        for r in apply_tenant_filter(exp_q, Expense, current_user).all()
-        if r.bucket
-    }
+    # Xarajatlar xaritasi (barcha turlarda bir xil).
+    # AMORTIZATSIYA: taqsimlangan xarajat kunlarga bo'linadi, shuning uchun
+    # SQL `date_trunc(expense_date)` yig'indisi o'rniga allocation servisi.
+    # Kalitlar `date_trunc` bilan bir xil (bucket boshlanish sanasi) —
+    # dushanba/oy-boshi qoidasi expense_allocation.bucket_start da izchil.
+    from services.expense_allocation import by_bucket
+    exp_map = by_bucket(db, current_user, start, end, trunc)
 
     if biz_type in _SERVICE_APT_TYPES or biz_type == "hotel":
         # Appointment asosli timeline
@@ -836,6 +887,11 @@ async def get_expenses(
                 "recurrence_period":    e.recurrence_period if e.is_recurring else None,
                 "recurrence_day":       e.recurrence_day if e.is_recurring else None,
                 "recurrence_parent_id": e.recurrence_parent_id,  # generatsiya qilingan nusxa
+                # AMORTIZATSIYA — faqat KO'RSATISH uchun. Bu ro'yxat TO'LOVLAR
+                # REYESTRI: sana ham, summa ham HAQIQIY (pul qachon chiqqan).
+                # Taqsimlash faqat foyda hisobotlarida qo'llanadi.
+                "amortize_from":        e.amortize_from.isoformat() if e.amortize_from else None,
+                "amortize_to":          e.amortize_to.isoformat() if e.amortize_to else None,
             }
             for e in expenses
         ],
@@ -886,6 +942,12 @@ async def create_expense(
                 rec_day = exp_date.day
             rec_day = max(1, min(31, rec_day))
 
+    # ── AMORTIZATSIYA (kunlarga taqsimlash) ──────────────────────────────────
+    # `amortize` = true bo'lsa xarajat KALENDAR OYI bo'ylab kunlarga bo'linadi.
+    # Aniq davr kerak bo'lsa `amortize_from`/`amortize_to` uzatiladi.
+    # Berilmasa — ikkalasi NULL, ya'ni ESKI xatti-harakat (bir kunga to'liq).
+    am_from, am_to = _parse_amortize(db, expense_data, exp_date, current_user)
+
     expense = Expense(
         tenant_id         = resolve_tenant_id(db, current_user),
         category          = category,
@@ -897,11 +959,70 @@ async def create_expense(
         is_recurring      = is_recurring,
         recurrence_period = rec_period,
         recurrence_day    = rec_day,
+        amortize_from     = am_from,
+        amortize_to       = am_to,
     )
     db.add(expense)
     db.commit()
     db.refresh(expense)
     return {"success": True, "expense_id": expense.id, "message": "Xarajat qo'shildi"}
+
+
+@router.patch("/expenses/{expense_id}")
+async def update_expense_amortization(
+    expense_id: int,
+    expense_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """Mavjud xarajatni kunlarga taqsimlash (yoki taqsimlashni bekor qilish).
+
+    `{ amortize: true }`                      -> xarajat sanasi tushgan kalendar oy
+    `{ amortize_from, amortize_to }`          -> aniq davr
+    `{ amortize: false }`                     -> taqsimlash BEKOR (eski holat)
+
+    ⚠️ Faqat taqsimlash maydonlari o'zgaradi. Summa/sana/nom TEGILMAYDI —
+    ular to'lov faktini bildiradi va ularni bu yerdan o'zgartirish kassa
+    reyestrini jimgina buzardi.
+    """
+    expense = apply_tenant_filter(db.query(Expense), Expense, current_user).filter(
+        Expense.id == expense_id
+    ).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Xarajat topilmadi")
+
+    before = {
+        "amortize_from": expense.amortize_from.isoformat() if expense.amortize_from else None,
+        "amortize_to":   expense.amortize_to.isoformat() if expense.amortize_to else None,
+    }
+
+    if expense_data.get("amortize") is False and not expense_data.get("amortize_from"):
+        expense.amortize_from = None
+        expense.amortize_to   = None
+    else:
+        am_from, am_to = _parse_amortize(db, expense_data, expense.expense_date, current_user)
+        expense.amortize_from = am_from
+        expense.amortize_to   = am_to
+
+    db.commit()
+    db.refresh(expense)
+
+    log_audit(current_user, "expense", "UPDATE", expense.id,
+              tenant_id=expense.tenant_id, detail={
+                  "name": expense.name, "amount": float(expense.amount or 0),
+                  "oldin": before,
+                  "keyin": {
+                      "amortize_from": expense.amortize_from.isoformat() if expense.amortize_from else None,
+                      "amortize_to":   expense.amortize_to.isoformat() if expense.amortize_to else None,
+                  },
+              })
+    return {
+        "success": True,
+        "expense_id": expense.id,
+        "amortize_from": expense.amortize_from.isoformat() if expense.amortize_from else None,
+        "amortize_to":   expense.amortize_to.isoformat() if expense.amortize_to else None,
+        "message": "Taqsimlash yangilandi" if expense.amortize_from else "Taqsimlash bekor qilindi",
+    }
 
 
 @router.delete("/expenses/{expense_id}")

@@ -12,14 +12,17 @@ from core.timeutils import tenant_now, to_local
 from core.tenant_config import get_tenant_config
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak — avval
 # OrderItem.total_price (katalog summasi) olinardi. Izoh/formula: utils/revenue.py
-from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq, returns_totals
+from utils.revenue import (
+    net_revenue_expr, order_subtotal_subq, period_totals, returns_totals,
+)
 
 router = APIRouter()
 
 # Modul bo'ylab bitta subquery obyekti (SQLAlchemy konstruktsiyasi holatsiz).
 _A_SUB_SQ       = order_subtotal_subq()
 _A_REVENUE_EXPR = net_revenue_expr(_A_SUB_SQ)   # qator SOF tushumi
-_A_COST_EXPR    = cost_expr()                   # sotuv paytidagi tan narx snapshot'i
+# `_A_COST_EXPR` OLIB TASHLANDI: tan narx endi `period_totals()` ichida
+# hisoblanadi (utils/revenue.py) — bu yerda nusxa saqlashning hojati yo'q.
 
 
 @router.get("/summary")
@@ -177,31 +180,18 @@ async def get_dashboard_data(
         from sqlalchemy import func as sqlfunc
 
         def _net_profit(s, e):
-            # TUZATISH 1 (daromad): chegirma AYIRILADI. Avval OrderItem.total_price
-            #   (katalog summasi) olinardi → sof foyda chegirma summasiga teng
-            #   miqdorda oshiq ko'rsatilardi.
-            # TUZATISH 2 (tan narx): Product.cost_price (BUGUNGI narx) o'rniga
-            #   OrderItem.unit_cost (SOTUV PAYTIDAGI snapshot) ustun — profit.py
-            #   _COST_EXPR bilan aynan bir xil, ya'ni ikki sahifada bir xil raqam.
-            q = db.query(
-                sqlfunc.coalesce(sqlfunc.sum(_A_REVENUE_EXPR), 0).label("revenue"),
-                sqlfunc.coalesce(
-                    sqlfunc.sum(OrderItem.quantity * _A_COST_EXPR), 0
-                ).label("cost"),
-            ).join(Order, Order.id == OrderItem.order_id) \
-             .join(Product, Product.id == OrderItem.product_id) \
-             .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id) \
-             .filter(Order.created_at >= s, Order.created_at <= e, Order.status == "completed")
-            q = apply_tenant_filter(q, Order, current_user)
-            row = q.one()
-            # QAYTARISH — yagona manbadan (utils/revenue.py). Dashboard'dagi
-            # "Sof foyda" ham profit.py bilan BIR XIL raqam ko'rsatsin: vozvrat
-            # QAYTARILGAN sana bo'yicha ayiriladi.
-            _r = returns_totals(db, current_user, s, e)
-            return round(
-                (float(row.revenue or 0) - _r["revenue"]) - (float(row.cost or 0) - _r["cost"]),
-                0,
-            )
+            # BIRLASHTIRILDI: formula endi `utils/revenue.py:period_totals()` da —
+            # yagona manba. Ilgari shu yerda o'z nusxasi turardi va uni
+            # `/analytics/store-dashboard` dagi BOSHQA nusxa bilan sinxron
+            # ushlab turish kerak edi (ushlab turilmadi ham: u `Product.cost_price`
+            # ishlatib boshqa raqam ko'rsatardi). Natija AYNAN o'zgarmadi —
+            # qoidalar (sof tushum, snapshot tan narx, completed, vozvrat)
+            # bir xil ko'chirildi.
+            #
+            # ⚠️ NOMI "net_profit" — ORQAGA MOSLIK uchun. Ma'nosi YALPI FOYDA:
+            # operatsion xarajat (ijara/maosh) AYIRILMAGAN. Xarajat ayirilgan
+            # haqiqiy sof foyda faqat `/profit/summary` da.
+            return round(period_totals(db, current_user, s, e)["gross_profit"], 0)
 
         net_profit = _net_profit(start_date, end_date)
         prev_profit = _net_profit(previous_start, previous_end)
@@ -244,6 +234,12 @@ async def get_dashboard_data(
         "customers_trend": calc_trend(current_data["total_customers"], previous_data["total_customers"]),
         "avg_check_trend": calc_trend(current_data["average_check"], previous_data["average_check"]),
         "net_profit": net_profit,
+        # NIMA KO'RSATILAYAPTI (do'konchi chalkashmasin — 4 ekran 4 xil emas):
+        # YALPI foyda = sof tushum − tan narx − vozvrat. Operatsion xarajat
+        # (ijara/maosh) AYIRILMAGAN — u faqat "Foyda tahlili" (/profit/summary)
+        # da ayiriladi va u yerdagi son SOF foyda deyiladi.
+        "profit_kind": "gross",
+        "profit_label": "Yalpi foyda (xarajatsiz)",
         "profit_trend": profit_trend,
         "monthly_goal_target": monthly_goal_target,
         "monthly_actual": monthly_actual,
@@ -1349,6 +1345,9 @@ async def get_store_dashboard(
     from services.supplier_debt import total_debt
     now = tenant_now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Kun OXIRI chegarasi — `period_totals` `<= end` ishlatadi va `/analytics/dashboard`
+    # ham aynan shunday (start..now). Ilgari bu yerda faqat `>=` bor edi.
+    today_end   = now
     month_start = now - timedelta(days=30)
 
     # 1. Bugungi buyurtmalar
@@ -1383,18 +1382,22 @@ async def get_store_dashboard(
         Order.tenant_id == current_user.tenant_id,
     ).group_by(OrderItem.product_id).all()
 
-    today_cost = 0.0
-    for ti in today_item_rows:
-        prod = db.query(Product).filter(Product.id == ti.product_id).first()
-        if prod and prod.cost_price:
-            today_cost += (prod.cost_price or 0) * float(ti.qty or 0)
-    # TUZATISH: foyda `final_amount` dan EMAS — u soliq va xizmat haqini ham
-    # o'z ichiga oladi (restoran rejimida 12% + 10%), ular mahsulot daromadi emas.
-    # Mahsulot sof tushumidan hisoblanadi. `today_revenue` (ACCRUAL SOTUV —
-    # yuqoridagi izohga qara, "kassaga tushgan pul" EMAS) ko'rsatkich sifatida
-    # o'z holicha qoladi.
-    today_net_revenue = sum(float(ti.rev or 0) for ti in today_item_rows)
-    today_profit = today_net_revenue - today_cost
+    # ── BIRLASHTIRILDI (2026-09): foyda endi `utils/revenue.py:period_totals()` dan ──
+    # ILGARI shu yerda O'Z NUSXASI turardi va u boshqa uch ekrandan AJRALIB
+    # TURARDI:
+    #   tan narx = Product.cost_price (BUGUNGI narx) × miqdor
+    # Bu o'tmishga NOTO'G'RI: priyomka `cost_price` ni qayta yozadi
+    # (purchase_receipts.py:233), ya'ni eski sotuvlarning foydasi ORQAGA
+    # o'zgarardi. Bundan tashqari VOZVRAT ham ayirilmasdi.
+    # Fazza 08-28: bu yerda 503 970, boshqa uch ekranda 405 320 chiqardi.
+    #
+    # Endi: sotuv paytidagi `unit_cost` snapshot + vozvrat ayirilgan + kun
+    # oxiri chegarasi bor. To'rt ekran ham BIR XIL raqam beradi.
+    #
+    # ⚠️ `today_profit` — YALPI foyda (xarajatsiz). Operatsion xarajat
+    # (ijara/maosh) faqat `/profit/summary` da ayiriladi — u "sof foyda".
+    _tot = period_totals(db, current_user, today_start, today_end)
+    today_profit = _tot["gross_profit"]
 
     # 3. Top 5 tovar (bugun tushum bo'yicha)
     top5_list = []
@@ -1460,6 +1463,10 @@ async def get_store_dashboard(
     return {
         "today_revenue":   round(today_revenue, 0),
         "today_profit":    round(today_profit, 0),
+        # Bir xil manba, bir xil ma'no: `/analytics/dashboard` bilan AYNAN
+        # bir xil raqam (utils/revenue.py:period_totals). Xarajat kirmaydi.
+        "profit_kind":     "gross",
+        "profit_label":    "Yalpi foyda (xarajatsiz)",
         "today_orders":    len(today_orders),
         "month_revenue":   round(month_revenue, 0),
         "low_stock_count": low_stock_count,

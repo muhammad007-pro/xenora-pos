@@ -352,6 +352,11 @@ async def get_profit_summary(
             "gross_profit":    round(gross, 0),
             "expenses":        round(expenses, 0),
             "net_profit":      round(net, 0),
+            # YAGONA ekran: bu SOF foyda — operatsion xarajat AYIRILGAN.
+            # Boshqa uch ekran YALPI foyda ko'rsatadi (xarajatsiz), shuning
+            # uchun ular bilan farq qilishi NORMAL, xato emas.
+            "profit_kind":     "net",
+            "profit_label":    "Sof foyda (xarajat ayirilgan)",
             "orders_count":    d["orders_count"],
             "margin_pct":      round(gross / d["revenue"] * 100, 1) if d["revenue"] > 0 else 0,
             "net_margin_pct":  round(net  / d["revenue"] * 100, 1) if d["revenue"] > 0 else 0,

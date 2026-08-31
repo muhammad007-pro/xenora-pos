@@ -446,7 +446,7 @@ async function renderProfit(params){
   <div class="sg">
     <div class="sc"><div class="sl">Daromad</div><div class="sv">${fmtN(d.total_revenue)}</div><div class="ss">so'm</div></div>
     <div class="sc"><div class="sl">Xarajat (tannarx)</div><div class="sv">${fmtN(d.total_cost)}</div><div class="ss">so'm</div></div>
-    <div class="sc"><div class="sl">Sof foyda</div><div class="sv" style="color:${d.total_profit>=0?'#22c55e':'#ef4444'}">${fmtN(d.total_profit)}</div><div class="ss">so'm</div></div>
+    <div class="sc" title="Ijara/maosh kabi xarajatlar ayirilmagan. Sof foyda — «Foyda tahlili» sahifasida."><div class="sl">Yalpi foyda</div><div class="sv" style="color:${d.total_profit>=0?'#22c55e':'#ef4444'}">${fmtN(d.total_profit)}</div><div class="ss">xarajatsiz</div></div>
     <div class="sc"><div class="sl">Marja</div><div class="sv" style="color:${marginColor}">${d.margin_pct}%</div><div class="ss">foydalilik</div></div>
   </div>
   <div class="chart-wrap">

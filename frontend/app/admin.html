@@ -516,14 +516,17 @@
             <div class="kpi-value" id="kpiAvgOrder">—</div>
             <div class="kpi-sub">UZS <span class="kpi-trend" id="kpiAvgTrend"></span></div>
           </div>
-          <!-- Sof foyda — MAXFIY: faqat view_finance ruxsatli user ko'radi (default yashirin) -->
+          <!-- YALPI foyda — MAXFIY: faqat view_finance ruxsatli user ko'radi (default yashirin).
+               ⚠️ Ilgari "Sof foyda" deb yozilgan edi va bu CHALG'ITARDI: bu yerda
+               operatsion xarajat (ijara/maosh) AYIRILMAGAN. Xarajat ayirilgan
+               haqiqiy sof foyda faqat "Foyda tahlili" sahifasida. -->
           <div class="kpi-card teal" id="kpiNetProfitCard" style="display:none">
             <div class="kpi-label">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 4 8-8M21 7v6M21 7h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Sof foyda
+              Yalpi foyda
             </div>
             <div class="kpi-value" id="kpiNetProfit">—</div>
-            <div class="kpi-sub">UZS <span class="kpi-trend" id="kpiProfitTrend"></span></div>
+            <div class="kpi-sub" title="Ijara, maosh kabi xarajatlar ayirilmagan. Sof foyda — «Foyda tahlili» sahifasida.">xarajatsiz <span class="kpi-trend" id="kpiProfitTrend"></span></div>
           </div>
         </div>
 
@@ -1421,7 +1424,7 @@
         <button class="report-back-btn" onclick="switchPage('reportsHub')">← Hisobotlar</button>
         <div class="mini-stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:1rem">
           <div class="mini-stat"><div class="ms-icon ms-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><line x1="12" y1="1" x2="12" y2="23" stroke="#22c55e" stroke-width="1.8"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="sdTodayRevenue">—</div><div class="ms-lbl">Bugungi tushum</div></div></div>
-          <div class="mini-stat"><div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" stroke="#3b82f6" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="sdTodayProfit">—</div><div class="ms-lbl">Bugungi foyda</div></div></div>
+          <div class="mini-stat"><div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" stroke="#3b82f6" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="sdTodayProfit">—</div><div class="ms-lbl" title="Ijara/maosh ayirilmagan — sof foyda «Foyda tahlili» sahifasida">Bugungi yalpi foyda</div></div></div>
           <div class="mini-stat"><div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="#f59e0b" stroke-width="1.8"/><path d="M8 21h8M12 17v4" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="sdTodayOrders">—</div><div class="ms-lbl">Bugungi buyurtmalar</div></div></div>
           <div class="mini-stat"><div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="15" rx="2" stroke="#3b82f6" stroke-width="1.8"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#3b82f6" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="sdMonthRevenue">—</div><div class="ms-lbl">Oylik tushum</div></div></div>
           <div class="mini-stat"><div class="ms-icon ms-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#ef4444" stroke-width="1.8"/><line x1="12" y1="9" x2="12" y2="13" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="sdLowStock" style="color:var(--red)">—</div><div class="ms-lbl">Kam qoldiq</div></div></div>

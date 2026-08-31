@@ -117,7 +117,19 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- Expenses -->
   <div class="card">
-    <div class="card-title">🧾 Xarajatlar (ijara, oylik, kommunal...)</div>
+    <div class="card-title">🧾 Xarajatlar (ijara, oylik, kommunal...)
+      <!-- UI-4: ikki hisobot farqi BIR JOYDA tushuntiriladi -->
+      <button type="button" id="expInfoBtn" onclick="toggleExpInfo()"
+              title="Ikki hisobot farqi"
+              style="border:none;background:none;cursor:pointer;font-size:.9rem;color:var(--text3)">ℹ️</button>
+    </div>
+    <div id="expInfoBox" style="display:none;font-size:.8125rem;line-height:1.6;color:var(--text2);
+         background:var(--bg3);border-radius:.5rem;padding:.75rem 1rem;margin-bottom:.75rem">
+      <b>Foyda hisobi</b> — xarajat qaysi davrga tegishli bo'lsa o'shanga yoziladi.<br>
+      <b>Xarajatlar ro'yxati</b> — pul qachon chiqqan bo'lsa o'shani ko'rsatadi.<br>
+      <span style="color:var(--text3)">Shuning uchun “Sof foyda” kartasidagi xarajat
+      pastdagi ro'yxat yig'indisidan farq qilishi mumkin — bu xato emas.</span>
+    </div>
     <div class="exp-form">
       <input class="inp" id="exName" placeholder="Nomi (masalan: Yanvar ijara)">
       <select class="inp" id="exCat">
@@ -138,6 +150,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
         oyning <input class="inp inp-sm" id="exRecDay" type="number" min="1" max="31" placeholder="kuni"> -kuni
       </span>
     </div>
+    <!-- UI-3: taqsimlash belgisi + qisqa tushuntirish -->
+    <div class="exp-rec">
+      <label class="rec-toggle"><input type="checkbox" id="exAmortize"> 🗓 Kunlarga taqsimla</label>
+      <span style="font-size:.75rem;color:var(--text3)">
+        Oylik ijara/maosh kunlarga bo'linadi — bir kun sun'iy minusga tushmaydi
+      </span>
+    </div>
     <div id="expList"><div class="ld">Yuklanmoqda...</div></div>
   </div>
 </div>
@@ -151,6 +170,8 @@ const tok  = () => localStorage.getItem('access_token');
 const api  = {
   get:  u => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
   post: (u,b) => fetch(`${BASE}${u}`,{method:'POST',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json().then(d=>({ok:r.ok,data:d}))),
+  // `post` kabi {ok,data} qaytaradi — chaqiruvchi xatoni ko'ra olsin
+  patch:(u,b) => fetch(`${BASE}${u}`,{method:'PATCH',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json().then(d=>({ok:r.ok,data:d}))),
   del:  u => fetch(`${BASE}${u}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
 };
 
@@ -186,6 +207,14 @@ function scNet(value, sub='') {
   </div>`;
 }
 
+// UI-1: "Bu davrga tegishli: X so'm (jami Y so'm dan)".
+// Taqsimlangan xarajat bo'lmasa — izoh ko'rsatilmaydi (ortiqcha shovqin yo'q).
+function expSub(d) {
+  const i = d.expense_info;
+  if (!i || !i.is_split) return '';
+  return `bu davrga ${fmt(i.allocated)} (jami ${fmt(i.raw)} dan)`;
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 async function loadSummary() {
   const d = await api.get(`/profit/summary?period=${period}`).catch(()=>null);
@@ -202,7 +231,7 @@ async function loadSummary() {
       + sc('Jami savdo',     d.revenue,      `${d.orders_count||0} ta buyurtma`, 'gold-border')
       + sc('Jami tan narx',  d.cost)
       + sc('Yalpi foyda',    d.gross_profit, `marja ${d.margin_pct||0}%`)
-      + sc('Xarajatlar',    -d.expenses)
+      + sc('Xarajatlar',    -d.expenses, expSub(d))
       + scNet(d.net_profit,  netSub);
 
     if (bizType === 'pharmacy' && d.expired_loss > 0) {
@@ -223,14 +252,14 @@ async function loadSummary() {
         + sc("A'zolik daromadi", d.membership_revenue)
         + sc('Material narxi',  d.material_cost)
         + sc('Usta komissiyasi', d.commission_cost)
-        + sc('Xarajatlar',     -d.expenses)
+        + sc('Xarajatlar',     -d.expenses, expSub(d))
         + scNet(d.net_profit,   netSub);
     } else {
       sg.innerHTML = ''
         + sc('Jami daromad',    d.revenue,           `${d.appointments_count||0} ta uchrashuv`)
         + sc('Material narxi',  d.material_cost,     '')
         + sc('Usta komissiyasi', d.commission_cost,  '')
-        + sc('Xarajatlar',     -d.expenses)
+        + sc('Xarajatlar',     -d.expenses, expSub(d))
         + scNet(d.net_profit,   netSub);
     }
 
@@ -240,7 +269,7 @@ async function loadSummary() {
       + sc('Xona daromadi',    d.room_revenue,    `${d.bookings_count||0} ta bron`)
       + sc('Xizmat daromadi',  d.service_revenue, `${d.appointments_count||0} ta xizmat`)
       + sc('Jami tan narx',    d.total_cost,      'xona + xizmat')
-      + sc('Xarajatlar',      -d.expenses)
+      + sc('Xarajatlar',      -d.expenses, expSub(d))
       + scNet(d.net_profit,    netSub);
 
   } else {
@@ -249,7 +278,7 @@ async function loadSummary() {
       + sc('Jami savdo',    d.revenue,      `${d.orders_count||0} ta buyurtma`)
       + sc('Jami tan narx', d.cost)
       + sc('Yalpi foyda',   d.gross_profit, `marja ${d.margin_pct||0}%`)
-      + sc('Xarajatlar',   -d.expenses)
+      + sc('Xarajatlar',   -d.expenses, expSub(d))
       + scNet(d.net_profit, netSub);
   }
 
@@ -397,7 +426,11 @@ async function loadExpenses() {
       <td>${esc(e.name)} ${expBadges(e)}</td>
       <td><span class="badge" style="background:var(--bg3);color:var(--text2)">${CAT_LABELS[e.category]||e.category}</span></td>
       <td class="num neg">−${fmt(e.amount)}</td>
-      <td class="num">${e.salary_id
+      <td class="num" style="white-space:nowrap">
+        <button class="del-btn" style="color:var(--blue);border-color:var(--border)"
+                title="${e.amortize_from ? 'Taqsimlashni bekor qilish' : 'Kunlarga taqsimlash (shu oy)'}"
+                onclick="toggleAmortize(${e.id}, ${e.amortize_from ? 'true' : 'false'})">🗓</button>
+        ${e.salary_id
           ? `<span style="font-size:.7rem;color:var(--text3)">salary modulida</span>`
           : `<button class="del-btn" onclick="delExpense(${e.id})">O'chirish</button>`}</td>
     </tr>`).join('')}
@@ -411,8 +444,27 @@ function expBadges(e) {
   if (e.salary_id)              b += ` <span class="badge b-sal">👤 Maosh (avto)</span>`;
   if (e.is_recurring)           b += ` <span class="badge b-rec">🔁 Takroriy${e.recurrence_period==='weekly'?' (hafta)':' (oy)'}</span>`;
   else if (e.recurrence_parent_id) b += ` <span class="badge b-rec">🔁 oylik nusxa</span>`;
+  // UI-2: taqsimlangan xarajat belgisi + davri
+  if (e.amortize_from && e.amortize_to) {
+    b += ` <span class="badge b-rec" title="Foyda hisobida shu kunlarga bo'lib yoziladi">🗓 ${fmtRange(e.amortize_from, e.amortize_to)}ga taqsimlangan</span>`;
+  }
   return b;
 }
+
+// "2026-08-01".."2026-08-31" -> "1-31 avgust" (bir oy ichida bo'lsa)
+const _OYLAR = ['yanvar','fevral','mart','aprel','may','iyun','iyul',
+                'avgust','sentabr','oktabr','noyabr','dekabr'];
+function fmtRange(a, b) {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  if (ay === by && am === bm) return `${ad}-${bd} ${_OYLAR[am-1]}`;
+  return `${ad} ${_OYLAR[am-1]} — ${bd} ${_OYLAR[bm-1]}`;
+}
+
+window.toggleExpInfo = () => {
+  const el = document.getElementById('expInfoBox');
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+};
 
 function toggleRecur() {
   const on = document.getElementById('exRecurring').checked;
@@ -434,16 +486,33 @@ async function addExpense() {
     is_recurring: isRec,
     recurrence_period: isRec ? 'monthly' : undefined,
     recurrence_day: (isRec && recDay) ? recDay : undefined,
+    // Taqsimlash — `is_recurring` dan MUSTAQIL bayroq (ular boshqa savolga
+    // javob beradi; batafsil: services/expense_allocation.py)
+    amortize: document.getElementById('exAmortize').checked || undefined,
   }).catch(()=>null);
   btn.disabled = false;
   if (!res || !res.ok) { alert(res?.data?.detail || 'Xatolik'); return; }
   document.getElementById('exName').value   = '';
   document.getElementById('exAmount').value = '';
+  document.getElementById('exAmortize').checked  = false;
   document.getElementById('exRecurring').checked = false;
   document.getElementById('exRecDay').value = '';
   toggleRecur();
   loadExpenses(); loadSummary(); loadTimeline();
 }
+
+// Mavjud xarajatni taqsimlash / bekor qilish. Summa va sana TEGILMAYDI —
+// ular to'lov faktini bildiradi (kassa reyestri).
+async function toggleAmortize(id, isOn) {
+  const msg = isOn
+    ? "Taqsimlash bekor qilinsinmi? Xarajat yana bir kunga to'liq yoziladi."
+    : "Xarajat shu oyning kunlariga bo'lib yozilsinmi?\n(Xarajatlar ro'yxatida sana va summa o'zgarmaydi)";
+  if (!confirm(msg)) return;
+  const res = await api.patch(`/profit/expenses/${id}`, { amortize: !isOn }).catch(()=>null);
+  if (!res || !res.ok) { alert(res?.data?.detail || 'Xatolik'); return; }
+  loadExpenses(); loadSummary(); loadTimeline();
+}
+window.toggleAmortize = toggleAmortize;
 
 async function delExpense(id) {
   if (!confirm("Xarajatni o'chirmoqchimisiz?")) return;

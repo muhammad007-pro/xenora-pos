@@ -3,6 +3,39 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.1] — 2026-09-01 — SHOSHILINCH: Sozlamalar sahifasi tuzatildi
+
+🔴 **v1.10.0 da Sozlamalar sahifasi butunlay ishlamay qolgan edi.**
+`app/settings.html:887` da bitta qo'shtirnoq ichida apostrof bor edi
+(`'[TARIF] Noma'lum tarif:'`) — bu 840–1403 qatorlardagi BUTUN inline
+skriptning parse bo'lishini to'xtatardi. Natijada `renderBtypes`,
+`loadCafeInfo`, `loadPrinterSettings`, `loadStockGuard`, `detectPlanAndLock`
+va boshqa hamma funksiya `undefined` bo'lardi: ombor qo'riqchisi toggle'i,
+printer sozlamalari, tarif ko'rinishi — hech biri ishlamasdi.
+Kiritgan commit: `03e49a8` (uch tarif), v1.10.0 bilan chiqqan.
+
+Xuddi shu sinf xatosi `app/loyalty.html:288` da ham bor edi
+(`.replace(/'/g,'\'')`) — sodiqlik sahifasi skripti ham parse bo'lmasdi.
+Bu esa ANCHA eski (`b7e529c`).
+
+Butun frontend (barcha `.js` fayllar + HTML ichidagi har bir `<script>` bloki)
+`node --check` bilan skanerlandi — boshqa sintaksis xatosi yo'q. Skaner
+`scripts/check_syntax.py` sifatida saqlandi va CI'ga qo'shildi.
+
+**Brauzer rejimi ogohlantirishlari.** Brauzerdan (app.xenora.uz) kirilganda
+Electron'ga bog'liq to'rt joy JIMGINA ishlamay qo'yardi; endi sabab aytiladi:
+POS kassa yashigi (toast), POS tasmasi (sessiyada bir marta), printer ro'yxati
+(ikkala sozlama sahifasida izoh), avtomatik zaxira (panelda ogohlantirish).
+Tekshiruv `electronAPI.isElectron` ustidan — Electron'da hech narsa
+o'zgarmaydi (Playwright bilan ikki rejimda sinaldi).
+
+Login'dagi "Platforma administratori" tugmasining bosish maydoni 29px edi →
+44px (iOS/Android tavsiyasi); ko'rinish o'zgarmadi.
+
+⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.
+Rollback: kod `30a011e` (v1.10.0) — lekin unda Sozlamalar sahifasi buzuq.
+Client `.exe`/`.apk` **kerak emas** (sahifalar serverdan yuklanadi).
+
 ## [1.10.0] — 2026-09-01 — uch tarif tizimi
 
 **Uch tarif: Boshlang'ich 249 000 / Standart 449 000 / Pro 749 000 (so'm/oy).

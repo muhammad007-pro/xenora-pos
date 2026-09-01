@@ -12,7 +12,7 @@
  *   'sync-orders' tegi bo'lganda navbatdagi buyurtmalarni yuboradi
  */
 
-const APP_VERSION   = 'v1.55.0';
+const APP_VERSION   = 'v1.55.1';
 const STATIC_CACHE  = `restopos-static-${APP_VERSION}`;
 const API_CACHE     = `restopos-api-${APP_VERSION}`;
 const API_BASE      = '/api';

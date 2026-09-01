@@ -34,6 +34,7 @@ from models import (
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 from core.audit import log_audit
+from core.timeutils import tenant_now
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak. Avval
 # OrderItem.total_price (katalog summasi) olinardi → foyda chegirma summasiga
 # teng miqdorda oshiq chiqardi. Formula/taqsimlash izohi: utils/revenue.py
@@ -41,7 +42,10 @@ from utils.revenue import net_revenue_expr, order_subtotal_subq, returns_totals
 
 router = APIRouter()
 
+# ESKIRGAN: `_sales_query` endi faqat `completed` ni sanaydi (yuqoridagi izoh).
+# Nom saqlanmoqda — boshqa modul import qilib qolgan bo'lsa sinmasin.
 EXCLUDED_STATUSES = ["cancelled"]
+
 
 _COST_EXPR = func.coalesce(
     func.nullif(OrderItem.unit_cost, 0.0),
@@ -62,8 +66,12 @@ _MEMBERSHIP_TYPES  = frozenset({"fitness", "school"})
 # ─── Yordamchi funksiyalar ────────────────────────────────────────────────────
 
 def _period_range(period: str, start_date: Optional[date], end_date: Optional[date]):
-    """today | week | month | custom(start_date..end_date)"""
-    today = date.today()
+    """today | week | month | custom(start_date..end_date)
+
+    "Bugun" — TOSHKENT kuni. Ilgari `date.today()` (server = UTC) edi va
+    Toshkent 00:00–05:00 oralig'ida "bugun" hali KECHAgi kunni bildirardi.
+    """
+    today = tenant_now().date()
     if start_date and end_date:
         return start_date, end_date
     if period == "today":
@@ -135,6 +143,12 @@ def _get_biz_type(db: Session, current_user: User) -> str:
 
 
 def _sales_query(db: Session, current_user: User, start: date, end: date):
+    # Kun chegarasi TOSHKENT zonasida aware datetime'ga aylantiriladi
+    # (`_dt_bounds` -> `core.timeutils.day_bounds`). `func.date()` ISHLATILMAYDI:
+    # u server zonasida (UTC) kesardi va PostgreSQL'ga xos `timezone()` ham
+    # SQLite testlarida yo'q. Bu yo'l ikkala dialektda ham bir xil ishlaydi va
+    # boshqa uch ekran bilan AYNAN bir xil kun ta'rifini beradi.
+    _s_dt, _e_dt = _dt_bounds(start, end)
     q = (
         db.query(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
@@ -145,9 +159,21 @@ def _sales_query(db: Session, current_user: User, start: date, end: date):
         # sof tushumga o'tadi va ajralib ketmaydi.
         .join(_SUB_SQ, _SUB_SQ.c.order_id == OrderItem.order_id)
         .filter(
-            Order.status.notin_(EXCLUDED_STATUSES),
-            func.date(Order.created_at) >= start,
-            func.date(Order.created_at) <= end,
+            # TUZATISH (2026-09) №1 — STATUS: ilgari `notin(["cancelled"])` edi,
+            # ya'ni PENDING/PREPARING buyurtma ham DAROMAD deb sanalardi. Boshqa
+            # uchala foyda ekrani esa faqat `completed` ni sanaydi — shu sabab
+            # "Foyda tahlili" ular bilan ajralib qolishi mumkin edi.
+            # Jonli bazada ta'sir: 0 (Fazza va Eco Aroma'da PENDING buyurtma
+            # umuman yo'q — faqat COMPLETED va CANCELLED), ya'ni bu izchillik
+            # tuzatishi, hech qanday raqam o'zgarmaydi.
+            Order.status == "completed",
+            # TUZATISH (2026-09) №2 — KUN CHEGARASI: `func.date(created_at)`
+            # SERVER zonasida (UTC) kesardi, boshqa ekranlar esa Toshkent kunini
+            # ishlatadi (`tenant_now`/`day_bounds`) — `daily_number` ham Toshkent
+            # kuni. Natijada kechqurun 19:00 dan keyingi (Toshkent 00:00+) sotuv
+            # bu sahifada KECHAgi kunga tushardi.
+            Order.created_at >= _s_dt,
+            Order.created_at <= _e_dt,
         )
     )
     return apply_tenant_filter(q, Order, current_user)
@@ -408,6 +434,11 @@ async def get_profit_summary(
             "gross_profit":    round(gross, 0),
             "expenses":        round(expenses, 0),
             "net_profit":      round(net, 0),
+            # YAGONA ekran: bu SOF foyda — operatsion xarajat AYIRILGAN.
+            # Boshqa uch ekran YALPI foyda ko'rsatadi (xarajatsiz), shuning
+            # uchun ular bilan farq qilishi NORMAL, xato emas.
+            "profit_kind":     "net",
+            "profit_label":    "Sof foyda (xarajat ayirilgan)",
             "orders_count":    d["orders_count"],
             "margin_pct":      round(gross / d["revenue"] * 100, 1) if d["revenue"] > 0 else 0,
             "net_margin_pct":  round(net  / d["revenue"] * 100, 1) if d["revenue"] > 0 else 0,

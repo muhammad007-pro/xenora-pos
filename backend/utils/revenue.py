@@ -214,3 +214,79 @@ def returns_by_day(db, current_user, start, end) -> dict:
         str(r.d): {"revenue": float(r.revenue or 0), "cost": float(r.cost or 0)}
         for r in q.all()
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DAVR YAKUNI — SOTUV FOYDASINING YAGONA HISOBI
+#
+# MUAMMO (2026-08/09 auditi): foyda TO'RT joyda TO'RT xil hisoblanardi va
+# ekranlar har xil son ko'rsatardi. v1.9.7 dan keyin uchtasi tenglashdi,
+# lekin `/analytics/store-dashboard` ajralib turaverdi:
+#     tan narx = Product.cost_price (BUGUNGI narx) × miqdor
+# Bu O'TMISHGA NOTO'G'RI: mahsulot tan narxi keyin o'zgarsa (priyomka
+# `cost_price` ni qayta yozadi — purchase_receipts.py:233) eski sotuvlarning
+# foydasi ORQAGA o'zgarardi. Fazza'da 08-28: 503 970, boshqa uch ekran esa
+# 405 320 ko'rsatardi.
+#
+# TO'G'RI TAN NARX — `OrderItem.unit_cost` SNAPSHOT: sotuv PAYTIDAGI haqiqiy
+# tan narx. `cost_price` faqat zaxira (eski/import yozuvlar uchun) —
+# `cost_expr()` aynan shu tartibni beradi.
+#
+# ⚠️ BU FUNKSIYA XARAJATNI (Expense) HISOBGA OLMAYDI — u YALPI foyda beradi.
+# "Sof foyda" (xarajat ayirilgan) faqat `/profit/summary` da. Bu FARQ ATAYIN:
+# ular turli ko'rsatkichlar, va aynan shu farq `utils/cashflow.py` dagi
+# "bir o'lchovni ikkinchisiga qo'shma" qoidasining davomi.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def period_totals(db, current_user, start, end) -> dict:
+    """Davr bo'yicha SOTUV yakuni (accrual, xarajatsiz).
+
+    Qaytadi:
+        {"revenue", "cost", "gross_profit",
+         "returns_revenue", "returns_cost", "returns_count"}
+
+    QOIDALAR (hammasi shu yerda, boshqa joyda takrorlanmaydi):
+      • daromad  — `net_revenue_expr`: chegirma proporsional ayirilgan
+      • tan narx — `cost_expr`: sotuv paytidagi snapshot, zaxira `cost_price`
+      • status   — FAQAT `completed`
+      • vozvrat  — QAYTARILGAN sana bo'yicha ayiriladi (revenue ham, cost ham)
+      • soliq/xizmat haqi — DAROMADGA KIRMAYDI (`final_amount` tuzog'i,
+        fayl boshidagi izohga qara)
+
+    `start`/`end` — chaqiruvchi zonasida aniqlangan chegaralar (odatda
+    `core.timeutils.day_bounds`). Bu yerda zona o'zgartirilmaydi.
+    """
+    from deps import apply_tenant_filter
+
+    sq  = order_subtotal_subq()
+    net = net_revenue_expr(sq)
+
+    q = (
+        db.query(
+            func.coalesce(func.sum(net), 0.0).label("revenue"),
+            func.coalesce(func.sum(OrderItem.quantity * cost_expr()), 0.0).label("cost"),
+        )
+        .select_from(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
+        # outerjoin: mahsulot o'chirilgan bo'lsa ham sotuv qatori yo'qolmasin
+        # (many-to-one — qator soni o'zgarmaydi)
+        .outerjoin(Product, Product.id == OrderItem.product_id)
+        .join(sq, sq.c.order_id == OrderItem.order_id)
+        .filter(Order.created_at >= start, Order.created_at <= end,
+                Order.status == "completed")
+    )
+    if current_user is not None:
+        q = apply_tenant_filter(q, Order, current_user)
+    row = q.one()
+
+    ret     = returns_totals(db, current_user, start, end)
+    revenue = round(float(row.revenue or 0) - ret["revenue"], 2)
+    cost    = round(float(row.cost or 0) - ret["cost"], 2)
+    return {
+        "revenue":         revenue,
+        "cost":            cost,
+        "gross_profit":    round(revenue - cost, 2),
+        "returns_revenue": ret["revenue"],
+        "returns_cost":    ret["cost"],
+        "returns_count":   ret["count"],
+    }

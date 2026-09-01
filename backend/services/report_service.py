@@ -148,6 +148,9 @@ class ReportService:
             "total_revenue": total_revenue,
             "total_cost": total_cost,
             "total_profit": total_profit,
+            # YALPI foyda — xarajat (Expense) kirmaydi. Sof foyda /profit/summary da.
+            "profit_kind":  "gross",
+            "profit_label": "Yalpi foyda (xarajatsiz)",
             "margin_pct": round(margin, 1),
             # KUNLIK qatorlar ham qaytarish AYIRILGAN holda (jami bilan izchil).
             # Vozvrat o'zi QAYTARILGAN kunga tushadi — sotuv kuniga emas.

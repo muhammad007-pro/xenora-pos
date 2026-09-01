@@ -7,6 +7,7 @@ from typing import Optional
 
 from database import get_db
 from models import Department, Category, Product, OrderItem, Order, Inventory, User
+from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq
 from deps import resolve_tenant_id, get_current_active_user, has_permission, apply_tenant_filter
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
@@ -146,31 +147,43 @@ async def dept_sales_report(
         if not prod_ids:
             continue
 
+        # ── TUZATISH (2026-09): ikkala qoida ham boshqa foyda ekranlari bilan
+        # BIR XIL bo'ldi (utils/revenue.py). Ilgari bu yerda IKKI eski xato bor edi:
+        #
+        #   1) DAROMAD: `OrderItem.total_price` — bu KATALOG summasi, chegirma
+        #      AYIRILMAGAN. v1.9.0 da barcha hisobotlar `net_revenue_expr` ga
+        #      o'tgan edi, bu endpoint esa o'tmay qolgan.
+        #
+        #   2) TAN NARX: `Product.cost_price × quantity` — BUGUNGI narx. Pachka
+        #      sotuvida bu `pack_size` MARTA kam chiqadi (jonli misol: 100 ml
+        #      BVLGARI flakoni 1 000 000 o'rniga 10 000 deb sanalardi) va
+        #      priyomka `cost_price` ni qayta yozgach eski sotuvlar foydasi
+        #      ORQAGA o'zgarardi. To'g'risi — `cost_expr()` snapshot.
+        #
+        # JONLI TA'SIR: 0 — bazada bironta ham `department` yozuvi yo'q, ya'ni
+        # bu hisobot hozircha bo'sh qaytadi. Mina qoldirmaslik uchun tuzatildi.
+        _sq  = order_subtotal_subq()
+        _net = net_revenue_expr(_sq)
         rows = db.query(
             sqlfunc.sum(OrderItem.quantity).label("qty"),
-            sqlfunc.sum(OrderItem.total_price).label("revenue"),
-        ).join(OrderItem.order).filter(
+            sqlfunc.sum(_net).label("revenue"),
+            sqlfunc.sum(OrderItem.quantity * cost_expr()).label("cost"),
+        ).join(
+            Order, Order.id == OrderItem.order_id
+        ).outerjoin(
+            Product, Product.id == OrderItem.product_id
+        ).join(
+            _sq, _sq.c.order_id == OrderItem.order_id
+        ).filter(
             OrderItem.product_id.in_(prod_ids),
             Order.tenant_id == tid,
             Order.status == "completed",
             Order.created_at >= start,
         ).first()
 
-        revenue = float(rows.revenue or 0)
-        qty     = float(rows.qty or 0)
-
-        # Foyda (revenue - cost)
-        cost_rows = db.query(sqlfunc.sum(
-            OrderItem.quantity * Product.cost_price
-        )).join(Product, Product.id == OrderItem.product_id).filter(
-            OrderItem.product_id.in_(prod_ids),
-            OrderItem.order_id.in_(
-                db.query(Order.id).filter(
-                    Order.tenant_id == tid, Order.status == "completed",
-                    Order.created_at >= start,
-                )
-            ),
-        ).scalar() or 0
+        revenue   = float(rows.revenue or 0)
+        qty       = float(rows.qty or 0)
+        cost_rows = float(rows.cost or 0)
 
         result.append({
             "id":      dept.id,

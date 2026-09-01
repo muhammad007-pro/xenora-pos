@@ -68,6 +68,203 @@ Taklif: `peak_hours` shu ikki tur uchun Standart'ga tushirilsin (ular uchun bu
 tahlil emas, smena rejalashtirish vositasi). Amalga oshirildi — tasdiqlashingiz
 kerak.
 
+## [1.9.9] — 2026-09-01 — foyda hisobi birlashtirildi, ombor qo'riqchisi, xarajat amortizatsiyasi
+
+⚠️ **IKKI MIGRATSIYA** — deploy'da `alembic upgrade head` SHART:
+`3f7a2c9e1b04` → `9c4e1a7b30df` (xarajat) → `c8b3e5d90a17` (ombor qo'riqchisi).
+Rollback: kod `42e6fae` (v1.9.8), alembic `3f7a2c9e1b04`.
+
+Frontend ham o'zgardi (`profit.html`, `settings.html`, `pos.js`, `admin.html`,
+`report.html`) — ular serverdan yuklanadi, yangi `.exe`/`.apk` **shart emas**.
+
+### Qo'shilgan — xarajatni kunlarga taqsimlash (amortizatsiya)
+
+Fazza Parfum 22-avgustda ARENDA+ISHCHI+UJN = 5 800 000 kiritdi va uchalasi
+BITTA kunga tushib, o'sha kun sof foydasi −5 268 070 bo'lib ko'rindi. Endi
+`amortize_from`/`amortize_to` belgilangan xarajat kunlarga proporsional
+taqsimlanadi (kümülativ — bir tiyin ham yo'qolmaydi/qo'shilmaydi).
+`is_recurring` ATAYIN ishlatilmadi — u boshqa savolga javob beradi.
+Davr = KALENDAR OY (takrorlanuvchi xarajatlar ustma-ust tushmasin);
+`amortize_from` do'kon ochilgan sanadan oldinga o'tmaydi.
+UI: checkbox + izoh, ro'yxatda 🗓 belgisi, karta ostida "bu davrga X (jami Y dan)",
+ℹ️ tugmasi — foyda hisobi va to'lovlar reyestri farqi tushuntirilgan.
+
+### Qo'shilgan — ombor qo'riqchisi (qoldiq tugasa sotilmaydi)
+
+POS sotuvda ombor UMUMAN tekshirilmasdi: sotuv o'tar, ombor 0 da to'xtatilib
+kamomad JIMGINA yo'qolardi. Fazza'da 15–31 avgustda 24 ta shunday sotuv
+(297 dona). Endi `Cafe.block_oversell` yoqilgan bo'lsa `create_order` 400
+qaytaradi. MAVJUD do'konlarga migratsiya FALSE yozadi (Fazza'da 98,
+Eco Aroma'da 7 mahsulot qoldig'i 0 — bir kechada savdo to'xtamasin), YANGI
+do'konlar TRUE bilan boshlaydi. Istisno: retseptli taom, ombor nazorati yo'q
+xizmat, va INVENTARIZATSIYA davomida (sanoq tasdiqlangach o'zi qayta yoqiladi).
+
+### Tuzatilgan — foyda 6 ekranda bir xil qoidada
+
+Tan narx endi HAMMA JOYDA sotuv paytidagi `unit_cost` SNAPSHOT (`cost_expr`),
+BUGUNGI `Product.cost_price` emas. Yangi yagona manba:
+`utils/revenue.py:period_totals()`.
+
+- `/analytics/store-dashboard` — 503 970 o'rniga 405 320 (Fazza 28-avg),
+  endi boshqa ekranlar bilan mos; vozvrat ham ayiriladi
+- `/analytics/store-margin`, `/analytics/abc-analysis` — snapshot tan narx.
+  Jonli farq Fazza'da 4 931 570 so'm; sababi PACHKA sotuvlari: 100 ml BVLGARI
+  flakoni 1 000 000 o'rniga 10 000 deb sanalardi (`pack_size` marta kam).
+  ⚠️ Bu ekranlarda marja SEZILARLI tushadi — bu regressiya emas, soxta yuqori
+  marja olib tashlandi. Eco Aroma'da farq 0 (pachka sotuvi yo'q).
+- `/departments/report/sales` — ikki eski xato: daromadda chegirma
+  ayirilmasdi (v1.9.0 tuzatishini olmagan) va tan narx `cost_price` edi.
+  Jonli ta'sir 0 (department yozuvi yo'q), mina qoldirmaslik uchun tuzatildi.
+- `/profit/summary` — status filtri `notin(cancelled)` → `completed`
+  (PENDING endi daromad sanalmaydi; jonli ta'sir 0), kun chegarasi UTC →
+  TOSHKENT (9 buyurtma kunini almashtiradi, DAVR JAMISI o'zgarmaydi).
+
+YALPI ≠ SOF farqi SAQLANDI va yozildi: `/profit/summary` — SOF foyda
+(xarajat ayirilgan), qolganlari YALPI. Har javobda `profit_kind`/`profit_label`.
+UI yorliqlari chalg'ituvchi edi: admin KPI va report.html "Sof foyda" →
+"Yalpi foyda". "Sof foyda" nomi endi faqat "Foyda tahlili" sahifasida.
+
+### Tuzatilgan — boshqa
+
+- `returns.py` `approved_at`: `utcnow()` (naive) → `datetime.now(timezone.utc)`.
+  ⚠️ XATTI-HARAKAT O'ZGARMAYDI — jonli PostgreSQL'da tekshirildi, vozvrat sanasi
+  to'g'ri edi. Bu sessiya zonasiga bog'liqlikni olib tashlash.
+- `test_customer_return::test_vozvrat_QAYTARILGAN_sanaga_yoziladi` — test
+  oynani mahalliy soatdan qurardi va Toshkent 00:00–05:00 da yiqilardi.
+  Endi `approved_at` ning o'zidan quriladi.
+
+## [1.9.8] — 2026-08-29 — firmalarga qo'lda qarz qo'shish
+
+⚠️ **MIGRATSIYA BOR** (`3f7a2c9e1b04`) — deploy'da `alembic upgrade head` SHART,
+keyin `systemctl restart xenora`.
+Rollback nuqtalari: kod `e2d5fca` (v1.9.7), alembic `72d684a734c4`.
+
+Frontend ham o'zgardi (`app/suppliers.html`) — u serverdan yuklanadi, shuning
+uchun mijozlarga yangi `.exe`/`.apk` **shart emas**. Versiya fayllari baribir
+sinxron ko'tarildi (SW keshi v1.52.0 → v1.53.0, Android versionCode 29 → 30).
+
+### Qo'shilgan
+
+- **Firmalarga QO'LDA QARZ qo'shish (priyomkasiz) — "Qarzlar" tabida.**
+  Do'kon tovar hisobini yuritmasa ham nasiyani yozib borishi mumkin:
+  *"Kerasys dan tovar oldim — 500 000"*. Ilgari qarzni oshirishning yagona
+  yo'li tovarli nakladnoy kiritish edi, ya'ni ombor hisobini yuritish
+  MAJBURIY bo'lardi. `opening_debt` esa bitta son — sanasi, izohi va tarixi
+  yo'q, xato kiritilganini bekor qilib ham bo'lmasdi.
+
+  Qarzlar tabida "+ Qarz qo'shish" tugmasi va har firma kartasida "➕ Qarz".
+  Modalda: summa, sana, izoh + kiritilgan qarzlar jadvali (qoldiq bilan),
+  tahrirlash va o'chirish. Oborot varag'ida alohida ✍️ "Qo'lda qarz" qatori.
+
+  To'lov qilinganda FIFO uni ham hisobga oladi — eng eski qarzdan boshlab
+  (nakladnoy va qo'lda qarz sana bo'yicha aralash tartibda). Ortiqcha to'lov
+  avans bo'lib qoladi. Har amal audit logga yoziladi.
+
+### Texnik
+
+- Yangi jadval YARATILMADI: qo'lda qarz — "summasi bor, tovar qatorlari yo'q"
+  priyomka (`purchase_receipts.is_manual_debt`). Iqtisodiy ma'noda bu aynan
+  nasiyaga xarid, shuning uchun FIFO, oborot varag'i, muddat hisobi,
+  `/debt-summary` va `/store-dashboard` o'z-o'zidan ishlaydi.
+  **`compute_supplier_debt()` ga bitta qator ham qo'shilmadi** — mavjud qarz
+  raqamlari o'zgarishi mumkin emas (golden test bilan qotirilgan).
+- Marker ustun, TAXMIN emas. Dastlab "qatori yo'q priyomka = qo'lda qarz"
+  qoidasi ishlatilgan edi va u mavjud testni buzdi: test fixture'i qatorsiz
+  nakladnoy yaratadi va u jimgina "qo'lda qarz" bo'lib ko'rindi. Semantik
+  xossani tasodifiy xossaga bog'lash — shu loyihada takrorlangan xato sinfi.
+- Qo'riqchalar: tovarli nakladnoyga tegib bo'lmaydi; bog'langan to'lovi bor
+  qarz o'chirilmaydi (aks holda to'lov FIFO orqali boshqa qarzga sirg'anardi);
+  tenant izolyatsiyasi.
+- Qo'lda qarz **Priyomkalar ro'yxatida ko'rinmaydi** — u nakladnoy emas
+  (tovar qatori, invoice va ombor kirimi yo'q).
+- `PurchaseReceiptCreate.items` endi `min_length=1` (bo'sh priyomka ma'nosiz).
+- Testlar: `tests/test_manual_supplier_debt.py` — 19 ta (GOLDEN bloki mavjud
+  mantiqni qotiradi), `test_supplier_debt.py` 37/37 buzilmadi.
+
+### Ma'lum, TUZATILMAGAN (alohida ish sifatida qayd etildi)
+
+- **Xarajat (Expense) yaratish/o'chirish audit logga YOZILMAYDI**
+  (`routers/profit.py` da `log_audit` chaqiruvi yo'q). Shu sabab "Xodimlar
+  faoliyati" panelida xarajat KO'RINMAYDI, garchi u pulga bevosita ta'sir
+  qiladigan amal bo'lsa ham. Fazza Parfum tekshiruvida aniqlandi.
+- **Vozvrat `approved_at` UTC'da yoziladi** (`routers/returns.py:406`
+  `datetime.utcnow()`), hisobotlar esa Toshkent kunidan foydalanadi. Toshkent
+  00:00–05:00 oralig'ida tasdiqlangan vozvrat KECHAgi hisobotga tushadi.
+
+## [1.9.7] — 2026-08-29 — foyda hisobi tuzatishlari (Fazza tashxisi)
+
+⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.
+Rollback nuqtasi: kod `491bbe1` (v1.9.6).
+
+**FAQAT BACKEND** o'zgardi (`routers/`, `services/`, `utils/`, `schemas.py`).
+Frontendga TEGILMADI → yangi `.exe`/`.apk` **kerak emas**.
+
+### Kelib chiqishi
+
+Fazza Perfum (magazin) "bugun savdo qildik, foyda −4 489 080 ko'rsatyapti"
+deb murojaat qildi. Jonli baza tekshirildi. Asosiy sabab kod emas, XATO
+MA'LUMOT bo'lib chiqdi: `PCHYOLKA gupka` kartochkasida `pack_size = 7000`
+(egasi dona soni o'rniga narx yozgan). Sotuv paytida
+`order_service.py:280` uni tekshirmasdan `unit_cost = 700 × 7000 = 4 900 000`
+qilib hisoblagan va 8 000 so'mlik bitta sotuvga 4,9 mln tan narx yozgan.
+Ma'lumot alohida tuzatildi (kodda emas). Tekshiruv yo'lida esa quyidagi
+TO'RT haqiqiy kod xatosi topildi va shu relizda tuzatildi.
+
+### Tuzatilgan
+
+- **Foyda hisobotida tan narx yo'qolardi** (`services/report_service.py`).
+  `sum(OrderItem.quantity * OrderItem.unit_cost)` — `COALESCE` yo'q edi, ya'ni
+  `unit_cost` NULL bo'lgan qator yig'indidan JIMGINA tushib qolardi (eski va
+  import qilingan sotuvlar). Tan narx kam → foyda oshiq ko'rinardi. Vozvrat
+  tomonida esa `COALESCE` BOR edi — assimetriya: sotuv tan narxi 0 deb
+  olinardi, vozvrat tan narxi to'liq ayirilardi. Endi ikkala tomon ham
+  `utils/revenue.py:cost_expr()` dan o'qiydi.
+
+- **Vozvrat tan narxi `pack_size` marta shishardi** (`utils/revenue.py`).
+  `COALESCE(base_qty, quantity) * unit_cost` ikki xil birlikni ko'paytirardi:
+  `base_qty` — DONA/ml miqdori, `unit_cost` — PACHKA tan narxi. Atir uchun
+  (`pack_size = 100`) bu 100 BAROBAR xato. U `cost` dan AYIRILGANI uchun
+  foyda haddan tashqari OSHIB ketardi: bitta 1 mln lik flakon qaytarilsa
+  hisobot 100 mln tan narx ayirib, ~99 mln soxta "foyda" ko'rsatardi.
+  Yangi `return_cost_expr()` birlikni moslaydi: `unit_cost` bo'lsa
+  `quantity` ga, `cost_price` ga tushsa `base_qty` ga ko'paytiriladi.
+  Fazza va Eco Aroma'da tasdiqlangan vozvrat yo'q edi — xato hali
+  portlamagan, oldi olindi.
+
+- **"Bugun" hisoboti har doim 0 so'm chiqardi** (`routers/report.py`).
+  `_dates()` ikkala chegarani ham 00:00 qilib qaytarardi, servislar esa
+  `created_at <= date_to` bilan filtrlaydi → tugash kunining O'ZI qamralmasdi.
+  `report.html` standart holatda `date_from = date_to = bugun` yuboradi, ya'ni
+  POS "Hisobotlar → Foyda" sahifasi bo'sh ko'rinardi va buni hech kim xato deb
+  o'ylamasdi ("bugun savdo yo'q ekan"). Endi mahalliy zonada to'liq kun
+  oralig'i. Bu `/reports/sales`, `/products`, `/staff`, `/tax`, `/customers`
+  va `/export` ga ham tegishli — ularda ham oxirgi kun qo'shildi.
+
+- **"Bugun" davrida vozvrat hech qachon ayirilmasdi** (`routers/profit.py`).
+  `returns_totals()` ga `date` obyekti uzatilardi; u TIMESTAMP ustuni bilan
+  solishtirilganda kun 00:00 ga qisilardi. "Hafta"/"Oy" da esa oxirgi kun
+  tushib qolardi.
+
+### Qo'shilgan — himoya
+
+- **`pack_size` qo'riqchisi** (`schemas.py`, 0…1000). Yuqoridagi hodisaning
+  ildizi: 1 pachkadagi DONA SONI maydoniga hech qanday tekshiruvsiz NARX
+  kiritilishi mumkin edi. Chegara "son"ni "narx"dan ajratadi — eng katta
+  haqiqiy qiymatlar atir uchun 100 (ml) va 68 (dona), narx esa ming/o'n
+  minglab.
+  ⚠️ Qo'riqcha ATAYIN `ProductCreate`/`ProductUpdate` da, `ProductBase` da
+  EMAS: `ProductInDB` ham `ProductBase` dan meros oladi va u BAZADAN
+  O'QIShda ishlatiladi. Bazada buzuq yozuv qolgan bo'lsa, validator
+  `ProductBase` da bo'lganida mahsulot ro'yxati 500 qaytarardi — ya'ni
+  tuzatish do'konni ishdan chiqarardi. Qoida: KIRISHni tekshiramiz,
+  mavjud ma'lumotni o'qishni bloklamaymiz.
+
+### Testlar
+
+`backend/tests/test_profit_p0_fixes.py` (19 tekshiruv) — har biri jonli
+hodisadan kelib chiqqan, jumladan "mavjud buzuq yozuv o'qilishi kerak"
+regressiya qulfi. To'liq to'plam: 135 passed, 2 skipped.
+
 ## [1.9.6] — 2026-08-27 — audit kuzatuv tuzatishlari
 
 ⚠️ **MIGRATSIYA BOR** (`72d684a734c4`) — deploy'da `alembic upgrade head` SHART,

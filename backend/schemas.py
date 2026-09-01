@@ -209,6 +209,36 @@ class CategoryInDB(CategoryBase):
         from_attributes = True
 
 # ============== Product Schemas ==============
+# ─── pack_size qo'riqchisi (Fazza hodisasi, 2026-08-28) ──────────────────────
+# JONLI HODISA: `PCHYOLKA gupka` kartochkasiga `pack_size = 7000` kiritilgan
+# (egasi son o'rniga NARXni yozgan — pack_price ham 8000). Natijada
+# `order_service.py:280` sotuv paytida
+#       unit_cost = dona_cost * pack_size = 700 * 7000 = 4 900 000
+# hisoblab, 8 000 so'mlik bitta sotuvga 4,9 MLN tan narx yozdi. Bir kunlik
+# foyda −4 489 080 ga tushdi va butun oylik grafik buzildi. Ombordan ham
+# 7000 dona yechildi (base_qty = pack_size × quantity).
+#
+# Hech qanday tekshiruv yo'q edi — shuning uchun shu qo'riqcha qo'shildi.
+# 1000 chegarasi: eng katta haqiqiy qiymatlar atir uchun 100 (ml) va
+# `SUMI 3 68PCS` uchun 68. 1000 dan katta pachka amalda uchramaydi, lekin
+# NARX (ming/o'n minglab) aynan shu chegaradan oshadi — ya'ni chegara
+# "son"ni "narx"dan ajratadi.
+_PACK_SIZE_MAX = 1000
+
+
+def _validate_pack_size(v):
+    if v is None:
+        return v
+    if v < 0:
+        raise ValueError("pack_size manfiy bo'lishi mumkin emas")
+    if v > _PACK_SIZE_MAX:
+        raise ValueError(
+            f"pack_size juda katta ({v}). 1 pachkadagi DONA SONI kiritiladi, "
+            f"narx emas (maksimum {_PACK_SIZE_MAX})."
+        )
+    return v
+
+
 class ProductBase(BaseModel):
     name: str
     description: Optional[str] = None
@@ -237,7 +267,13 @@ class ProductBase(BaseModel):
     requires_prescription: bool = False
 
 class ProductCreate(ProductBase):
-    pass
+    # ⚠️ Qo'riqcha ATAYIN `ProductBase` da EMAS, `ProductCreate` da.
+    # `ProductInDB` ham `ProductBase` dan meros oladi va u BAZADAN O'QIShda
+    # ishlatiladi. Bazada esa buzuq yozuv HOZIR ham bor (product 870,
+    # pack_size=7000). Validator `ProductBase` da bo'lsa o'sha mahsulotni
+    # o'qish 500 xato berardi — ya'ni tuzatish do'konni ishdan chiqarardi.
+    # Qoida: KIRISHni tekshiramiz, mavjud ma'lumotni o'qishni bloklamaymiz.
+    _v_pack_size = field_validator("pack_size")(_validate_pack_size)
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -264,6 +300,8 @@ class ProductUpdate(BaseModel):
     drug_form: Optional[str] = None
     dosing_schedule: Optional[str] = None
     requires_prescription: Optional[bool] = None
+
+    _v_pack_size = field_validator("pack_size")(_validate_pack_size)
 
 class ProductInDB(ProductBase):
     id: int
@@ -1464,11 +1502,41 @@ class SupplierDebtSummary(BaseModel):
 class SupplierLedgerEntry(BaseModel):
     """FAZA 4: oborot varag'ining bitta qatori (xronologik, yugurib boruvchi qoldiq)."""
     date:    Optional[str] = None      # boshlang'ich qarzda sana yo'q
-    kind:    str                       # opening | receipt | payment | return
+    kind:    str                       # opening | receipt | manual_debt | payment | return
     label:   str
     amount:  float                     # + qarz oshdi, − kamaydi
     balance: float
     ref_id:  Optional[int] = None
+
+
+# ── QO'LDA QARZ (priyomkasiz) ────────────────────────────────────────────────
+# Nima uchun alohida jadval emas va marker nima ekani:
+# services/supplier_debt.py dagi "QO'LDA QARZ" izohiga qara.
+
+class ManualDebtCreate(BaseModel):
+    amount:    float = Field(gt=0, description="Qarz summasi (so'm)")
+    debt_date: str   = Field(description="Sana: YYYY-MM-DD")
+    notes:     Optional[str] = Field(None, max_length=500,
+                                     description="Izoh: 'Kerasys dan tovar oldim'")
+
+
+class ManualDebtUpdate(BaseModel):
+    amount:    Optional[float] = Field(None, gt=0)
+    debt_date: Optional[str]   = None
+    notes:     Optional[str]   = Field(None, max_length=500)
+
+
+class ManualDebtInDB(BaseModel):
+    id:            int
+    supplier_id:   int
+    supplier_name: Optional[str] = None
+    amount:        float
+    debt_date:     str
+    notes:         Optional[str] = None
+    # FIFO taqsimotidan keyingi holat (qarz servisidan olinadi)
+    paid:          float = 0.0
+    remaining:     float = 0.0
+    created_at:    Optional[datetime] = None
 
 
 class PurchaseReceiptItemCreate(BaseModel):
@@ -1505,7 +1573,10 @@ class PurchaseReceiptCreate(BaseModel):
     # To'lov yozuvi priyomka TASDIQLANGANDA yaratiladi.
     paid_now:        float = Field(0, ge=0)
     notes:           Optional[str] = None
-    items:           List[PurchaseReceiptItemCreate]
+    # `min_length=1` — bo'sh priyomka ma'nosiz (0 so'mlik hujjat). Qarz esa
+    # "qo'lda qarz" endpointi orqali kiritiladi (POST /suppliers-b2b/{id}/debts),
+    # bo'sh nakladnoy orqali emas.
+    items:           List[PurchaseReceiptItemCreate] = Field(min_length=1)
 
 class PurchaseReceiptUpdate(BaseModel):
     invoice_number:  Optional[str] = None

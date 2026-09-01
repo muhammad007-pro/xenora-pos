@@ -572,6 +572,12 @@ class Expense(Base):
     recurrence_period = Column(String(10), nullable=False, default="monthly")  # monthly | weekly
     recurrence_day = Column(Integer, nullable=True)                      # oyning kuni (monthly uchun, 1-31)
     recurrence_parent_id = Column(Integer, ForeignKey("expenses.id"), nullable=True, index=True)  # generatsiya qilingan nusxa -> shablon
+    # AMORTIZATSIYA: xarajat QAYSI DAVRNI qoplaydi (oylik ijara/maosh kunlarga
+    # bo'linadi, bir kun sun'iy minusga tushmaydi). Ikkalasi NULL = taqsimlanmaydi
+    # (eski xatti-harakat). Hisob va nega `is_recurring` ishlatilmagani:
+    # services/expense_allocation.py
+    amortize_from  = Column(Date, nullable=True)
+    amortize_to    = Column(Date, nullable=True)
 
 
 class Employee(Base):
@@ -652,6 +658,13 @@ class Cafe(Base):
     disabled_features = Column(JSON, default=list)
 
     is_active = Column(Boolean, default=True)
+    # OMBOR QO'RIQCHISI: qoldiq yetmasa sotuvni BLOKLAYDI (400).
+    # `server_default="true"` — YANGI do'konlar to'g'ri standart bilan boshlaydi.
+    # MAVJUD do'konlarga migratsiya `false` yozadi: Fazza'da 92, Eco Aroma'da 7
+    # mahsulot hozir qoldiq 0 — bir kechada savdo to'xtab qolmasin. Ular
+    # inventarizatsiya qilgach Sozlamalardan o'zi yoqadi.
+    # Qoida va istisnolar: services/stock_guard.py
+    block_oversell = Column(Boolean, nullable=False, server_default="true", default=True)
     subscription_plan = Column(String(50), default="free")  # free, pro, enterprise (BOSQICH 2.2)
     subscription_expires = Column(DateTime, nullable=True)
 
@@ -823,6 +836,16 @@ class PurchaseReceipt(Base):
     # yaratiladi: draft hali qarz emas, unga to'lov yozish "avans" bo'lib
     # ko'rinardi. Shu sabab qiymat oraliqda shu ustunda turadi.
     paid_now        = Column(Numeric(14, 2), nullable=False, server_default="0")
+    # QO'LDA QARZ: tovar qatorlarisiz, faqat summa sifatida kiritilgan nasiya
+    # ("firmadan 500 000 qarz oldim"). Qarz hisobi uchun oddiy nakladnoydan
+    # farq qilmaydi (FIFO, oborot varag'i, /debt-summary bir xil) — faqat
+    # ko'rinishi va boshqaruv endpointlari boshqa.
+    # NEGA ALOHIDA USTUN, "qatori yo'q" deb TAXMIN QILINMAYDI: semantik
+    # xossani tasodifiy xossaga bog'lash — shu loyihada qayta-qayta uchragan
+    # xato sinfi (bitta ko'rsatkich ikki xil haqiqatni aytadi). Kelajakda
+    # import yoki xato tufayli qatorsiz nakladnoy paydo bo'lsa, u JIMGINA
+    # "qo'lda qarz" bo'lib qolardi.
+    is_manual_debt  = Column(Boolean, nullable=False, server_default="false", default=False)
     notes           = Column(Text, nullable=True)
     confirmed_by    = Column(Integer, ForeignKey("users.id"), nullable=True)
     confirmed_at    = Column(DateTime(timezone=True), nullable=True)

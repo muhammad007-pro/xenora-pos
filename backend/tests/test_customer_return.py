@@ -272,6 +272,18 @@ def test_buyurtmasiz_naqd_vozvrat_qulamaydi(db):
 
 
 # ── BOSQICH B: FOYDA HISOBOTI ───────────────────────────────────────────────
+def _approved_at(db, ret_id):
+    """Vozvratning HAQIQIY `approved_at` qiymati (naive UTC).
+
+    Test oynasi shu qiymatdan quriladi — mahalliy soatdan EMAS. Aks holda
+    server zonasi UTC dan farq qilganda (bizda Toshkent, +5) test kechasi
+    yiqilardi."""
+    from models import Return
+    r = db.query(Return).filter(Return.id == ret_id).one()
+    dt = r.approved_at or r.created_at
+    return dt.replace(tzinfo=None) if dt.tzinfo else dt
+
+
 def _totals(db, start, end):
     from utils.revenue import returns_totals
     return returns_totals(db, _User(), start, end)
@@ -329,14 +341,22 @@ def test_vozvrat_QAYTARILGAN_sanaga_yoziladi(db):
     r = _make_return(db, "cash")
     _approve(db, r.id)
 
+    # ⚠️ TEST TUZATILDI (2026-09): oyna `datetime.now()` (MAHALLIY) dan
+    # qurilardi, `approved_at` esa UTC yoziladi. Toshkent 00:00–05:00 oralig'ida
+    # mahalliy sana UTC dan BIR KUN oldinda bo'ladi va oyna mos kelmasdi —
+    # test kechasi soat 01:00 da yiqilardi, kunduzi o'tardi.
+    # PRODDA XATO YO'Q: ustun `timestamptz`, hisobot chegarasi ham tz-aware,
+    # PostgreSQL ikkalasini to'g'ri solishtiradi (jonli bazada tekshirildi).
+    # Endi oyna `approved_at` bilan BIR XIL asosdan (UTC) quriladi.
+    ref = _approved_at(db, r.id).date()
+
     # Sotuv sanasi (kecha) oralig'ida vozvrat KO'RINMAYDI
-    kecha = datetime.now().date() - timedelta(days=1)
+    kecha = ref - timedelta(days=1)
     eski = _totals(db, kecha - timedelta(days=1), kecha)
     assert eski["revenue"] == 0
 
-    # Bugungi oraliqda esa bor
-    bugun = datetime.now().date()
-    yangi = _totals(db, bugun - timedelta(hours=1), bugun + timedelta(days=1))
+    # Tasdiqlangan kun oralig'ida esa bor
+    yangi = _totals(db, ref - timedelta(days=1), ref + timedelta(days=1))
     assert yangi["revenue"] == 45000
 
 

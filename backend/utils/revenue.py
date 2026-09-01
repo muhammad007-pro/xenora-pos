@@ -122,6 +122,32 @@ def cost_expr():
 RETURN_COUNTED_STATUSES = ("approved",)
 
 
+def return_cost_expr():
+    """Bitta ReturnItem qatorining tan narxi — BIRLIK MOSLIGI bilan.
+
+    ═══ TUZATILGAN XATO (P0-2) ═══
+    Avval bitta ko'paytma bor edi:
+        COALESCE(base_qty, quantity) * COALESCE(NULLIF(unit_cost,0), cost_price, 0)
+    Bu IKKI XIL BIRLIKNI ko'paytirardi:
+      • `base_qty`          — DONA/ml miqdori   (pachka bo'lsa = pack_size × quantity)
+      • `OrderItem.unit_cost` — PACHKA tan narxi (order_service.py: dona_cost × pack_size)
+    Natijada pachka vozvratida tan narx `pack_size` MARTA shishardi
+    (atir: pack_size=100 → 100 barobar). U `cost` dan AYIRILGANI uchun foyda
+    haddan tashqari OSHIB ketardi — bitta flakon vozvrati o'nlab million
+    "foyda" yaratishi mumkin edi.
+
+    ═══ TO'G'RI QOIDA ═══
+      • `unit_cost` mavjud  → u SOTUV birligida  → `ReturnItem.quantity` ga ko'paytiriladi
+      • fallback `cost_price` → u BAZA birligida (dona/ml) → `base_qty` ga ko'paytiriladi
+    Ikkalasi ham bo'lmasa 0.
+    """
+    return func.coalesce(
+        func.nullif(OrderItem.unit_cost, 0.0) * ReturnItem.quantity,
+        Product.cost_price * func.coalesce(ReturnItem.base_qty, ReturnItem.quantity),
+        0.0,
+    )
+
+
 def return_date_expr():
     """Vozvratning HISOBOT SANASI — tasdiqlangan sana, bo'lmasa yaratilgan."""
     return func.coalesce(Return.approved_at, Return.created_at)
@@ -137,17 +163,11 @@ def returns_totals(db, current_user, start, end) -> dict:
     from deps import apply_tenant_filter
 
     dt = return_date_expr()
-    cost = func.coalesce(
-        func.nullif(OrderItem.unit_cost, 0.0),
-        Product.cost_price,
-        0.0,
-    )
+    cost = return_cost_expr()          # P0-2: birlik mosligi (yuqoridagi izoh)
     q = (
         db.query(
             func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
-            func.coalesce(
-                func.sum(func.coalesce(ReturnItem.base_qty, ReturnItem.quantity) * cost), 0.0
-            ).label("cost"),
+            func.coalesce(func.sum(cost), 0.0).label("cost"),
             func.count(func.distinct(Return.id)).label("cnt"),
         )
         .select_from(ReturnItem)
@@ -173,18 +193,12 @@ def returns_by_day(db, current_user, start, end) -> dict:
     from deps import apply_tenant_filter
 
     dt = return_date_expr()
-    cost = func.coalesce(
-        func.nullif(OrderItem.unit_cost, 0.0),
-        Product.cost_price,
-        0.0,
-    )
+    cost = return_cost_expr()          # P0-2: birlik mosligi (returns_totals bilan bir xil)
     q = (
         db.query(
             func.date(dt).label("d"),
             func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
-            func.coalesce(
-                func.sum(func.coalesce(ReturnItem.base_qty, ReturnItem.quantity) * cost), 0.0
-            ).label("cost"),
+            func.coalesce(func.sum(cost), 0.0).label("cost"),
         )
         .select_from(ReturnItem)
         .join(Return, Return.id == ReturnItem.return_id)
@@ -199,4 +213,80 @@ def returns_by_day(db, current_user, start, end) -> dict:
     return {
         str(r.d): {"revenue": float(r.revenue or 0), "cost": float(r.cost or 0)}
         for r in q.all()
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DAVR YAKUNI — SOTUV FOYDASINING YAGONA HISOBI
+#
+# MUAMMO (2026-08/09 auditi): foyda TO'RT joyda TO'RT xil hisoblanardi va
+# ekranlar har xil son ko'rsatardi. v1.9.7 dan keyin uchtasi tenglashdi,
+# lekin `/analytics/store-dashboard` ajralib turaverdi:
+#     tan narx = Product.cost_price (BUGUNGI narx) × miqdor
+# Bu O'TMISHGA NOTO'G'RI: mahsulot tan narxi keyin o'zgarsa (priyomka
+# `cost_price` ni qayta yozadi — purchase_receipts.py:233) eski sotuvlarning
+# foydasi ORQAGA o'zgarardi. Fazza'da 08-28: 503 970, boshqa uch ekran esa
+# 405 320 ko'rsatardi.
+#
+# TO'G'RI TAN NARX — `OrderItem.unit_cost` SNAPSHOT: sotuv PAYTIDAGI haqiqiy
+# tan narx. `cost_price` faqat zaxira (eski/import yozuvlar uchun) —
+# `cost_expr()` aynan shu tartibni beradi.
+#
+# ⚠️ BU FUNKSIYA XARAJATNI (Expense) HISOBGA OLMAYDI — u YALPI foyda beradi.
+# "Sof foyda" (xarajat ayirilgan) faqat `/profit/summary` da. Bu FARQ ATAYIN:
+# ular turli ko'rsatkichlar, va aynan shu farq `utils/cashflow.py` dagi
+# "bir o'lchovni ikkinchisiga qo'shma" qoidasining davomi.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def period_totals(db, current_user, start, end) -> dict:
+    """Davr bo'yicha SOTUV yakuni (accrual, xarajatsiz).
+
+    Qaytadi:
+        {"revenue", "cost", "gross_profit",
+         "returns_revenue", "returns_cost", "returns_count"}
+
+    QOIDALAR (hammasi shu yerda, boshqa joyda takrorlanmaydi):
+      • daromad  — `net_revenue_expr`: chegirma proporsional ayirilgan
+      • tan narx — `cost_expr`: sotuv paytidagi snapshot, zaxira `cost_price`
+      • status   — FAQAT `completed`
+      • vozvrat  — QAYTARILGAN sana bo'yicha ayiriladi (revenue ham, cost ham)
+      • soliq/xizmat haqi — DAROMADGA KIRMAYDI (`final_amount` tuzog'i,
+        fayl boshidagi izohga qara)
+
+    `start`/`end` — chaqiruvchi zonasida aniqlangan chegaralar (odatda
+    `core.timeutils.day_bounds`). Bu yerda zona o'zgartirilmaydi.
+    """
+    from deps import apply_tenant_filter
+
+    sq  = order_subtotal_subq()
+    net = net_revenue_expr(sq)
+
+    q = (
+        db.query(
+            func.coalesce(func.sum(net), 0.0).label("revenue"),
+            func.coalesce(func.sum(OrderItem.quantity * cost_expr()), 0.0).label("cost"),
+        )
+        .select_from(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
+        # outerjoin: mahsulot o'chirilgan bo'lsa ham sotuv qatori yo'qolmasin
+        # (many-to-one — qator soni o'zgarmaydi)
+        .outerjoin(Product, Product.id == OrderItem.product_id)
+        .join(sq, sq.c.order_id == OrderItem.order_id)
+        .filter(Order.created_at >= start, Order.created_at <= end,
+                Order.status == "completed")
+    )
+    if current_user is not None:
+        q = apply_tenant_filter(q, Order, current_user)
+    row = q.one()
+
+    ret     = returns_totals(db, current_user, start, end)
+    revenue = round(float(row.revenue or 0) - ret["revenue"], 2)
+    cost    = round(float(row.cost or 0) - ret["cost"], 2)
+    return {
+        "revenue":         revenue,
+        "cost":            cost,
+        "gross_profit":    round(revenue - cost, 2),
+        "returns_revenue": ret["revenue"],
+        "returns_cost":    ret["cost"],
+        "returns_count":   ret["count"],
     }

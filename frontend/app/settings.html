@@ -858,10 +858,21 @@ const PRO_FLAGS = new Set([
   'markirovka'
 ]);
 
-function isProFlag(flag) { return PRO_FLAGS.has(flag); }
+// STANDART tarifda ochiladigan flaglar — backend core/feature_flags.py
+// _STANDART_OPERATIONAL bilan MOS bo'lishi SHART (uch tarif, 2026-08-27).
+const STANDART_FLAGS = new Set([
+  'supplier_accounting','wholesale_pricing','internal_transfer',
+  'goods_regrade','write_off','loss_report'
+]);
 
-// Tenant tarifi PRO bo'lsa — PRO funksiyalar ochiladi (xato #8). Super-admin baribir override qiladi.
-let _isProPlan = false;
+function isProFlag(flag)      { return PRO_FLAGS.has(flag); }
+function isStandartFlag(flag) { return STANDART_FLAGS.has(flag); }
+
+// Tarif DARAJASI (uch tarif, 2026-08-27): free=0, standart=1, pro=2.
+// ⚠️ Ilgari bu IKKILIK edi (`plan !== 'free'`) — `standart` tarif shu ekranda
+// to'liq PRO huquqini olardi. Backend `plan_rank()` bilan MOS.
+const PLAN_RANK = { free:0, basic:0, standart:1, pro:2, premium:2, enterprise:3 };
+let _planRank = 0;
 async function detectPlanAndLock() {
   // ILDIZ (xato #8 takroriy): ilgari '/cafes/' RO'YXATIdan items[0] olinardi — bu
   // joriy tenant emas, nom bo'yicha BIRINCHI kafe (ko'pincha boshqa/FREE tenant) edi,
@@ -871,18 +882,22 @@ async function detectPlanAndLock() {
     const res  = await api.get('/cafes/my/features');
     const data = res?.data ?? res;
     const plan = (data?.subscription_plan || 'free').toLowerCase();
-    _isProPlan = plan !== 'free';   // free'dan boshqasi (pro) — PRO ochiq
-  } catch { _isProPlan = false; }
+    _planRank = PLAN_RANK[plan] ?? 0;
+    if (PLAN_RANK[plan] === undefined) console.warn('[TARIF] Noma'lum tarif:', plan);
+  } catch { _planRank = 0; }
   applyProLocks();
 }
 
 // PRO lock: barcha data-feature checkboxlarni tekshirib, PRO bo'lsa qulflaydi.
 // PRO tarifda esa qulflamaydi — tenant o'zi yoqadi.
 function applyProLocks() {
-  if (_isProPlan) return;   // PRO tarif — qulf yo'q
+  if (_planRank >= 2) return;   // Pro tarif — qulf yo'q
   document.querySelectorAll('input[data-feature], input[data-flag]').forEach(chk => {
     const flag = chk.dataset.feature || chk.dataset.flag;
     if (!isProFlag(flag)) return;
+    // STANDART flagi + tarif kamida Standart -> QULFLAMAYMIZ
+    if (isStandartFlag(flag) && _planRank >= 1) return;
+    const nomi = isStandartFlag(flag) ? 'Standart' : 'Pro';
     chk.disabled = true;
     chk.style.accentColor = '#9ca3af';
     const row = chk.closest('.toggle-row');
@@ -893,7 +908,7 @@ function applyProLocks() {
     if (labelEl && !labelEl.querySelector('.pro-lock-badge')) {
       const badge = document.createElement('span');
       badge.className = 'pro-lock-badge';
-      badge.innerHTML = ' <span style="display:inline-flex;align-items:center;gap:2px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.35);border-radius:99px;padding:1px 7px;font-size:.68rem;font-weight:700;color:#0d9488;vertical-align:middle">🔒 PRO</span>';
+      badge.innerHTML = ' <span style="display:inline-flex;align-items:center;gap:2px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.35);border-radius:99px;padding:1px 7px;font-size:.68rem;font-weight:700;color:#0d9488;vertical-align:middle">🔒 ' + nomi + '</span>';
       labelEl.appendChild(badge);
     }
     row.addEventListener('click', (e) => {

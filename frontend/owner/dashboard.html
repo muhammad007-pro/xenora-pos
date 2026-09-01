@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="uz" data-theme="dark">
 <head>
+<script src="../js/core/plans.js"></script>
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
@@ -187,7 +188,7 @@ async function load(){
     document.getElementById('plansBox').innerHTML=
       ['free','pro'].map(plan=>{
         const p=ps[plan]||{count:0,price:0,monthly_revenue:0};
-        const names={free:'LITE',pro:'PRO'};
+        const names=window.XENORA_PLANS.NAMES;
         const colors={free:'#9ca3af',pro:'#d4b46c'};
         return `<div class="plan-row">
           <div class="plan-name" style="color:${colors[plan]}">${names[plan]}</div>

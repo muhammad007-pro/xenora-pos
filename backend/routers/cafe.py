@@ -13,7 +13,8 @@ from deps import (
 from core.feature_flags import (
     BusinessType, Feature, resolve_enabled_features,
     is_pro_feature, get_feature_tier, FeatureTier, get_default_features,
-    get_business_pro_features, get_all_business_features
+    get_business_pro_features, get_all_business_features,
+    get_business_standart_features, plan_rank, RANK_STANDART, RANK_PRO,
 )
 from pydantic import BaseModel
 from core.subscription import get_plan_info, VALID_PLANS, subscription_state
@@ -131,30 +132,44 @@ async def update_my_cafe_features(
     #   • O'chirish (disabled) — har doim ruxsat (eski override'larni tozalash uchun).
     if not current_user.is_superuser:
         plan = (cafe.subscription_plan or "free").lower()
-        is_pro_plan = plan != "free"   # free(Lite)'dan boshqasi (pro) — PRO darajali
-        default_set     = {f.value for f in get_default_features(cafe.business_type)}       # FREE (shu biznes)
-        business_pro    = {f.value for f in get_business_pro_features(cafe.business_type)}   # PRO (shu biznes)
+        # UCH TARIF (2026-08-27): ilgari shu yerda `plan != "free"` ikkilik
+        # tekshiruvi bor edi — `standart` tarif to'liq PRO huquqini olardi.
+        rank = plan_rank(plan)
+        default_set      = {f.value for f in get_default_features(cafe.business_type)}          # Boshlang'ich
+        business_standart= {f.value for f in get_business_standart_features(cafe.business_type)} # Standart
+        business_pro     = {f.value for f in get_business_pro_features(cafe.business_type)}      # Pro
 
-        blocked_pro     = []   # PRO flag, lekin tarif Lite
-        foreign_pro     = []   # PRO flag, lekin begona biznes turi
-        foreign_free    = []   # begona FREE flag
+        blocked_standart = []   # Standart flag, lekin tarif Boshlang'ich
+        blocked_pro      = []   # Pro flag, lekin tarif Boshlang'ich/Standart
+        foreign_pro      = []   # Pro/Standart flag, lekin begona biznes turi
+        foreign_free     = []   # begona Boshlang'ich flagi
         for flag_str in body.enabled:
             try:
                 pro = is_pro_feature(flag_str)
             except ValueError:
                 raise HTTPException(422, f"Noma'lum flag: {flag_str}")
             if pro:
-                if not is_pro_plan:
-                    blocked_pro.append(flag_str)
-                elif flag_str not in business_pro:
-                    foreign_pro.append(flag_str)   # PRO tarif bor, lekin begona biznes PRO
+                if flag_str in business_standart:
+                    if rank < RANK_STANDART:
+                        blocked_standart.append(flag_str)
+                elif flag_str in business_pro:
+                    if rank < RANK_PRO:
+                        blocked_pro.append(flag_str)
+                else:
+                    foreign_pro.append(flag_str)   # begona biznes turining flagi
             elif flag_str not in default_set:
                 foreign_free.append(flag_str)
 
+        if blocked_standart:
+            raise HTTPException(
+                403,
+                f"Bu funksiyalar Standart tarifda. Tarifni ko'taring yoki Super Admin bilan "
+                f"bog'laning: {', '.join(blocked_standart)}"
+            )
         if blocked_pro:
             raise HTTPException(
                 403,
-                f"Bu funksiyalar PRO tarifda. Tarifni PRO ga o'tkazing yoki Super Admin bilan bog'laning: {', '.join(blocked_pro)}"
+                f"Bu funksiyalar Pro tarifda. Tarifni Pro ga o'tkazing yoki Super Admin bilan bog'laning: {', '.join(blocked_pro)}"
             )
         if foreign_pro or foreign_free:
             raise HTTPException(

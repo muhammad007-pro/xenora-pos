@@ -7,6 +7,7 @@ from models import Branch, Cafe
 from schemas import BranchCreate, BranchUpdate, BranchInDB
 from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id, has_permission
 from models import User
+from core.subscription import is_within_branch_limit, get_plan_limits
 
 router = APIRouter()
 
@@ -45,6 +46,20 @@ def create_branch(
 
     # Bu tenantda birinchi filialmи — default qilish
     existing = db.query(Branch).filter(Branch.tenant_id == tenant_id).count()
+
+    # TARIF LIMITI (2026-08-27): ilgari `max_branches` E'LON QILINGAN-u hech
+    # qayerda TEKSHIRILMASDI — "1 filial" va'dasi bo'sh gap edi. Endi 402.
+    # Super-admin cheklanmaydi (mijoz nomidan sozlash uchun).
+    if not current_user.is_superuser:
+        cafe = db.query(Cafe).filter(Cafe.id == tenant_id).first()
+        if cafe and not is_within_branch_limit(existing, cafe.subscription_plan):
+            limits = get_plan_limits(cafe.subscription_plan)
+            raise HTTPException(
+                status_code=402,
+                detail=(f"Joriy tarifingizda {limits.max_branches} ta filialga ruxsat "
+                        f"(hozir {existing} ta). Tarifni yuqoriroqqa o'tkazing."),
+            )
+
     branch = Branch(
         tenant_id=tenant_id,
         name=data.name,

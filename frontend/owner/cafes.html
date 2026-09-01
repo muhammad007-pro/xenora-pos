@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="uz" data-theme="dark">
 <head>
+<script src="../js/core/plans.js"></script>
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
@@ -122,8 +123,9 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
     <input class="sin" id="searchInp" placeholder="Ism, telefon, kod bo'yicha qidirish..." oninput="debouncedLoad()">
     <select class="ssel" id="planFilter" onchange="load()">
       <option value="">Barcha tariflar</option>
-      <option value="free">LITE</option>
-      <option value="pro">PRO</option>
+      <option value="free">Boshlang'ich</option>
+      <option value="standart">Standart</option>
+      <option value="pro">Pro</option>
     </select>
     <button class="btn bo" onclick="load()">↻ Yangilash</button>
   </div>
@@ -195,8 +197,9 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
         <div class="fg">
           <label>Tarif *</label>
           <select id="f-plan">
-            <option value="free">LITE — bepul</option>
-            <option value="pro">PRO — 990,000 UZS/oy</option>
+            <option value="free">Boshlang'ich</option>
+            <option value="standart">Standart</option>
+            <option value="pro">Pro</option>
           </select>
         </div>
         <div class="fg">
@@ -243,8 +246,9 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
       <div class="fg">
         <label>Tarif (o'zgartirilsa darhol qo'llanadi)</label>
         <select id="edit-plan">
-          <option value="free">LITE — bepul</option>
-          <option value="pro">PRO — 990,000 UZS/oy</option>
+          <option value="free">Boshlang'ich</option>
+          <option value="standart">Standart</option>
+          <option value="pro">Pro</option>
         </select>
       </div>
 
@@ -427,7 +431,7 @@ function statusBadge(s){
   return `<span class="badge ${s}">${map[s]||s}</span>`;
 }
 function planBadge(p){
-  const names={free:'LITE',pro:'PRO'};
+  const names=window.XENORA_PLANS.NAMES;
   return `<span class="plan-badge ${p}">${names[p]||p}</span>`;
 }
 function daysLeftHtml(t){
@@ -621,7 +625,13 @@ async function saveEdit(){
   }
 }
 
-// init
+// init — narx BACKENDDAN (yagona manba); yuklangach dropdown yorliqlari yangilanadi.
+window.XENORA_PLANS.loadPlans(api.get).then(()=>{
+  document.querySelectorAll('select option[value="free"],select option[value="standart"],select option[value="pro"]').forEach(o=>{
+    const lbl=window.XENORA_PLANS.planLabel(o.value);
+    if(lbl) o.textContent=lbl;
+  });
+});
 filterStatus('');
 </script>
 </body>

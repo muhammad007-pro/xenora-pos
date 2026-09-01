@@ -13,7 +13,10 @@ import string
 from database import get_db
 from models import Cafe, User, TenantPayment, Role
 from deps import get_current_superuser
-from core.subscription import VALID_PLANS, get_plan_info, subscription_state
+from core.subscription import (
+    VALID_PLANS, PUBLIC_PLANS, PLAN_PRICES_UZS, PLAN_DISPLAY_NAMES,
+    get_plan_info, get_plan_limits, subscription_state,
+)
 from config import settings
 from core.feature_flags import BusinessType, Feature, resolve_enabled_features, get_default_features
 from core.security import get_password_hash
@@ -66,14 +69,13 @@ FEATURE_META: dict[str, dict] = {
 
 router = APIRouter()
 
-# Superadmin SaaS daromadi USD ($) da hisoblanadi (owner moliya dashboard).
-# Tenant-facing tarif tanlash UZS'da qoladi (owner/cafes.html dropdown) — bular alohida.
-# Kalit "free" o'zgarmaydi (DB/VALID_PLANS buzilmaydi) — ko'rinadigan nom "Lite".
-PLAN_PRICES = {
-    "free":       10,    # Lite — $10/oy
-    "pro":        50,    # Pro  — $50/oy
-    "enterprise": 0,     # ishlatilmaydi (ikki tarif tizimi)
-}
+# NARX — YAGONA MANBA: core/subscription.PLAN_PRICES_UZS (2026-08-27).
+# ILGARI shu yerda ALOHIDA USD jadval bor edi (free=$10, pro=$50) va u
+# frontend/owner/subscriptions.html dagi UZS jadvaliga (free=0 "bepul") ZID edi:
+# moliya paneli Boshlang'ich mijozni pullik, mijoz ekrani bepul deb ko'rsatardi.
+# Endi ikkala tomon ham quyidagi yagona jadvaldan o'qiydi (frontend
+# `GET /super-admin/plans` orqali).
+PLAN_PRICES = PLAN_PRICES_UZS
 
 WARN_DAYS = 7   # Muddat tugashiga necha kun qolganida ogohlantirish
 
@@ -132,6 +134,31 @@ def _tenant_dict(cafe: Cafe, now: datetime) -> dict:
 
 # ── STATISTIKA ───────────────────────────────────────────────────────────────
 
+@router.get("/plans")
+async def get_plans(current_user: User = Depends(get_current_superuser)):
+    """Tarif katalogi — nom, narx (UZS), limitlar. NARXNING YAGONA MANBAI.
+
+    Frontend (owner/cafes.html, subscriptions.html) shu yerdan o'qiydi; narx
+    ikki joyda qo'lda yozilib bir-biriga zid bo'lib qolmasin (2026-08-27 gacha
+    aynan shunday edi: backend $10/$50, frontend 0/990000 UZS).
+    """
+    def _row(code: str) -> dict:
+        lim = get_plan_limits(code)
+        return {
+            "code":             code,
+            "name":             PLAN_DISPLAY_NAMES.get(code, code.title()),
+            "price_uzs":        PLAN_PRICES_UZS.get(code, 0),
+            "max_users":        lim.max_users or None,        # None = cheksiz
+            "max_branches":     lim.max_branches or None,
+            "max_orders_month": lim.max_orders_month or None,
+        }
+    return {
+        "plans":    [_row(p) for p in PUBLIC_PLANS],   # UI dropdowni uchun
+        "currency": "UZS",
+        "all_valid": list(VALID_PLANS),                # enterprise ham shu yerda
+    }
+
+
 @router.get("/stats")
 async def get_stats(
     db: Session = Depends(get_db),
@@ -156,7 +183,7 @@ async def get_stats(
     total_revenue = sum(p.amount for p in db.query(TenantPayment).all())
 
     plan_stats = {}
-    for plan in ["free", "pro", "enterprise"]:
+    for plan in VALID_PLANS:
         cnt = sum(1 for c in cafes if (c.subscription_plan or "free") == plan)
         plan_stats[plan] = {
             "count":           cnt,

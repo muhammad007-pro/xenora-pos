@@ -3,6 +3,71 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.9.9] — 2026-09-01 — foyda hisobi birlashtirildi, ombor qo'riqchisi, xarajat amortizatsiyasi
+
+⚠️ **IKKI MIGRATSIYA** — deploy'da `alembic upgrade head` SHART:
+`3f7a2c9e1b04` → `9c4e1a7b30df` (xarajat) → `c8b3e5d90a17` (ombor qo'riqchisi).
+Rollback: kod `42e6fae` (v1.9.8), alembic `3f7a2c9e1b04`.
+
+Frontend ham o'zgardi (`profit.html`, `settings.html`, `pos.js`, `admin.html`,
+`report.html`) — ular serverdan yuklanadi, yangi `.exe`/`.apk` **shart emas**.
+
+### Qo'shilgan — xarajatni kunlarga taqsimlash (amortizatsiya)
+
+Fazza Parfum 22-avgustda ARENDA+ISHCHI+UJN = 5 800 000 kiritdi va uchalasi
+BITTA kunga tushib, o'sha kun sof foydasi −5 268 070 bo'lib ko'rindi. Endi
+`amortize_from`/`amortize_to` belgilangan xarajat kunlarga proporsional
+taqsimlanadi (kümülativ — bir tiyin ham yo'qolmaydi/qo'shilmaydi).
+`is_recurring` ATAYIN ishlatilmadi — u boshqa savolga javob beradi.
+Davr = KALENDAR OY (takrorlanuvchi xarajatlar ustma-ust tushmasin);
+`amortize_from` do'kon ochilgan sanadan oldinga o'tmaydi.
+UI: checkbox + izoh, ro'yxatda 🗓 belgisi, karta ostida "bu davrga X (jami Y dan)",
+ℹ️ tugmasi — foyda hisobi va to'lovlar reyestri farqi tushuntirilgan.
+
+### Qo'shilgan — ombor qo'riqchisi (qoldiq tugasa sotilmaydi)
+
+POS sotuvda ombor UMUMAN tekshirilmasdi: sotuv o'tar, ombor 0 da to'xtatilib
+kamomad JIMGINA yo'qolardi. Fazza'da 15–31 avgustda 24 ta shunday sotuv
+(297 dona). Endi `Cafe.block_oversell` yoqilgan bo'lsa `create_order` 400
+qaytaradi. MAVJUD do'konlarga migratsiya FALSE yozadi (Fazza'da 98,
+Eco Aroma'da 7 mahsulot qoldig'i 0 — bir kechada savdo to'xtamasin), YANGI
+do'konlar TRUE bilan boshlaydi. Istisno: retseptli taom, ombor nazorati yo'q
+xizmat, va INVENTARIZATSIYA davomida (sanoq tasdiqlangach o'zi qayta yoqiladi).
+
+### Tuzatilgan — foyda 6 ekranda bir xil qoidada
+
+Tan narx endi HAMMA JOYDA sotuv paytidagi `unit_cost` SNAPSHOT (`cost_expr`),
+BUGUNGI `Product.cost_price` emas. Yangi yagona manba:
+`utils/revenue.py:period_totals()`.
+
+- `/analytics/store-dashboard` — 503 970 o'rniga 405 320 (Fazza 28-avg),
+  endi boshqa ekranlar bilan mos; vozvrat ham ayiriladi
+- `/analytics/store-margin`, `/analytics/abc-analysis` — snapshot tan narx.
+  Jonli farq Fazza'da 4 931 570 so'm; sababi PACHKA sotuvlari: 100 ml BVLGARI
+  flakoni 1 000 000 o'rniga 10 000 deb sanalardi (`pack_size` marta kam).
+  ⚠️ Bu ekranlarda marja SEZILARLI tushadi — bu regressiya emas, soxta yuqori
+  marja olib tashlandi. Eco Aroma'da farq 0 (pachka sotuvi yo'q).
+- `/departments/report/sales` — ikki eski xato: daromadda chegirma
+  ayirilmasdi (v1.9.0 tuzatishini olmagan) va tan narx `cost_price` edi.
+  Jonli ta'sir 0 (department yozuvi yo'q), mina qoldirmaslik uchun tuzatildi.
+- `/profit/summary` — status filtri `notin(cancelled)` → `completed`
+  (PENDING endi daromad sanalmaydi; jonli ta'sir 0), kun chegarasi UTC →
+  TOSHKENT (9 buyurtma kunini almashtiradi, DAVR JAMISI o'zgarmaydi).
+
+YALPI ≠ SOF farqi SAQLANDI va yozildi: `/profit/summary` — SOF foyda
+(xarajat ayirilgan), qolganlari YALPI. Har javobda `profit_kind`/`profit_label`.
+UI yorliqlari chalg'ituvchi edi: admin KPI va report.html "Sof foyda" →
+"Yalpi foyda". "Sof foyda" nomi endi faqat "Foyda tahlili" sahifasida.
+
+### Tuzatilgan — boshqa
+
+- `returns.py` `approved_at`: `utcnow()` (naive) → `datetime.now(timezone.utc)`.
+  ⚠️ XATTI-HARAKAT O'ZGARMAYDI — jonli PostgreSQL'da tekshirildi, vozvrat sanasi
+  to'g'ri edi. Bu sessiya zonasiga bog'liqlikni olib tashlash.
+- `test_customer_return::test_vozvrat_QAYTARILGAN_sanaga_yoziladi` — test
+  oynani mahalliy soatdan qurardi va Toshkent 00:00–05:00 da yiqilardi.
+  Endi `approved_at` ning o'zidan quriladi.
+
 ## [1.9.8] — 2026-08-29 — firmalarga qo'lda qarz qo'shish
 
 ⚠️ **MIGRATSIYA BOR** (`3f7a2c9e1b04`) — deploy'da `alembic upgrade head` SHART,

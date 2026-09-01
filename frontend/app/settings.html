@@ -386,6 +386,7 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
             <label>Chek printeri (Windows nomi)</label>
             <input id="printerName" list="printerNameList" placeholder="Bo'sh = standart printer (masalan: XP-58)">
             <datalist id="printerNameList"></datalist>
+            <p class="printer-hint" id="printerNameHint" style="display:none;margin:.35rem 0 0;font-size:.8125rem;line-height:1.45;color:#fbbf24"></p>
             <div class="toggle-hint" style="margin-top:.35rem">Chek do'kon kompyuteridagi shu printerga chiqadi (Electron silent). Bo'sh qolsa — OS standart printeri.</div>
           </div>
         </div>
@@ -883,7 +884,7 @@ async function detectPlanAndLock() {
     const data = res?.data ?? res;
     const plan = (data?.subscription_plan || 'free').toLowerCase();
     _planRank = PLAN_RANK[plan] ?? 0;
-    if (PLAN_RANK[plan] === undefined) console.warn('[TARIF] Noma'lum tarif:', plan);
+    if (PLAN_RANK[plan] === undefined) console.warn("[TARIF] Noma'lum tarif:", plan);
   } catch { _planRank = 0; }
   applyProLocks();
 }
@@ -1118,7 +1119,17 @@ async function loadPrinterSettings() {
 // Electron'da mavjud printerlar ro'yxatini datalist'ga to'ldirish (tanlash qulay)
 async function _loadElectronPrinters() {
   try {
-    if (!(window.electronAPI && window.electronAPI.listPrinters)) return;
+    // BRAUZER: printer ro'yxatini OS dan olib bo'lmaydi. Ilgari jimgina
+    // `return` qilinardi va tanlash ro'yxati SABABSIZ bo'sh qolardi.
+    if (!(window.electronAPI && window.electronAPI.isElectron && window.electronAPI.listPrinters)) {
+      const hint = document.getElementById('printerNameHint');
+      if (hint) {
+        hint.textContent = "Printerlar ro'yxati faqat XENORA dasturida (.exe) ko'rinadi. "
+                         + "Brauzerda printer nomini qo'lda yozing.";
+        hint.style.display = '';
+      }
+      return;
+    }
     const list = await window.electronAPI.listPrinters();
     const dl = document.getElementById('printerNameList');
     if (!dl || !Array.isArray(list)) return;
@@ -1320,6 +1331,10 @@ document.getElementById('savePharmacyFlags')?.addEventListener('click', () =>
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 renderBtypes();
+// Brauzer/Electron ogohlantirishi sozlama MA'LUMOTIGA bog'liq emas — muhitga
+// bog'liq. Shuning uchun `/settings/printer` javobini kutmaymiz: agar u
+// xato bersa ham brauzerdagi foydalanuvchi izohni ko'rishi kerak.
+_loadElectronPrinters();
 Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings(), loadLoyaltySettings(), loadStockGuard()]);
 loadPharmacyFlags();
 loadSalonFlags();

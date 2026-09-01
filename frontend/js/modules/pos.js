@@ -86,6 +86,43 @@ function toast(msg, type = 'info', dur = 3500) {
   setTimeout(() => el.remove(), dur);
 }
 
+// ─── BRAUZER REJIMI ──────────────────────────────────────────────────────────
+// Electron (.exe) da ba'zi imkoniyatlar OS orqali ishlaydi: termal printerga
+// jimgina chop etish, kassa yashigini ochish, diskka avtomatik zaxira.
+// Brauzerda ular MUMKIN EMAS. Ilgari bu JIMGINA o'tib ketardi — kassir
+// yashik ochilishini kutardi, do'konchi esa zaxira olinyapti deb o'ylardi.
+// Endi bir marta ochiq aytiladi.
+//
+// Tekshiruv `electronAPI.isElectron` ustidan — preload.js AYNAN shu bayroqni
+// qo'yadi. Faqat `window.electronAPI` mavjudligiga qarash yetarli emas.
+function isElectronApp() {
+  return !!(window.electronAPI && window.electronAPI.isElectron);
+}
+
+const _BROWSER_BANNER_KEY = 'xenora_browser_banner_seen';
+
+function showBrowserModeBanner() {
+  if (isElectronApp()) return;                                  // .exe — hech narsa
+  try { if (sessionStorage.getItem(_BROWSER_BANNER_KEY)) return; } catch { /* private mode */ }
+
+  const el = document.createElement('div');
+  el.className = 'browser-mode-banner';
+  el.setAttribute('role', 'status');
+  el.innerHTML =
+    '<span class="bmb__ic" aria-hidden="true">⚠️</span>' +
+    '<span class="bmb__txt">Brauzer rejimi: chek brauzer oynasi orqali chiqadi, ' +
+    'kassa yashigi ochilmaydi. Termal printer va avtomatik zaxira uchun ' +
+    'XENORA dasturidan foydalaning.</span>' +
+    '<button class="bmb__x" type="button" aria-label="Yopish">✕</button>';
+  el.querySelector('.bmb__x').addEventListener('click', () => {
+    el.remove();
+    try { sessionStorage.setItem(_BROWSER_BANNER_KEY, '1'); } catch { /* ignore */ }
+  });
+  document.body.insertBefore(el, document.body.firstChild);
+  // Sessiyada bir marta: ko'rsatilishi bilan belgilanadi (yopilishi shart emas)
+  try { sessionStorage.setItem(_BROWSER_BANNER_KEY, '1'); } catch { /* ignore */ }
+}
+
 // ─── Formatters ──────────────────────────────────────────────────────────────
 // Pul formati BUTUN tizimda bir xil: vergul bilan minglik ajratish (770,000).
 // Ko'rsatish (fmt/fmtNum) va input (attachMoneyInput) BIR XIL ajratgichni ishlatadi —
@@ -2140,9 +2177,18 @@ function _printOpts(extra) {
 async function _maybeOpenUsbDrawer() {
   if (_receiptCfg.print_type !== 'usb') return;   // faqat USB — LAN o'z ichida hal qiladi
   if (!_shouldOpenDrawer()) return;
+  // BRAUZER: `openCashDrawer` yo'q. Ilgari `?.()` JIMGINA hech narsa qilmasdi va
+  // kassir yashik ochilishini bekorga kutardi. Endi aniq aytiladi.
+  if (!isElectronApp() || !window.electronAPI?.openCashDrawer) {
+    toast('Kassa yashigi faqat XENORA dasturida ochiladi', 'warning');
+    return;
+  }
   try {
-    await window.electronAPI?.openCashDrawer?.(_printerStatus.printer_name || '');
-  } catch { /* pul qutisi ochilmasa ham chek chiqqan — jim o'tamiz */ }
+    await window.electronAPI.openCashDrawer(_printerStatus.printer_name || '');
+  } catch (e) {
+    // Dastur ichida XATO bo'lsa ham jim qolmaymiz — chek chiqqan, yashik yo'q.
+    toast('Kassa yashigi ochilmadi: ' + (e?.message || 'nomaʼlum xato'), 'error');
+  }
 }
 
 // Chekni LOKAL printerga chiqarish (do'kon kompyuteridagi XP-58).
@@ -3562,6 +3608,7 @@ async function init() {
   }
   try {
     renderUser();
+    showBrowserModeBanner();   // faqat brauzerda ko'rinadi
     // localStorage tokenini IndexedDB auth_meta ga sinxronlaymiz (SW background sync uchun)
     const existingToken = localStorage.getItem('access_token');
     if (existingToken) {

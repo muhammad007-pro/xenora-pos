@@ -289,7 +289,11 @@ body{background:radial-gradient(ellipse 130% 90% at 50% -12%,#0d1c33 0%,#0a1628 
 .sa-link{
   display:flex;align-items:center;justify-content:center;gap:.4rem;margin:0 auto;
   font-size:.8125rem;color:var(--text2);background:none;border:none;
-  padding:.4rem .5rem;transition:color var(--tr);opacity:.8;
+  /* iOS/Android tavsiyasi: bosiladigan maydon kamida 44px. Ilgari 29px edi va
+     telefonda barmoq bilan tegish qiyin bo'lardi. Ko'rinish o'zgarmadi —
+     faqat bosiladigan maydon kattalashdi. */
+  min-height:44px;padding:.5rem .75rem;transition:color var(--tr);opacity:.8;
+  cursor:pointer;
 }
 .sa-link svg{width:14px;height:14px;flex-shrink:0}
 .sa-link:hover{color:var(--accent);opacity:1}

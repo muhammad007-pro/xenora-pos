@@ -1,0 +1,47 @@
+name: Frontend tekshiruvi
+
+# NEGA BOR: 2026-09-01 da `app/settings.html` dagi bitta apostrof
+# (`'[TARIF] Noma'lum tarif:'`) ishlab chiqarishga chiqib ketdi va sahifaning
+# BUTUN inline skripti parse bo'lmay qoldi — Sozlamalar sahifasi o'lik edi.
+#
+# NEGA ESLINT USHLAMADI: ESLint faqat `.js` fayllarni ko'radi. Xuddi shu xato
+# `.js` faylda bo'lganda ESLint uni "Parsing error" deb ushlaydi (sinab
+# ko'rilgan), lekin HTML ichidagi `<script>` bloklari uning qamrovida EMAS —
+# loyihadagi kodning katta qismi esa aynan o'sha yerda.
+# Bundan tashqari `npm run lint` HECH QAYERDA avtomatik ishlamasdi.
+#
+# Shu sabab bu yerda IKKALASI ham ishlaydi:
+#   1) check_syntax.py — HTML ichidagi <script> bloklarini ham parse qiladi
+#   2) eslint          — `.js` fayllarda `no-undef` qo'riqchisi
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kodni checkout qilish
+        uses: actions/checkout@v4
+
+      - name: Node.js 20 o'rnatish
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Sintaksis skaneri npm paketiga bog'liq emas — o'rnatishdan OLDIN
+      # ishlaydi, ya'ni `npm ci` yiqilsa ham qo'riqchi baribir ishlaydi.
+      - name: Sintaksis (HTML ichidagi <script> bloklari ham)
+        run: python3 scripts/check_syntax.py
+
+      - name: Bog'liqliklarni o'rnatish
+        run: npm ci || npm install
+
+      - name: ESLint (no-undef)
+        run: npm run lint

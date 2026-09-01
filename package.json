@@ -1,6 +1,8 @@
 {
   "scripts": {
-    "lint": "eslint frontend"
+    "lint": "eslint frontend",
+    "lint:syntax": "python3 scripts/check_syntax.py",
+    "check": "npm run lint:syntax && npm run lint"
   },
   "devDependencies": {
     "eslint": "^10.8.1",

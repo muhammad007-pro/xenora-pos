@@ -285,7 +285,7 @@ function renderTable() {
       <td style="color:var(--text2)">${c.total_visits||0}</td>
       <td>
         <div style="display:flex;gap:.375rem">
-          ${pts >= 100 ? `<button class="action-btn redeem-btn" onclick="openRedeem(${c.id},'${(c.name||'').replace(/'/g,'\\'')}',${pts})">Yechish</button>` : ''}
+          ${pts >= 100 ? `<button class="action-btn redeem-btn" onclick="openRedeem(${c.id},'${(c.name||'').replace(/'/g,"\\'")}',${pts})">Yechish</button>` : ''}
         </div>
       </td>
     </tr>`;

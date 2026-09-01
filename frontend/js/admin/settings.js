@@ -244,14 +244,23 @@ async function loadReceiptSettings() {
     document.getElementById('rsDrawerMode').value = (p && p.open_drawer_mode) || 'cash_only';
   } catch { /* printer config yo'q — bo'sh (OS default) */ }
   // Electron'da mavjud printerlar ro'yxati (datalist)
+  // BRAUZER: OS printerlari ko'rinmaydi. Ilgari `catch {}` jimgina yutar va
+  // do'konchi bo'sh ro'yxatni "printer topilmadi" deb tushunardi.
   try {
-    if (window.electronAPI && window.electronAPI.listPrinters) {
+    if (window.electronAPI && window.electronAPI.isElectron && window.electronAPI.listPrinters) {
       const list = await window.electronAPI.listPrinters();
       const dl = document.getElementById('rsPrinterList');
       if (dl && Array.isArray(list)) dl.innerHTML = list.map(pr =>
         `<option value="${(pr.name||'').replace(/"/g,'&quot;')}">${pr.isDefault?'(standart) ':''}${pr.displayName||pr.name||''}</option>`).join('');
+    } else {
+      const hint = document.getElementById('rsPrinterHint');
+      if (hint) {
+        hint.textContent = "Printerlar ro'yxati faqat XENORA dasturida (.exe) ko'rinadi. "
+                         + "Brauzerda printer nomini qo'lda yozing.";
+        hint.style.display = '';
+      }
     }
-  } catch { /* Electron emas — datalist bo'sh */ }
+  } catch { /* ro'yxat olinmadi — printer nomini qo'lda yozish mumkin */ }
 
   // Etiketka printeri — SHU sahifada, lekin alohida bo'lim/endpoint.
   // Xatosi chek sozlamalarini yuklashga ta'sir qilmaydi (ichida catch bor).

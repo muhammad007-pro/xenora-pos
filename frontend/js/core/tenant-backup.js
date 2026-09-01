@@ -63,8 +63,16 @@ async function runBackup(mode = 'auto') {
   if (_busy) return false;
   if (!token()) return false;
   if (!isStoreAdmin()) return false;
-  // Avtomatik — faqat Electron (brauzerда fonда diskка yozib bo'lmaydi). Qo'lда — hamma joyда.
-  if (mode === 'auto' && !IS_ELECTRON) return false;
+  // Avtomatik — faqat Electron (brauzerda fonda diskka yozib bo'lmaydi). Qo'lda — hamma joyda.
+  //
+  // ⚠️ ILGARI BU JIMGINA `return false` edi va do'konchi zaxira olinayotgan deb
+  // o'ylardi. Endi sabab EKRANDA aytiladi (panel ochiq bo'lsa). Panelda bundan
+  // tashqari doimiy ogohlantirish ham bor (mountPanel) — bu esa aynan avtomatik
+  // urinish payti uchun.
+  if (mode === 'auto' && !IS_ELECTRON) {
+    setStatus("⚠️ Avtomatik zaxira faqat XENORA dasturida ishlaydi. Brauzerda qo'lda zaxira oling.");
+    return false;
+  }
 
   _busy = true;
   setStatus('⏳ Zaxira olinmoqda...');
@@ -151,6 +159,12 @@ function mountPanel() {
       ${IS_ELECTRON ? '<button class="btn btn-outline" id="xbkOpen">📁 Zaxira papkasi</button>' : ''}
     </div>
     <div id="xbkStatus" style="margin-top:.75rem;font-size:.8125rem;min-height:1.1rem"></div>
+    ${IS_ELECTRON ? '' : `
+    <p id="xbkBrowserWarn" style="margin:.75rem 0 0;padding:.6rem .75rem;
+       background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.35);
+       border-radius:.5rem;font-size:.8125rem;line-height:1.45;color:#fde3b0">
+      ⚠️ Avtomatik zaxira faqat XENORA dasturida ishlaydi. Brauzerda qo'lda zaxira oling.
+    </p>`}
   `;
   host.querySelector('#xbkNow').addEventListener('click', async (e) => {
     const b = e.currentTarget; b.disabled = true; await runBackup('manual'); b.disabled = false;

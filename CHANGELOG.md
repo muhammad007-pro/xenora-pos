@@ -3,7 +3,17 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
-## [Nashr qilinmagan] — UCH TARIF (Boshlang'ich / Standart / Pro)
+## [1.10.0] — 2026-09-01 — uch tarif tizimi
+
+**Uch tarif: Boshlang'ich 249 000 / Standart 449 000 / Pro 749 000 (so'm/oy).
+Filial limiti endi TEKSHIRILADI** (ilgari `max_branches` e'lon qilingan-u hech
+qayerda tekshirilmasdi — "1 filial" va'dasi bo'sh gap edi; endi 402).
+
+⚠️ **MIGRATSIYA YO'Q** (`subscription_plan` — `varchar(50)`, enum emas).
+Deploy: `git pull` + `systemctl restart xenora`. Rollback: kod `227db30` (v1.9.9).
+
+Frontend o'zgardi (`owner/*`, `app/cafes.html`, `app/settings.html`,
+`js/core/plans.js`) — serverdan yuklanadi, yangi `.exe`/`.apk` **shart emas**.
 
 Branch `feature/three-tier-plans`. **MIGRATSIYA YO'Q** (`subscription_plan` —
 oddiy `varchar(50)`, PostgreSQL enum emas). Backend + frontend tegilgan →

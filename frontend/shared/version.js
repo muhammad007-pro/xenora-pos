@@ -7,4 +7,4 @@
  * Har build'da uchalasi birga oshiriladi (masalan 1.0.1 → 1.0.2).
  * O'zgarishlar tarixi: CHANGELOG.md.
  */
-window.APP_VERSION = '1.9.9';
+window.APP_VERSION = '1.10.0';

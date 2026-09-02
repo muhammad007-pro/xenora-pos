@@ -92,10 +92,18 @@ class Settings(BaseSettings):
     SENTRY_ENVIRONMENT: str = ""              # bo'sh → ENVIRONMENT ishlatiladi
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0    # perf tracing o'chiq (yengil)
 
-    # ── Alert (Telegram) — monitoring skripti + Sentry jiddiy xatolari uchun UMUMIY kanal ──
-    # scripts/monitor.py bilan bir xil kalitlar. Sozlanmasa — jim (alert yo'q).
+    # ── Alert (Telegram) ────────────────────────────────────────────────────
+    # Bitta bot, IKKI AYRIM kanal — biznes va texnika ARALASHMASIN:
+    #   ALERT_CHAT_ID        — BIZNES: obuna ogohlantirishlari (7/3/1 kun,
+    #                          muddat tugashi, blok). Egasi o'qiydigan kanal.
+    #   SENTRY_ALERT_CHAT_ID — TEXNIKA: 5xx xatolar (core/observability.py).
+    #                          BO'SH bo'lsa Sentry Telegram xabari UMUMAN
+    #                          yuborilmaydi (Sentry'ning o'zi ishlayveradi).
+    # Ilgari ikkalasi ham ALERT_CHAT_ID edi: obuna xabari kelgan chatga har
+    # 5xx uchun "🔴 XENORA xato" ham tushardi va muhim xabar ko'milib ketardi.
     TELEGRAM_BOT_TOKEN: str = ""
-    ALERT_CHAT_ID: str = ""                    # superadmin chat id (alert kanali)
+    ALERT_CHAT_ID: str = ""                    # biznes kanali (obuna)
+    SENTRY_ALERT_CHAT_ID: str = ""             # texnik kanal; bo'sh = o'chiq
     ALERT_SUPPRESS_MINUTES: int = 30          # bir xil xato takrori shu daqiqada 1 marta
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")

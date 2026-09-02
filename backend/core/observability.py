@@ -66,6 +66,12 @@ def _before_send(event, hint):
 
 def _maybe_alert(event, hint):
     from core.alert import send_alert
+    # TEXNIK kanal. Bo'sh → Telegram xabari UMUMAN yuborilmaydi (Sentry'ning
+    # o'zi ishlayveradi). Biznes kanaliga (ALERT_CHAT_ID) tushmaydi: u yerda
+    # obuna ogohlantirishlari bor, texnik shovqin ularni ko'mib qo'yardi.
+    chat = settings.SENTRY_ALERT_CHAT_ID
+    if not chat:
+        return
     # 4xx (foydalanuvchi xatosi) → YUBORILMAYDI
     exc_info = (hint or {}).get("exc_info")
     if exc_info:
@@ -88,7 +94,7 @@ def _maybe_alert(event, hint):
         f"rid: {tags.get('rid', '-')}"
     )
     # Spam kaliti: tenant + xato turi + endpoint → bir xil xato takrorlansa bloklanadi
-    send_alert(text, key=f"{tid}:{etype}:{req.get('url','')}")
+    send_alert(text, key=f"{tid}:{etype}:{req.get('url','')}", chat_id=chat)
 
 
 def init_sentry() -> None:

@@ -83,3 +83,9 @@ backend/_start_*.log
 
 # SumatraPDF (chek PDF print — 20MB binary; build mashinasida lokal, git'da yo'q)
 electron/vendor/*.exe
+
+# Build artefaktlari (.exe/.apk — 1 GB dan ortiq, relizga chiqadi, repoda saqlanmaydi)
+dist_artifacts/
+
+# Mahalliy ish vaqti sozlamalari (har do'konda o'ziniki: printer, oshxona, to'lov)
+config/

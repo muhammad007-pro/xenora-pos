@@ -120,31 +120,63 @@ async def clean_old_notifications():
 
 
 async def check_expired_tenants():
-    """Obuna muddati tugagan tenantlarni avtomatik bloklash."""
+    """Muhlati (grace) ham tugagan tenantlarni `expired` deb belgilaydi.
+
+    ⚠️ 2026-09-02 gacha bu vazifa UCH XATO qilardi:
+
+    1) `is_active = False` qo'yardi. `is_active` — do'kon O'CHIRILGANINI bildiradi
+       (super-admin qo'lda), obuna holatini emas. Va u KIRISH yo'lida tekshiriladi:
+       `routers/auth.py` dagi `resolve-code` va `pin-login` `Cafe.is_active == True`
+       filtri bilan ishlaydi. Natijada muddat tugashi bilan kassirlar kirish
+       ekranida "Do'kon topilmadi" ko'rardi. Endi bu maydonga TEGILMAYDI.
+
+    2) MUHLATNI (grace) hisobga olmasdi — muddat o'tishi bilan (≤1 soat)
+       `expired` qo'yardi. `core/subscription.subscription_state` esa `expired`
+       holatini QATTIQ blok deb biladi, ya'ni `SUBSCRIPTION_GRACE_DAYS` amalda
+       hech qachon ishlamasdi. Endi muhlat tugagandan KEYIN belgilanadi.
+
+    3) KILL-SWITCH dan tashqarida edi: `ENFORCE_SUBSCRIPTION=False` bo'lsa ham
+       bazani o'zgartirardi. Endi o'chiq bo'lsa umuman ishlamaydi — kill-switch
+       to'liq (kod serverda tursa ham hech narsaga tegmaydi).
+
+    Bu vazifa faqat BELGI qo'yadi; bloklashning o'zi `deps._enforce_subscription`
+    da, u ham kill-switch ostida.
+    """
     from database import SessionLocal
     from models import Cafe
-    from datetime import datetime
+    from datetime import datetime, timedelta
+    from config import settings
+
+    # KILL-SWITCH: o'chiq bo'lsa bazaga TEGMAYMIZ.
+    if not settings.ENFORCE_SUBSCRIPTION:
+        return
 
     db = SessionLocal()
     try:
         now = datetime.now()
+        # Muhlat ham tugagan bo'lsin: muddat + grace < hozir.
+        grace = timedelta(days=max(0, settings.SUBSCRIPTION_GRACE_DAYS))
+        cutoff = now - grace
         expired = (
             db.query(Cafe)
             .filter(
-                Cafe.is_active == True,
+                Cafe.is_active == True,          # noqa: E712 — o'chirilganlarga tegmaymiz
                 Cafe.tenant_status == "active",
-                Cafe.subscription_expires != None,
-                Cafe.subscription_expires < now,
+                Cafe.subscription_expires != None,  # noqa: E711
+                Cafe.subscription_expires < cutoff,
             )
             .all()
         )
         for cafe in expired:
-            cafe.is_active     = False
-            cafe.tenant_status = "expired"
-            logger.info(f"Tenant expired and deactivated: {cafe.id} ({cafe.name})")
+            cafe.tenant_status = "expired"       # `is_active` ATAYLAB tegilmaydi
+            logger.info(
+                "Tenant obunasi tugadi (muhlat ham): %s (%s), muddat=%s, grace=%d kun",
+                cafe.id, cafe.name, cafe.subscription_expires,
+                settings.SUBSCRIPTION_GRACE_DAYS,
+            )
         if expired:
             db.commit()
-            logger.info(f"Expired tenants deactivated: {len(expired)}")
+            logger.info("Muddati tugagan tenantlar belgilandi: %d", len(expired))
     except Exception as e:
         logger.error(f"check_expired_tenants failed: {e}")
     finally:

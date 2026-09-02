@@ -162,7 +162,16 @@ def subscription_state(cafe, now: datetime = None, grace_days: int = 0) -> dict:
             "grace_days_left": grace_days_left, "plan": plan, "message": message,
         }
 
-    # ── Qattiq bloklar (super-admin qo'lda / faolsizlantirilgan) ──
+    # ── QO'LDA qo'yiladigan qattiq bloklar ────────────────────────────────────
+    # Bular super-admin AMALI, obuna sanasi bilan aloqasi yo'q:
+    #   is_active=False          — do'kon o'chirilgan
+    #   tenant_status='blocked'  — qo'lda bloklangan (sabab bilan)
+    # Shuning uchun ular sanadan QAT'IY NAZAR blok bo'lib qoladi — aks holda
+    # "do'konni o'chirish" tugmasi ma'nosini yo'qotardi.
+    # DIQQAT: `tasks/scheduler.check_expired_tenants` 2026-09-02 dan boshlab
+    # `is_active` ga TEGMAYDI (u kirish yo'lida — resolve-code/pin-login da —
+    # tekshiriladi va muddat tugashi bilan kassirni "Do'kon topilmadi" ga
+    # olib borardi).
     if getattr(cafe, "is_active", True) is False:
         return out("inactive", True,
                    message="Hisob faolsizlantirilgan. Davom etish uchun bog'laning.")
@@ -171,12 +180,23 @@ def subscription_state(cafe, now: datetime = None, grace_days: int = 0) -> dict:
         return out("blocked", True,
                    message=(getattr(cafe, "blocked_reason", None)
                             or "Hisob bloklangan. Davom etish uchun bog'laning."))
-    if status == "expired":
-        return out("expired", True,
-                   message="Obuna muddati tugagan. Davom etish uchun bog'laning.")
 
     exp = effective_expiry(cafe)
+
+    # ── SANA — ASOSIY MANBA; `expired` esa faqat BELGI ────────────────────────
+    # Ilgari `status == 'expired'` shu yerdan OLDIN tekshirilardi va darhol
+    # qattiq blok qaytarardi. Natijada quyidagi MUHLAT (grace) shoxiga navbat
+    # HECH QACHON kelmasdi — `SUBSCRIPTION_GRACE_DAYS` amalda o'lik edi.
+    # Endi belgi bilan sana zid bo'lsa SANA yutadi. Bu ikki holatni tuzatadi:
+    #   • muhlat ichidagi tenant "expired" belgisi tufayli muhlatidan mahrum
+    #     bo'lmaydi;
+    #   • to'lov muddatni uzaytirgan-u status yangilanmay qolgan bo'lsa
+    #     (`cafe.renew_subscription` tuzog'i) mijoz bekorga bloklanmaydi.
     if exp is None:
+        # Sana yo'q — hukm faqat belgiga qoladi.
+        if status == "expired":
+            return out("expired", True,
+                       message="Obuna muddati tugagan. Davom etish uchun bog'laning.")
         return out("active", False)   # muddat yo'q — bloklanmaydi
 
     if now <= exp:

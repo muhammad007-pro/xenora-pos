@@ -252,6 +252,17 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
         </select>
       </div>
 
+      <div class="section-title">Telegram ogohlantirish</div>
+      <div class="fg">
+        <label>Egasining chat id (bo'sh = xabar yuborilmaydi)</label>
+        <input id="edit-tg" placeholder="masalan 123456789" inputmode="numeric">
+        <div style="font-size:.7rem;color:var(--text3);margin-top:.3rem">
+          Egasi Telegram'da <b>@userinfobot</b> ga yozsa, bot unga o'z id'sini qaytaradi.
+          Shundan keyin u botimizga bir marta <b>/start</b> yozishi shart —
+          aks holda Telegram xabarni qabul qilmaydi.
+        </div>
+      </div>
+
       <div class="section-title">Admin login</div>
       <div class="grid2">
         <div class="fg"><label>Login telefoni</label><input id="edit-phone" placeholder="+998 90 123 45 67"></div>
@@ -535,6 +546,7 @@ async function unblock(id){
 
 // ── EDIT (tarif + kod + admin login) ─────────────────────────────────────────
 let editTargetId=null, editOrigPlan=null, editOrigPhone=null;
+let editOrigTg='';   // openEdit to'ldiradi; saveEdit shu bilan taqqoslaydi
 
 function toast(msg){
   let el=document.getElementById('_toast');
@@ -570,6 +582,8 @@ async function openEdit(id){
   document.getElementById('edit-name').textContent=t.name;
   document.getElementById('edit-code').value=t.access_code||'—';
   document.getElementById('edit-plan').value=editOrigPlan;
+  editOrigTg=t.telegram_chat_id||'';
+  document.getElementById('edit-tg').value=editOrigTg;
   document.getElementById('edit-phone').value='';
   document.getElementById('edit-pass').value='';
   document.getElementById('edit-uname').textContent='';
@@ -598,7 +612,15 @@ async function saveEdit(){
       const r=await api.patch(`/super-admin/tenants/${id}`,{subscription_plan:plan}).catch(e=>({detail:e.message}));
       if(r?.success) msgs.push('Tarif → '+plan.toUpperCase()); else throw new Error(r?.detail||'Tarif saqlanmadi');
     }
-    // 2) Admin login (telefon va/yoki parol)
+    // 2) Telegram chat id. Bo'sh qoldirish = O'CHIRISH (egasi "yozmang" desa),
+    //    shuning uchun bo'sh satr ham yuboriladi — tarif kabi truthy tekshiruv emas.
+    const tg=document.getElementById('edit-tg').value.trim();
+    if(tg!==editOrigTg){
+      const r=await api.patch(`/super-admin/tenants/${id}`,{telegram_chat_id:tg}).catch(e=>({detail:e.message}));
+      if(r?.success) msgs.push(tg ? "Telegram id → "+tg : "Telegram id o'chirildi");
+      else throw new Error(r?.detail||'Telegram id saqlanmadi');
+    }
+    // 3) Admin login (telefon va/yoki parol)
     const phone=document.getElementById('edit-phone').value.trim();
     const pass=document.getElementById('edit-pass').value.trim();
     const body={};

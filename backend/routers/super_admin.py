@@ -114,6 +114,7 @@ def _tenant_dict(cafe: Cafe, now: datetime) -> dict:
         "business_type":       cafe.business_type,
         "owner_name":          cafe.owner_name,
         "owner_phone":         cafe.owner_phone or cafe.phone,
+        "telegram_chat_id":    cafe.telegram_chat_id,   # obuna ogohlantirishi (bo'sh = yuborilmaydi)
         "phone":               cafe.phone,
         "email":               cafe.email,
         "subscription_plan":   cafe.subscription_plan or "free",
@@ -456,6 +457,7 @@ async def update_tenant(
     address:           Optional[str]  = Body(None),
     business_type:     Optional[str]  = Body(None),
     subscription_plan: Optional[str]  = Body(None),
+    telegram_chat_id:  Optional[str]  = Body(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser),
 ):
@@ -478,6 +480,22 @@ async def update_tenant(
         if subscription_plan not in VALID_PLANS:
             raise HTTPException(400, f"Noto'g'ri tarif")
         cafe.subscription_plan = subscription_plan
+
+    # Telegram chat id — obuna ogohlantirishlari egasiga borishi uchun
+    # (tasks/subscription_alerts.py). Boshqa maydonlardan FARQLI o'laroq
+    # `is not None` bilan tekshiriladi: bo'sh satr yuborish = O'CHIRISH.
+    # Egasi "menga yozmang" desa, uni paneldan tozalash yo'li bo'lishi shart.
+    if telegram_chat_id is not None:
+        v = telegram_chat_id.strip()
+        if v == "":
+            cafe.telegram_chat_id = None
+        else:
+            # Telegram chat id — butun son (guruhlar uchun manfiy). Xato qiymat
+            # jimgina saqlansa, ogohlantirish har soatda muvaffaqiyatsiz
+            # urinaverardi va HECH KIM sezmasdi.
+            if not (v.lstrip("-").isdigit() and len(v) <= 32):
+                raise HTTPException(400, "Telegram chat id butun son bo'lishi kerak")
+            cafe.telegram_chat_id = v
 
     cafe.updated_at = datetime.now()
     db.commit()

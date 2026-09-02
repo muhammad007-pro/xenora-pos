@@ -3,6 +3,70 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.3] — 2026-09-03 — obuna muddati haqida Telegram ogohlantirish
+
+Mijoz ekranga qaramasa muddat tugayotganini bilmasdi: obuna bannerini faqat
+ilovaga KIRGAN odam ko'radi, do'kon egasi bir hafta kirmasa muddat jimgina
+tugardi va birinchi signal kassirning "nega ishlamayapti?" qo'ng'irog'i
+bo'lardi. Endi bot xabar beradi.
+
+**Kimga va qachon.** Super-admin kanaliga (`ALERT_CHAT_ID`) barcha tenantlar
+bo'yicha besh bosqich: 7/3/1 kun qolganda, muddat tugagan kuni, muhlat tugab
+bloklangan kuni. Do'kon egasiga (`cafes.telegram_chat_id`) faqat 7/3/1 kun —
+"bloklandingiz" xabarini bot emas, odam aytgani ma'qul, qolaversa o'sha
+paytda u allaqachon ilovada blok ekranini ko'radi. Qo'lda bloklangan
+do'konga umuman xabar ketmaydi (super-admin buni ataylab qilgan).
+
+Xabar namunasi:
+
+    ⚠️ FAZZA PERFUM — obuna 7 kundan keyin tugaydi (17.09.2026)
+    Tarif: Pro · 749 000 so'm/oy
+    To'lov: +998 94 997 47 70
+
+Narx va tarif nomi `core/subscription.py` dagi yagona manbadan olinadi.
+
+**Takrorlanmaslik.** Yangi `subscription_alerts` jadvali,
+UNIQUE(tenant_id, stage, expiry_date, audience). Kalitga MUDDAT SANASI
+ataylab kiritilgan: obuna uzaytirilsa yangi tsikl o'z-o'zidan ochiladi va
+hech qanday "flagni nollash" qadami kerak emas — `cafes` ga ustun qo'yilsa
+aynan v1.10.2 da tuzatilgan `renew_subscription` tuzog'i qaytadan tug'ilardi.
+Scheduler soatda ishlaydi, ya'ni kuniga 24 urinishdan ko'pi bilan bittasi
+xabar bo'ladi.
+
+**Bosqich `<=` bilan tanlanadi, `==` bilan emas.** Server bir kun o'chib
+qolsa `days_left` 7 dan 2 ga sakraydi; `==` bo'lganda ogohlantirish butunlay
+tushib qolardi. Endi eng shoshilinch mos bosqich yuboriladi.
+
+**Yuborish sinxron.** Mavjud `send_alert` fon oqumida ishlaydi va natija
+yo'qoladi. Bu yerda "yuborildi" bazaga yozilgani uchun belgilashdan oldin
+haqiqatan yetganini bilish shart: aks holda Telegram o'chgan paytda xabar
+"yuborilgan" deb yozilib, mijoz hech narsa olmasdan qolardi. Yuborilmasa
+yozuv yozilmaydi va keyingi soatda qayta uriniladi.
+
+**Super-admin panelida `telegram_chat_id` maydoni** ("Do'konni boshqarish"
+modali). Egasi Telegram'da @userinfobot dan o'z id'sini oladi. ⚠️ Egasi
+botimizga bir marta `/start` yozmasa, Telegram xabarni o'tkazmaydi — bot
+birinchi bo'lib yoza olmaydi. Bo'sh qoldirish = o'chirish.
+
+**Xavfsizlik:** xabarda parol/token/mijoz ma'lumoti yo'q — faqat do'kon nomi,
+id (adminga), tarif, narx, sana, aloqa telefoni. Do'kon nomi `html.escape`
+bilan qochiriladi (`parse_mode=HTML`, nomdagi `<` xabarni buzishi mumkin edi).
+Telegram xatosi dasturni to'xtatmaydi: har tenant alohida `try` ichida.
+
+27 ta yangi test (`backend/tests/test_subscription_alerts.py`). Jonli
+mijozlarga xabar ketmasligi ikki qatlam bilan kafolatlangan. To'plam:
+322 passed, 2 skipped (avval 295 — regressiya yo'q).
+
+⚠️ **MIGRATSIYA BOR:** `d9e4f1a2b3c5` — `cafes.telegram_chat_id` +
+`subscription_alerts` jadvali. Idempotent, downgrade bilan. Serverda prod
+nusxasida mashq qilindi: upgrade → downgrade (ma'lumot yo'qolmadi) → upgrade.
+Deploy: `git pull` + `venv/bin/alembic upgrade head` + `systemctl restart xenora`.
+⚠️ **IKKALA KALIT HAM O'CHIQ:** `ENFORCE_SUBSCRIPTION=False` va
+`SUBSCRIPTION_ALERTS_ENABLED=False` — hech kimga xabar ketmaydi, hech kim
+bloklanmaydi. Ogohlantirishni yoqish alohida qaror.
+Rollback: kod `51bfbc0` (v1.10.2) + `alembic downgrade c8b3e5d90a17`.
+Client `.exe`/`.apk` **kerak emas** (backend + serverdan yuklanadigan panel).
+
 ## [1.10.2] — 2026-09-02 — obuna tizimi tuzatishlari
 
 Obuna enforcement'ida to'rtta nuqson bor edi. Ular hozir zarar keltirmagan,

@@ -75,6 +75,16 @@ class Settings(BaseSettings):
     # Bloklangan/muddati tugagan tenant ko'radigan aloqa (obunani uzaytirish uchun).
     SUPPORT_CONTACT: str = "+998 94 997 47 70"
 
+    # ── Obuna TELEGRAM ogohlantirishlari (ALOHIDA KILL-SWITCH) ──────────────
+    # False (STANDART) → tasks/subscription_alerts UMUMAN ishlamaydi, hech kimga
+    #   xabar ketmaydi. Deploy jonli mijozlarga to'satdan yozib yubormasligi uchun.
+    # ENFORCE_SUBSCRIPTION dan MUSTAQIL, ATAYLAB: ogohlantirish — xabar berish,
+    #   bloklash emas. Muddat tugayotganini aytish uchun enforcement shart emas
+    #   (aksincha — avval ogohlantirib turib, keyin yoqish to'g'ri tartib).
+    # Yoqish uchun .env: SUBSCRIPTION_ALERTS_ENABLED=True
+    # Kanal: super-admin -> ALERT_CHAT_ID, do'kon egasi -> cafes.telegram_chat_id.
+    SUBSCRIPTION_ALERTS_ENABLED: bool = False
+
     # ── Sentry (xato kuzatuvi) ──────────────────────────────────────────────
     # SENTRY_DSN BO'SH (standart) → Sentry UMUMAN ishga tushmaydi (dev shovqinsiz).
     # Serverda .env orqali beriladi (GitHub'ga tushmaydi). traces past — RAM/kvota tejash.

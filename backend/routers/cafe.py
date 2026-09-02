@@ -569,11 +569,24 @@ async def renew_subscription(
         cafe.subscription_expires = cafe.subscription_expires + timedelta(days=30 * months)
     else:
         cafe.subscription_expires = datetime.now() + timedelta(days=30 * months)
-    
+
+    # ⚠️ Ilgari faqat SANA uzayardi: `tenant_status` 'expired' bo'lib qolar va
+    # do'kon uzaytirilgan bo'lsa ham BLOKLANGAN turardi (super-admin sababini
+    # tushunmasdi). Endi `super_admin.add_payment` bilan bir xil holat tiklanadi.
+    # `is_active` ham tiklanadi: uni faqat super-admin qo'lda o'chiradi va
+    # obunani uzaytirish niyati — do'konni qaytarish demakdir.
+    if cafe.tenant_status in ("trial", "blocked", "expired", None):
+        cafe.tenant_status  = "active"
+        cafe.blocked_at     = None
+        cafe.blocked_reason = None
+    cafe.is_active  = True
+    cafe.updated_at = datetime.now()
+
     db.commit()
-    
+
     return {
         "success": True,
         "subscription_expires": cafe.subscription_expires,
+        "tenant_status": cafe.tenant_status,
         "message": f"Obuna {months} oyga yangilandi"
     }

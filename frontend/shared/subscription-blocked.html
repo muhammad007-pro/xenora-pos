@@ -35,6 +35,10 @@
     .ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--line)}
     .ghost:hover{background:rgba(255,255,255,.1)}
     .brand{margin-top:1.5rem;text-align:center;color:var(--text2);font-size:.75rem;letter-spacing:.18em;text-transform:uppercase}
+    /* Eksport holati — tugmalar ostida, o'lchamni sakratmasin (min-height) */
+    .exp-note{margin-top:.7rem;font-size:.8125rem;line-height:1.45;color:var(--text2);min-height:1.15rem}
+    .exp-note.ok{color:#4ade80}
+    .exp-note.err{color:var(--red)}
   </style>
 </head>
 <body>
@@ -58,8 +62,14 @@
 
       <div class="btns">
         <button class="primary" id="btn-retry">🔄 Qayta tekshirish</button>
+        <!-- Ma'lumot MIJOZNIKI. Obuna tugagani uni ma'lumotidan ayirmaydi:
+             /backups/my-tenant ataylab enforcement'siz (get_current_active_user_no_sub),
+             faqat shu tugma yo'q edi va amalda unga yetib bo'lmasdi (boshqa sahifalar
+             shu ekranga uloqtiradi). -->
+        <button class="ghost" id="btn-export">⬇️ Ma'lumotni yuklab olish</button>
         <button class="ghost" id="btn-logout">Chiqish</button>
       </div>
+      <div class="exp-note" id="exp-note"></div>
     </div>
     <div class="brand">XENORA POS</div>
   </div>
@@ -110,6 +120,56 @@
         document.getElementById('meta').classList.add('show');
       } catch(e){ /* tarmoq — jim; foydalanuvchi Qayta tekshirish bosadi */ }
     }
+
+    // ── Ma'lumotni yuklab olish ────────────────────────────────────────────
+    // `/backups/my-tenant` enforcement'siz (no_sub) — bloklangan do'kon ham
+    // o'z ma'lumotini gzip JSON qilib ola oladi. Electron'da diskка, brauzerda
+    // Yuklamalar papkasiga (tenant-backup.js bilan bir xil yo'l).
+    const IS_ELECTRON = !!(window.electronAPI && window.electronAPI.isElectron
+                           && window.electronAPI.saveBackup);
+    const note = document.getElementById('exp-note');
+    function setNote(t, cls){ note.textContent = t; note.className = 'exp-note' + (cls ? ' '+cls : ''); }
+
+    document.getElementById('btn-export').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      setNote('⏳ Ma‘lumot tayyorlanmoqda...');
+      try {
+        const tok = localStorage.getItem('access_token');
+        if(!tok){ location.href='login.html'; return; }
+        const r = await fetch(`${API_BASE}/backups/my-tenant`, {
+          headers:{ 'Authorization':`Bearer ${tok}` }
+        });
+        if(r.status===401){ setNote('Sessiya tugagan — qayta kiring.','err'); return; }
+        if(!r.ok){
+          let d=''; try { d=(await r.json()).detail||''; } catch {}
+          setNote('Yuklab olinmadi: ' + (typeof d==='string'&&d ? d : r.status), 'err');
+          return;
+        }
+        const cd   = r.headers.get('content-disposition') || '';
+        const m    = cd.match(/filename="?([^"]+)"?/);
+        const name = (m && m[1]) || `backup_${Date.now()}.json.gz`;
+        const rows = r.headers.get('x-backup-rows') || '?';
+        const buf  = new Uint8Array(await r.arrayBuffer());
+
+        if (IS_ELECTRON) {
+          const res = await window.electronAPI.saveBackup(name, buf);
+          if(!res || !res.ok) throw new Error((res && res.error) || 'Diskka saqlanmadi');
+          setNote(`✓ Saqlandi (${rows} qator): ${res.path}`, 'ok');
+        } else {
+          const url = URL.createObjectURL(new Blob([buf], { type:'application/gzip' }));
+          const a = document.createElement('a');
+          a.href = url; a.download = name;
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+          setNote(`✓ Yuklandi (${rows} qator): ${name}`, 'ok');
+        }
+      } catch(err){
+        setNote('Xatolik: ' + (err && err.message ? err.message : 'noma‘lum'), 'err');
+      } finally {
+        btn.disabled = false;
+      }
+    });
 
     document.getElementById('btn-retry').addEventListener('click', ()=>location.reload());
     document.getElementById('btn-logout').addEventListener('click', ()=>{

@@ -68,11 +68,20 @@ def _post(token: str, chat: str, text: str) -> None:
         logger.warning("Telegram alert yuborilmadi: %s", e)
 
 
-def send_alert(text: str, key: str = "") -> bool:
+def send_alert(text: str, key: str = "", chat_id: str = "") -> bool:
     """Alertni Telegram'ga (fon oqumda). key — spam himoya guruhi.
-    Qaytadi: True (navbatga qo'yildi) / False (sozlanmagan yoki suppress)."""
+    Qaytadi: True (navbatga qo'yildi) / False (sozlanmagan yoki suppress).
+
+    ⚠️ `chat_id` MAJBURIY — bo'sh bo'lsa jim `False` qaytadi.
+    Ilgari bu funksiya `ALERT_CHAT_ID` ga QATTIQ bog'langan edi, natijada
+    Sentry'ning 5xx xabarlari obuna (biznes) kanaliga tushib, egasi
+    o'qishi kerak bo'lgan "obuna tugayapti" xabarini ko'mib qo'yardi.
+    Endi chaqiruvchi kanalni O'ZI ko'rsatadi. Standart qiymat ATAYLAB
+    `ALERT_CHAT_ID` EMAS: kelajakdagi yangi chaqiruvchi e'tiborsizlik bilan
+    biznes kanaliga yozib yubormasin.
+    """
     token = settings.TELEGRAM_BOT_TOKEN
-    chat  = settings.ALERT_CHAT_ID
+    chat  = chat_id
     if not token or not chat:
         return False
     now = time.time()

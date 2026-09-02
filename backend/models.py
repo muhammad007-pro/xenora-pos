@@ -676,6 +676,12 @@ class Cafe(Base):
     blocked_at    = Column(DateTime,    nullable=True)
     blocked_reason = Column(Text,       nullable=True)
 
+    # Do'kon egasining Telegram chat id'si — obuna ogohlantirishlari uchun
+    # (tasks/subscription_alerts.py). Bo'sh bo'lsa egasiga xabar YUBORILMAYDI;
+    # super-admin kanali (ALERT_CHAT_ID) bundan mustaqil ishlaydi.
+    # Qiymatni super-admin qo'lda kiritadi (egasi @userinfobot dan oladi).
+    telegram_chat_id = Column(String(32), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -684,6 +690,38 @@ class Cafe(Base):
     orders = relationship("Order", backref="cafe")
     payments_history = relationship("TenantPayment", back_populates="tenant")
     branches = relationship("Branch", back_populates="cafe")
+
+
+class SubscriptionAlert(Base):
+    """Yuborilgan obuna ogohlantirishi — TAKRORNI to'sadi.
+
+    NEGA JADVAL, ustun emas: `cafes` ga "oxirgi yuborilgan bosqich" ustuni
+    qo'yilsa, obuna uzaytirilganda uni NOLLASH kerak bo'lardi — ya'ni yana
+    bitta "tiklashni unutish" tuzog'i (aynan `renew_subscription` da bo'lgani
+    kabi). Bu yerda kalitga MUDDAT SANASI kiradi: muddat uzaytirilsa sana
+    o'zgaradi va yangi tsikl o'z-o'zidan ochiladi, hech narsani tozalash
+    shart emas.
+
+    Idempotentlik BAZADA: UNIQUE(tenant_id, stage, expiry_date, audience).
+    Scheduler soatda ishlaydi, ya'ni bir kunda 24 marta urinadi — yozuv
+    allaqachon bo'lsa yuborilmaydi. Poyga holatida ham UNIQUE qo'riqlaydi.
+    """
+    __tablename__ = "subscription_alerts"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "stage", "expiry_date", "audience",
+                         name="uq_subscription_alert_once"),
+        Index("ix_subscription_alerts_tenant", "tenant_id"),
+    )
+
+    id        = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("cafes.id"), nullable=False)
+    # d7 / d3 / d1 / expired / blocked  (tasks/subscription_alerts.py: STAGES)
+    stage     = Column(String(16), nullable=False)
+    # "admin" (super-admin kanali) yoki "owner" (do'kon egasi)
+    audience  = Column(String(16), nullable=False)
+    # Qaysi MUDDAT haqida edi — kalitning bir qismi (yuqoridagi izohga qarang)
+    expiry_date = Column(Date, nullable=False)
+    sent_at   = Column(DateTime, nullable=False, server_default=func.now())
 
 
 class Salary(Base):

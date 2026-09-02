@@ -19,6 +19,44 @@ _last_sent: dict[str, float] = {}
 _lock = threading.Lock()
 
 
+def _post_sync(token: str, chat: str, text: str, timeout: int = 10) -> bool:
+    """Telegram'ga SINXRON yuboradi. Muvaffaqiyatni qaytaradi, HECH QACHON otmaydi.
+
+    `_post` (fon oqumi) o'rniga alohida funksiya kerak edi: obuna
+    ogohlantirishlari yuborilgani BAZAGA yoziladi, ya'ni "yuborildi" deb
+    belgilashdan OLDIN haqiqatan yetib borganini bilish shart. Fon oqumida
+    natija yo'qoladi va Telegram o'chgan bo'lsa xabar "yuborilgan" deb
+    belgilanib, MIJOZ HECH NARSA OLMASDAN qolardi.
+    Bu funksiya scheduler vazifasidan chaqiriladi — u yerda bloklash zararsiz
+    (so'rov yo'lida emas). Xato bo'lsa False -> yozuv yozilmaydi -> keyingi
+    soatlik yugurishda qayta uriniladi.
+    """
+    try:
+        data = urllib.parse.urlencode(
+            {"chat_id": chat, "text": text, "parse_mode": "HTML"}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage", data=data)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except Exception as e:
+        # Telegram ishlamasligi CHAQIRUVCHINI to'xtatmasin — faqat log.
+        logger.warning("Telegram (sinxron) yuborilmadi: %s", e)
+        return False
+
+
+def send_to_chat(text: str, chat_id: str, timeout: int = 10) -> bool:
+    """Aniq bir chat'ga sinxron yuborish (obuna ogohlantirishlari uchun).
+
+    Spam himoyasi YO'Q — takrorni chaqiruvchi bazada nazorat qiladi
+    (`subscription_alerts` jadvali), ya'ni restart ham unutmaydi.
+    Sozlanmagan yoki chat bo'sh bo'lsa -> False (jim).
+    """
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token or not chat_id:
+        return False
+    return _post_sync(token, str(chat_id), text, timeout)
+
+
 def _post(token: str, chat: str, text: str) -> None:
     try:
         data = urllib.parse.urlencode(

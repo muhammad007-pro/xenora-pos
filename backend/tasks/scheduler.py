@@ -183,6 +183,9 @@ async def check_expired_tenants():
         db.close()
 
 
+from tasks.subscription_alerts import check_subscription_alerts
+
+
 def start_scheduler():
     # BACKUP endi CRON'da (scripts/backup.py, har kuni 03:00) — app scheduler'дан OLIB TASHLANDI.
     # SABAB: scheduler taymeri xotirada (next_run = app_start + interval); HAR RESTART/DEPLOY'da
@@ -194,6 +197,15 @@ def start_scheduler():
     # real vaqtda (deduct_order_ingredients) bajariladi, davriy sync yo'li kerak emas edi.
     scheduler.add_task("check_expired_tenants", check_expired_tenants,     interval=3600,   # soatda
                        run_immediately=True)
+    # Obuna ogohlantirishlari (Telegram). O'z KILL-SWITCH'i bor
+    # (SUBSCRIPTION_ALERTS_ENABLED, standart False) — vazifa registratsiya
+    # qilinadi, lekin o'chiq bo'lsa darhol qaytadi. Soatda: bosqichlar KUN
+    # asosida, takror `subscription_alerts` jadvalida to'siladi, ya'ni kuniga
+    # 24 urinishdan ko'pi bilan bittasi xabar bo'ladi.
+    # run_immediately=False — ATAYLAB: restart/deploy paytida darhol yozib
+    # yubormasin (kuniga bir necha deploy = bir necha bosqich sakrashi mumkin
+    # emas, lekin startup shovqini ham kerak emas).
+    scheduler.add_task("check_subscription_alerts", check_subscription_alerts, interval=3600)
     scheduler.start()
 
 

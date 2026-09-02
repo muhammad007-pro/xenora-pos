@@ -194,6 +194,9 @@ npm run build          # electron-builder → dist/ (Setup + Portable)
 5. **Server = systemd, docker emas** — `docker-compose` buyruqlarini ishlatma.
 6. **Tenant izolyatsiya** — `apply_tenant_filter` (`backend/deps.py`) va `resolve_tenant_id`. Buzma. Rol yozish amallari faqat super-admin (rollar global). Upload tenant bucket (`tenant_<id>`).
 7. **Migratsiyalar linear** — yangi migration `down_revision` joriy head'ga to'g'ri kelsin. Deploy oldin `venv/bin/alembic current` bilan server DB head'ini tekshir.
+8. **⚠️ Alembic zanjiri haqida ikki fakt** (2026-09-03 da tekshirildi — bu ikkisini bilmasa, yo'q muammo "topiladi"):
+   - **HEAD BITTA.** `migrations/versions/` ni qo'lda skanerlash **soxta 3 ta head** ko'rsatadi, chunki `b9c8d7e6f5a4` — MERGE revision va uning `down_revision` i KORTEJ: `('c3d4e5f6a7b8', 'f2a3b4c5d6e7')`. Oddiy regex kortejni o'qiy olmay, ikkala ota-onani "head" deb hisoblaydi. Yagona ishonchli manba — `venv/bin/alembic heads`. Fork 2026-iyulda allaqachon yopilgan, `alembic upgrade head` xavfsiz.
+   - **TOZA BAZADA `alembic upgrade head` ISHLAMAYDI — dizayn shunday.** Ildiz migratsiya `ca406934e5dd` BO'SH baseline (`pass`): bazaviy sxema alembic'da emas, `Base.metadata.create_all()` da. Toza o'rnatish yo'li: **`create_all` → `alembic stamp head`**, keyin `upgrade head` no-op bo'ladi (sinaldi: 81 jadval). Mavjud bazada odatdagi `upgrade head` normal ishlaydi.
 
 ---
 

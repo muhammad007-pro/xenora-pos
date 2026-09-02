@@ -3,6 +3,56 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.2] — 2026-09-02 — obuna tizimi tuzatishlari
+
+Obuna enforcement'ida to'rtta nuqson bor edi. Ular hozir zarar keltirmagan,
+chunki `ENFORCE_SUBSCRIPTION` serverda **o'chiq**; lekin yoqilganda birinchi
+muddati tugagan do'konda portlar edi.
+
+**Scheduler endi `is_active` ga tegmaydi.** `tasks/scheduler.check_expired_tenants`
+muddat tugagan tenantga `is_active = False` qo'yardi. Ammo bu maydon "do'kon
+O'CHIRILGAN" degani (super-admin qo'lda amali), obuna holati emas — va u
+`routers/auth.py` dagi `resolve-code` hamda `pin-login` filtrida qatnashadi.
+Natijada obuna tugashi bilan kassir kirish ekranida do'konini umuman topa
+olmasdi ("Do'kon topilmadi"). Endi faqat `tenant_status='expired'` belgisi
+qo'yiladi, kirish yo'li ochiq qoladi.
+
+**Kill-switch to'liq bo'ldi.** O'sha vazifa `ENFORCE_SUBSCRIPTION=False` bo'lsa
+ham bazani o'zgartirardi — ya'ni "o'chirgich" yarim edi. Endi o'chiq bo'lsa
+funksiya bazaga umuman tegmaydi.
+
+**Muhlat (grace, 2 kun) endi haqiqatan ishlaydi.** Ikki sabab bilan o'lik edi:
+scheduler muddat o'tishi bilan (≤1 soat) `expired` qo'yardi, va
+`core/subscription.subscription_state` da `status == 'expired'` tekshiruvi
+muhlat shoxidan OLDIN turib darhol qattiq blok qaytarardi. Endi SANA asosiy
+manba, `expired` esa faqat belgi: ikkisi zid bo'lsa sana yutadi. Qo'lda
+qo'yilgan bloklar (`is_active=False`, `tenant_status='blocked'`) sanadan
+qat'iy nazar qattiq qoladi — aks holda "do'konni o'chirish" ma'nosini
+yo'qotardi.
+
+**Blok ekranida "Ma'lumotni yuklab olish" tugmasi.** Ma'lumot mijozniki —
+obuna tugagani uni ma'lumotidan ayirmaydi. `/backups/my-tenant` ataylab
+enforcement'siz edi (`get_current_active_user_no_sub`), ammo unga olib
+boradigan tugma yo'q edi va boshqa sahifalar bloklangan foydalanuvchini shu
+ekranga uloqtirgani uchun amalda unga yetib bo'lmasdi. Electron'da diskka,
+brauzerda Yuklamalar papkasiga saqlaydi.
+
+**`renew_subscription` do'konni to'liq tiklaydi.** Ilgari faqat sanani
+uzaytirardi; `tenant_status` `expired` bo'lib qolar va to'lagan mijoz
+bloklangan turaverardi. Endi `super_admin.add_payment` bilan bir xil holat
+tiklanadi (status `active`, `blocked_at`/`blocked_reason` tozalanadi,
+`is_active=True`).
+
+23 ta yangi test qo'shildi (`backend/tests/test_subscription_enforcement.py`,
+`test_subscription_login_path.py`), jumladan 5 ta jonli tenantning holati
+o'zgarmasligini qotirib qo'yadigan GOLDEN tekshiruv. To'plam: 295 passed,
+2 skipped (avval 272 — regressiya yo'q).
+
+⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.
+⚠️ `ENFORCE_SUBSCRIPTION` **FALSE bo'lib qoladi** — enforcement hali yoqilmaydi.
+Rollback: kod `9735ac6` (v1.10.1).
+Client `.exe`/`.apk` **kerak emas** (o'zgarish backend + serverdan yuklanadigan sahifa).
+
 ## [1.10.1] — 2026-09-01 — SHOSHILINCH: Sozlamalar sahifasi tuzatildi
 
 🔴 **v1.10.0 da Sozlamalar sahifasi butunlay ishlamay qolgan edi.**

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * XENORA — ilova versiyasi (yagona manba).
  *
  * Bu qiymat build versiyasi bilan MOS bo'lishi kerak:
@@ -7,4 +7,4 @@
  * Har build'da uchalasi birga oshiriladi (masalan 1.0.1 → 1.0.2).
  * O'zgarishlar tarixi: CHANGELOG.md.
  */
-window.APP_VERSION = '1.10.5';
+window.APP_VERSION = '1.10.6';

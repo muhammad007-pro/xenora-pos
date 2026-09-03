@@ -3,6 +3,35 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.6] — 2026-09-04 — Umumiy katalog: nomzodlar yig'ish qatlami
+
+Umumiy katalog uchun nomzodlar yig'ish qatlami (`catalog_share_enabled`
+bayrog'i, standart o'chiq).
+
+Maqsad: yangi do'kon mahsulotni skaner qilganda nomi/kategoriyasi o'zi to'lsin.
+Buning uchun avval ma'lumot to'planishi kerak. **Bu bosqichda O'QISH API'SI
+YO'Q** — `catalog_candidates` dan o'qiydigan bironta endpoint yo'q, hech kim
+hech narsa ko'rmaydi.
+
+  * `catalog_candidates` — barcode, normalizatsiyalangan nom, ASL nom,
+    tenant, kategoriya, birlik. `UNIQUE(tenant_id, barcode)`: bir do'kon =
+    bir ovoz. ⚠️ Narx, tan narx, ta'minotchi, qoldiq ustunlari ATAYLAB YO'Q.
+  * `cafes.catalog_share_enabled` — **standart `false`**, deploy'dan keyin
+    ham hamma tenantda o'chiq qoladi. Do'kondan ruxsat so'ralgach yoqiladi.
+  * Oq ro'yxat: EAN-13 / UPC-A / EAN-8, checksum to'g'ri, prefiks 2 EMAS
+    (ichki do'kon kodlari katalogga tushmaydi).
+  * Yozish: mahsulot yaratish, tahrirlash, AI-Ombor tasdiqlash — hammasi
+    asosiy commit'dan KEYIN va ikki qatlam try/except ichida (katalog qatlami
+    yiqilsa ham mahsulot yaratish TO'XTAMAYDI).
+
+Asos: prod o'lchovi — ikki do'konda uchragan 53 shtrix-koddan 46 tasida (87%)
+nom har xil yozilgan. Shuning uchun avtomatik katalog emas, nomzodlar.
+
+39 yangi test. To'plam: 371 passed, 2 skipped (avval 332).
+
+⚠️ **MIGRATSIYA BOR:** `e4a1c9f7b2d3` (idempotent, downgrade bilan).
+Deploy: `git pull` + `alembic upgrade head` + `systemctl restart xenora`.
+
 ## [1.10.5] — 2026-09-03 — Sentry uchun alohida bot
 
 v1.10.4 da kanal ajratilgandi, lekin bot BITTA edi — texnik va biznes

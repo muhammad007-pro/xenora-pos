@@ -1,4 +1,4 @@
-import os
+﻿import os
 import secrets
 from typing import List, Optional
 from pydantic import field_validator, model_validator
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "RestoPOS"
     # Backend versiya — yagona manba. /health va / (root) shu qiymatni qaytaradi
     # (hardcoded literal emas). Frontend SW cache versiyasi bilan mos yuritiladi.
-    VERSION: str = "1.10.5"
+    VERSION: str = "1.10.6"
     API_V1_STR: str = "/api/v1"
     DEBUG: bool = False
     ENVIRONMENT: str = "development"  # development | staging | production

@@ -1,4 +1,4 @@
-"""
+﻿"""
 AI-Ombor router — rasmdan mahsulot o'qish (BOSQICH 1: backend asos).
 
 Endpoint:
@@ -15,6 +15,7 @@ XAVFSIZLIK / IZOLYATSIYA:
   - API kalit serverda; rasm diskka saqlanmaydi.
   - Kalit yo'q / xato bo'lsa — tushunarli HTTP xato (server crash emas).
 """
+import logging
 import re
 from datetime import datetime
 from typing import List, Optional
@@ -26,12 +27,15 @@ from sqlalchemy.orm import Session
 from config import settings
 from core.audit import log_audit
 from core.barcode import gen_internal_barcode
+from core.catalog import record_candidates_bulk
 from database import get_db
 from deps import (
     apply_tenant_filter, get_current_active_user, has_permission, resolve_tenant_id,
 )
 from models import Category, Inventory, Product, StockMovement, User
 from services import ai_warehouse as ai
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -385,6 +389,16 @@ async def confirm(
         "added": len(confirmed), "new": new_count, "existing": existing_count,
         "total_qty": round(total_qty, 3), "total_cost": round(total_cost, 2),
     })
+
+    # UMUMIY KATALOG: AI-Ombor ham mahsulot YARATADI, ya'ni nomzodlar shu yerda
+    # ham yig'ilishi kerak. Tranzaksiya ALLAQACHON commit bo'lgan — bu yerda
+    # nima bo'lsa ham ombor kirimi bekor bo'lmaydi. Ichki kodlar (gen_internal_barcode
+    # bergan "20..." lar) oq ro'yxatdan o'tmaydi va jimgina tashlanadi.
+    try:
+        record_candidates_bulk(db, tenant_id,
+                               [(c.barcode, c.name) for c in confirmed])
+    except Exception as _e:      # noqa: BLE001 — katalog hech qachon to'smaydi
+        logger.warning("katalog nomzodlari yozilmadi (kirim saqlandi): %s", _e)
 
     return ConfirmResponse(
         added=len(confirmed),

@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, Field
+import logging
 import os
 import uuid
 
@@ -14,6 +15,9 @@ from config import settings
 from routers.price_history import record_price_change
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 from core.barcode import gen_internal_barcode  # ichki EAN-13 (AI-Ombor bilan AYNI generator)
+from core.catalog import record_candidate    # umumiy katalog nomzodi (jimgina yig'ish)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -143,6 +147,20 @@ async def create_product(
     inventory = Inventory(product_id=product.id, quantity=0, unit=_u, tenant_id=tid)
     db.add(inventory)
     db.commit()
+
+    # UMUMIY KATALOG: nomzod yoziladi (do'kon ruxsat bergan bo'lsa). Eng oxirida —
+    # barcha commit'lardan KEYIN, ya'ni mahsulot allaqachon saqlangan.
+    #
+    # ⚠️ IKKI QATLAM HIMOYA, ataylab: `record_candidate` o'z ichida ham
+    # try/except bilan o'ralgan, lekin bu yerdagisi ARGUMENTLARNI ham qamrab
+    # oladi. Masalan `product.category.name` — lazy-load, ya'ni funksiyaga
+    # KIRISHDAN oldin xato berishi mumkin. Golden test aynan shuni ushladi.
+    # Katalog qatlami nima bo'lsa ham mahsulot yaratish to'xtamaydi.
+    try:
+        record_candidate(db, tid, product.barcode, product.name,
+                         category_hint=category.name, unit=product.sale_unit)
+    except Exception as _e:      # noqa: BLE001
+        logger.warning("katalog nomzodi yozilmadi (mahsulot yaratildi): %s", _e)
 
     return ProductInDB.model_validate(product)
 
@@ -394,6 +412,17 @@ async def update_product(
         "price_old": _old["price"], "price_new": product.price,
         "cost_old": _old["cost_price"], "cost_new": product.cost_price,
     })
+
+    # UMUMIY KATALOG: nom yoki barkod tahrirlangan bo'lishi mumkin — nomzod
+    # yangilanadi (yangi qator emas: UNIQUE(tenant_id, barcode)).
+    # try/except sababi yuqorida (create_product) izohlangan.
+    try:
+        record_candidate(db, product.tenant_id, product.barcode, product.name,
+                         category_hint=(product.category.name if product.category else None),
+                         unit=product.sale_unit)
+    except Exception as _e:      # noqa: BLE001
+        logger.warning("katalog nomzodi yangilanmadi (mahsulot saqlandi): %s", _e)
+
     return ProductInDB.model_validate(product)
 
 @router.delete("/{product_id}", response_model=MessageResponse)

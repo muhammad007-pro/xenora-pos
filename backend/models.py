@@ -682,6 +682,13 @@ class Cafe(Base):
     # Qiymatni super-admin qo'lda kiritadi (egasi @userinfobot dan oladi).
     telegram_chat_id = Column(String(32), nullable=True)
 
+    # UMUMIY KATALOG: do'kon o'z mahsulot NOMLARINI umumiy nomzodlar jadvaliga
+    # ulashishga rozimi. STANDART False — hech kimning ma'lumoti so'ramasdan
+    # yig'ilmaydi. Faqat nom/kategoriya/birlik ulashiladi; narx, tan narx,
+    # ta'minotchi va qoldiq HECH QACHON (catalog_candidates da bunday ustun yo'q).
+    catalog_share_enabled = Column(Boolean, nullable=False,
+                                   server_default="false", default=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -1843,3 +1850,47 @@ class ProductReorderSetting(Base):
 
     product  = relationship("Product", backref="reorder_setting")
     supplier = relationship("Supplier")
+
+# ============== UMUMIY KATALOG: NOMZODLAR (yig'ish qatlami) ==============
+
+class CatalogCandidate(Base):
+    """Umumiy katalog uchun NOMZOD nom — bitta do'konning bitta ovozi.
+
+    Bu KATALOG EMAS, nomzodlar ro'yxati. Katalogning o'zi (`catalog_products`)
+    keyingi bosqichda, super-admin tozalashidan keyin paydo bo'ladi.
+
+    NEGA NOMZOD: 2026-09-04 tahlili — ikki do'konda uchragan 53 ta shtrix-koddan
+    46 tasida (87%) nom har xil yozilgan ("FAZZA" va "FAZZA PLUS kok"). Ya'ni
+    "birinchi kelgan nomni katalog deb qabul qilish" xato nomni hammaga
+    tarqatadi. Avval variantlar yig'iladi, keyin odam tanlaydi.
+
+    ⚠️ NARX USTUNI YO'Q — VA HECH QACHON QO'SHILMASIN.
+    Bu jadvalda ataylab faqat nom, shtrix-kod, kategoriya va birlik bor.
+    Narx, tan narx, ta'minotchi, ombor qoldig'i — do'konning tijorat siri.
+    Kafolat sxema darajasida: bo'lmagan ustunga yozib bo'lmaydi, ya'ni kelajakda
+    kimdir kodda xato qilsa ham narx sizib chiqmaydi.
+
+    `tenant_id` FAQAT ovoz sanash uchun (bir do'kon = bir ovoz, UNIQUE bilan
+    qulflangan) va super-admin paneli uchun. U HECH QACHON API javobida
+    qaytmaydi — aks holda "qaysi do'kon nima sotadi" ochilib qolardi.
+
+    Yozuvchi: `core/catalog.py: record_candidate()`. O'qiydigan kod HOZIRCHA YO'Q.
+    """
+    __tablename__ = "catalog_candidates"
+    __table_args__ = (
+        # Bir do'kon bir barkod bo'yicha BITTA ovoz beradi. Mahsulot tahrirlansa
+        # yangi qator emas, mavjudi yangilanadi.
+        UniqueConstraint("tenant_id", "barcode",
+                         name="uq_catalog_candidate_tenant_barcode"),
+        # Keyingi bosqichda ovoz sanash "barcode bo'yicha guruhlash" bo'ladi.
+        Index("ix_catalog_candidates_barcode", "barcode"),
+    )
+    id              = Column(Integer, primary_key=True, index=True)
+    barcode         = Column(String(20),  nullable=False)
+    name_normalized = Column(String(200), nullable=False)   # solishtirish kaliti
+    name_original   = Column(String(200), nullable=False)   # do'kon yozgani, o'zgarishsiz
+    tenant_id       = Column(Integer, ForeignKey("cafes.id"), nullable=False, index=True)
+    category_hint   = Column(String(100), nullable=True)
+    unit            = Column(String(20),  nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at      = Column(DateTime(timezone=True), onupdate=func.now())

@@ -3,6 +3,44 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.4] — 2026-09-03 — Sentry xato xabarlari alohida kanalga
+
+v1.10.3 da Telegram boti birinchi marta ulandi va shu bilan eski nuqson
+AMALDA ko'rindi: `core/alert.send_alert` `ALERT_CHAT_ID` ga QATTIQ
+bog'langan edi, uning yagona chaqiruvchisi esa Sentry
+(`core/observability._maybe_alert`). Ya'ni har 5xx xato uchun
+"🔴 XENORA xato" xabari OBUNA ogohlantirishlari keladigan chatga tushardi
+va egasi o'qishi kerak bo'lgan "obuna 7 kundan keyin tugaydi" xabarini
+texnik shovqin orasida ko'mib qo'yardi.
+
+Endi bitta bot, ikki ayrim kanal:
+
+  ALERT_CHAT_ID         — BIZNES: obuna ogohlantirishlari (7/3/1 kun,
+                          muddat tugashi, blok). Egasi o'qiydigan kanal.
+  SENTRY_ALERT_CHAT_ID  — TEXNIKA: 5xx xatolar. **BO'SH bo'lsa Telegram
+                          xabari UMUMAN yuborilmaydi** (Sentry'ning o'zi
+                          odatdagidek ishlayveradi).
+
+`send_alert` endi chat'ni ANIQ oladi (`chat_id`), standarti bo'sh. Standart
+ATAYLAB `ALERT_CHAT_ID` EMAS: aynan o'sha qattiq bog'lanish shu muammoni
+keltirgan edi, kelajakdagi yangi chaqiruvchi e'tiborsizlik bilan biznes
+kanaliga yozib yubormasin. Obuna yo'li (`send_to_chat`) tegilmadi va Sentry
+sozlamasidan mustaqil.
+
+7 ta yangi test (`backend/tests/test_alert_channels.py`): Sentry texnik
+kanalga ketishi, bo'sh kanalda umuman yuborilmasligi (biznes kanaliga ham
+tushmasligi), chat berilmasa jim qolishi, 4xx istisnosi saqlangani, obuna
+yo'lining mustaqilligi. To'plam: 329 passed, 2 skipped (avval 322).
+
+⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.
+⚠️ Server `.env` ga `SENTRY_ALERT_CHAT_ID=` (BO'SH) qo'shiladi — ya'ni Sentry
+Telegram xabari o'chiq. Qo'shilmasa ham standart bo'sh, xavfsiz tomonga
+tushadi. Texnik xabar kerak bo'lsa alohida chat/guruh id kiritiladi.
+⚠️ `ENFORCE_SUBSCRIPTION` va `SUBSCRIPTION_ALERTS_ENABLED` — o'zgarishsiz
+(ikkalasi ham o'chiq).
+Rollback: kod `34fbcd4` (v1.10.3).
+Client `.exe`/`.apk` **kerak emas** (faqat backend).
+
 ## [1.10.3] — 2026-09-03 — obuna muddati haqida Telegram ogohlantirish
 
 Mijoz ekranga qaramasa muddat tugayotganini bilmasdi: obuna bannerini faqat

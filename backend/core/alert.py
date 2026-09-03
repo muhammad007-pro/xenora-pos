@@ -68,7 +68,7 @@ def _post(token: str, chat: str, text: str) -> None:
         logger.warning("Telegram alert yuborilmadi: %s", e)
 
 
-def send_alert(text: str, key: str = "", chat_id: str = "") -> bool:
+def send_alert(text: str, key: str = "", chat_id: str = "", token: str = "") -> bool:
     """Alertni Telegram'ga (fon oqumda). key — spam himoya guruhi.
     Qaytadi: True (navbatga qo'yildi) / False (sozlanmagan yoki suppress).
 
@@ -80,7 +80,9 @@ def send_alert(text: str, key: str = "", chat_id: str = "") -> bool:
     `ALERT_CHAT_ID` EMAS: kelajakdagi yangi chaqiruvchi e'tiborsizlik bilan
     biznes kanaliga yozib yubormasin.
     """
-    token = settings.TELEGRAM_BOT_TOKEN
+    # `token` bo'sh -> asosiy bot (orqaga moslik: eski chaqiruvchilar va
+    # SENTRY_BOT_TOKEN sozlanmagan o'rnatmalar avvalgidek ishlaydi).
+    token = token or settings.TELEGRAM_BOT_TOKEN
     chat  = chat_id
     if not token or not chat:
         return False

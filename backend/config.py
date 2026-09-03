@@ -104,6 +104,11 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     ALERT_CHAT_ID: str = ""                    # biznes kanali (obuna)
     SENTRY_ALERT_CHAT_ID: str = ""             # texnik kanal; bo'sh = o'chiq
+    # Texnik xabarlar uchun ALOHIDA bot. Bo'sh bo'lsa TELEGRAM_BOT_TOKEN
+    # ishlatiladi (orqaga moslik) — ya'ni bu kalitni qo'shmaslik hech narsani
+    # buzmaydi. Alohida bot: biznes va texnik oqim Telegram'da ham ayri
+    # ko'rinsin (turli suhbat, turli ikonka).
+    SENTRY_BOT_TOKEN: str = ""
     ALERT_SUPPRESS_MINUTES: int = 30          # bir xil xato takrori shu daqiqada 1 marta
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")

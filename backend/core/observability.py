@@ -94,7 +94,9 @@ def _maybe_alert(event, hint):
         f"rid: {tags.get('rid', '-')}"
     )
     # Spam kaliti: tenant + xato turi + endpoint → bir xil xato takrorlansa bloklanadi
-    send_alert(text, key=f"{tid}:{etype}:{req.get('url','')}", chat_id=chat)
+    # Texnik bot (bo'sh -> asosiy botga tushadi, qarang: alert.send_alert)
+    send_alert(text, key=f"{tid}:{etype}:{req.get('url','')}",
+               chat_id=chat, token=settings.SENTRY_BOT_TOKEN)
 
 
 def init_sentry() -> None:

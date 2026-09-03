@@ -36,6 +36,7 @@ def yuborilgan(monkeypatch):
     box = []
     monkeypatch.setattr(alert_mod, "_post",
                         lambda token, chat, text: box.append((chat, text)))
+    monkeypatch.setattr(settings, "SENTRY_BOT_TOKEN", "")
 
     # Fon oqumi test ichida yugurmasin — darhol chaqiramiz.
     class _Thread:
@@ -129,3 +130,52 @@ def test_obuna_kanali_sentrydan_MUSTAQIL(yuborilgan, monkeypatch):
     box = []
     assert alert_mod.send_to_chat("obuna xabari", BIZNES) is True
     assert box == [(BIZNES, "obuna xabari")]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Sentry uchun ALOHIDA BOT (token)
+# ══════════════════════════════════════════════════════════════════════════
+
+@pytest.fixture()
+def tokenlar(monkeypatch):
+    """Qaysi TOKEN bilan yuborilganini yig'adi."""
+    box = []
+    monkeypatch.setattr(alert_mod, "_post",
+                        lambda token, chat, text: box.append((token, chat)))
+
+    class _Thread:
+        def __init__(self, target=None, args=(), daemon=None):
+            self._t, self._a = target, args
+
+        def start(self):
+            self._t(*self._a)
+
+    monkeypatch.setattr(alert_mod.threading, "Thread", _Thread)
+    monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "ASOSIY")
+    monkeypatch.setattr(settings, "SENTRY_ALERT_CHAT_ID", TEXNIK)
+    alert_mod._last_sent.clear()
+    return box
+
+
+def test_sentry_OZ_boti_bilan_yuboriladi(tokenlar, monkeypatch):
+    monkeypatch.setattr(settings, "SENTRY_BOT_TOKEN", "TEXNIK-BOT")
+    obs._maybe_alert(_sentry_event(), None)
+    assert tokenlar == [("TEXNIK-BOT", TEXNIK)]
+
+
+def test_sentry_boti_BOSH_bolsa_asosiy_token(tokenlar, monkeypatch):
+    """Orqaga moslik: kalit qo'shilmagan o'rnatmalar avvalgidek ishlaydi."""
+    monkeypatch.setattr(settings, "SENTRY_BOT_TOKEN", "")
+    obs._maybe_alert(_sentry_event(), None)
+    assert tokenlar == [("ASOSIY", TEXNIK)]
+
+
+def test_obuna_yoli_ASOSIY_botda_qoladi(monkeypatch):
+    """`send_to_chat` SENTRY_BOT_TOKEN ni umuman bilmaydi."""
+    box = []
+    monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "ASOSIY")
+    monkeypatch.setattr(settings, "SENTRY_BOT_TOKEN", "TEXNIK-BOT")
+    monkeypatch.setattr(alert_mod, "_post_sync",
+                        lambda token, chat, text, timeout=10: box.append((token, chat)) or True)
+    assert alert_mod.send_to_chat("obuna", BIZNES) is True
+    assert box == [("ASOSIY", BIZNES)]

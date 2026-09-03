@@ -3,6 +3,27 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.5] — 2026-09-03 — Sentry uchun alohida bot
+
+v1.10.4 da kanal ajratilgandi, lekin bot BITTA edi — texnik va biznes
+xabarlar Telegram'da bir xil bot nomi ostida kelardi. Endi:
+
+  TELEGRAM_BOT_TOKEN + ALERT_CHAT_ID        → obuna (biznes)
+  SENTRY_BOT_TOKEN   + SENTRY_ALERT_CHAT_ID → 5xx xatolar (texnika)
+
+`SENTRY_BOT_TOKEN` bo'sh bo'lsa `TELEGRAM_BOT_TOKEN` ishlatiladi (orqaga
+moslik: kalitni qo'shmagan o'rnatma avvalgidek ishlaydi). Obuna yo'li
+(`send_to_chat`) yangi kalitni umuman bilmaydi.
+
+3 yangi test. To'plam: 332 passed, 2 skipped (avval 329).
+
+⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.
+⚠️ Bu relizda `SUBSCRIPTION_ALERTS_ENABLED=True` QILINDI — obuna
+ogohlantirishlari YOQILDI. `ENFORCE_SUBSCRIPTION` hamon `False`
+(hech kim bloklanmaydi).
+Rollback: kod `804ada8` (v1.10.4).
+Client `.exe`/`.apk` **kerak emas**.
+
 ## [1.10.4] — 2026-09-03 — Sentry xato xabarlari alohida kanalga
 
 v1.10.3 da Telegram boti birinchi marta ulandi va shu bilan eski nuqson

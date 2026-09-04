@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, Form, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
@@ -46,6 +46,50 @@ def _build_token_data(user: User, db: Session, branch_id=None) -> dict:
                 cafe.subscription_plan,   # PRO tarif → PRO flaglar ochiq (xato #8 ildiz)
             ))
     return data
+
+def _assert_code_matches_tenant(db: Session, user: User, access_code: Optional[str]) -> None:
+    """Login ekranida terilgan DO'KON KODI foydalanuvchi do'koni bilan mos kelsinmi.
+
+    MUAMMO (2026-09-04): kod ekranida do'kon tanlanardi-yu, parol bilan kirishda u
+    TEKSHIRILMASDI. Telefon qaysi tenantga bog'langan bo'lsa, o'shanisiga kirilardi
+    — jimgina. Ma'lumot oqmasdi (izolyatsiya `apply_tenant_filter` darajasida
+    butun), lekin kod ma'nosiz va chalg'ituvchi edi: `100.200.3` (qpa) terilib,
+    amalda lux-parfum ochilardi.
+
+    KOD IXTIYORIY, ATAYLAB. Eski klientlar (tarqatilgan .exe, .apk, keshlangan PWA)
+    `access_code` yubormaydi — ular avvalgidek ishlashda davom etadi. Tekshiruv
+    faqat kod YUBORILGANDA qo'llanadi; aks holda bu o'zgarish mijozlarning ishlab
+    turgan o'rnatmalarini bir kechada sindirardi.
+
+    ISTISNO — super-admin va tenantsiz (platforma egasi) hisoblar: ular bitta
+    do'konga tegishli emas, ya'ni kod bilan solishtirish ma'nosiz. Login sahifasi
+    ham "Platforma administratori" yo'lida kodni yubormaydi.
+
+    Tartib MUHIM: bu tekshiruv PAROL TASDIQLANGANDAN KEYIN chaqiriladi. Aks holda
+    "bu kodda bunday telefon bor/yo'q" degan ma'lumot parolsiz ochilardi.
+    """
+    code = (access_code or "").strip()
+    if not code:
+        return                                  # eski klient yoki super-admin yo'li
+    if user.is_superuser or user.tenant_id is None:
+        return                                  # do'konga bog'lanmagan hisob
+
+    cafe = db.query(Cafe).filter(
+        Cafe.access_code == code, Cafe.is_active == True
+    ).first()
+    if cafe is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Do'kon kodi noto'g'ri",
+        )
+    if cafe.id != user.tenant_id:
+        # 403: parol TO'G'RI, lekin hisob boshqa do'konniki. Yangi ma'lumot
+        # ochilmaydi — bu javobni faqat to'g'ri parolni bilgan oladi.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Bu hisob {cafe.name} ga tegishli emas",
+        )
+
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -131,21 +175,32 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    access_code: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Tizimga kirish"""
+    """Tizimga kirish.
+
+    `access_code` — login ekranida terilgan do'kon kodi (100.200.N). IXTIYORIY:
+    yuborilsa, hisob o'sha do'konniki ekani tekshiriladi; yuborilmasa avvalgidek
+    ishlaydi (eski klientlar buzilmasin). Qarang: `_assert_code_matches_tenant`.
+    """
     auth_service = AuthService(db)
-    
+
     user = auth_service.authenticate_user(form_data.username, form_data.password)
     if not user:
         raise InvalidCredentialsError()
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Hisob faol emas"
         )
-    
+
+    # DO'KON KODI: parol tasdiqlangach, kod hisob do'koniga mos kelishini
+    # tekshiramiz. Rad etilsa — quyidagi `last_login` va LOGIN audit yozuvi
+    # umuman bo'lmaydi (muvaffaqiyatsiz urinish "kirdi" deb yozilmasin).
+    _assert_code_matches_tenant(db, user, access_code)
+
     # Oxirgi login vaqtini yangilash
     user.last_login = datetime.now()
     db.commit()

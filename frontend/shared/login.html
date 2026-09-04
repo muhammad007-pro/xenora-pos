@@ -581,6 +581,10 @@ async function doLogin(username, password, btn) {
     const form = new FormData();
     form.append('username', username);
     form.append('password', password);
+    // DO'KON KODI: server hisob shu do'konniki ekanini tekshiradi. Avval kod
+    // yuborilmasdi va noto'g'ri kod bilan boshqa do'konga kirib ketilardi.
+    // Super-admin yo'lida `accessCode` bo'sh — kod yuborilmaydi, tekshiruv yo'q.
+    if (accessCode) form.append('access_code', accessCode);
     const res  = await fetch(API_BASE + '/auth/login', { method:'POST', body: form });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Xatolik yuz berdi');

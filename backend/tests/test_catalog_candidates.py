@@ -394,24 +394,56 @@ def test_qoshimcha_sorovlar_soni_chegaralangan(client, auth_headers, category_id
         f"(o'chiq {ochiq}, yoqiq {yoqiq}) — N+1 yoki ortiqcha so'rov kirdimi?")
 
 
-def test_yigish_ortacha_tezligi(client, auth_headers, category_id, cafe_id):
-    """Nomzod yozuvi o'zi qancha vaqt oladi (HTTP shovqinisiz).
+def test_yigish_tezligi_bazaviy_sorovga_nisbatan(client, auth_headers, category_id, cafe_id):
+    """Nomzod yozuvi oddiy SELECT'dan necha barobar sekin.
 
-    Chegara ataylab keng — maqsad "sezilarli sekinlashuv" (masalan to'liq jadval
-    skani yoki tarmoq chaqiruvi) kirib qolsa ushlash, mikro-optimizatsiya emas.
+    ⚠️ IKKI XATO O'LCHOVDAN KEYINGI UCHINCHI URINISH — tarixi qoldirilgan,
+    chunki xato o'lchov testdan ham yomonroq (u yolg'on tinchlik beradi):
+
+      1-urinish, MUTLAQ VAQT (`ortacha < 0.25s`): YOLG'IZ o'tib, TO'PLAMDA
+         yiqilardi — bir xil kod, bir xil baza. Sabab mashina yuklamasi:
+         o'sha to'plam bir yugurishda 62s, boshqasida 248s davom etdi.
+      2-urinish, ODDIY SELECT ga nisbatan: o'lchov 161x berdi (yozuv 207ms,
+         SELECT 1.3ms). Bu ham noto'g'ri edi — 207ms ning deyarli hammasi
+         `commit` (SQLite/Windows'da diskka fsync), so'rov emas. Commit
+         qiladigan yozuvni commit qilmaydigan o'qish bilan solishtirib
+         bo'lmaydi: nisbat kod sifatini emas, disk tezligini o'lchaydi.
+
+    To'g'ri bazaviy — AYNI JADVALGA bitta oddiy INSERT + commit. Ikkalasi ham
+    fsync to'laydi, ya'ni disk va yuklama qisqaradi; qolgan farq aynan
+    `record_candidate` qo'shadigan ish (kafe qidiruvi + mavjud nomzod qidiruvi).
+    Chegara 4x — indeks yo'qolsa yoki to'liq skan kirsa ushlanadi.
+
+    Haqiqiy N+1 qo'riqchisi — yuqoridagi so'rov soni testi. Bu esa qo'shimcha
+    qatlam: so'rov SONI to'g'ri bo'lib turib, so'rovning O'ZI sekinlashsa.
     """
     import database
+    from models import CatalogCandidate
 
     _set_share(cafe_id, True)
     db = database.SessionLocal()
     try:
+        N = 25
+        # Bazaviy: yalang'och INSERT + commit (record_candidate'ning qidiruvlarisiz)
         boshlandi = time.perf_counter()
-        N = 40
+        for i in range(N):
+            db.add(CatalogCandidate(
+                tenant_id=cafe_id, barcode=bc(5000 + i),
+                name_normalized=f"bazaviy {i}", name_original=f"Bazaviy {i}",
+            ))
+            db.commit()
+        bazaviy = (time.perf_counter() - boshlandi) / N
+
+        boshlandi = time.perf_counter()
         for i in range(N):
             record_candidate(db, cafe_id, bc(4000 + i), f"Tezlik mahsulot {i}",
                              category_hint="Test", unit="pcs")
-        ortacha = (time.perf_counter() - boshlandi) / N
+        yozuv = (time.perf_counter() - boshlandi) / N
     finally:
         db.close()
 
-    assert ortacha < 0.25, f"nomzod yozuvi juda sekin: {ortacha*1000:.0f}ms/dona"
+    nisbat = yozuv / max(bazaviy, 1e-6)
+    assert nisbat < 4, (
+        f"nomzod yozuvi yalang'och INSERT'dan {nisbat:.1f}x sekin "
+        f"(yozuv {yozuv*1000:.1f}ms, bazaviy {bazaviy*1000:.1f}ms) — "
+        f"indeks yo'qoldimi yoki to'liq skan kirdimi?")

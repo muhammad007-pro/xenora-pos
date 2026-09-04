@@ -1892,5 +1892,12 @@ class CatalogCandidate(Base):
     tenant_id       = Column(Integer, ForeignKey("cafes.id"), nullable=False, index=True)
     category_hint   = Column(String(100), nullable=True)
     unit            = Column(String(20),  nullable=True)
+    # Nomzod QAYERDAN kelgan — tozalash panelida bu farq muhim:
+    #   'live'     — do'kon mahsulot yaratgan/tahrirlagan paytda yozilgan,
+    #                ya'ni aynan o'sha kunda ishlatilayotgan nom;
+    #   'backfill' — mavjud bazadan bir martalik ko'chirilgan, tarixiy
+    #                (eskirgan yoki yarim yozilgan bo'lishi mumkin).
+    source          = Column(String(20), nullable=False,
+                             server_default="live", default="live")
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), onupdate=func.now())

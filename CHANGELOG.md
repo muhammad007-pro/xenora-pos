@@ -3,6 +3,40 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.7] — 2026-09-04 — Login: do'kon kodi endi tekshiriladi
+
+Login: do'kon kodi endi tekshiriladi (kod ixtiyoriy — eski mijoz ilovalari
+buzilmaydi).
+
+Kod ekranida do'kon tanlanardi-yu, parol bilan kirishda u TEKSHIRILMASDI —
+kod faqat frontend'da qolib, `/auth/login` ga umuman yuborilmasdi. Telefon
+qaysi tenantga bog'langan bo'lsa, o'shanisiga kirilardi. Amalda: `100.200.3`
+(qpa) terilib, lux-parfum ochilardi. Ma'lumot OQMASDI — izolyatsiya
+`apply_tenant_filter` darajasida butun edi; muammo kodning ma'nosiz va
+chalg'ituvchi bo'lishida.
+
+  * `/auth/login` endi ixtiyoriy `access_code` form maydonini qabul qiladi:
+    kod topilmadi -> 400 "Do'kon kodi noto'g'ri";
+    kod boshqa do'konniki -> 403 "Bu hisob {nom} ga tegishli emas".
+  * `frontend/shared/login.html` kodni login so'roviga qo'shadi.
+  * Tekshiruv PAROLDAN KEYIN — aks holda "bu do'konda bunday telefon bor"
+    degan ma'lumot parolsiz ochilardi. Rad etilgan urinish `last_login` ni
+    yangilamaydi va LOGIN audit yozuvi yaratilmaydi.
+
+⚠️ **KOD IXTIYORIY, ATAYLAB.** Tarqatilgan `.exe` / `.apk` / keshlangan PWA
+kod yubormaydi — majburiy qilinsa ular bir kechada sinardi. Golden test shu
+shartnomani qulflaydi (`test_kodsiz_login_avvalgidek_ishlaydi`).
+
+ISTISNO: super-admin va tenantsiz (platforma egasi) hisoblar tekshirilmaydi.
+
+PIN-login TEGILMADI — u allaqachon `access_code` dan tenant aniqlab, PIN'ni
+faqat shu tenant ichida qidiradi. Xabari ataylab umumiy ("PIN noto'g'ri"):
+u yerda parol tasdiqlanmagan, aniq xabar begonaga ma'lumot berardi.
+
+10 yangi test. To'plam: 381 passed, 2 skipped (avval 371).
+
+⚠️ **MIGRATSIYA YO'Q.** Deploy: `git pull` + `systemctl restart xenora`.
+
 ## [1.10.6] — 2026-09-04 — Umumiy katalog: nomzodlar yig'ish qatlami
 
 Umumiy katalog uchun nomzodlar yig'ish qatlami (`catalog_share_enabled`

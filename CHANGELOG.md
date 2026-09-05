@@ -3,6 +3,69 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.11.0] — 2026-09-05 — Shtrix-kod bo'yicha nom avtomatik topiladi
+
+Mahsulot qo'shishda shtrix-kod bo'yicha nom avtomatik topiladi
+(o'z bazasi → katalog → Open Food Facts).
+
+Oziq-ovqat do'koni uchun: mingdan ortiq mahsulotni qo'lda terish o'rniga
+skaner qilib tasdiqlash.
+
+`GET /products/lookup/{barcode}` — uch qatlam, birinchi topilgan g'olib:
+
+  * `own`     — do'konning O'Z bazasi. Taklif emas, OGOHLANTIRISH: dublikat
+                yaratilishining oldini oladi (`product_id` qaytadi, UI mavjud
+                mahsulotga yo'naltiradi). `product_barcodes` (qo'shimcha
+                kodlar) ham tekshiriladi — aks holda bir mahsulotning ikkinchi
+                kodi skanerlanganda "yo'q" deb aytilardi.
+  * `catalog` — `catalog_candidates`: boshqa do'konlar kiritgan nomlar, eng
+                ko'p ovoz olgani tanlanadi (`votes` bilan). Bu jadvaldan
+                BIRINCHI MARTA O'QILMOQDA — shu paytgacha faqat yozilardi.
+  * `off`     — `off_products`: Open Food Facts kesimi (v1.10.9 da yuklangan
+                139,134 mahsulot).
+
+⚠️ TENANT IZOLYATSIYASI — beshta qulf, har biri alohida test bilan:
+
+  * `tenant_id` javob sxemasida UMUMAN YO'Q — "qaysi do'kon nima sotadi"
+    sizmaydi; do'kon nomi ham qaytmaydi.
+  * Narx va ombor qoldig'i HECH QACHON qaytmaydi — nomzodlar jadvalida narx
+    ustuni ataylab yo'q, javob sxemasida ham yo'q.
+  * So'rovchining O'Z nomzodi "boshqa manba" bo'lib qaytmaydi — aks holda
+    do'kon o'z yozganini "boshqa do'kon tasdiqladi" deb o'qirdi.
+  * FAQAT aniq shtrix-kod bo'yicha. Nom bo'yicha qidiruv YO'Q va
+    qo'shilmasin: u butun katalogni varaqlash imkonini berardi.
+  * `manage_menu` ruxsati SHART — kassir 403 oladi.
+
+Ichki kodlar (prefiks 2) katalog/OFF ga umuman bormaydi — yozishdagi bilan
+AYNI filtr (`core/catalog.py: is_shareable_barcode`).
+
+Tezlik chegarasi: TENANT boshiga soatiga 500 (`RATE_LIMIT_LOOKUP_PER_HOUR`).
+IP emas — bir do'konning kassirlari bitta NAT ortida bo'lishi mumkin, ya'ni
+mavjud IP-middleware bu yerda noto'g'ri o'lchov berardi. Shu sabab
+`core/rate_limit.py` ga `WindowLimiter` qo'shildi.
+
+FRONTEND (`js/admin/core.js`) — uch qoida:
+
+  1. Forma HECH QACHON bloklanmaydi: so'rov fonda (debounce 400ms), tugmalar
+     o'chirilmaydi, eskirgan javob yangisining ustiga yozmaydi.
+  2. Faqat BO'SH maydonlar to'ldiriladi — foydalanuvchi terganiga tegilmaydi.
+  3. Xato JIMGINA yutiladi (404/429/tarmoq) — ogohlantirish chiqmaydi; funksiya
+     ishlamasa mahsulot qo'shish avvalgidek qo'lda davom etadi.
+
+Manba ko'rsatiladi ("Katalogdan topildi" / "Tashqi bazadan"), o'z bazasida bor
+bo'lsa sariq ogohlantirish. Kategoriya mavjud ro'yxatga moslanadi, o'lchov
+birligi hajmdan taxmin qilinadi ("450 г" → g). Formada brend/hajm uchun
+alohida maydon yo'q, shuning uchun ular nomga qo'shiladi ("Папа может
+Сосиски Сочные 450 г") — do'konda nom baribir shunday yoziladi.
+
+Topilmasa endpoint 404 EMAS, `{"found": false}` bilan 200 qaytaradi — UI
+jimgina o'tishi uchun (xato xabari kassirni chalg'itmasin).
+
+20 yangi test. To'plam: 405 passed, 2 skipped (avval 385).
+
+⚠️ MIGRATSIYA YO'Q — `off_products` v1.10.9 da yaratilgan.
+Deploy: `git pull` + `systemctl restart xenora`.
+
 ## [1.10.9] — 2026-09-05 — Open Food Facts katalogi (139k mahsulot, 17 mamlakat)
 
 Open Food Facts katalogi (139,134 mahsulot, 17 mamlakat) — mahsulot qo'shishda

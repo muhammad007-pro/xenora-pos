@@ -3,6 +3,51 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.9] — 2026-09-05 — Open Food Facts katalogi (139k mahsulot, 17 mamlakat)
+
+Open Food Facts katalogi (139,134 mahsulot, 17 mamlakat) — mahsulot qo'shishda
+nom avtomatik topish uchun.
+
+Bizning `catalog_candidates` faqat do'konlarimiz kiritgan nomlardan to'planadi
+va sekin o'sadi (Fazza haftasiga ~20-25 nomzod). Open Food Facts — 4.7 mln
+mahsulotli ochiq baza; undan kerakli mamlakatlar kesimi bir marta olindi.
+
+  * `off_products` — YANGI jadval, `catalog_candidates` dan ATAYLAB alohida:
+    biri ichki manba (tenant_id, ovoz berish, bir barkodga ko'p qator), biri
+    tashqi (tenant yo'q, bir barkodga bitta qator, to'liq qayta yuklanadi).
+    Aralashsa "nom bizning do'kondanmi yoki internetdanmi" degan farq
+    yo'qolardi. ⚠️ Narx ustuni ikkalasida ham YO'Q.
+  * `scripts/off_filter.py` — DEV mashinada yuguradi, prod serverda EMAS.
+    OFF eksporti 1.2 GB siqilgan / 9 GB ochilgan; 1 vCPU da qayta ishlash
+    soatlar olardi. HTTP oqimi to'g'ridan gzip'dan o'tkaziladi (9 GB fayl
+    diskka yozilmaydi), serverga faqat ~7 MB TSV boradi.
+  * `scripts/off_import.py` — serverda; oqim bilan o'qiydi va bo'laklab
+    yozadi (1 GB RAM'da ~30 MB sarf), `ON CONFLICT DO UPDATE` — idempotent.
+    Standart rejim PREVIEW, yozish uchun `--apply`. Oxirida `VACUUM ANALYZE`
+    (usiz qayta yuklash jadvalni 28 → 53 MB ga o'stirardi).
+
+Filtr uch bosqichli: `core.catalog.is_shareable_barcode()` (katalogning
+qolgan qismi bilan AYNI qoida), GS1 mamlakat prefiksi, nom sifati. Oxirgisi
+shart edi — OFF da 197,684 nomsiz va 2,083 "nomi = shtrix-kod" yozuv bor,
+hammasi tashlandi.
+
+Kesim (2026-09-05 eksporti, to'liq skan 4,535,553 qator): Polsha 34,265 |
+Hindiston 21,734 | Rossiya 21,708 | Turkiya 15,917 | Xitoy 15,042 |
+Koreya 9,825 | Ukraina 6,332 | BAA 5,675 | Belarus 2,153 | O'zbekiston 1,297 |
+Eron 1,274 | Moldova 1,148 | Ozarbayjon 799 | Gruziya 687 | Armaniston 669 |
+Qozog'iston 541 | Tojikiston 68. Bazada 28 MB (shundan indeks 14 MB).
+
+Germaniya (348,731) va Fransiya (570,154) ATAYLAB olinmadi: butun to'plamdan
+6.6 barobar katta, lekin bu kodli tovarlar bizning do'konlarda kam. Kerak
+bo'lsa `--prefiks hammasi` bilan qo'shiladi.
+
+⚠️ Jadvalni HOZIRCHA hech kim o'qimaydi — lookup API keyingi bosqichda.
+Ya'ni bu reliz mavjud xulqni o'zgartirmaydi.
+
+⚠️ **MIGRATSIYA BOR:** `a7c3e91f4b60` (idempotent, downgrade bilan).
+Deploy: `git pull` + `alembic upgrade head` + `systemctl restart xenora`,
+so'ng `scripts/off_import.py off_ship.tsv --apply` (QO'LDA, bir martalik).
+
 ## [1.10.8] — 2026-09-05 — Katalog nomzodlari: source ustuni + retrospektiv yig'ish
 
 Katalog nomzodlariga `source` ustuni + retrospektiv yig'ish skripti.

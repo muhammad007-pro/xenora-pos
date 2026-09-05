@@ -89,3 +89,7 @@ dist_artifacts/
 
 # Mahalliy ish vaqti sozlamalari (har do'konda o'ziniki: printer, oshxona, to'lov)
 config/
+
+# OFF qamrov sinovi (scripts/off_probe.py) — vaqtinchalik kirish/chiqish
+codes.txt
+off_result.json

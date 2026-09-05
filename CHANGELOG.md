@@ -3,6 +3,35 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.10.8] — 2026-09-05 — Katalog nomzodlari: source ustuni + retrospektiv yig'ish
+
+Katalog nomzodlariga `source` ustuni + retrospektiv yig'ish skripti.
+
+Yig'ish qatlami faqat YANGI harakatni (mahsulot yaratish/tahrirlash) ushlaydi.
+O'lchov ko'rsatdi: Fazza haftasiga ~20-25 nomzod qo'shadi, ya'ni mavjud 1160 ta
+mos mahsulot hajmiga tabiiy yo'l bilan yetishga bir yildan ko'p ketardi.
+
+  * `catalog_candidates.source` — `'live'` (do'kon kiritganda, STANDART) yoki
+    `'backfill'` (bir martalik ko'chirish). Ustun retrospektiv yozuvdan OLDIN
+    qo'shiladi: keyin qo'shilsa manba ma'lumoti yo'qolgan bo'lardi.
+  * `scripts/backfill_catalog_candidates.py` — dry-run STANDART, `--apply`
+    bilan bajaradi. FAQAT `catalog_share_enabled=TRUE` do'konlar; `products`
+    ga TEGILMAYDI (faqat SELECT); oq ro'yxat endpoint bilan AYNI funksiya;
+    `ON CONFLICT DO NOTHING` (jonli nomzod ustiga yozilmaydi); bo'laklab;
+    idempotent.
+
+⚠️ Skript MIGRATSIYA EMAS — deploy'dan keyin QO'LDA ishga tushiriladi.
+
+Tezlik testi tuzatildi (uchinchi urinish): mutlaq vaqt mashina yuklamasiga
+bog'liq edi, oddiy SELECT'ga nisbat esa commit (fsync) sababli 161x berardi.
+Endi bazaviy — ayni jadvalga yalang'och INSERT+commit; ikkalasi ham fsync
+to'laydi, farq aynan qo'shimcha qidiruvlar.
+
+4 yangi test. To'plam: 385 passed, 2 skipped (avval 381).
+
+⚠️ **MIGRATSIYA BOR:** `f5b2d8e3a147` (idempotent, downgrade bilan).
+Deploy: `git pull` + `alembic upgrade head` + `systemctl restart xenora`.
+
 ## [1.10.7] — 2026-09-04 — Login: do'kon kodi endi tekshiriladi
 
 Login: do'kon kodi endi tekshiriladi (kod ixtiyoriy — eski mijoz ilovalari

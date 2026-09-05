@@ -89,3 +89,7 @@ dist_artifacts/
 
 # Mahalliy ish vaqti sozlamalari (har do'konda o'ziniki: printer, oshxona, to'lov)
 config/
+
+# OFF kesimi (scripts/off_filter.py oraliq/yakuniy fayllari — MB larda, git'da saqlanmaydi)
+off_cut*.tsv
+off_ship*.tsv

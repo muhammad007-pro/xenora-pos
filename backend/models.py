@@ -1901,3 +1901,56 @@ class CatalogCandidate(Base):
                              server_default="live", default="live")
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class OffProduct(Base):
+    """Open Food Facts kesimi — TASHQI manba, offline nusxa.
+
+    ⚠️ `catalog_candidates` DAN ALOHIDA VA ATAYLAB ARALASHTIRILMAYDI.
+    Ikkisi butunlay boshqa narsa:
+
+      `catalog_candidates` — bizning do'konlarimiz yozgan nomlar. Ichki manba,
+        `tenant_id` bor (kim aytgani muhim), bir barkodga ko'p qator (ovoz
+        berish), ishonch darajasi do'konga bog'liq.
+
+      `off_products` (shu jadval) — Open Food Facts jamoatchilik bazasidan
+        olingan nusxa. Tashqi manba, `tenant_id` YO'Q (hech kimning ma'lumoti
+        emas), bir barkodga BITTA qator, to'liq almashtiriladi.
+
+    Ular birlashtirilsa "bu nomni bizning do'kon aytdimi yoki internetdanmi"
+    degan savolga javob yo'qoladi — aynan shu farq keyingi bosqichda (nom
+    tanlash) hal qiluvchi bo'ladi.
+
+    ⚠️ NARX USTUNI YO'Q — `catalog_candidates` dagi bilan bir xil sabab.
+    OFF da narx bo'lmaydi ham, lekin qoida sxema darajasida qulflansin.
+
+    OFFLINE: bu jadval borligi uchun ish vaqtida OFF API'siga so'rov
+    yuborilmaydi. Server internetsiz ham shtrix-kod bo'yicha nom topa oladi.
+
+    Yozuvchi: `scripts/off_import.py`. Manba fayl `scripts/off_filter.py` bilan
+    DEV mashinada tayyorlanadi (prod serverda 9 GB CSV qayta ishlanmaydi).
+    """
+    __tablename__ = "off_products"
+    __table_args__ = (
+        # Cheklov NOMI ataylab aniq berilgan: `scripts/off_import.py` upsert'da
+        # `on_conflict_do_update(constraint="uq_off_products_barcode")` deb shu
+        # nomga murojaat qiladi. `unique=True` bilan qoldirilsa PostgreSQL
+        # avtomatik nom bergan bo'lardi (`off_products_barcode_key`) va model
+        # bilan migratsiya ikki xil nom yaratardi.
+        UniqueConstraint("barcode", name="uq_off_products_barcode"),
+        Index("ix_off_products_barcode", "barcode"),
+    )
+
+    id         = Column(Integer, primary_key=True, index=True)
+    # Yagona qidiruv kaliti (yuqoridagi UNIQUE — upsert shunga tayanadi).
+    barcode    = Column(String(20), nullable=False)
+    name       = Column(String(200), nullable=False)
+    brand      = Column(String(120), nullable=True)
+    quantity   = Column(String(50),  nullable=True)   # "450 г", "1.5 L"
+    category   = Column(String(100), nullable=True)   # OFF ning eng aniq tegi
+    # Kelajakda boshqa ochiq baza qo'shilsa (OBF — kosmetika), qatorlarni
+    # ajratish uchun. Hozircha doim 'off'.
+    source     = Column(String(20), nullable=False,
+                        server_default="off", default="off")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(),
+                        onupdate=func.now())

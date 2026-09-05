@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_AUTH_PER_MIN: int = 20        # login/pin-login/register/change-password
     RATE_LIMIT_GENERAL_PER_MIN: int = 600    # umumiy /api + /public ceiling
+    # Shtrix-kod lookup (mahsulot qo'shishda avtomatik nom) — TENANT boshiga soatiga.
+    # IP emas, tenant: bir do'konning kassirlari bitta NAT ortida bo'lishi mumkin.
+    # 500 = kuniga ~500 yangi mahsulot kiritishga yetadi, ommaviy yig'ishni to'sadi.
+    RATE_LIMIT_LOOKUP_PER_HOUR: int = 500
 
     # ── Obuna enforcement (KILL-SWITCH) ─────────────────────────────────────
     # ENFORCE_SUBSCRIPTION=False (STANDART) → enforcement UMUMAN ishlamaydi:

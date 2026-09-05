@@ -1743,6 +1743,161 @@ function buildProductModal(product) {
         }).join('');
     });
   }
+
+  setupBarcodeLookup();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Shtrix-kod bo'yicha avtomatik to'ldirish (GET /products/lookup/{barcode})
+//
+// ⚠️ UCH QOIDA — o'zgartirishdan oldin o'qing:
+//
+//   1. FORMA HECH QACHON BLOKLANMAYDI. So'rov fonda ketadi, tugmalar
+//      o'chirilmaydi, spinner qo'yilmaydi. Kassir yozishda davom etadi va
+//      javob kech kelsa ham yozganini yo'qotmaydi.
+//   2. HAMMASI TAKLIF. Faqat BO'SH maydonlar to'ldiriladi — foydalanuvchi
+//      terganini hech qachon ustiga yozmaydi.
+//   3. XATO JIMGINA YUTILADI. Topilmasa, tarmoq uzilsa yoki 429 kelsa —
+//      hech qanday xabar chiqmaydi. Bu qulaylik funksiyasi; u ishlamasa
+//      mahsulot qo'shish avvalgidek qo'lda davom etadi.
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _bcLookupTimer = null;
+let _bcLookupSeq = 0;      // eskirgan javob yangisining ustiga yozmasin
+
+function setupBarcodeLookup() {
+  const el = document.getElementById('pmf_barcode');
+  if (!el) return;   // bu biznes turida shtrix-kod maydoni yo'q (restoran/salon)
+
+  const hint = document.createElement('div');
+  hint.id = 'pmBcHint';
+  hint.style.cssText = 'display:none;margin-top:.375rem;font-size:.75rem;' +
+    'border-radius:var(--r);padding:.4375rem .5625rem;line-height:1.35';
+  el.parentNode.appendChild(hint);
+
+  // Skaner kodni juda tez "yozadi" va Enter bosadi — `input` har belgida
+  // ishlaydi, 400ms debounce butun kod terilishini kutadi.
+  el.addEventListener('input', () => {
+    clearTimeout(_bcLookupTimer);
+    _bcLookupTimer = setTimeout(() => runBarcodeLookup(el.value), 400);
+  });
+}
+
+function _pmHint(html, rang) {
+  const h = document.getElementById('pmBcHint');
+  if (!h) return;
+  if (!html) { h.style.display = 'none'; h.innerHTML = ''; return; }
+  h.innerHTML = html;
+  h.style.display = '';
+  h.style.color = rang;
+  h.style.background = rang + '1a';        // 10% shaffof fon
+  h.style.border = '1px solid ' + rang + '55';
+}
+
+/** Faqat BO'SH maydonni to'ldiradi. Qaytaradi: to'ldirildimi. */
+function _pmFillIfEmpty(id, val) {
+  const el = document.getElementById(id);
+  if (!el || !val) return false;
+  if (el.value && String(el.value).trim()) return false;   // foydalanuvchi tergan — tegmaymiz
+  el.value = val;
+  return true;
+}
+
+/** OFF hajmidan o'lchov birligini taxmin qiladi ("450 г" -> "g"). */
+function _pmUnitFromQuantity(q) {
+  const m = String(q || '').toLowerCase().match(/(\d[\d.,]*)\s*(kg|kilogramm|g|gr|гр|г|l|litr|л|ml|мл)\b/);
+  if (!m) return null;
+  const u = m[2];
+  if (['kg', 'kilogramm'].includes(u)) return 'kg';
+  if (['g', 'gr', 'гр', 'г'].includes(u)) return 'g';
+  if (['l', 'litr', 'л'].includes(u)) return 'l';
+  if (['ml', 'мл'].includes(u)) return 'ml';
+  return null;
+}
+
+/** Kategoriya nomini mavjud ro'yxatga moslaydi (topilmasa — tegmaydi). */
+function _pmMatchCategory(nom) {
+  const sel = document.getElementById('pmf_category');
+  if (!sel || !nom || (sel.value && sel.value !== '')) return;
+  const kalit = String(nom).trim().toLowerCase();
+  const mos = Array.from(sel.options).find(
+    o => o.value && o.textContent.trim().toLowerCase() === kalit);
+  if (mos) sel.value = mos.value;
+}
+
+async function runBarcodeLookup(raw) {
+  const code = String(raw || '').trim();
+  _pmHint('');
+  // Faqat zavod kodlari (8-14 raqam). Ichki kodlar va SKU matnlari so'ralmaydi —
+  // ular umumiy katalogda baribir yo'q, ortiqcha so'rov yubormaymiz.
+  if (!/^\d{8,14}$/.test(code)) return;
+
+  const seq = ++_bcLookupSeq;
+  let d = null;
+  try {
+    d = await apiFetch(`/products/lookup/${encodeURIComponent(code)}`);
+  } catch (e) {
+    return;   // 404 / 429 / tarmoq — JIMGINA (qoida 3)
+  }
+  if (seq !== _bcLookupSeq) return;    // shu orada yangi kod terilgan
+  if (!d || !d.found) return;
+
+  // ── O'z bazasida bor: to'ldirmaymiz, OGOHLANTIRAMIZ ──────────────────────
+  if (d.source === 'own') {
+    if (editingProductId && d.product_id === editingProductId) return;  // o'zini o'zi
+    _pmHint(`⚠️ <b>Bu mahsulot bazangizda bor:</b> ${_pmEsc(d.name || '')}` +
+            `<div style="opacity:.85;margin-top:.125rem">Dublikat yaratmang — mavjudini tahrirlang.</div>`,
+            '#f59e0b');
+    return;
+  }
+
+  // ── Taklif: faqat bo'sh maydonlar ────────────────────────────────────────
+  // Tahrirlashda nom to'ldirilmaydi (mavjud nom qimmatroq), lekin kategoriya
+  // bo'sh bo'lsa taklif qilinadi.
+  let nom = d.name || '';
+  if (d.brand && !nom.toLowerCase().includes(String(d.brand).toLowerCase())) {
+    nom = d.brand + ' ' + nom;
+  }
+  if (d.quantity && !nom.toLowerCase().includes(String(d.quantity).toLowerCase())) {
+    nom = nom + ' ' + d.quantity;
+  }
+  nom = nom.trim().slice(0, 200);
+
+  const toldirildi = [];
+  if (!editingProductId && _pmFillIfEmpty('pmf_name', nom)) toldirildi.push('nom');
+
+  const oldinKat = document.getElementById('pmf_category')?.value;
+  _pmMatchCategory(d.category);
+  if (document.getElementById('pmf_category')?.value !== oldinKat) toldirildi.push('kategoriya');
+
+  const birlik = _pmUnitFromQuantity(d.quantity) || (d.unit || null);
+  const uEl = document.getElementById('pmf_sale_unit');
+  if (uEl && birlik && Array.from(uEl.options).some(o => o.value === birlik)) {
+    if (uEl.value !== birlik) { uEl.value = birlik; toldirildi.push('birlik'); }
+    uEl.dispatchEvent(new Event('change'));   // pack/PLU bloklari yangilansin
+  }
+
+  const manba = d.source === 'catalog'
+    ? ('Katalogdan topildi' + (d.votes > 1 ? ` — ${d.votes} do'kon shu nomni ishlatadi` : ''))
+    : 'Tashqi bazadan (Open Food Facts)';
+  const tafsilot = [
+    d.brand ? `brend: ${_pmEsc(d.brand)}` : null,
+    d.quantity ? `hajm: ${_pmEsc(d.quantity)}` : null,
+    d.category ? `kategoriya: ${_pmEsc(d.category)}` : null,
+  ].filter(Boolean).join(' · ');
+
+  _pmHint(
+    `✓ <b>${manba}</b>` +
+    (tafsilot ? `<div style="opacity:.85;margin-top:.125rem">${tafsilot}</div>` : '') +
+    (toldirildi.length
+      ? `<div style="opacity:.7;margin-top:.125rem">To'ldirildi: ${toldirildi.join(', ')} — o'zgartirsangiz bo'ladi</div>`
+      : `<div style="opacity:.7;margin-top:.125rem">Maydonlar to'ldirilgan — tegilmadi</div>`),
+    '#10b981');
+}
+
+function _pmEsc(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 async function saveProduct() {

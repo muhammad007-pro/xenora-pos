@@ -33,6 +33,46 @@ _SKIP_EXACT = {"/health", "/", "/favicon.ico"}
 _EXEMPT_IPS = {"testclient"}
 
 
+class WindowLimiter:
+    """Ixtiyoriy kalit bo'yicha sliding-window hisoblagich (middleware'dan tashqarida).
+
+    NEGA ALOHIDA: yuqoridagi middleware IP bo'yicha ishlaydi. Ba'zi endpointlar
+    esa TENANT bo'yicha cheklanishi kerak — bitta do'konning hamma kassiri bitta
+    NAT ortida bo'lishi mumkin (IP bir xil), yoki aksincha bitta do'kon bir necha
+    IP'dan kirishi mumkin. Ya'ni IP hisobi bu yerda noto'g'ri o'lchov.
+
+    Ishlatilishi (`routers/product.py: lookup_barcode`):
+        if not _limiter.allow(tenant_id):
+            raise HTTPException(429, ...)
+
+    Middleware bilan bir xil in-memory yondashuv: bir jarayonli deploy uchun mos,
+    ko'p worker'da har jarayon o'z hisobini yuritadi.
+    """
+
+    def __init__(self, limit: int, window_seconds: float):
+        self.limit = limit
+        self.window = window_seconds
+        self._hits: dict = defaultdict(deque)
+
+    def allow(self, key) -> bool:
+        """Kalit uchun yana bitta so'rovga ruxsat bormi (va uni hisobga oladi)."""
+        if self.limit <= 0:          # 0/manfiy = cheklov o'chiq
+            return True
+        now = time.time()
+        bucket = self._hits[str(key)]
+        cutoff = now - self.window
+        while bucket and bucket[0] < cutoff:
+            bucket.popleft()
+        if len(bucket) >= self.limit:
+            return False
+        bucket.append(now)
+        return True
+
+    def reset(self) -> None:
+        """Hisobni tozalaydi — testlar orasida ishlatiladi."""
+        self._hits.clear()
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Sliding-window rate limit (IP boshiga, daqiqada)."""
 

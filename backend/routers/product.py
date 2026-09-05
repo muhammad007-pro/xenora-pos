@@ -8,24 +8,54 @@ import os
 import uuid
 
 from database import get_db
-from models import Product, Category, User, Inventory, ProductBarcode
+from models import (
+    Product, Category, User, Inventory, ProductBarcode,
+    CatalogCandidate, OffProduct,
+)
 from schemas import ProductCreate, ProductUpdate, ProductInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
 from config import settings
 from routers.price_history import record_price_change
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 from core.barcode import gen_internal_barcode  # ichki EAN-13 (AI-Ombor bilan AYNI generator)
-from core.catalog import record_candidate    # umumiy katalog nomzodi (jimgina yig'ish)
+from core.catalog import record_candidate, is_shareable_barcode  # umumiy katalog
+from core.rate_limit import WindowLimiter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Shtrix-kod lookup cheklovi — TENANT boshiga soatiga (IP emas: bir do'konning
+# kassirlari bitta NAT ortida bo'lishi mumkin). Modul darajasida — jarayon
+# umri davomida bitta hisoblagich.
+_lookup_limiter = WindowLimiter(settings.RATE_LIMIT_LOOKUP_PER_HOUR, 3600.0)
 
 
 class BulkCategoryRequest(BaseModel):
     """Ommaviy kategoriya berish — bir nechta mahsulotga bir kategoriya."""
     product_ids: List[int] = Field(..., min_length=1)
     category_id: int
+
+
+class BarcodeLookupResponse(BaseModel):
+    """`GET /products/lookup/{barcode}` javobi — TAKLIF, majburiyat emas.
+
+    ⚠️ Bu sxemaga `tenant_id`, narx yoki ombor qoldig'i HECH QACHON
+    qo'shilmasin. Nomzodlar jadvalida narx ustuni ataylab yo'q; bu yerda ham
+    shunday bo'lib qolsin (qarang: `core/catalog.py` boshidagi uchta qoida).
+    """
+    barcode: str
+    found: bool
+    # "own" | "catalog" | "off" | None
+    source: Optional[str] = None
+    name: Optional[str] = None
+    brand: Optional[str] = None        # faqat `off`
+    quantity: Optional[str] = None     # faqat `off` ("450 г", "1.5 L")
+    category: Optional[str] = None     # kategoriya NOMI (id emas — UI o'zi moslaydi)
+    unit: Optional[str] = None         # faqat `catalog`
+    votes: Optional[int] = None        # faqat `catalog` — nechta do'kon shu nomni yozgan
+    product_id: Optional[int] = None   # faqat `own`
+    message: Optional[str] = None      # faqat `own` — ogohlantirish matni
 
 @router.get("/", response_model=PaginatedResponse)
 async def get_products(
@@ -498,6 +528,137 @@ async def upload_product_image(
     db.commit()
     
     return {"message": "Rasm yuklandi", "image_url": product.image_url}
+
+@router.get("/lookup/{barcode}", response_model=BarcodeLookupResponse)
+async def lookup_barcode(
+    barcode: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_menu")),
+):
+    """Shtrix-kod bo'yicha mahsulot ma'lumotini TAKLIF qiladi (uch qatlam).
+
+    Mahsulot qo'shish oynasi shu endpointni chaqiradi va nom/kategoriya
+    maydonlarini oldindan to'ldiradi. Javob — TAKLIF, majburiyat emas:
+    foydalanuvchi hammasini o'zgartira oladi.
+
+    QATLAMLAR (birinchi topilgan g'olib):
+      1. `own`     — do'konning O'Z bazasida shu kod bor. Bu holda taklif emas,
+                     OGOHLANTIRISH: mahsulot ikki marta kiritilishining oldini
+                     oladi. `product_id` qaytadi (UI mavjud kartaga o'tkazadi).
+      2. `catalog` — `catalog_candidates`: boshqa do'konlar kiritgan nomlar.
+                     Eng ko'p ovoz olgan yozuv tanlanadi (bir xil nom necha
+                     do'konda uchraganiga qarab).
+      3. `off`     — `off_products`: Open Food Facts kesimi (tashqi baza).
+
+    ⚠️ TENANT IZOLYATSIYASI — uchta qat'iy qoida:
+      • `tenant_id` HECH QACHON javobga chiqmaydi. 2-qatlamdan faqat nom va
+        kategoriya olinadi; "qaysi do'kon shuni sotadi" ma'lumoti berilmaydi.
+      • 2-qatlamda so'rovchining O'Z yozuvlari chiqarib tashlanadi — aks holda
+        do'kon o'z nomini "boshqa manba" sifatida qaytarib olardi.
+      • FAQAT ANIQ shtrix-kod bo'yicha. Nom bo'yicha qidiruv YO'Q va
+        qo'shilmasin: u butun katalogni varaqlash imkonini berardi.
+
+    ⚠️ NARX HECH QACHON QAYTMAYDI. `catalog_candidates` da narx ustuni umuman
+    yo'q (sxema darajasidagi kafolat), `off_products` da ham. Bu funksiya
+    nom taklif qiladi, raqobatchining narxini emas.
+
+    Tezlik chegarasi: tenant boshiga soatiga `RATE_LIMIT_LOOKUP_PER_HOUR`
+    (standart 500). Oshsa 429 — lekin UI buni jimgina yutadi, kassir ishi
+    to'xtamaydi.
+    """
+    code = (barcode or "").strip()
+    if not code or len(code) > 32:
+        return BarcodeLookupResponse(barcode=code, found=False)
+
+    # Cheklov kaliti: tenant. Platforma egasida tenant yo'q — foydalanuvchi bo'yicha.
+    tenant_id = resolve_tenant_id(db, current_user)
+    limit_key = f"t{tenant_id}" if tenant_id else f"u{current_user.id}"
+    if not _lookup_limiter.allow(limit_key):
+        logger.warning("LOOKUP RATE LIMIT: %s", limit_key)
+        raise HTTPException(
+            status_code=429,
+            detail="Juda ko'p so'rov. Biroz kuting.",
+            headers={"Retry-After": "60"},
+        )
+
+    # ── 1-qatlam: O'Z bazasi ────────────────────────────────────────────────
+    own = (
+        apply_tenant_filter(db.query(Product), Product, current_user)
+        .filter(Product.barcode == code)
+        .first()
+    )
+    if own is None:
+        # Qo'shimcha shtrix-kodlar (bir mahsulotga bir nechta kod) ham hisobga
+        # olinadi — aks holda "yo'q" deb aytib, dublikat yaratishga yo'l qo'yardik.
+        extra = (
+            apply_tenant_filter(db.query(ProductBarcode), ProductBarcode, current_user)
+            .filter(ProductBarcode.barcode == code)
+            .first()
+        )
+        if extra is not None:
+            own = (
+                apply_tenant_filter(db.query(Product), Product, current_user)
+                .filter(Product.id == extra.product_id)
+                .first()
+            )
+
+    if own is not None:
+        kat = db.query(Category.name).filter(Category.id == own.category_id).scalar()
+        return BarcodeLookupResponse(
+            barcode=code,
+            found=True,
+            source="own",
+            name=own.name,
+            category=kat,
+            product_id=own.id,
+            message="Bu mahsulot bazangizda bor",
+        )
+
+    # Qolgan ikki qatlam faqat haqiqiy zavod kodlari uchun — ichki do'kon
+    # kodlari (prefiks 2) va nostandart uzunliklar umumiy katalogga tushmaydi,
+    # ya'ni ularni so'rash befoyda (bir xil filtr: core/catalog.py).
+    if not is_shareable_barcode(code):
+        return BarcodeLookupResponse(barcode=code, found=False)
+
+    # ── 2-qatlam: umumiy katalog nomzodlari (boshqa do'konlar) ──────────────
+    q = db.query(CatalogCandidate).filter(CatalogCandidate.barcode == code)
+    if tenant_id is not None:
+        q = q.filter(CatalogCandidate.tenant_id != tenant_id)   # o'z ovozi qaytmasin
+    nomzodlar = q.all()
+    if nomzodlar:
+        # Ovoz sanash: bir xil normalizatsiyalangan nom necha do'konda uchradi.
+        # Eng ko'p ovoz olgan guruh yutadi; teng bo'lsa — kattaroq id, ya'ni
+        # keyinroq yozilgani (yangiroq nom ehtimol to'g'riroq yozilgan).
+        guruh: dict = {}
+        for n in nomzodlar:
+            guruh.setdefault(n.name_normalized, []).append(n)
+        eng = max(guruh.values(), key=lambda g: (len(g), max(x.id for x in g)))
+        golib = max(eng, key=lambda x: x.id)
+        return BarcodeLookupResponse(
+            barcode=code,
+            found=True,
+            source="catalog",
+            name=golib.name_original,
+            category=golib.category_hint,
+            unit=golib.unit,
+            votes=len(eng),
+        )
+
+    # ── 3-qatlam: Open Food Facts kesimi ────────────────────────────────────
+    off = db.query(OffProduct).filter(OffProduct.barcode == code).first()
+    if off is not None:
+        return BarcodeLookupResponse(
+            barcode=code,
+            found=True,
+            source="off",
+            name=off.name,
+            brand=off.brand,
+            quantity=off.quantity,
+            category=off.category,
+        )
+
+    return BarcodeLookupResponse(barcode=code, found=False)
+
 
 @router.get("/barcode/{barcode}", response_model=ProductInDB)
 async def get_product_by_barcode(

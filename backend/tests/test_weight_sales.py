@@ -78,8 +78,10 @@ def seeded(db):
     db.add(r)
     db.flush()
 
+    # subscription_plan="pro" — 'free' tarifning oylik 100 buyurtma chegarasi
+    # ketma-ket sotuv testlarini to'xtatib qo'ymasin.
     db.add(Cafe(id=1, name="Oziq-ovqat", code="oz", business_type="supermarket",
-                is_active=True, block_oversell=False))
+                is_active=True, block_oversell=False, subscription_plan="pro"))
     db.add(Category(id=1, name="Go'sht", tenant_id=1))
     db.flush()
 
@@ -310,6 +312,126 @@ def test_golden_butun_kasr_sifatida_kelsa_ham_bir_xil(seeded, client):
 # ══════════════════════════════════════════════════════════════════════════════
 # 4) CHEK FORMATI
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 5) SUZUVCHI NUQTA QOLDIG'I — ombor axlat to'plamasin
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _qol(db, pid=1):
+    """Ombor qoldig'i — XOM qiymat (yaxlitlanmagan)."""
+    inv = db.query(Inventory).filter(Inventory.product_id == pid).first()
+    db.refresh(inv)
+    return inv.quantity
+
+
+def _sot_tola(client, h, qty, pid=1):
+    r = _sotuv(client, h, [{"product_id": pid, "quantity": qty}])
+    assert r.status_code == 200, r.text
+    d = r.json()
+    p = client.post("/api/v1/payments/", headers=h, json={
+        "order_id": d["id"], "amount": d["total_amount"], "method": "cash"})
+    assert p.status_code == 200, p.text
+    return d
+
+
+def test_9_999_sotilgach_qoldiq_aynan_0_001(seeded, client):
+    """⚠️ REGRESSIYA QULFI: 10 - 9.999 AYNAN 0.001 bo'lsin.
+
+    Tuzatishdan oldin 0.0009999999999994458 chiqardi va keyingi 0.001 lik
+    sotuv NOTO'G'RI bloklanardi (kassir "mavjud 0.001" ni ko'rib turib
+    sota olmasdi).
+    """
+    db = seeded
+    db.query(Inventory).filter(Inventory.product_id == 1).first().quantity = 10.0
+    db.commit()
+
+    h = _h(client)
+    _sot_tola(client, h, 9.999)
+    assert _qol(db) == 0.001, f"axlat qoldi: {_qol(db)!r}"
+
+
+def test_qoldiq_0_001_ni_sotib_bolinadi(seeded, client):
+    """9.999 dan keyin qolgan 1 grammni sotib bo'ladi, qoldiq aynan 0."""
+    db = seeded
+    db.query(Inventory).filter(Inventory.product_id == 1).first().quantity = 10.0
+    db.commit()
+
+    h = _h(client)
+    _sot_tola(client, h, 9.999)
+    _sot_tola(client, h, 0.001)
+    assert _qol(db) == 0.0, f"qoldiq: {_qol(db)!r}"
+
+
+def test_0_1_kg_50_marta_axlat_yoq(seeded, client):
+    """50 ta ketma-ket kasrli sotuvdan keyin qoldiq ANIQ bo'lsin."""
+    h = _h(client)
+    for _ in range(50):
+        _sot_tola(client, h, 0.1)
+    # 50 - 5.0 = 45.0
+    assert _qol(seeded) == 45.0, f"axlat qoldi: {_qol(seeded)!r}"
+
+
+def test_butun_100_sotuv_qoldiq_aniq_butun(seeded, client):
+    """Donali mahsulot: 100 ta sotuvdan keyin qoldiq aniq butun son."""
+    h = _h(client)
+    for _ in range(100):
+        _sot_tola(client, h, 1, pid=2)     # non, ombor 100
+    assert _qol(seeded, 2) == 0.0, f"qoldiq: {_qol(seeded, 2)!r}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6) GOLDEN — dopusk HAQIQIY oversell'ni o'tkazib yubormasin
+# ══════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.parametrize("qty", [10.001, 11, 100, 10.01, 50.5])
+def test_haqiqiy_oversell_hali_ham_bloklanadi(seeded, client, qty):
+    """⚠️ ENG MUHIM: 1e-6 dopusk faqat suzuvchi nuqta axlatini kechiradi.
+
+    Jonli mijozlarda (FAZZA, 1001 BARAKA) `block_oversell=true` — bu
+    qo'riqchi ishlashda davom etishi SHART.
+    """
+    db = seeded
+    cafe = db.query(Cafe).get(1)
+    cafe.block_oversell = True
+    inv = db.query(Inventory).filter(Inventory.product_id == 1).first()
+    inv.quantity = 10.0
+    db.commit()
+
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 1, "quantity": qty}])
+    assert r.status_code in (400, 409), f"OVERSELL O'TIB KETDI: {r.status_code} {r.text}"
+    assert "yo'q" in r.text.lower() or "yetarli" in r.text.lower()
+
+
+def test_dopusk_chegarasida_haqiqiy_qoldiq_sotiladi(seeded, client):
+    """block_oversell=true da AYNAN qoldiqcha sotuv o'tishi kerak."""
+    db = seeded
+    db.query(Cafe).get(1).block_oversell = True
+    inv = db.query(Inventory).filter(Inventory.product_id == 1).first()
+    inv.quantity = 10.0
+    db.commit()
+
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 1, "quantity": 10.0}])
+    assert r.status_code == 200, r.text
+
+
+def test_eski_axlatli_qoldiq_dopusk_bilan_sotiladi(seeded, client):
+    """Tuzatishdan OLDIN yozilgan axlatli qoldiq (0.0009999...) uchun dopusk.
+
+    Ildiz tuzatildi, lekin prodda allaqachon axlat to'plangan qatorlar
+    bo'lishi mumkin — ular bloklanib qolmasin.
+    """
+    db = seeded
+    db.query(Cafe).get(1).block_oversell = True
+    inv = db.query(Inventory).filter(Inventory.product_id == 1).first()
+    inv.quantity = 0.0009999999999994458      # xuddi jonli holatdagidek
+    db.commit()
+
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 1, "quantity": 0.001}])
+    assert r.status_code == 200, f"axlatli qoldiq bloklandi: {r.text}"
+
 
 def test_chek_kasrni_togri_korsatadi(seeded, client):
     """`_qtyNum` (receipt-print.js) mantig'i: 0.740 -> "0.74", 3 -> "3"."""

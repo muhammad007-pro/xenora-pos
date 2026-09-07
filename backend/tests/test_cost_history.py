@@ -18,6 +18,7 @@ Ishga tushirish:
 import asyncio
 import os
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -29,7 +30,8 @@ from sqlalchemy.pool import StaticPool
 from database import Base
 from models import Cafe, Category, Inventory, PriceHistory, Product
 from routers.price_history import (
-    REASON_MANUAL, REASON_RECIPE, REASON_STOCK_IN, record_price_change,
+    REASON_MANUAL, REASON_RECEIPT, REASON_RECIPE, REASON_STOCK_IN,
+    record_price_change,
 )
 from schemas import StockInCreate
 
@@ -244,3 +246,125 @@ def test_kirim_natijasi_ozgarmadi(db):
     assert inv.quantity == 12          # 2 + 10
     assert db.query(Product).get(1).cost_price == 7500.0
     assert len(_hist(db)) == 1
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 5) KO'RISH TOMONI — GET /price-history/ filtrlari va yorliqlar
+# ══════════════════════════════════════════════════════════════════════════════
+
+@pytest.fixture()
+def api(db):
+    """TestClient + `view_reports` ruxsatli admin (A) va begona tenant (B)."""
+    from fastapi.testclient import TestClient
+    from core.security import get_password_hash
+    from database import get_db
+    from main import app
+    from models import Permission, Role, User
+
+    p_rep = Permission(code="view_reports", description="Hisobotlar")
+    db.add(p_rep)
+    db.flush()
+    r_admin = Role(name="admin", description="Administrator")
+    r_admin.permissions = [p_rep]
+    db.add(r_admin)
+    db.flush()
+
+    _seed(db, cost=7000.0, price=10000.0, tenant_id=1, pid=1, inv_id=1)
+    _seed(db, cost=5000.0, price=9000.0, tenant_id=2, pid=2, inv_id=2)
+
+    db.add(User(username="a", email="a@x.uz", full_name="Admin A",
+                phone="+998900000001", hashed_password=get_password_hash("AdminAlfa9x"),
+                is_active=True, is_superuser=False, tenant_id=1, role_id=r_admin.id))
+    db.add(User(username="b", email="b@x.uz", full_name="Admin B",
+                phone="+998900000002", hashed_password=get_password_hash("AdminBeta7y"),
+                is_active=True, is_superuser=False, tenant_id=2, role_id=r_admin.id))
+    db.commit()
+
+    def _override():
+        yield db
+    app.dependency_overrides[get_db] = _override
+    with TestClient(app) as c:
+        yield c, db
+    app.dependency_overrides.clear()
+
+
+def _tok(c, phone, pw):
+    r = c.post("/api/v1/auth/login", data={"username": phone, "password": pw})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+def _yozuv(db, tenant_id, pid, reason, old_cost, new_cost):
+    p = db.query(Product).get(pid)
+    record_price_change(db, tenant_id, p, None, new_cost, 1, reason)
+    p.cost_price = new_cost
+    db.commit()
+
+
+def test_endpoint_reason_filtri_va_yorlig(api):
+    """`reason` filtri ishlaydi va javobda inson o'qiydigan yorliq keladi."""
+    c, db = api
+    _yozuv(db, 1, 1, REASON_STOCK_IN, 7000.0, 7500.0)
+    _yozuv(db, 1, 1, REASON_MANUAL, 7500.0, 7800.0)
+
+    h = _tok(c, "+998900000001", "AdminAlfa9x")
+
+    hammasi = c.get("/api/v1/price-history/", headers=h).json()
+    assert hammasi["total"] == 2
+
+    faqat = c.get("/api/v1/price-history/?reason=stock_in", headers=h).json()
+    assert faqat["total"] == 1
+    r = faqat["items"][0]
+    assert r["reason"] == "stock_in"
+    assert r["reason_label"] == "Ombor kirimi"
+    assert r["old_cost"] == 7000.0 and r["new_cost"] == 7500.0
+
+
+def test_endpoint_eng_yangisi_tepada(api):
+    """Saralash created_at DESC."""
+    c, db = api
+    _yozuv(db, 1, 1, REASON_STOCK_IN, 7000.0, 7500.0)
+    _yozuv(db, 1, 1, REASON_RECEIPT, 7500.0, 7900.0)
+
+    h = _tok(c, "+998900000001", "AdminAlfa9x")
+    items = c.get("/api/v1/price-history/", headers=h).json()["items"]
+    assert items[0]["new_cost"] == 7900.0      # oxirgi o'zgarish birinchi
+    assert items[0]["reason_label"] == "Priyomka"
+
+
+def test_endpoint_bugungi_yozuv_date_to_ga_kiradi(api):
+    """`date_to=bugun` bugungi yozuvni KESIB TASHLAMASIN (kun oxirigacha)."""
+    c, db = api
+    _yozuv(db, 1, 1, REASON_STOCK_IN, 7000.0, 7500.0)
+
+    h = _tok(c, "+998900000001", "AdminAlfa9x")
+    bugun = datetime.utcnow().date().isoformat()
+    res = c.get(f"/api/v1/price-history/?date_from={bugun}&date_to={bugun}", headers=h).json()
+    assert res["total"] == 1, "bugungi yozuv filtrdan tushib qoldi"
+
+
+def test_endpoint_buzuq_sana_400(api):
+    """Buzuq sana 500 emas, 400 bersin."""
+    c, db = api
+    h = _tok(c, "+998900000001", "AdminAlfa9x")
+    r = c.get("/api/v1/price-history/?date_from=07-09-2026", headers=h)
+    assert r.status_code == 400
+
+
+def test_endpoint_tenant_izolyatsiyasi(api):
+    """B tenant A ning narx tarixini KO'RMASIN."""
+    c, db = api
+    _yozuv(db, 1, 1, REASON_STOCK_IN, 7000.0, 7500.0)
+    _yozuv(db, 2, 2, REASON_STOCK_IN, 5000.0, 5500.0)
+
+    ha = _tok(c, "+998900000001", "AdminAlfa9x")
+    hb = _tok(c, "+998900000002", "AdminBeta7y")
+
+    a = c.get("/api/v1/price-history/", headers=ha).json()
+    b = c.get("/api/v1/price-history/", headers=hb).json()
+    assert a["total"] == 1 and b["total"] == 1
+    assert a["items"][0]["product_id"] == 1
+    assert b["items"][0]["product_id"] == 2
+    # B ning bitta mahsulot endpointi ham A ning yozuvini bermasin
+    bitta = c.get("/api/v1/price-history/product/1", headers=hb).json()
+    assert bitta == []

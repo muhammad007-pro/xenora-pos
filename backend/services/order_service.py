@@ -303,7 +303,10 @@ class OrderService:
                 unit_price = float(ov)
                 # unit_cost TEGILMAYDI — tan narx o'zgarmaydi, foyda to'g'ri oshadi.
 
-            total_price = unit_price * item.quantity
+            # Kasrli miqdorda `narx × miqdor` uzun dum berishi mumkin
+            # (17000 × 0.740 = 12579.999...). Qator summasi tiyingacha
+            # yaxlitlanadi — chek va hisobot mos kelsin.
+            total_price = round(unit_price * item.quantity, 2)
             total_amount += total_price
             items_data.append({
                 "product_id": product.id,
@@ -500,24 +503,28 @@ class OrderService:
         
         return order
     
-    def add_item(self, order_id: int, product_id: int, quantity: int, notes: Optional[str] = None) -> Optional[Order]:
-        """Buyurtmaga mahsulot qo'shish"""
+    def add_item(self, order_id: int, product_id: int, quantity: float, notes: Optional[str] = None) -> Optional[Order]:
+        """Buyurtmaga mahsulot qo'shish (miqdor kasrli bo'lishi mumkin — tarozi)"""
         order = self.db.query(Order).filter(Order.id == order_id).first()
         if not order:
             return None
-        
+
         product = self.db.query(Product).filter(Product.id == product_id).first()
         if not product:
             return None
-        
+
+        quantity = round(float(quantity), 3)    # tarozi aniqligi (1 gramm)
+
         # Mavjud elementni tekshirish
         existing_item = self.db.query(OrderItem).filter(
             OrderItem.order_id == order_id,
             OrderItem.product_id == product_id
         ).first()
-        
+
         if existing_item:
-            existing_item.quantity += quantity
+            # Kasrlarni qo'shganda suzuvchi nuqta xatosi to'planmasin
+            # (0.1 + 0.2 = 0.30000000000000004).
+            existing_item.quantity = round(existing_item.quantity + quantity, 3)
             existing_item.total_price = existing_item.unit_price * existing_item.quantity
         else:
             order_item = OrderItem(

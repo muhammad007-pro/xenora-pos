@@ -661,6 +661,45 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
 // ─── Weight / tarozi modal ────────────────────────────────────────────────────
 let _weightProduct = null;
 
+// Kiritish rejimi: 'qty' — og'irlik (kg/g/ml), 'sum' — summa (so'm).
+// Savatga HAR DOIM og'irlik yoziladi; 'sum' faqat kiritish qulayligi
+// (mijoz "5000 so'mlik ber" deydi, kassir bo'lib o'tirmasin).
+let _weightMode = 'qty';
+
+/** 'sum' rejimida terilgan summadan og'irlik: summa / birlik_narx, 3 xona. */
+function _weightFromSum(sum) {
+  const price = Number(_weightProduct?.price) || 0;
+  if (!(price > 0) || !(sum > 0)) return 0;
+  return Math.round((sum / price) * 1000) / 1000;
+}
+
+/** Ekrandagi qiymatdan HAQIQIY og'irlik (ikkala rejimda ham). */
+function _currentWeight() {
+  const raw = parseFloat(document.getElementById('weightInput').value) || 0;
+  return _weightMode === 'sum' ? _weightFromSum(raw) : raw;
+}
+
+function _setWeightMode(mode) {
+  _weightMode = mode === 'sum' ? 'sum' : 'qty';
+  const unit = _weightProduct?.sale_unit || 'kg';
+  document.getElementById('wModeQty')?.classList.toggle('active', _weightMode === 'qty');
+  document.getElementById('wModeSum')?.classList.toggle('active', _weightMode === 'sum');
+  document.getElementById('weightUnitLbl').textContent = _weightMode === 'sum' ? 'UZS' : unit;
+  const inp = document.getElementById('weightInput');
+  if (inp) {
+    // Summa butun so'mda teriladi, og'irlik esa 0.001 qadam bilan
+    inp.step        = _weightMode === 'sum' ? '100' : '0.001';
+    inp.min         = _weightMode === 'sum' ? '1'   : '0.001';
+    inp.placeholder = _weightMode === 'sum' ? '5000' : '0.000';
+    inp.value = '';
+    inp.focus();
+  }
+  // Presetlar faqat og'irlik rejimida mantiqiy
+  const pres = document.getElementById('weightPresets');
+  if (pres) pres.style.display = _weightMode === 'sum' ? 'none' : '';
+  updateWeightPreview();
+}
+
 function showWeightModal(product) {
   _weightProduct = product;
   document.getElementById('weightProdName').textContent = product.name;
@@ -668,6 +707,7 @@ function showWeightModal(product) {
   document.getElementById('weightUnitLbl').textContent   = product.sale_unit;
   document.getElementById('weightInput').value           = '';
   document.getElementById('weightTotalAmt').textContent  = '0 UZS';
+  _setWeightMode('qty');   // har ochilishda og'irlik rejimi (mavjud xulq)
 
   // Preset tugmalari: ml (atir #20) / gram / kg uchun boshqacha
   const presets = product.sale_unit === 'ml'
@@ -691,18 +731,36 @@ function showWeightModal(product) {
 }
 
 function updateWeightPreview() {
-  const w = parseFloat(document.getElementById('weightInput').value) || 0;
+  const w = _currentWeight();
+  const unit = _weightProduct?.sale_unit || 'kg';
   const total = (_weightProduct?.price || 0) * w;
   document.getElementById('weightTotalAmt').textContent = fmt(total);
+
+  // 'sum' rejimida hisoblangan og'irlikni ko'rsatamiz — kassir nima
+  // tortayotganini ko'rib tursin.
+  const hint = document.getElementById('weightCalcHint');
+  if (hint) {
+    if (_weightMode === 'sum' && w > 0) {
+      hint.textContent = `≈ ${w} ${unit}`;
+      hint.style.display = '';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
 }
 
 document.getElementById('weightInput')?.addEventListener('input', updateWeightPreview);
+document.getElementById('wModeQty')?.addEventListener('click', () => _setWeightMode('qty'));
+document.getElementById('wModeSum')?.addEventListener('click', () => _setWeightMode('sum'));
 
 document.getElementById('confirmWeightBtn')?.addEventListener('click', () => {
-  const w = parseFloat(document.getElementById('weightInput').value);
-  if (!w || w <= 0) { toast('Og\'irlikni kiriting', 'warning'); return; }
+  const w = _currentWeight();
+  if (!w || w <= 0) {
+    toast(_weightMode === 'sum' ? 'Summani kiriting' : 'Og\'irlikni kiriting', 'warning');
+    return;
+  }
   closeModal('weightModal');
-  doAddToCart(_weightProduct, [], w);
+  doAddToCart(_weightProduct, [], w);   // savatga HAR DOIM og'irlik
   toast(`${_weightProduct.name} — ${w} ${_weightProduct.sale_unit} qo'shildi`, 'success');
 });
 

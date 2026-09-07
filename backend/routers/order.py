@@ -228,7 +228,7 @@ async def update_order(
 async def add_item_to_order(
     order_id: int,
     product_id: int,
-    quantity: int = 1,
+    quantity: float = Query(1, gt=0),   # kasrli bo'lishi mumkin (tarozi: 0.740)
     notes: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)

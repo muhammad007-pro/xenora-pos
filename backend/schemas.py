@@ -349,7 +349,10 @@ class TableInDB(TableBase):
 # ============== Order Schemas ==============
 class OrderItemCreate(BaseModel):
     product_id: int
-    quantity: int = Field(gt=0)
+    # KASRLI MIQDOR (2026-09-07): tarozi mahsuloti — 0.740 kg. Avval `int` edi
+    # va og'irlik sotuvi API chegarasida 422 bilan rad etilardi.
+    # `gt=0` — nol va manfiy miqdor o'tmaydi (422).
+    quantity: float = Field(gt=0)
     notes: Optional[str] = None
     # BOSQICH B3 (pachka/dona): client FAQAT sotilgan birlikni yuboradi ("pachka"|"dona"|None).
     # unit_price/base_qty SERVERDA product'dan hisoblanadi (client narxiga ishonilmaydi).
@@ -361,8 +364,23 @@ class OrderItemCreate(BaseModel):
     # narxni o'zi uchun ARZONLASHTIRA OLMAYDI.
     unit_price_override: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
 
+    @field_validator("quantity")
+    @classmethod
+    def _yaxlitla(cls, v: float) -> float:
+        """Miqdor 3 xonagacha — tarozi aniqligi (1 gramm) yetarli.
+
+        Nega kerak: tarozi yoki "summa bo'yicha" hisob 0.7405882... kabi uzun
+        kasr berishi mumkin. Yaxlitlamasak, chekda va hisobotda ma'nosiz uzun
+        son chiqadi, `total = narx × miqdor` esa tiyingacha mos kelmaydi.
+        3 xona = 1 gramm (0.001 kg) — savdo uchun yetarli aniqlik.
+
+        ⚠️ BUTUN MIQDOR TEGILMAYDI: round(3, 3) == 3.0, ya'ni donali sotuv
+        natijasi bit-bitiga o'zgarishsiz qoladi.
+        """
+        return round(float(v), 3)
+
 class OrderItemUpdate(BaseModel):
-    quantity: Optional[int] = Field(None, gt=0)
+    quantity: Optional[float] = Field(None, gt=0)
     notes: Optional[str] = None
     status: Optional[str] = None
 
@@ -370,7 +388,9 @@ class OrderItemInDB(BaseModel):
     id: int
     product_id: int
     product_name: str
-    quantity: int
+    # ⚠️ O'QISHDA HAM float bo'lishi SHART — aks holda kasrli miqdorli
+    # buyurtmani qaytarishda javob validatsiyasi yiqilardi (500).
+    quantity: float
     unit_price: float
     total_price: float
     notes: Optional[str] = None
@@ -822,7 +842,9 @@ class KitchenOrderItem(BaseModel):
     id: int
     product_id: int
     product_name: str
-    quantity: int
+    # Oshxona ekrani ham kasrni ko'rsatishi kerak (0.740 kg go'sht) — aks holda
+    # kasrli qatorli buyurtmada javob validatsiyasi yiqilardi.
+    quantity: float
     notes: Optional[str] = None
     status: str
 

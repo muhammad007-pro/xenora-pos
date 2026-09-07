@@ -33,6 +33,7 @@ from deps import (
     has_permission, apply_tenant_filter, apply_branch_filter,
     user_has_permission,
 )
+from routers.price_history import record_price_change, REASON_STOCK_IN
 
 router = APIRouter()
 
@@ -440,6 +441,13 @@ async def add_stock(
             Product.tenant_id == inv.tenant_id,
         ).first()
         if product:
+            # TARIX (2026-09-07): o'zgarishdan OLDIN yoziladi — funksiya eski
+            # qiymatni `product.cost_price` dan o'qiydi va tan narx HAQIQATAN
+            # o'zgarmagan bo'lsa hech narsa qo'shmaydi. Sotuv narxi bu yerda
+            # o'zgarmaydi. Commit yo'q — quyidagi umumiy commit bilan birga
+            # ketadi (kirim va tarixi ajralmasin).
+            record_price_change(db, inv.tenant_id, product, None, data.unit_cost,
+                                getattr(current_user, "id", None), REASON_STOCK_IN)
             product.cost_price = data.unit_cost
 
     # B2 TUZATISH — ikki parallel qarz daftari yo'q qilindi.

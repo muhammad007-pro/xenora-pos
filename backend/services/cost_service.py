@@ -7,6 +7,8 @@ Mahsulot tan narxi ikki xil aniqlanadi:
       retsept birligi boshqa bo'lsa unit_converter orqali moslashtiriladi)
   2) Tayyor mahsulot (suv, cola...) — products.cost_price qo'lda kiritilgan qiymat
 """
+from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from models import Product, Recipe, RecipeItem
@@ -59,11 +61,18 @@ def get_product_cost(db: Session, product_id: int) -> float:
     return product.cost_price or 0.0 if product else 0.0
 
 
-def sync_product_cost_from_recipe(db: Session, product_id: int) -> float:
+def sync_product_cost_from_recipe(db: Session, product_id: int,
+                                  changed_by: Optional[int] = None) -> float:
     """
     Retseptdan hisoblangan tan narxni products.cost_price ga yozib qo'yadi
     (retsept yaratilganda/yangilanganda chaqiriladi). Hisoblangan qiymatni qaytaradi.
     Chaqiruvchi o'zi db.commit() qilishi kerak.
+
+    ⚠️ 2026-09-07: tan narx o'zgarishi endi `price_history` ga ham yoziladi
+    (`reason='recipe'`). `changed_by` — retseptni tahrirlagan foydalanuvchi;
+    berilmasa None (ustun nullable). Sotuv narxi bu yerda O'ZGARMAYDI.
+    Import funksiya ichida — `routers.price_history` modellarni import qiladi,
+    modul darajasida bo'lsa aylanma import xavfi bor.
     """
     recipe = db.query(Recipe).filter(Recipe.product_id == product_id).first()
     if not recipe:
@@ -73,5 +82,8 @@ def sync_product_cost_from_recipe(db: Session, product_id: int) -> float:
     if cost > 0:
         product = db.query(Product).filter(Product.id == product_id).first()
         if product:
+            from routers.price_history import record_price_change, REASON_RECIPE
+            record_price_change(db, product.tenant_id, product, None, cost,
+                                changed_by, REASON_RECIPE)
             product.cost_price = cost
     return cost

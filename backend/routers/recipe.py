@@ -151,7 +151,7 @@ async def create_recipe(
     # BOSQICH 15: tan narxni ingredientlardan avtomatik hisoblab mahsulotga yozish
     from services.cost_service import sync_product_cost_from_recipe
     db.flush()
-    cost = sync_product_cost_from_recipe(db, product_id)
+    cost = sync_product_cost_from_recipe(db, product_id, changed_by=current_user.id)
 
     db.commit()
     db.refresh(recipe)
@@ -198,7 +198,7 @@ async def update_recipe(
     # BOSQICH 15: tan narxni qayta hisoblash
     from services.cost_service import sync_product_cost_from_recipe
     db.flush()
-    sync_product_cost_from_recipe(db, recipe.product_id)
+    sync_product_cost_from_recipe(db, recipe.product_id, changed_by=current_user.id)
 
     db.commit()
 

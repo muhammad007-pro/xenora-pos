@@ -16,6 +16,7 @@ from schemas import (
     PaginatedResponse, MessageResponse,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+from routers.price_history import record_price_change, REASON_RECEIPT
 
 router = APIRouter()
 
@@ -237,6 +238,13 @@ async def confirm_receipt(
                 Product.tenant_id == tid,
             ).first()
             if product:
+                # TARIX: o'zgarishdan OLDIN yozamiz — `record_price_change`
+                # eski qiymatni `product.cost_price` dan o'qiydi. Sotuv narxi
+                # bu yerda o'zgarmaydi (new_price=None → joriy narx yoziladi).
+                # Commit qilinmaydi: quyidagi yagona `db.commit()` kirim bilan
+                # tarixni BIRGA saqlaydi.
+                record_price_change(db, tid, product, None, it.unit_price,
+                                    current_user.id, REASON_RECEIPT)
                 product.cost_price = it.unit_price
 
         # Partiya (ProductBatch) — FAQAT expiry bo'lsa. Inventory'ni IKKINCHI marta oshirmaydi.

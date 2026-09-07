@@ -52,24 +52,71 @@ async def get_price_history(
     return {"items": [_hist_dict(r) for r in rows], "total": total}
 
 
+# `reason` uchun standart qiymatlar — tarixda "narx nega o'zgardi" degan savolga
+# javob shu ustundan o'qiladi. Qo'lda tahrirlashda foydalanuvchi o'z matnini
+# yozishi mumkin, qolgan to'rttasi AVTOMATIK oqimlar.
+REASON_MANUAL = "manual"            # qo'lda tahrirlash (PATCH /products/{id})
+REASON_STOCK_IN = "stock_in"        # ombor kirimi
+REASON_RECEIPT = "receipt"          # priyomka tasdiqlash
+REASON_AI_WAREHOUSE = "ai_warehouse"  # AI-ombor (rasmdan o'qish)
+REASON_RECIPE = "recipe"            # retseptdan avtomatik hisob
+
+
 def record_price_change(
     db: Session,
-    tenant_id: int,
+    tenant_id: Optional[int],
     product: Product,
-    new_price: float,
+    new_price: Optional[float],
     new_cost: Optional[float],
-    changed_by: int,
-    reason: Optional[str] = None,
+    changed_by: Optional[int],
+    reason: str,
 ):
-    """Narx o'zgarganda chaqiriladi (product routerdan)"""
-    if product.price == new_price and product.cost_price == new_cost:
+    """Sotuv narxi YOKI tan narx o'zgarganda tarixga yozadi.
+
+    ⚠️ 2026-09-07 TUZATISH — ikkita nuqson birga tuzatildi:
+
+      1) Bu funksiyani FAQAT `routers/product.py` (qo'lda tahrirlash) chaqirardi.
+         Tan narxni avtomatik o'zgartiradigan to'rt yo'l — ombor kirimi,
+         priyomka, AI-ombor, retseptdan hisob — umuman chaqirmasdi. Prod
+         o'lchovi: tan narxi kirim orqali o'zgargan 60 ta mahsulotdan atigi
+         4 tasining tarixda izi bor edi. Endi beshalasi ham shu yerdan o'tadi.
+
+      2) Shart `new_price` ni ham talab qilardi, ya'ni "faqat tan narx
+         o'zgardi" holati yozilmay qolardi. Endi IKKALASI teng bo'lsagina
+         chiqib ketiladi.
+
+    `new_price=None` — "sotuv narxi o'zgarmaydi" degani. Ustun NOT NULL
+    bo'lgani uchun old_price va new_price ikkalasiga ham JORIY narx yoziladi
+    (None emas — aks holda INSERT yiqilardi).
+
+    ⚠️ COMMIT QILMAYDI — faqat `db.add()`. Chaqiruvchi o'z tranzaksiyasida
+    commit qiladi, shunda kirim va uning tarixi BIRGA saqlanadi yoki BIRGA
+    bekor bo'ladi (yarim holat bo'lmaydi).
+
+    `changed_by` — o'zgarishni boshlagan foydalanuvchi; noma'lum bo'lsa None
+    (ustun nullable).
+    """
+    joriy_narx = product.price
+    joriy_tan = product.cost_price
+
+    # Sotuv narxi uzatilmagan bo'lsa — o'zgarmaydi.
+    if new_price is None:
+        new_price = joriy_narx
+    # Tan narx uzatilmagan bo'lsa — o'zgarmaydi.
+    if new_cost is None:
+        new_cost = joriy_tan
+
+    # IKKALASI ham teng bo'lsagina chiqib ketamiz. Ya'ni faqat tan narx
+    # o'zgargan holat ham yoziladi (eski shart aynan shuni bloklardi).
+    if joriy_narx == new_price and joriy_tan == new_cost:
         return
+
     ph = PriceHistory(
         tenant_id=tenant_id,
         product_id=product.id,
-        old_price=product.price,
+        old_price=joriy_narx,
         new_price=new_price,
-        old_cost=product.cost_price,
+        old_cost=joriy_tan,
         new_cost=new_cost,
         reason=reason,
         changed_by=changed_by,

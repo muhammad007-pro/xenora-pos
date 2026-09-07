@@ -220,6 +220,48 @@ def test_nol_va_manfiy_422(seeded, client, q):
     assert _sotuv(client, h, [{"product_id": 1, "quantity": q}]).status_code == 422
 
 
+@pytest.mark.parametrize("q", [0.0001, 0.0004, 0.00049])
+def test_yaxlitlanib_nolga_tushadigan_miqdor_422(seeded, client, q):
+    """⚠️ REGRESSIYA QULFI (2026-09-07 E2E sinovida topilgan nuqson).
+
+    `Field(gt=0)` yaxlitlashdan OLDIN ishlaydi, ya'ni 0.0001 undan o'tib
+    ketardi va keyin 3 xonagacha yaxlitlanib 0.0 bo'lib qolardi. Natija:
+    miqdori NOL, summasi NOL buyurtma qatori — ombordan hech narsa
+    ayrilmaydi, lekin buyurtma yaratiladi. Endi tekshiruv yaxlitlashdan
+    KEYIN ham takrorlanadi.
+    """
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 1, "quantity": q}])
+    assert r.status_code == 422, r.text
+    assert "juda kichik" in r.text
+
+
+def test_eng_kichik_miqdor_0_001_qabul(seeded, client):
+    """1 gramm — eng kichik sotiladigan miqdor, o'tishi kerak."""
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 1, "quantity": 0.001}])
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["items"][0]["quantity"] == 0.001
+    assert d["total_amount"] == pytest.approx(17.0, abs=0.01)
+
+
+def test_yarim_gramm_bir_grammga_yaxlitlanadi(seeded, client):
+    """TANLANGAN XULQ: 0.0005 -> 0.001 (yarim gramm YUQORIGA yaxlitlanadi).
+
+    Python `round(0.0005, 3) == 0.001`. Ya'ni chegara aynan shu yerda:
+    0.0005 va undan katta -> 1 gramm bo'lib QABUL qilinadi,
+    0.0004 va undan kichik -> nolga tushadi va RAD ETILADI.
+    Rad etishni tanlamadik, chunki tarozi 0.0005 bergan holat real
+    (yaxlitlash xatosi) va uni "juda kichik" deb qaytarish kassirni
+    chalg'itardi — 1 grammga yaxlitlash zarari yo'q.
+    """
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 1, "quantity": 0.0005}])
+    assert r.status_code == 200, r.text
+    assert r.json()["items"][0]["quantity"] == 0.001
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 3) GOLDEN — mavjud sotuvlar bit-bitiga o'zgarmasin
 # ══════════════════════════════════════════════════════════════════════════════

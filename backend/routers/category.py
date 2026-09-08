@@ -1,4 +1,5 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
@@ -61,7 +62,13 @@ async def create_category(
     current_user: User = Depends(has_permission("manage_menu"))
 ):
     """Yangi kategoriya yaratish"""
-    existing = db.query(Category).filter(Category.name == category_data.name).first()
+    # TENANT: takrorlanish FAQAT o'z do'koni ichida tekshiriladi. Ilgari bu so'rov
+    # filtrsiz edi — boshqa do'kon band qilgan nom hammaga to'sib qo'yardi
+    # (masalan FAZZA "UMUMIY" yaratsa, 1001 BARAKA o'sha nomni ishlata olmasdi).
+    # REGISTR: "Umumiy" va "UMUMIY" bir xil nom hisoblanadi — aks holda bitta
+    # do'konda faqat harf registri bilan farq qiluvchi dublikatlar paydo bo'ladi.
+    existing = apply_tenant_filter(db.query(Category), Category, current_user) \
+        .filter(func.lower(Category.name) == func.lower(category_data.name)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Bu nomdagi kategoriya mavjud")
     

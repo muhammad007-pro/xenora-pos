@@ -142,8 +142,11 @@ async def create_product(
     current_user: User = Depends(has_permission("manage_menu"))
 ):
     """Yangi mahsulot yaratish"""
-    # Kategoriya tekshirish
-    category = db.query(Category).filter(Category.id == product_data.category_id).first()
+    # Kategoriya tekshirish — FAQAT o'z do'koni ichida (bulk_set_category va
+    # AI-ombor allaqachon shunday qiladi). Filtrsiz bo'lsa mahsulotni boshqa
+    # do'konning kategoriyasiga biriktirib yuborish mumkin edi.
+    category = apply_tenant_filter(db.query(Category), Category, current_user) \
+        .filter(Category.id == product_data.category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Kategoriya topilmadi")
     

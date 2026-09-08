@@ -15,7 +15,7 @@ from models import (
 from schemas import ProductCreate, ProductUpdate, ProductInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
 from config import settings
-from routers.price_history import record_price_change
+from routers.price_history import record_price_change, REASON_MANUAL
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 from core.barcode import gen_internal_barcode  # ichki EAN-13 (AI-Ombor bilan AYNI generator)
 from core.catalog import record_candidate, is_shareable_barcode  # umumiy katalog
@@ -425,8 +425,12 @@ async def update_product(
     new_cost  = update_data.get("cost_price", product.cost_price)
     if new_price != product.price or new_cost != product.cost_price:
         tid = resolve_tenant_id(db, current_user)
+        # `reason` endi MAJBURIY. Foydalanuvchi o'z sababini yozgan bo'lsa —
+        # o'shani saqlaymiz (avvalgidek), aks holda 'manual' deb belgilanadi:
+        # shunda tarixda qo'lda tahrirlash avtomatik oqimlardan ajralib turadi.
         record_price_change(db, tid, product, new_price, new_cost,
-                            current_user.id, update_data.get("price_change_reason"))
+                            current_user.id,
+                            update_data.get("price_change_reason") or REASON_MANUAL)
 
     for field, value in update_data.items():
         if field != "price_change_reason":

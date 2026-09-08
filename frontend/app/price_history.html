@@ -202,7 +202,7 @@ window.loadPage = async function(page) {
           <td class="${cls}">${sign}${fmtMoney(Math.abs(diff))}</td>
           <td style="color:var(--text2)">${r.old_cost != null ? fmtMoney(r.old_cost) : '—'}</td>
           <td style="color:var(--text2)">${r.new_cost != null ? fmtMoney(r.new_cost) : '—'}</td>
-          <td><span class="reason-tag" title="${escHtml(r.reason||'')}">${escHtml(r.reason||'—')}</span></td>
+          <td><span class="reason-tag" title="${escHtml(r.reason||'')}">${escHtml(r.reason_label||r.reason||'—')}</span></td>
           <td style="font-size:.8rem;color:var(--text2)">${escHtml(r.changed_by_name||r.changed_by||'—')}</td>
           <td style="font-size:.8rem;white-space:nowrap">${(r.changed_at||r.created_at||'').replace('T',' ').slice(0,16)}</td>
         </tr>`;

@@ -33,6 +33,7 @@ from deps import (
     apply_tenant_filter, get_current_active_user, has_permission, resolve_tenant_id,
 )
 from models import Category, Inventory, Product, StockMovement, User
+from routers.price_history import record_price_change, REASON_AI_WAREHOUSE
 from services import ai_warehouse as ai
 
 logger = logging.getLogger(__name__)
@@ -291,6 +292,15 @@ async def confirm(
                 is_new = False
                 sell = float(product.price or 0)
                 if body.update_existing_price:
+                    # TARIX (2026-09-07): o'zgarishdan OLDIN. Bu yagona
+                    # avtomatik oqim bo'lib, SOTUV narxini ham o'zgartirishi
+                    # mumkin — shuning uchun ikkalasi bir yozuvda ketadi.
+                    yangi_sotuv = (float(it.sell_price)
+                                   if it.sell_price is not None and it.sell_price > 0
+                                   else None)
+                    record_price_change(db, tenant_id, product, yangi_sotuv, cost,
+                                        getattr(current_user, "id", None),
+                                        REASON_AI_WAREHOUSE)
                     product.cost_price = cost
                     if it.sell_price is not None and it.sell_price > 0:
                         sell = float(it.sell_price)

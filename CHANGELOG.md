@@ -3,6 +3,33 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.1] — 2026-09-09 — Kategoriya nomi endi do'konga tegishli (nuqson tuzatish)
+
+Faqat backend tuzatishi — yangi funksiya yo'q, migratsiya yo'q. Mavjud 1.12.0
+`.exe` ishlashda davom etadi (qayta build shart emas).
+
+### Tuzatildi
+- **Kategoriya nomi boshqa do'konni to'sib qo'yardi.** `POST /categories/` dagi
+  takrorlanish tekshiruvi butun bazani ko'rardi (`tenant_id` filtri yo'q edi):
+  bitta do'kon nomni band qilsa, boshqasi o'sha nomni umuman ishlata olmasdi.
+  Jonli isbot: FAZZA "UMUMIY" yaratgan → 1001 BARAKA "UMUMIY mahsulotlar" deb
+  nomlashga majbur bo'lgan. Endi tekshiruv faqat o'z do'koni ichida.
+- **Registr chalkashligi.** Bitta do'konda "Umumiy" va "UMUMIY" ikki alohida
+  kategoriya bo'lardi. Endi ular bir xil nom hisoblanadi (400).
+- **Mahsulotni begona kategoriyaga biriktirish.** `POST /products/` dagi
+  kategoriya qidiruvi ham tenantsiz edi — yopildi (topilmasa 404).
+
+Ma'lumotga zarar yetmagan: audit paytida tenantlararo aralashgan birorta qator
+topilmadi (mahsulot↔kategoriya va ombor↔mahsulot bo'yicha 0 nomuvofiqlik).
+
+### Test
+`backend/tests/test_category_tenant_scope.py` — 10 ta yangi test (tuzatishsiz
+7 tasi yiqiladi). GOLDEN: 468 passed.
+
+### Qolgan ish
+Baza darajasidagi UNIQUE kafolati (`tenant_id` + `lower(name)`) hali yo'q —
+sabablari va shartlari: `docs/ROADMAP-category-uniqueness.md`.
+
 ## [1.12.0] — 2026-09-08 — Tarozi bo'yicha (kg) sotuv + tan narx tarixi
 
 Ikki yo'nalish bitta relizda. Backend 2026-09-08 da prodga deploy qilingan

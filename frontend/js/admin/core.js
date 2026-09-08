@@ -1990,22 +1990,16 @@ async function pmResetForNextEntry() {
     category:  document.getElementById('pmf_category')?.value || '',
     unit:      document.getElementById('pmf_sale_unit')?.value || '',
     available: document.getElementById('pmf_available')?.checked,
-    packPrice: document.getElementById('pmf_pack_price')?.value || '',
-    packSize:  document.getElementById('pmf_pack_size')?.value || '',
   };
 
   editingProductId = null;        // aniqlik uchun: keyingisi ham YANGI mahsulot
-  buildProductModal(null);        // nom/narx/tan narx/barkod/rasm/qoldiq/PLU — tozalanadi
+  // Pachka ham shu yerda tozalanadi — u MAHSULOTGA XOS (har mahsulotning o'z
+  // pachka narxi/dona soni bor), ketma-ket mahsulotlarda takrorlanmaydi.
+  buildProductModal(null);        // nom/narx/tan narx/barkod/rasm/qoldiq/PLU/pachka
 
   // Birlik: `change` MAJBURIY — PLU va pachka bloklari shunga qarab ochiladi/yopiladi
   const uEl = document.getElementById('pmf_sale_unit');
   if (uEl && sticky.unit) { uEl.value = sticky.unit; uEl.dispatchEvent(new Event('change')); }
-
-  // Pachka — `change` dan KEYIN: og'irlik birligida `togglePack` maydonlarni tozalaydi
-  const ppEl = document.getElementById('pmf_pack_price');
-  const psEl = document.getElementById('pmf_pack_size');
-  if (ppEl && sticky.packPrice) ppEl.value = sticky.packPrice;
-  if (psEl && sticky.packSize)  psEl.value = sticky.packSize;
 
   const avEl = document.getElementById('pmf_available');
   if (avEl && sticky.available !== undefined) avEl.checked = sticky.available;

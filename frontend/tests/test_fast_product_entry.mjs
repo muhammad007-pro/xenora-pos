@@ -134,8 +134,10 @@ const browser = await chromium.launch({ headless: true });
   await page.waitForTimeout(250);
   check('A0_oyna_ochildi', await ochiqmi(page), true);
 
-  // ── 1-mahsulot: kategoriya + birlik tanlaymiz ──
+  // ── 1-mahsulot: kategoriya + birlik + pachka to'ldiramiz ──
   await toldir(page, { nom: 'DURU SOVUN', narx: 12000, tan: 9000, kat: 8, birlik: 'pcs' });
+  await page.fill('#pmf_pack_price', '96000');
+  await page.fill('#pmf_pack_size', '8');
   await page.evaluate(() => window.saveProduct());
   await page.waitForTimeout(600);
 
@@ -149,6 +151,9 @@ const browser = await chromium.launch({ headless: true });
   check('A1_kursor_nomda',
         await page.evaluate(() => document.activeElement?.id), 'pmf_name');
   check('A1_boshlangich_qoldiq_tozalandi', await page.inputValue('#pmf_stock'), '');
+  // Pachka MAHSULOTGA XOS — keyingi mahsulotga o'tmasligi kerak
+  check('A1_PACHKA_narxi_tozalandi', await page.inputValue('#pmf_pack_price'), '');
+  check('A1_PACHKA_donasi_tozalandi', await page.inputValue('#pmf_pack_size'), '');
 
   // ── 2 va 3-mahsulot: kategoriya QAYTA tanlanmaydi ──
   await toldir(page, { nom: 'ECLAIR SOVUN', narx: 8000 });
@@ -163,6 +168,9 @@ const browser = await chromium.launch({ headless: true });
   check('A2_KATEGORIYA_adashmadi', posts.map(p => p.category_id), [8, 8, 8]);
   check('A2_birlik_adashmadi',     posts.map(p => p.sale_unit), ['pcs', 'pcs', 'pcs']);
   check('A2_narxlar',              posts.map(p => p.price), [12000, 8000, 9500]);
+  // Birinchisida pachka bor edi — keyingilariga O'TMAGAN bo'lishi shart
+  check('A2_PACHKA_otmadi', posts.map(p => p.pack_price), [96000, null, null]);
+  check('A2_PACHKA_dona_otmadi', posts.map(p => p.pack_size), [8, null, null]);
   check('A2_oyna_hamon_ochiq',     await ochiqmi(page), true);
 
   // ── X tugmasi ishlashda davom etadi ──

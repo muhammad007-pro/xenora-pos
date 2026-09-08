@@ -192,7 +192,14 @@ def _deduct_product_directly(
         return {"success": True, "deducted": [], "warnings": []}
 
     actual = quantity if inventory.quantity >= quantity else inventory.quantity
-    inventory.quantity -= actual
+    # ⚠️ 3 XONAGACHA YAXLITLASH (2026-09-07): kasrli sotuvda ayirish suzuvchi
+    # nuqta axlatini to'plardi — 10 - 9.999 = 0.0009999999999994458 (0.001 emas).
+    # Keyin ombor qo'riqchisi "mavjud 0.001" deb ko'rsatib, aynan 0.001 ni
+    # sotishga RUXSAT BERMASDI. Yaxlitlash — ildiz yechimi: qoldiqda axlat
+    # umuman to'planmaydi.
+    # BUTUN SONGA TA'SIRI YO'Q: round(97.0, 3) == 97.0, ya'ni donali/ml sotuv
+    # natijasi bit-bitiga o'zgarishsiz.
+    inventory.quantity = round(inventory.quantity - actual, 3)
 
     # Ombor harakati (chiqim/sotuv) — qaytarish bilan izchil audit izi.
     product = db.query(Product).filter(Product.id == product_id).first()
@@ -397,7 +404,13 @@ def _restore_product_directly(
     if not inventory:
         return {"success": True, "restored": [], "warnings": []}
 
-    inventory.quantity += quantity
+    # 3 XONAGACHA (2026-09-08): chiqim (202-qator) yaxlitlanadi, tiklash ham
+    # yaxlitlanishi SHART — aks holda sotib-qaytarish tsikli qoldiqqa axlat
+    # qaytarardi (10 -> 9.26 -> 9.999999999999998).
+    # ⚠️ 350-qator (retsept ingredientlari) ATAYLAB TEGILMAGAN: u 6 xonali
+    # aniqlikda ishlaydi (ziravor grammlari) va 3 xonaga yaxlitlash restoran
+    # tenantlarining natijasini o'zgartirardi.
+    inventory.quantity = round(inventory.quantity + quantity, 3)
     product = db.query(Product).filter(Product.id == product_id).first()
     unit_cost = (product.cost_price if product else 0.0) or 0.0
     db.add(StockMovement(

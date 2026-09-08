@@ -235,3 +235,58 @@ Backend deploy qilingan + golden/unit testlardan o'tgan, LEKIN **jonli POS'da ha
 - **Chegirma+aksiya birga:** oddiy #34 chegirma + yangi aksiyalar jonli savatда to'g'ri hisoblanishi (best-only, stacking yo'q) — golden 27/27 kafolat, lekin jonli tasdiq kerak.
 
 **Muhim:** bular **gated/additiv** — eski `.exe` (v1.5.0) yangi backend bilan oddiy sotuvni buzmaydi; yangi funksiyalar faqat v1.6.0 frontend bilan faollashadi.
+
+## 11. Ombor aniqligi va cancel ruxsati (2026-09-08, kasrli sotuv ishidan)
+
+Kasrli (kg) sotuv qo'shilganda ikki nuqson topildi va tuzatildi
+(`feature/weight-sales`): ombor chiqimi/tiklashda suzuvchi nuqta axlati va
+`cancel_order` da ombor himoyasining yo'qligi. Quyidagilar esa **ataylab
+keyinga qoldirildi** — bugun xavf yo'q, lekin qarz sifatida yozib qo'yildi.
+
+### 11.1 Ombor yaxlitlash: 15 joyda `round(..., 3)` yo'q
+
+Yaxlitlash faqat **sotuv chiqimi** va **ikki qaytarish yo'lida** qo'shildi
+(`recipe_inventory_service.py:202` va `:407`, `routers/returns.py:56`).
+Qolgan joylarda `inventory.quantity` yaxlitlanmasdan o'zgaradi:
+
+    routers/inventory.py:427, 509, 545      kirim / chiqim / writeoff
+    routers/purchase_receipts.py:223        priyomka tasdiqlash
+    routers/purchase.py:63                  xarid
+    routers/ai_warehouse.py:349             AI-ombor kirimi
+    routers/waste.py:119                    chiqindi
+    routers/write_offs.py:128               hisobdan chiqarish
+    routers/supplier_returns.py:94, 177     firmaga qaytarish / bekor qilish
+    routers/internal_transfers.py:138, 147  filiallar aro ko'chirish
+    routers/goods_regrade.py:123, 129       qayta saralash
+    services/inventory_service.py:64        adjust_stock
+    recipe_inventory_service.py:121, 350    retsept ingredientlari (6 xona —
+                                            ATAYLAB tegilmagan)
+
+**Bugun xavfsiz:** bu yo'llarga miqdorni ODAM kiritadi (50, 10.5) — kasr
+to'planmaydi. Xavf faqat mashina hisoblagan kasr ketma-ket qo'shilganda
+paydo bo'ladi.
+
+**Qilinishi kerak:** yagona yordamchiga yig'ilsin, masalan
+`core/inventory_math.py: apply_delta(inv, delta)` — har joyda takrorlangan
+`round(..., 3)` o'rniga bitta manba. Shunda yangi yo'l qo'shgan odam
+yaxlitlashni unuta olmaydi.
+
+**Vaqtinchalik himoya:** `services/stock_guard.py:135` dagi `1e-6` dopusk
+eski axlatli qoldiqlarni qoplaydi (`available + 1e-6 < qty`).
+
+### 11.2 `cancel_order` endpointi maxsus ruxsat talab qilmaydi
+
+`POST /orders/{order_id}/cancel` (`routers/order.py:285`) —
+`Depends(get_current_active_user)`, ya'ni **istalgan tizimga kirgan faol
+xodim** (ofitsiant ham) buyurtmani bekor qila oladi. Tenant izolyatsiyasi
+bor, lekin rol tekshiruvi YO'Q.
+
+2026-09-08 da ombor himoyasi qo'shildi (`ingredients_deducted=True` bo'lsa
+400 qaytadi), ya'ni ombor endi buzilmaydi. Ammo **ruxsat masalasi ochiq**:
+to'lanmagan buyurtmani ham har kim bekor qila olishi to'g'rimi?
+Solishtirish uchun: qaytarish (returns) `process_payments` talab qiladi
+(faqat admin/kassir).
+
+**Qilinishi kerak:** `cancel` uchun ham mos permission tanlansin
+(`process_orders` yoki `process_payments`) — POS oqimini buzmasligi
+tekshirilib.

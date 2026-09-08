@@ -233,6 +233,10 @@ a{text-decoration:none;color:inherit}
 .weight-display{text-align:center;padding:1.5rem 0;border-bottom:1px solid var(--border2);margin-bottom:1.25rem}
 .weight-prod-name{font-size:1rem;font-weight:700;margin-bottom:.375rem}
 .weight-price-hint{font-size:.8125rem;color:var(--text2);margin-bottom:1rem}
+.weight-mode-row{display:inline-flex;gap:3px;background:var(--bg4);border-radius:99px;padding:3px;margin-bottom:.875rem}
+.w-mode{padding:.3125rem .875rem;border-radius:99px;font-size:.8125rem;font-weight:600;border:none;background:transparent;color:var(--text2);cursor:pointer;transition:all var(--tr)}
+.w-mode.active{background:var(--bg2);color:var(--gold)}
+.weight-calc-hint{margin-top:.5rem;font-size:.9375rem;font-weight:700;color:var(--gold)}
 .weight-input-row{display:flex;align-items:center;justify-content:center;gap:.75rem}
 #weightInput{width:140px;padding:.625rem .875rem;background:var(--bg3);border:2px solid var(--gold);border-radius:var(--r);color:var(--text);font-size:2rem;font-weight:700;text-align:center;outline:none;font-family:'JetBrains Mono',monospace}
 .weight-unit-lbl{font-size:1.5rem;font-weight:700;color:var(--text2)}
@@ -1155,10 +1159,19 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
       <div class="weight-display">
         <div class="weight-prod-name" id="weightProdName">Mahsulot</div>
         <div class="weight-price-hint" id="weightPriceHint">0 UZS / kg</div>
+        <!-- Kiritish rejimi: og'irlik yoki SUMMA. Mijoz ko'pincha "5000 so'mlik
+             ber" deydi — kassir hisoblab o'tirmasin. Savatga BARIBIR og'irlik
+             yoziladi (yagona manba), summa faqat kiritish usuli. -->
+        <div class="weight-mode-row" id="weightModeRow">
+          <button type="button" class="w-mode active" data-mode="qty" id="wModeQty">Og'irlik</button>
+          <button type="button" class="w-mode" data-mode="sum" id="wModeSum">Summa</button>
+        </div>
         <div class="weight-input-row">
           <input type="number" id="weightInput" placeholder="0.000" step="0.001" min="0.001">
           <span class="weight-unit-lbl" id="weightUnitLbl">kg</span>
         </div>
+        <!-- "Summa" rejimida hisoblangan og'irlik shu yerda ko'rinadi -->
+        <div class="weight-calc-hint" id="weightCalcHint" style="display:none"></div>
         <div class="weight-presets" id="weightPresets">
           <button class="w-preset" data-w="0.1">100g</button>
           <button class="w-preset" data-w="0.25">250g</button>

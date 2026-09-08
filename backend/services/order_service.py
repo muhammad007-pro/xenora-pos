@@ -303,7 +303,10 @@ class OrderService:
                 unit_price = float(ov)
                 # unit_cost TEGILMAYDI — tan narx o'zgarmaydi, foyda to'g'ri oshadi.
 
-            total_price = unit_price * item.quantity
+            # Kasrli miqdorda `narx × miqdor` uzun dum berishi mumkin
+            # (17000 × 0.740 = 12579.999...). Qator summasi tiyingacha
+            # yaxlitlanadi — chek va hisobot mos kelsin.
+            total_price = round(unit_price * item.quantity, 2)
             total_amount += total_price
             items_data.append({
                 "product_id": product.id,
@@ -500,24 +503,28 @@ class OrderService:
         
         return order
     
-    def add_item(self, order_id: int, product_id: int, quantity: int, notes: Optional[str] = None) -> Optional[Order]:
-        """Buyurtmaga mahsulot qo'shish"""
+    def add_item(self, order_id: int, product_id: int, quantity: float, notes: Optional[str] = None) -> Optional[Order]:
+        """Buyurtmaga mahsulot qo'shish (miqdor kasrli bo'lishi mumkin — tarozi)"""
         order = self.db.query(Order).filter(Order.id == order_id).first()
         if not order:
             return None
-        
+
         product = self.db.query(Product).filter(Product.id == product_id).first()
         if not product:
             return None
-        
+
+        quantity = round(float(quantity), 3)    # tarozi aniqligi (1 gramm)
+
         # Mavjud elementni tekshirish
         existing_item = self.db.query(OrderItem).filter(
             OrderItem.order_id == order_id,
             OrderItem.product_id == product_id
         ).first()
-        
+
         if existing_item:
-            existing_item.quantity += quantity
+            # Kasrlarni qo'shganda suzuvchi nuqta xatosi to'planmasin
+            # (0.1 + 0.2 = 0.30000000000000004).
+            existing_item.quantity = round(existing_item.quantity + quantity, 3)
             existing_item.total_price = existing_item.unit_price * existing_item.quantity
         else:
             order_item = OrderItem(
@@ -567,11 +574,35 @@ class OrderService:
         order.final_amount = total - (order.discount_amount or 0)
     
     def cancel_order(self, order_id: int, reason: Optional[str] = None) -> Optional[Order]:
-        """Buyurtmani bekor qilish"""
+        """Buyurtmani bekor qilish.
+
+        ⚠️ OMBORDAN AYRILGAN BUYURTMA BEKOR QILINMAYDI (2026-09-08).
+        Chiqim to'lov paytida bo'ladi (`routers/payment.py:189-194`) va
+        `ingredients_deducted=True` qo'yiladi. Bu funksiya esa omborni
+        TIKLAMAYDI — ya'ni bunday buyurtmani bekor qilish ombor qoldig'ini
+        kamaygan holicha qoldirardi va hech qayerda iz qolmasdi.
+
+        NEGA AVTOMATIK TIKLAMAYMIZ, balki RAD ETAMIZ: tiklash yo'li
+        allaqachon bor (refund — `payment.py:336-347`). Bu yerda ham
+        tiklasak, refund bilan IKKI MARTA tiklanib, ombor oshib ketishi
+        mumkin edi. Rad etish — xavfsizroq va oqim aniq: qaytarish uchun
+        refund ishlatilsin.
+
+        Prod holati (2026-09-08 o'lchovi): 121 ta bekor qilingan
+        buyurtmadan HECH BIRIDA `ingredients_deducted=True` emas —
+        ya'ni bu shart bugungi hech bir oqimni buzmaydi.
+        """
         order = self.db.query(Order).filter(Order.id == order_id).first()
         if not order:
             return None
-        
+
+        if order.ingredients_deducted:
+            raise ValueError(
+                "To'langan buyurtmani bekor qilib bo'lmaydi "
+                "(ombordan mahsulot allaqachon ayrilgan). "
+                "Qaytarish (refund) dan foydalaning."
+            )
+
         order.status = "cancelled"
         if reason:
             order.notes = f"{order.notes or ''}\nBekor qilish sababi: {reason}".strip()

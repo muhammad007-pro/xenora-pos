@@ -132,12 +132,21 @@ def check(db: Session, tenant_id: Optional[int], items_data: List[dict]) -> None
         if inv is None:
             continue                     # ISTISNO 3 (ombor nazorati yo'q / xizmat)
         available = float(inv.quantity or 0)
-        if available < qty:
+        # ⚠️ DOPUSK (2026-09-07): suzuvchi nuqta qoldig'i sabab qoldiq
+        # 0.0009999999999994458 bo'lib qolsa, 0.001 sotuvi NOTO'G'RI bloklanardi
+        # (kassir ekranda "mavjud: 0.001" ni ko'rib turib sota olmasdi).
+        # Ildizi `recipe_inventory_service` da yaxlitlash bilan tuzatildi; bu
+        # dopusk ESKI ma'lumot uchun (allaqachon axlat to'plangan qoldiqlar).
+        # 1e-6 ATAYLAB juda kichik — 1 grammning mingdan biri. Haqiqiy oversell
+        # (10.001, 11, 100) bundan o'tib keta olmaydi.
+        if available + 1e-6 < qty:
             shortages.append({
                 "product_id":   pid,
                 "product_name": names.get(pid, f"#{pid}"),
                 "needed":       qty,
-                "available":    available,
+                # Kassir KO'RGAN raqam sotila oladigan raqam bo'lsin — xom
+                # 0.0009999... emas, 0.001.
+                "available":    round(available, 3),
                 "unit":         inv.unit or "dona",
             })
 

@@ -347,9 +347,42 @@ class TableInDB(TableBase):
         from_attributes = True
 
 # ============== Order Schemas ==============
+# Eng kichik sotiladigan miqdor — 1 gramm (0.001 kg). Tarozi aniqligi shu.
+MIN_QUANTITY = 0.001
+
+
+def _yaxlitla_miqdor(v):
+    """Miqdorni 3 xonagacha yaxlitlaydi va natija NOLGA teng bo'lsa rad etadi.
+
+    ⚠️ TARTIB MUHIM (2026-09-07 da topilgan nuqson): `Field(gt=0)` yaxlitlashdan
+    OLDIN ishlaydi, ya'ni 0.0001 undan bemalol o'tardi va keyin yaxlitlanib
+    0.0 bo'lib qolardi. Natijada bazada miqdori NOL, summasi NOL qator paydo
+    bo'lardi — buyurtma yaratiladi, lekin ombordan hech narsa ayrilmaydi.
+    Shuning uchun tekshiruv YAXLITLASHDAN KEYIN takrorlanadi.
+
+    Chegara xulqi (Python `round` yarim yuqoriga):
+        0.0004 -> 0.0    -> RAD ETILADI (422)
+        0.0005 -> 0.001  -> QABUL (yarim gramm 1 grammga yaxlitlanadi)
+        0.001  -> 0.001  -> QABUL
+        3      -> 3.0    -> QABUL (butun miqdor bit-bitiga o'zgarishsiz)
+    """
+    if v is None:
+        return v
+    yax = round(float(v), 3)
+    if yax < MIN_QUANTITY:
+        raise ValueError(
+            f"Miqdor juda kichik: eng kami {MIN_QUANTITY} "
+            f"(1 gramm). Kiritilgan: {v}"
+        )
+    return yax
+
+
 class OrderItemCreate(BaseModel):
     product_id: int
-    quantity: int = Field(gt=0)
+    # KASRLI MIQDOR (2026-09-07): tarozi mahsuloti — 0.740 kg. Avval `int` edi
+    # va og'irlik sotuvi API chegarasida 422 bilan rad etilardi.
+    # `gt=0` — nol va manfiy miqdor o'tmaydi (422).
+    quantity: float = Field(gt=0)
     notes: Optional[str] = None
     # BOSQICH B3 (pachka/dona): client FAQAT sotilgan birlikni yuboradi ("pachka"|"dona"|None).
     # unit_price/base_qty SERVERDA product'dan hisoblanadi (client narxiga ishonilmaydi).
@@ -361,16 +394,27 @@ class OrderItemCreate(BaseModel):
     # narxni o'zi uchun ARZONLASHTIRA OLMAYDI.
     unit_price_override: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
 
+    # Yaxlitlash + "nolga tushib qolmasin" tekshiruvi — qarang `_yaxlitla_miqdor`.
+    # Tarozi yoki "summa bo'yicha" hisob 0.7405882... kabi uzun kasr berishi
+    # mumkin; yaxlitlamasak chekda ma'nosiz uzun son chiqadi va
+    # `total = narx × miqdor` tiyingacha mos kelmaydi.
+    _v_quantity = field_validator("quantity")(_yaxlitla_miqdor)
+
 class OrderItemUpdate(BaseModel):
-    quantity: Optional[int] = Field(None, gt=0)
+    quantity: Optional[float] = Field(None, gt=0)
     notes: Optional[str] = None
     status: Optional[str] = None
+
+    # AYNI qoida: tahrirlashda ham miqdor nolga tushib qolmasin.
+    _v_quantity = field_validator("quantity")(_yaxlitla_miqdor)
 
 class OrderItemInDB(BaseModel):
     id: int
     product_id: int
     product_name: str
-    quantity: int
+    # ⚠️ O'QISHDA HAM float bo'lishi SHART — aks holda kasrli miqdorli
+    # buyurtmani qaytarishda javob validatsiyasi yiqilardi (500).
+    quantity: float
     unit_price: float
     total_price: float
     notes: Optional[str] = None
@@ -822,7 +866,9 @@ class KitchenOrderItem(BaseModel):
     id: int
     product_id: int
     product_name: str
-    quantity: int
+    # Oshxona ekrani ham kasrni ko'rsatishi kerak (0.740 kg go'sht) — aks holda
+    # kasrli qatorli buyurtmada javob validatsiyasi yiqilardi.
+    quantity: float
     notes: Optional[str] = None
     status: str
 

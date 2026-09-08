@@ -1530,10 +1530,69 @@ function openProductModal(product = null) {
   pmTabMode = (product?.product_type === cfg.alt?.type) ? 'alt' : 'main';
   buildProductModal(product);
   document.getElementById('productModal').classList.add('open');
+  _pmBindKeys();
   setTimeout(() => document.getElementById('pmf_name')?.focus(), 120);
 }
 
-function closeProductModal() { document.getElementById('productModal').classList.remove('open'); }
+function closeProductModal() {
+  _pmUnbindKeys();
+  document.getElementById('productModal').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KLAVIATURA — Enter saqlaydi, Escape yopadi
+//
+// Ishlovchi FAQAT oyna ochiq turganda bog'lanadi va yopilganda olib tashlanadi.
+// (Umumiy `Escape` ishlovchisi `.modal-overlay.open` ni qidiradi, `#productModal`
+// da esa u klass yo'q — shuning uchun Escape bu oynada umuman ishlamasdi.)
+// ══════════════════════════════════════════════════════════════════════════════
+let _pmKeyHandler = null;
+
+function _pmBindKeys() {
+  if (_pmKeyHandler) return;                    // ikki marta bog'lanmasin
+  _pmKeyHandler = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeProductModal(); return; }
+    if (e.key !== 'Enter' || e.isComposing) return;
+
+    const t = e.target;
+    const tag = (t?.tagName || '').toLowerCase();
+    // textarea — ko'p qatorli matn; select — Enter ro'yxatni yopadi;
+    // button/a — Enter o'sha tugmani bosishi kerak (Bekor, tab almashish);
+    // file — Enter fayl tanlash oynasini ochadi.
+    if (tag === 'textarea' || tag === 'select' || tag === 'button' || tag === 'a') return;
+    if (t?.type === 'file') return;
+
+    // ⚠️ SHTRIX-KOD MAYDONI — Enter SAQLAMAYDI.
+    // Skaner kodni yozib, oxirida O'ZI Enter yuboradi. Agar bu saqlashni ishga
+    // tushirsa, har skanerlashda "Narx kiritilmagan" xatosi chiqardi — chunki
+    // nom katalogdan 400ms debounce'dan keyin keladi. Buning o'rniga: qidiruvni
+    // darhol ishga tushiramiz va kursorni keyingi bo'sh maydonga o'tkazamiz.
+    if (t?.id === 'pmf_barcode') {
+      e.preventDefault();
+      clearTimeout(_bcLookupTimer);
+      runBarcodeLookup(t.value);
+      const nameEl  = document.getElementById('pmf_name');
+      const priceEl = document.getElementById('pmf_price');
+      // Nom bo'sh bo'lsa — unga; nom lookup to'ldirsa — narxga (odatda faqat u qoladi)
+      setTimeout(() => {
+        (nameEl && !nameEl.value.trim() ? nameEl : (priceEl || nameEl))?.focus();
+      }, 450);
+      return;
+    }
+
+    const btn = document.getElementById('pmSaveBtn');
+    if (btn?.disabled) return;                  // saqlanmoqda — ikki marta yubormaymiz
+    e.preventDefault();
+    saveProduct();
+  };
+  document.addEventListener('keydown', _pmKeyHandler, true);
+}
+
+function _pmUnbindKeys() {
+  if (!_pmKeyHandler) return;
+  document.removeEventListener('keydown', _pmKeyHandler, true);
+  _pmKeyHandler = null;
+}
 
 function pmSwitchTab(mode) { pmTabMode = mode; buildProductModal(null); setTimeout(()=>document.getElementById('pmf_name')?.focus(),80); }
 
@@ -1900,6 +1959,62 @@ function _pmEsc(s) {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// KETMA-KET KIRITISH — "saqlash va yana qo'shish"
+//
+// Formani noldan quramiz (`buildProductModal(null)`) — shunda barcha JS bilan
+// qo'shiladigan bloklar (rasm, boshlang'ich qoldiq, PLU, pachka) va ularning
+// hodisa ishlovchilari toza holatda tiklanadi, eskilar esa `pmBody.innerHTML`
+// almashtirilganda yo'q bo'ladi (listener oqmaydi).
+//
+// Keyin faqat "yopishqoq" qiymatlar qaytariladi: bir partiya mahsulot odatda
+// bitta kategoriya va bitta birlikda bo'ladi — ularni har safar qayta tanlash
+// eng ko'p vaqt oladigan qadam edi.
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Select qiymatini tiklaydi. Kategoriya optionlari ASYNC to'ladi — bor bo'lguncha kutamiz. */
+async function _pmRestoreSelectValue(id, val) {
+  if (!val) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  for (let i = 0; i < 40; i++) {                       // maksimum ~2s
+    if (Array.from(el.options).some(o => o.value === String(val))) break;
+    await new Promise(r => setTimeout(r, 50));
+  }
+  el.value = String(val);
+}
+
+async function pmResetForNextEntry() {
+  // Yopishqoq qiymatlarni formani buzishdan OLDIN olamiz
+  const sticky = {
+    category:  document.getElementById('pmf_category')?.value || '',
+    unit:      document.getElementById('pmf_sale_unit')?.value || '',
+    available: document.getElementById('pmf_available')?.checked,
+    packPrice: document.getElementById('pmf_pack_price')?.value || '',
+    packSize:  document.getElementById('pmf_pack_size')?.value || '',
+  };
+
+  editingProductId = null;        // aniqlik uchun: keyingisi ham YANGI mahsulot
+  buildProductModal(null);        // nom/narx/tan narx/barkod/rasm/qoldiq/PLU — tozalanadi
+
+  // Birlik: `change` MAJBURIY — PLU va pachka bloklari shunga qarab ochiladi/yopiladi
+  const uEl = document.getElementById('pmf_sale_unit');
+  if (uEl && sticky.unit) { uEl.value = sticky.unit; uEl.dispatchEvent(new Event('change')); }
+
+  // Pachka — `change` dan KEYIN: og'irlik birligida `togglePack` maydonlarni tozalaydi
+  const ppEl = document.getElementById('pmf_pack_price');
+  const psEl = document.getElementById('pmf_pack_size');
+  if (ppEl && sticky.packPrice) ppEl.value = sticky.packPrice;
+  if (psEl && sticky.packSize)  psEl.value = sticky.packSize;
+
+  const avEl = document.getElementById('pmf_available');
+  if (avEl && sticky.available !== undefined) avEl.checked = sticky.available;
+
+  document.getElementById('pmf_name')?.focus();        // kursor darhol joyida
+
+  await _pmRestoreSelectValue('pmf_category', sticky.category);
+}
+
 async function saveProduct() {
   const cfg = getCfg();
   const isAlt = pmTabMode === 'alt' && cfg.alt;
@@ -2012,9 +2127,15 @@ async function saveProduct() {
       }
     }
 
-    closeProductModal();
-    toast(editingProductId ? 'Yangilandi' : "Qo'shildi", 'success');
-    cachedCategories=[]; loadProducts();
+    // ── SAQLASH VA YANA QO'SHISH ────────────────────────────────────────────
+    // YANGI mahsulotda oyna OCHIQ qoladi (ketma-ket kiritish uchun), TAHRIRLASHDA
+    // esa avvalgidek yopiladi. Ro'yxat ikkalasida ham fonda yangilanadi.
+    const _yangiEdi = !editingProductId;
+    toast(_yangiEdi ? "Qo'shildi" : 'Yangilandi', 'success');
+    cachedCategories = [];
+    loadProducts();                      // fonda — kutmaymiz, forma tez ochilsin
+    if (_yangiEdi) await pmResetForNextEntry();
+    else closeProductModal();
   } catch (err) {
     toast(err.message,'error');
     // BUG 1/8: barkod band bo'lsa — modal ochiq qoladi (yopilmaydi), barkod

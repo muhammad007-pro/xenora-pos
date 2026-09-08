@@ -433,6 +433,114 @@ def test_eski_axlatli_qoldiq_dopusk_bilan_sotiladi(seeded, client):
     assert r.status_code == 200, f"axlatli qoldiq bloklandi: {r.text}"
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 7) QAYTARISH (refund) — sotib-qaytarish tsikli qoldiqni toza qoldirsin
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _refund(client, h, order_id, summa):
+    """To'liq qaytarish — `payment.py:336-347` orqali ombor tiklanadi."""
+    return client.post(f"/api/v1/payments/refund", headers=h, json={
+        "order_id": order_id, "amount": summa, "reason": "sinov"})
+
+
+def test_kasrli_sotuv_refund_qoldiq_toza(seeded, client):
+    """⚠️ 10 -> 0.740 sotildi -> qaytarildi -> qoldiq AYNAN 10.0.
+
+    Chiqim ham, tiklash ham yaxlitlanmasa 9.999999999999998 chiqardi.
+    """
+    db = seeded
+    db.query(Inventory).filter(Inventory.product_id == 1).first().quantity = 10.0
+    db.commit()
+
+    h = _h(client)
+    o = _sot_tola(client, h, 0.740)
+    assert _qol(db) == 9.26, f"chiqimdan keyin: {_qol(db)!r}"
+
+    from services.recipe_inventory_service import restore_order_ingredients
+    restore_order_ingredients(db, o["id"], tenant_id=1, user_id=1)
+    db.commit()
+    assert _qol(db) == 10.0, f"refunddan keyin axlat: {_qol(db)!r}"
+
+
+def test_butun_sotuv_refund_bit_bitiga(seeded, client):
+    """GOLDEN: donali sotuv-qaytarish natijasi o'zgarmasin (100 -> 97 -> 100)."""
+    db = seeded
+    h = _h(client)
+    o = _sot_tola(client, h, 3, pid=2)
+    assert _qol(db, 2) == 97
+
+    from services.recipe_inventory_service import restore_order_ingredients
+    restore_order_ingredients(db, o["id"], tenant_id=1, user_id=1)
+    db.commit()
+    assert _qol(db, 2) == 100
+
+
+def test_returns_yoli_kasrni_toza_qaytaradi(seeded, client):
+    """`routers/returns.py: _restore_inventory` — mijoz qaytarishi yo'li."""
+    from routers.returns import _restore_inventory
+
+    db = seeded
+    inv = db.query(Inventory).filter(Inventory.product_id == 1).first()
+    inv.quantity = 9.26
+    db.commit()
+
+    _restore_inventory(db, product_id=1, quantity=0.740, tenant_id=1,
+                   branch_id=None, user_id=1)
+    db.commit()
+    assert _qol(db) == 10.0, f"axlat qoldi: {_qol(db)!r}"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 8) cancel_order himoyasi
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_tolanmagan_buyurtma_bekor_qilinadi(seeded, client):
+    """MAVJUD XULQ SAQLANSIN: POS 'held/pending' buyurtmalarni shunday o'chiradi."""
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 1, "quantity": 0.5}])
+    assert r.status_code == 200
+    oid = r.json()["id"]
+
+    c = client.post(f"/api/v1/orders/{oid}/cancel?reason=Kutilayotgan+o%27chirildi",
+                    headers=h)
+    assert c.status_code == 200, c.text
+    assert seeded.query(Order).get(oid).status.value.lower() == "cancelled"
+
+
+def test_ombordan_ayrilgan_buyurtma_bekor_qilinmaydi(seeded, client):
+    """⚠️ To'langan (ingredients_deducted) buyurtma bekor qilinmasin — 400.
+
+    Aks holda ombor kamaygan holicha qolardi (cancel_order tiklamaydi).
+    """
+    h = _h(client)
+    o = _sot_tola(client, h, 0.740)          # to'landi -> ingredients_deducted=True
+    assert seeded.query(Order).get(o["id"]).ingredients_deducted is True
+
+    qoldiq_oldin = _qol(seeded)
+    c = client.post(f"/api/v1/orders/{o['id']}/cancel?reason=sinov", headers=h)
+    assert c.status_code == 400, c.text
+    assert "refund" in c.text.lower()
+    # Ombor TEGILMAGAN va buyurtma bekor bo'lmagan
+    assert _qol(seeded) == qoldiq_oldin
+    assert seeded.query(Order).get(o["id"]).status.value.lower() != "cancelled"
+
+
+@pytest.mark.parametrize("sabab", ["Qayta sotildi", "Qayta saqlandi",
+                                   "Kutilayotgan o'chirildi"])
+def test_pos_uchta_cancel_chaqiruvi_buzilmadi(seeded, client, sabab):
+    """POS'ning uchala `/cancel` chaqiruvi ham TO'LANMAGAN buyurtmaga tegadi
+    (pos.js:1872, 2637, 2731) — ular ishlashda davom etishi SHART."""
+    import urllib.parse
+    h = _h(client)
+    r = _sotuv(client, h, [{"product_id": 2, "quantity": 1}])
+    assert r.status_code == 200
+    oid = r.json()["id"]
+
+    c = client.post(
+        f"/api/v1/orders/{oid}/cancel?reason={urllib.parse.quote(sabab)}", headers=h)
+    assert c.status_code == 200, c.text
+
+
 def test_chek_kasrni_togri_korsatadi(seeded, client):
     """`_qtyNum` (receipt-print.js) mantig'i: 0.740 -> "0.74", 3 -> "3"."""
     def _qty_num(q):                    # JS `_qtyNum` ning aynan nusxasi

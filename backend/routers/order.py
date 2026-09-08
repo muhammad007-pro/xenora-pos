@@ -297,7 +297,12 @@ async def cancel_order(
     if not existing:
         raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
 
-    order = order_service.cancel_order(order_id, reason)
+    try:
+        order = order_service.cancel_order(order_id, reason)
+    except ValueError as e:
+        # Ombordan ayrilgan (to'langan) buyurtma — bekor qilish rad etiladi,
+        # qaytarish (refund) yo'lidan o'tilsin. Qarang: OrderService.cancel_order.
+        raise HTTPException(status_code=400, detail=str(e))
     if not order:
         raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
     

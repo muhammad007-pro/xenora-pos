@@ -53,7 +53,10 @@ def _restore_inventory(db: Session, product_id: int, quantity: float, tenant_id,
         .first()
     )
     if inv:
-        inv.quantity += quantity
+        # 3 XONAGACHA (2026-09-08): kasrli qaytarishda suzuvchi nuqta axlati
+        # qoldiqqa qaytmasin — 9.26 + 0.740 aynan 10.0 bo'lsin.
+        # Butun songa ta'siri yo'q: round(97.0, 3) == 97.0.
+        inv.quantity = round(inv.quantity + quantity, 3)
 
     product = db.query(Product).filter(Product.id == product_id).first()
     unit_cost = product.cost_price if product else 0.0

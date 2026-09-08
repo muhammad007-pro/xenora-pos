@@ -574,11 +574,35 @@ class OrderService:
         order.final_amount = total - (order.discount_amount or 0)
     
     def cancel_order(self, order_id: int, reason: Optional[str] = None) -> Optional[Order]:
-        """Buyurtmani bekor qilish"""
+        """Buyurtmani bekor qilish.
+
+        ⚠️ OMBORDAN AYRILGAN BUYURTMA BEKOR QILINMAYDI (2026-09-08).
+        Chiqim to'lov paytida bo'ladi (`routers/payment.py:189-194`) va
+        `ingredients_deducted=True` qo'yiladi. Bu funksiya esa omborni
+        TIKLAMAYDI — ya'ni bunday buyurtmani bekor qilish ombor qoldig'ini
+        kamaygan holicha qoldirardi va hech qayerda iz qolmasdi.
+
+        NEGA AVTOMATIK TIKLAMAYMIZ, balki RAD ETAMIZ: tiklash yo'li
+        allaqachon bor (refund — `payment.py:336-347`). Bu yerda ham
+        tiklasak, refund bilan IKKI MARTA tiklanib, ombor oshib ketishi
+        mumkin edi. Rad etish — xavfsizroq va oqim aniq: qaytarish uchun
+        refund ishlatilsin.
+
+        Prod holati (2026-09-08 o'lchovi): 121 ta bekor qilingan
+        buyurtmadan HECH BIRIDA `ingredients_deducted=True` emas —
+        ya'ni bu shart bugungi hech bir oqimni buzmaydi.
+        """
         order = self.db.query(Order).filter(Order.id == order_id).first()
         if not order:
             return None
-        
+
+        if order.ingredients_deducted:
+            raise ValueError(
+                "To'langan buyurtmani bekor qilib bo'lmaydi "
+                "(ombordan mahsulot allaqachon ayrilgan). "
+                "Qaytarish (refund) dan foydalaning."
+            )
+
         order.status = "cancelled"
         if reason:
             order.notes = f"{order.notes or ''}\nBekor qilish sababi: {reason}".strip()

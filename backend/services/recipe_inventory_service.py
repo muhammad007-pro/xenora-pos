@@ -404,7 +404,13 @@ def _restore_product_directly(
     if not inventory:
         return {"success": True, "restored": [], "warnings": []}
 
-    inventory.quantity += quantity
+    # 3 XONAGACHA (2026-09-08): chiqim (202-qator) yaxlitlanadi, tiklash ham
+    # yaxlitlanishi SHART — aks holda sotib-qaytarish tsikli qoldiqqa axlat
+    # qaytarardi (10 -> 9.26 -> 9.999999999999998).
+    # ⚠️ 350-qator (retsept ingredientlari) ATAYLAB TEGILMAGAN: u 6 xonali
+    # aniqlikda ishlaydi (ziravor grammlari) va 3 xonaga yaxlitlash restoran
+    # tenantlarining natijasini o'zgartirardi.
+    inventory.quantity = round(inventory.quantity + quantity, 3)
     product = db.query(Product).filter(Product.id == product_id).first()
     unit_cost = (product.cost_price if product else 0.0) or 0.0
     db.add(StockMovement(

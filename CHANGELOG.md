@@ -3,6 +3,63 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.0] — 2026-09-08 — Tarozi bo'yicha (kg) sotuv + tan narx tarixi
+
+Ikki yo'nalish bitta relizda. Backend 2026-09-08 da prodga deploy qilingan
+(commit `987b002`, alembic `b3d7f1c92a48`); bu `.exe` — o'sha o'zgarishlarning
+FRONTEND qismi.
+
+### Kasrli (kg) sotuv
+
+Oziq-ovqat do'koni uchun: 0.740 kg go'sht sotish endi mumkin.
+
+  * `OrderItem.quantity`: **Integer → Float** (migratsiya `b3d7f1c92a48`,
+    INTEGER → DOUBLE PRECISION, ma'lumot yo'qolmaydi). Ilgari POS og'irlik
+    oynasi 0.740 yuborardi-yu, API 422 bilan rad etardi — ya'ni tarozi bilan
+    sotish MUMKIN EMAS edi. ⚠️ `ml` sotuvi (atir maydalash) ishlab turgani
+    adashtirmasin: ml miqdorlari butun son (30, 50) bo'lgani uchun `int`
+    filtridan o'tib ketardi.
+  * Miqdor **3 xonagacha** yaxlitlanadi (1 gramm — tarozi aniqligi).
+    Chegara: `0.0005 → 0.001` qabul, `0.0004 → 422` ("Miqdor juda kichik").
+    Tartib muhim: `gt=0` yaxlitlashdan OLDIN ishlaydi, shuning uchun
+    tekshiruv yaxlitlashdan KEYIN takrorlanadi — aks holda 0.0001 o'tib,
+    miqdori NOL, summasi NOL qator yaratilardi.
+  * **POS og'irlik oynasiga "Summa" rejimi:** almashtirgich
+    `[Og'irlik] [Summa]`. Mijoz "5000 so'mlik ber" desa, kassir hisoblab
+    o'tirmaydi — 5000 teriladi, og'irlik = 5000 / narx_kg avtomatik
+    hisoblanadi va "≈ 0.294 kg" bo'lib jonli ko'rinadi. Savatga BARIBIR
+    og'irlik yoziladi (yagona manba). Kg rejimi va preset tugmalar
+    o'zgarmadi.
+  * **Ombor aniqligi:** chiqim va qaytarish 3 xonagacha yaxlitlanadi.
+    Busiz `10 − 9.999 = 0.0009999999999994458` bo'lib qolardi va ombor
+    qo'riqchisi "mavjud: 0.001 kg" deb ko'rsatib turib, aynan 0.001 ni
+    sotishga RUXSAT BERMASDI. Qo'riqchida `1e-6` dopusk — eski axlatli
+    qoldiqlar uchun; haqiqiy oversell (10.001, 11, 100) baribir bloklanadi.
+  * **`cancel_order` himoyasi:** ombordan ayrilgan (to'langan) buyurtma endi
+    bekor qilinmaydi — 400 va "qaytarish (refund) dan foydalaning".
+    Ilgari hech qanday shart yo'q edi va ombor kamaygan holicha qolardi.
+    Prodda bunday holat 0 ta bo'lgan, ya'ni hech kimning oqimi buzilmadi.
+
+### Tan narx tarixi — barcha yo'llarda
+
+Ilgari `price_history` ga FAQAT qo'lda tahrirlash yozardi. Tan narxni
+avtomatik o'zgartiradigan to'rt yo'l — ombor kirimi, priyomka, AI-ombor,
+retseptdan hisob — umuman yozmasdi. O'lchov: tan narxi kirim orqali
+o'zgargan 60 ta mahsulotdan atigi 4 tasining izi bor edi.
+
+  * Beshala yo'l ham endi `record_price_change()` dan o'tadi, `reason`
+    majburiy: `manual` | `stock_in` | `receipt` | `ai_warehouse` | `recipe`.
+  * Faqat tan narx o'zgargan holat ham yoziladi (eski shart buni bloklardi).
+  * Kirim va uning tarixi BIR tranzaksiyada — birga saqlanadi yoki birga
+    bekor bo'ladi.
+  * **Narx tarixi sahifasi:** `reason` filtri, inson o'qiydigan yorliq
+    ("Ombor kirimi", "Priyomka", "AI-ombor", "Retsept", "Qo'lda tahrirlash"),
+    tan narx o'zgarish foizi. `date_to` endi kunning OXIRIGACHA oladi —
+    ilgari "bugungacha" filtri bugungi yozuvlarni kesib tashlardi.
+
+Testlar: 458 passed, 2 skipped (avval 405). Migratsiya `b3d7f1c92a48`
+allaqachon prodda.
+
 ## [1.11.0] — 2026-09-05 — Shtrix-kod bo'yicha nom avtomatik topiladi
 
 Mahsulot qo'shishda shtrix-kod bo'yicha nom avtomatik topiladi

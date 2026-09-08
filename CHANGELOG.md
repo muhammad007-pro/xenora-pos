@@ -3,6 +3,34 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.2] — 2026-09-09 — Mahsulotni ketma-ket kiritish (tezlik)
+
+Sof frontend. Backend mantig'i tegilmadi, migratsiya yo'q — lekin `.exe`
+yangilanishi kerak (o'zgarish `frontend/js/admin/core.js` da).
+
+### Yaxshilandi
+- **Forma endi yopilmaydi.** Yangi mahsulot saqlanganda modal ochiq qoladi va
+  darhol keyingisini kiritish mumkin. Ilgari har mahsulotdan keyin oyna
+  yopilardi — 62 mahsulot kiritish 62 marta oyna ochish va 62 marta kategoriya
+  tanlash degani edi.
+  - Saqlanib qoladi: **kategoriya, o'lchov birligi, "Sotuvda bor"**
+  - Tozalanadi: nom, narx, tan narx, shtrix-kod, rasm, boshlang'ich qoldiq,
+    tarozi PLU, pachka sozlamalari (bular mahsulotga xos)
+  - Kursor "Nomi" maydoniga qaytadi, ro'yxat fonda yangilanadi
+  - **Tahrirlash rejimi o'zgarmadi** — mavjud mahsulotni saqlagach oyna
+    avvalgidek yopiladi
+- **Enter — saqlash.** Matn maydonlarida Enter bosilsa mahsulot saqlanadi
+  (textarea, ro'yxat va tugmalar ichida emas).
+- **Escape — yopish.** Ilgari bu oynada umuman ishlamasdi.
+- **Skaner oqimi buzilmadi.** Shtrix-kod maydonida Enter saqlamaydi — skaner
+  kod oxirida o'zi Enter yuboradi. Uning o'rniga qidiruv darhol ishga tushadi
+  va kursor keyingi bo'sh maydonga o'tadi.
+
+### Test
+`frontend/tests/test_fast_product_entry.mjs` — 54 ta tekshiruv (ketma-ket
+kiritish, tahrirlash rejimi, klaviatura, xato yo'llari, shtrix-kod
+avto-to'ldirish, restoran + apteka formalari).
+
 ## [1.12.1] — 2026-09-09 — Kategoriya nomi endi do'konga tegishli (nuqson tuzatish)
 
 Faqat backend tuzatishi — yangi funksiya yo'q, migratsiya yo'q. Mavjud 1.12.0

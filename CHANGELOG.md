@@ -3,6 +3,44 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.6] — 2026-09-10 — Chek kengligi: 80 mm sozlamasi ishlaydi
+
+Frontend + Electron. Migratsiya yo'q, backend mantig'i tegilmadi — lekin `.exe`
+YANGILANISHI SHART (o'zgarish klient tomonida).
+
+### Tuzatildi
+- **80 mm printerda chek ~50 mm ga siqilib chiqardi** (1001 BARAKA / XP-Q80AS).
+  Sozlamadagi `paperWidth` FAQAT LAN/ESC-POS yo'liga ulangan edi; USB
+  (SumatraPDF) yo'lida ikkita qiymat qattiq yozilgan edi:
+  - `receipt-print.js` CSS: `.r58{width:48mm}` (58 mm rolik uchun)
+  - `electron/main.js`: `@page{size:58mm ...}`
+  Endi ikkalasi ham sozlamadan hisoblanadi.
+- **`-print-settings fit` → `noscale`.** `fit` nisbatni saqlab sig'diradi, chek
+  esa uzun (o'lchovda 364 mm) — cheklovchi o'lcham BALANDLIK bo'lib qolardi va
+  butun sahifa kichrayardi. `noscale` bilan 1:1 bosiladi.
+
+### Kenglik jadvali (yagona manba: `paperSpec()`)
+| Sozlama | PDF sahifa | Kontent |
+|---|---|---|
+| 57 / 58 | 58 mm | 48 mm |
+| 80 | 80 mm | 72 mm |
+| bo'sh / noma'lum | 58 mm | 48 mm |
+
+### ⚠️ Mavjud 58 mm do'konlar
+`paperWidth` yetib kelmasa yoki noma'lum bo'lsa — **58 mm/48 mm** ga qaytadi,
+ya'ni Fazza kabi do'konlarning cheki AYNAN avvalgidek chiqadi. LAN/ESC-POS yo'li
+(`escpos-builder.js`, `CHARS_BY_WIDTH`) umuman tegilmadi.
+
+### ⚠️ Drayver sozlamasi endi muhim
+`noscale` 1:1 bosgani uchun printer drayveridagi qog'oz o'lchami to'g'ri
+bo'lishi kerak. 80 mm printerda drayver 58 mm qilib qo'yilgan bo'lsa, chekning
+o'ng cheti kesiladi (ilgari `fit` uni siqib "sig'dirardi"). Tekshirish:
+`Get-PrintConfiguration -PrinterName "<printer>" | Format-List PaperSize`
+
+### Test
+`frontend/tests/test_receipt_paper_width.mjs` — 18 ta. Haqiqiy PDF o'lchandi
+(Electron, MediaBox): 58 → 57.83 mm · 80 → 80.09 mm · bo'sh → 57.83 mm.
+
 ## [1.12.5] — 2026-09-09 — Ombor birligi mahsulot bilan sinxron
 
 Backend + frontend. Migratsiya yo'q. `.exe` YANGILANISHI KERAK (tasdiq oynasi va

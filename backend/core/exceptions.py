@@ -80,3 +80,27 @@ class InsufficientStockError(BaseAppException):
             detail=f"{product_name} uchun yetarli miqdor mavjud emas. Mavjud: {available}, So'ralgan: {requested}",
             error_code="INSUFFICIENT_STOCK"
         )
+
+class StoreInactiveError(BaseAppException):
+    """Do'kon yopiq (qo'lda o'chirilgan yoki bloklangan) — kirish yo'lida.
+
+    ⚠️ `detail` — ODDIY MATN, ataylab. Ilgari bu yerda ichma-ich obyekt
+    qaytarilardi (`detail={"code": ..., "detail": ...}`) va FastAPI uni yana
+    `{"detail": {...}}` ichiga o'rardi. Frontend esa `data.detail` ni matn deb
+    kutadi (`login.html:636`) → ekranda "[object Object]" chiqardi.
+
+    Loyiha konvensiyasi: `detail` HAR DOIM matn. Mashina o'qiydigan belgi
+    (`code`) javob tanasining YUQORI darajasida, yonida turadi:
+
+        {"detail": "Do'kon vaqtincha faol emas. Bog'laning: ...",
+         "code": "STORE_INACTIVE"}
+
+    Bu shaklni `main.py` dagi maxsus exception handler chiqaradi — FastAPI'ning
+    standart HTTPException handleri faqat `{"detail": ...}` bera oladi.
+    """
+    def __init__(self, support_contact: str):
+        super().__init__(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Do'kon vaqtincha faol emas. Bog'laning: {support_contact}",
+            error_code="STORE_INACTIVE",
+        )

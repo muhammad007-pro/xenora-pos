@@ -41,16 +41,45 @@ function _fontPx(size) {
   return FONT_PX[size] || FONT_PX.normal;
 }
 
-function buildCss(fontPx) {
+// ── QOG'OZ KENGLIGI — YAGONA JADVAL ──────────────────────────────────────────
+// paperWidth (sozlamadagi qiymat) → PDF sahifa kengligi + kontent kengligi.
+//
+// Kontent qog'ozdan tor: termal printerning BOSILADIGAN zonasi qog'ozdan kichik
+// (58mm rolikda ~48mm, 80mm rolikda ~72mm). Kontent kengroq bo'lsa o'ng chetdagi
+// NARX ustuni kesiladi ("505,000" → "505").
+//
+// ⚠️ AYNI JADVAL `electron/main.js` (usbTransport) da ham bor — u @page o'lchamini
+// hisoblaydi. Ikkalasi BIRGA o'zgarishi shart, aks holda kontent sahifaga mos
+// kelmaydi.
+//
+// ⚠️ NOMA'LUM/BO'SH qiymat → 58mm. Bu ATAYLAB: Fazza kabi mavjud do'konlar
+// 58mm printerda ishlayapti va sozlama yetib kelmasa ham cheki BUZILMASLIGI kerak.
+const PAPER_SPECS = {
+  57: { page: 58, content: 48 },   // UI'da "57mm" deb ataladigan rolik
+  58: { page: 58, content: 48 },
+  80: { page: 80, content: 72 },
+};
+const PAPER_DEFAULT = PAPER_SPECS[58];
+
+/** paperWidth → {page, content} (mm). Noma'lum qiymat → 58mm zaxira. */
+export function paperSpec(paperWidth) {
+  return PAPER_SPECS[Number(paperWidth)] || PAPER_DEFAULT;
+}
+
+function buildCss(fontPx, contentMm) {
   return `
   *{margin:0;padding:0;box-sizing:border-box}
   @page{margin:0}
   html,body{background:#fff;margin:0;padding:0;text-align:left}
   /* CHAPGA tayanadi: margin:0 (auto EMAS) → chapda bo'sh joy yo'q, narx o'ngda kesilmaydi.
-     padding chap/o'ng 0.5mm → butun 48mm bosiladigan zona matn uchun ishlatiladi. */
+     padding chap/o'ng 0.5mm → butun bosiladigan zona matn uchun ishlatiladi. */
   /* font-weight:600 — termal printer ingichka shriftni XIRA bosadi; butun chek
      to'qroq (bold) → mahsulot nomi/narx aniq chiqadi. Shrift o'lchami saqlanadi. */
-  .r58{width:48mm;max-width:48mm;margin:0;padding:2mm 0.5mm;
+  /* ⚠️ .r58 — TARIXIY nom (dastlab faqat 58mm bor edi). Endi kenglik
+     paperSpec() dan keladi (58mm -> 48mm, 80mm -> 72mm). Nom o'zgartirilmadi:
+     u faqat shu fayl ichida ishlatiladi, o'zgartirish foydasiz xavf.
+     ⚠️ Bu izoh template literal ICHIDA — backtick YOZMANG (yuqoridagi ogohlantirish). */
+  .r58{width:${contentMm}mm;max-width:${contentMm}mm;margin:0;padding:2mm 0.5mm;
        font-family:'Courier New',monospace;font-size:${fontPx}px;font-weight:600;line-height:1.35;color:#000}
   .r58, .r58 *{color:#000 !important;background:transparent !important;border-color:#000 !important}
   .r58 h4{font-size:1.2em;font-weight:700;margin-bottom:2px}
@@ -106,8 +135,10 @@ function buildCss(fontPx) {
 `;
 }
 
-function wrapDoc(innerHTML, title, opts) {
-  const css = buildCss(_fontPx((opts || {}).fontSize));
+/** Chek HTML hujjatini yasaydi (CSS + kenglik). Eksport — testdan o'lchash uchun. */
+export function wrapDoc(innerHTML, title, opts) {
+  const o = opts || {};
+  const css = buildCss(_fontPx(o.fontSize), paperSpec(o.paperWidth).content);
   return `<!DOCTYPE html><html lang="uz"><head><meta charset="UTF-8">`
     + `<title>${title || 'Chek'}</title><style>${css}</style></head>`
     + `<body><div class="r58">${innerHTML}</div></body></html>`;
@@ -147,7 +178,9 @@ function _printViaIframe(html) {
 export async function printReceiptHTML(innerHTML, opts = {}) {
   if (!innerHTML || !String(innerHTML).trim()) return { ok: false, error: 'Chek bo\'sh' };
   // opts.fontSize: 'small'|'normal'|'large' (yoki px) — "Shrift o'lchami" sozlamasi
-  const html = wrapDoc(innerHTML, opts.title, { fontSize: opts.fontSize });
+  // paperWidth CSS kontent kengligini belgilaydi (58→48mm, 80→72mm).
+  const html = wrapDoc(innerHTML, opts.title,
+                       { fontSize: opts.fontSize, paperWidth: opts.paperWidth });
   if (isElectron()) {
     try {
       const api = window.electronAPI;
@@ -160,9 +193,11 @@ export async function printReceiptHTML(innerHTML, opts = {}) {
         printType: opts.printType || 'usb',
         printerIp: opts.printerIp || null,
         printerPort: opts.printerPort || null,
-        // LAN 2-bosqich: qog'oz kengligi (58/80mm — ESC/POS qator belgilar soni
-        // uchun) va pul qutisi (cash drawer) signali. USB (SumatraPDF) yo'liga
-        // ta'sir qilmaydi — faqat lanTransport shu ikkalasini o'qiydi.
+        // Qog'oz kengligi — IKKALA yo'l ham o'qiydi:
+        //   · lanTransport  → ESC/POS qator belgilar soni (58→32, 80→48)
+        //   · usbTransport  → PDF @page o'lchami (58mm yoki 80mm)
+        // Yuqorida CSS kontent kengligi ham shu qiymatdan hisoblandi.
+        // null bo'lsa ikkala tomon ham 58mm ga qaytadi (mavjud xulq saqlanadi).
         paperWidth: opts.paperWidth || null,
         openDrawer: !!opts.openDrawer,
       };

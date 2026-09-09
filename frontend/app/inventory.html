@@ -492,10 +492,13 @@ function render() {
     const st  = itemStatus(i);
     const qty = Number(i.quantity||0);
     return `<tr>
-      <td><div style="font-weight:600">${p?.name||'—'}</div>${p?.unit?`<div style="font-size:.75rem;color:var(--text3)">${p.unit}</div>`:''}</td>
+      <td><div style="font-weight:600">${p?.name||'—'}</div>${p?.sale_unit?`<div style="font-size:.75rem;color:var(--text3)">${p.sale_unit}</div>`:''}</td>
       <td>${cat?.name||'—'}</td>
       <td>
-        <div>${qty%1?qty.toFixed(2):qty} ${i.unit||p?.unit||''}</div>
+        <!-- ZAXIRA MANBA: ilgari `p?.unit` yozilgan edi, lekin ProductInDB da
+             bunday maydon YO'Q (u `sale_unit` deb ataladi) — ya'ni zaxira hech
+             qachon ishlamasdi. Endi haqiqatan ishlaydi. -->
+        <div>${qty%1?qty.toFixed(2):qty} ${i.unit||p?.sale_unit||''}</div>
         <div class="stk-bar"><div class="stk-fill ${st.fill}" style="width:${st.pct}%"></div></div>
       </td>
       <td>${i.min_threshold||0}</td>
@@ -527,7 +530,7 @@ function openAdd(invId=null) {
     document.getElementById('addTitle').textContent = 'Kirim qilish';
     document.getElementById('addInfo').style.display = '';
     document.getElementById('addProdName').textContent = p?.name||'—';
-    document.getElementById('addCurQty').textContent = (inv?.quantity||0) + ' ' + (inv?.unit||p?.unit||'');
+    document.getElementById('addCurQty').textContent = (inv?.quantity||0) + ' ' + (inv?.unit||p?.sale_unit||'');
     document.getElementById('prodSelectRow').style.display = 'none';
   } else {
     document.getElementById('addTitle').textContent = 'Yangi kirim';

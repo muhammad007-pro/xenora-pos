@@ -312,6 +312,11 @@ class ProductInDB(ProductBase):
     updated_at: Optional[datetime] = None
     category: Optional[CategoryInDB] = None
     station: Optional['StationInDB'] = None
+    # Faqat PATCH javobida to'ladi: `sale_unit` o'zgarganda ombor birligi ham
+    # yangilanadi, LEKIN qoldiq raqami tegilmaydi (500 g ≠ 500 dona). Shu haqda
+    # ogohlantirish. Boshqa hamma joyda `None` — mahsulot modelida bunday ustun
+    # yo'q, `from_attributes` uni topmaydi va standart qiymat qoladi.
+    unit_warning: Optional[str] = None
 
     class Config:
         from_attributes = True

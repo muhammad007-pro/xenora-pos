@@ -3,6 +3,37 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.5] — 2026-09-09 — Ombor birligi mahsulot bilan sinxron
+
+Backend + frontend. Migratsiya yo'q. `.exe` YANGILANISHI KERAK (tasdiq oynasi va
+ombor ekrani o'zgardi).
+
+### Tuzatildi
+- **Mahsulot birligi o'zgartirilsa ombor eski birlikni ko'rsatardi.** Birlik ikki
+  joyda dublikat saqlanadi (`products.sale_unit` va `inventory.unit`), lekin
+  ularni bog'lab turadigan kod yo'q edi: `inventory.unit` faqat ombor qatori
+  YARATILGANDA yozilardi, `update_product` ham `add_stock` ham unga tegmasdi.
+  Jonli holat: "YASHKINO AMERIKANSKOE" `g` → `dona` ga tahrirlangan, ombor esa
+  hamon `g` ko'rsatardi.
+- **Ombor ekranidagi zaxira manba ishlamasdi.** `inventory.html` `p?.unit` ni
+  o'qirdi, lekin mahsulot sxemasida bunday maydon yo'q (u `sale_unit` deb
+  ataladi) → zaxira hech qachon ishlamagan. Endi `p?.sale_unit`.
+
+### ⚠️ Qoldiq raqami O'ZGARMAYDI
+Birlik yangilanganda faqat YORLIQ almashadi. "500 g" ni "500 dona"ga aylantirish
+qoldiqni jimgina buzardi (500 g ≠ 500 dona), teskarisi ham xavfli. Shuning uchun:
+- saqlashdan OLDIN admindan tasdiq so'raladi (ombor qatori bor bo'lsa)
+- saqlangach server ogohlantirishi ko'rsatiladi: qoldiqni qo'lda tekshirish kerak
+
+### Ichki
+`pcs → dona` o'girishi `product.py` va `inventory.py` da takrorlangan edi —
+`services.unit_converter.inventory_unit()` yagona manbasiga yig'ildi (xulq aynan
+o'sha).
+
+### Test
+`backend/tests/test_inventory_unit_sync.py` — 17 ta. GOLDEN: 506 passed.
+Frontend: 54 + 12.
+
 ## [1.12.4] — 2026-09-09 — "[object Object]" tuzatildi
 
 Faqat backend. Migratsiya yo'q, frontend KODIGA tegilmadi — mavjud `.exe`

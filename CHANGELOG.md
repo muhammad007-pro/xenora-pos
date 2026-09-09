@@ -3,6 +3,36 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.4] — 2026-09-09 — "[object Object]" tuzatildi
+
+Faqat backend. Migratsiya yo'q, frontend KODIGA tegilmadi — mavjud `.exe`
+ishlashda davom etadi.
+
+### Tuzatildi
+- **Yopiq do'kon xabari o'rniga "[object Object]" chiqardi.** v1.12.3 dagi 403
+  javobi ichma-ich edi (`{"detail": {"code": ..., "detail": ...}}`), chunki
+  `HTTPException(detail=<obyekt>)` ni FastAPI yana `{"detail": ...}` ichiga
+  o'raydi. Kirish ekrani esa `data.detail` ni MATN deb kutadi. Endi shakl tekis:
+
+  ```json
+  {"detail": "Do'kon vaqtincha faol emas. Bog'laning: +998 94 997 47 70",
+   "code": "STORE_INACTIVE"}
+  ```
+
+  `detail` — oddiy matn (loyiha konvensiyasi), `code` — yonida alohida maydon.
+  Amalga oshirish: `core/exceptions.StoreInactiveError` + `main.py` da FAQAT shu
+  istisno uchun bitta exception handler. Boshqa xatolarning shakli tegilmadi.
+
+### Nega o'tib ketgan edi
+HTTP javobdan EKRANDAGI MATNgacha bo'lgan qatlam sinalmagan edi: backend
+testlari 403 va `code` ni tekshirardi, kassir nima ko'rishini esa hech kim
+o'lchamasdi. Shuning uchun `frontend/tests/test_blocked_store_login_message.mjs`
+qo'shildi (12 ta) — u ekrandagi matnni o'lchaydi va eski ichma-ich shakl aynan
+"[object Object]" berishini hujjatlashtiradi.
+
+### Test
+Backend GOLDEN: 489 passed. Frontend: 12 (yangi) + 54 (mavjud).
+
 ## [1.12.3] — 2026-09-09 — Yopiq do'kon uchun aniq xabar
 
 Faqat backend. Migratsiya yo'q, frontend tegilmadi — mavjud 1.12.2 `.exe`

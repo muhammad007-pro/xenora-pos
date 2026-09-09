@@ -3,6 +3,37 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.3] — 2026-09-09 — Yopiq do'kon uchun aniq xabar
+
+Faqat backend. Migratsiya yo'q, frontend tegilmadi — mavjud 1.12.2 `.exe`
+ishlashda davom etadi (xabar matnini server beradi, klient uni shundayligicha
+ko'rsatadi).
+
+### Tuzatildi
+- **"Do'kon topilmadi" chalg'itardi.** Uchala kirish yo'lida ham do'kon so'rovi
+  `Cafe.is_active == True` filtri bilan yozilgan edi, ya'ni yopilgan do'kon
+  "umuman mavjud emas" bilan bir xil ko'rinardi. Kassir kodni xato tergan deb
+  o'ylab qayta-qayta urinardi. Endi:
+  - kod umuman yo'q → avvalgidek `404`/`400`, **matn o'zgarmagan**
+  - do'kon yopiq → `403 {"code":"STORE_INACTIVE"}` va tushunarli matn:
+    *"Do'kon vaqtincha faol emas. Bog'laning: +998 94 997 47 70"*
+  - uchala yo'l (`resolve-code`, `pin-login`, telefon+parol) bir xil javob beradi
+
+### Xavfsizlik
+Javobda **sabab aytilmaydi** (to'lov/obuna) va `blocked_reason` — super-admin
+ichki eslatmasi — **qaytarilmaydi**. Kirish kodlari ketma-ket (100.200.N), ya'ni
+sanab chiqish oson; begona odam mijozning to'lov holatini bilmasligi kerak.
+
+### Ataylab TEGILMAGAN
+`tenant_status='expired'` bu darvozaga **kirmaydi** — 2026-09-02 kafolati (N1):
+muddati tugagan do'kon kirish ekranida ko'rinishda davom etadi. Obuna bo'yicha
+bloklash `deps._enforce_subscription` ning ishi va u KILL-SWITCH ostida; bu
+yerga qo'shilsa `ENFORCE_SUBSCRIPTION=False` bo'lganda ham bloklanardi.
+`ENFORCE_SUBSCRIPTION` bayrog'i tegilmadi.
+
+### Test
+`backend/tests/test_blocked_store_message.py` — 22 ta. GOLDEN: 488 passed.
+
 ## [1.12.2] — 2026-09-09 — Mahsulotni ketma-ket kiritish (tezlik)
 
 Sof frontend. Backend mantig'i tegilmadi, migratsiya yo'q — lekin `.exe`

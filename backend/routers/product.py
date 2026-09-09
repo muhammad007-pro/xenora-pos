@@ -18,6 +18,7 @@ from config import settings
 from routers.price_history import record_price_change, REASON_MANUAL
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 from core.barcode import gen_internal_barcode  # ichki EAN-13 (AI-Ombor bilan AYNI generator)
+from services.unit_converter import inventory_unit  # sotuv birligi → ombor birligi (pcs→dona)
 from core.catalog import record_candidate, is_shareable_barcode  # umumiy katalog
 from core.rate_limit import WindowLimiter
 
@@ -175,8 +176,7 @@ async def create_product(
     # soni kiritilmasa ham mahsulot omborda 0 bilan ko'rinadi (inner join tushirib
     # qoldirmaydi). Kassir keyin kirim qiladi. Birlik mahsulot sotuv birligidan
     # (pcs → dona, inventory.py:182 lazily-create bilan mos).
-    _u = product.sale_unit or "dona"
-    _u = "dona" if _u == "pcs" else _u
+    _u = inventory_unit(product.sale_unit)
     inventory = Inventory(product_id=product.id, quantity=0, unit=_u, tenant_id=tid)
     db.add(inventory)
     db.commit()
@@ -435,6 +435,36 @@ async def update_product(
                             current_user.id,
                             update_data.get("price_change_reason") or REASON_MANUAL)
 
+    # BIRLIK SINXRONI: `sale_unit` o'zgarsa `Inventory.unit` ham yangilanadi.
+    # MUAMMO (2026-09-09, 1001 BARAKA): birlik ikki joyda dublikat saqlanadi
+    # (`products.sale_unit` va `inventory.unit`), lekin ularni bog'lab turadigan
+    # kod yo'q edi — `inventory.unit` faqat qator YARATILGANDA yozilardi.
+    # Natijada mahsulot `g` → `dona` ga tahrirlangach ombor ekrani hamon `g`
+    # ko'rsatardi (u `inventory.unit` ni birinchi manba sifatida o'qiydi).
+    #
+    # ⚠️ MIQDOR (quantity) ATAYLAB O'ZGARTIRILMAYDI. "500 g" ni "500 dona"ga
+    # aylantirish qoldiqni jimgina buzardi (500 g ≠ 500 dona), teskarisi ham
+    # xavfli. Faqat YORLIQ yangilanadi, qoldiqni admin o'zi tekshiradi —
+    # shuning uchun javobda ogohlantirish qaytariladi (`unit_warning`).
+    _unit_ogohlantirish = None
+    if "sale_unit" in update_data:
+        _yangi_ombor_birligi = inventory_unit(update_data["sale_unit"])
+        _inv = (
+            db.query(Inventory)
+            .filter(Inventory.product_id == product.id,
+                    Inventory.tenant_id == product.tenant_id)
+            .all()
+        )
+        for _i in _inv:
+            if (_i.unit or "") != _yangi_ombor_birligi:
+                _eski = _i.unit
+                _i.unit = _yangi_ombor_birligi          # faqat yorliq
+                _unit_ogohlantirish = (
+                    f"Ombor birligi '{_eski}' → '{_yangi_ombor_birligi}' ga o'zgardi. "
+                    f"Qoldiq ({_i.quantity}) RAQAM sifatida o'zgarmadi — "
+                    f"kerak bo'lsa uni qo'lda tuzating."
+                )
+
     for field, value in update_data.items():
         if field != "price_change_reason":
             setattr(product, field, value)
@@ -460,7 +490,11 @@ async def update_product(
     except Exception as _e:      # noqa: BLE001
         logger.warning("katalog nomzodi yangilanmadi (mahsulot saqlandi): %s", _e)
 
-    return ProductInDB.model_validate(product)
+    _javob = ProductInDB.model_validate(product)
+    # Ogohlantirish javob bilan birga qaytadi (xato EMAS — saqlash muvaffaqiyatli).
+    # Frontend uni ko'rsatsa ham, ko'rsatmasa ham mahsulot saqlangan bo'ladi.
+    _javob.unit_warning = _unit_ogohlantirish
+    return _javob
 
 @router.delete("/{product_id}", response_model=MessageResponse)
 async def delete_product(

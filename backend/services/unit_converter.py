@@ -25,6 +25,22 @@ class IncompatibleUnitsError(ValueError):
     pass
 
 
+def inventory_unit(sale_unit: str | None) -> str:
+    """Mahsulotning SOTUV birligidan OMBOR birligini beradi.
+
+    Yagona farq — `pcs` → `dona` (ombor ekranida o'zbekcha o'qilsin). Qolgan
+    birliklar o'zgarmaydi.
+
+    ⚠️ YAGONA MANBA. Bu ikki qator ilgari `product.py` (yaratish) va
+    `inventory.py` (lazily-create) da ALOHIDA takrorlangan edi. 2026-09-09 da
+    uchinchi chaqiruvchi (mahsulot tahrirlanganda birlikni sinxronlash) qo'shildi
+    — shuning uchun bir joyga yig'ildi: qoida o'zgarsa, uch joyda emas, shu yerda
+    o'zgaradi.
+    """
+    u = (sale_unit or "dona").strip() or "dona"
+    return "dona" if u == "pcs" else u
+
+
 def can_convert(from_unit: str, to_unit: str) -> bool:
     """Ikki birlik bir xil turkumga tegishli bo'lsa — True (konvertatsiya mumkin)"""
     return get_unit(from_unit).category == get_unit(to_unit).category

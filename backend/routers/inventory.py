@@ -34,6 +34,7 @@ from deps import (
     user_has_permission,
 )
 from routers.price_history import record_price_change, REASON_STOCK_IN
+from services.unit_converter import inventory_unit  # sotuv birligi → ombor birligi (pcs→dona)
 
 router = APIRouter()
 
@@ -238,8 +239,7 @@ async def get_inventory_by_product(
         if not product:
             raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
         # Ombor birligi mahsulotning sotuv birligidan (kg hardcode emas); pcs → dona (o'qilishi uchun)
-        _u = product.sale_unit or "dona"
-        _u = "dona" if _u == "pcs" else _u
+        _u = inventory_unit(product.sale_unit)
         inventory = Inventory(
             product_id=product_id, quantity=0, unit=_u,
             min_threshold=5, max_threshold=100,

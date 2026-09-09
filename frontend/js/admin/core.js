@@ -1439,6 +1439,7 @@ let pmTabMode = 'main';
 let pmImageFile = null;   // mahsulot rasm fayli (yaratgandan keyin yuklanadi)
 let _pmExistingPlu = '';      // tahrirlashda mavjud tarozi PLU (weight_variable barcode)
 let _pmExistingPluId = null;  // uning ProductBarcode id si
+let _pmOriginalUnit = null;   // tahrirlash boshlangandagi sale_unit (o'zgarganini bilish uchun)
 
 const _cs = `width:100%;padding:.5625rem .75rem;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);outline:none;font-family:inherit`;
 
@@ -1526,6 +1527,7 @@ function getCfg() { return FORM_CONFIGS[bizType] || FORM_CONFIGS.cafe; }
 
 function openProductModal(product = null) {
   editingProductId = product?.id || null;
+  _pmOriginalUnit = product ? (product.sale_unit || null) : null;
   const cfg = getCfg();
   pmTabMode = (product?.product_type === cfg.alt?.type) ? 'alt' : 'main';
   buildProductModal(product);
@@ -2061,6 +2063,27 @@ async function saveProduct() {
     payload.category_id = defCat;
   }
 
+  // BIRLIK O'ZGARISHI — saqlashdan OLDIN tasdiq.
+  // Server birlikni ombor qatorida ham yangilaydi, LEKIN qoldiq RAQAMINI
+  // o'zgartirmaydi (500 g ≠ 500 dona — avtomatik konvertatsiya qoldiqni jimgina
+  // buzardi). Shuning uchun admin oldindan ogohlantiriladi.
+  // Faqat TAHRIRLASHDA, birlik ROSTDAN o'zgarganda va ombor qatori BOR bo'lsa.
+  if (editingProductId && _pmOriginalUnit && payload.sale_unit
+      && payload.sale_unit !== _pmOriginalUnit) {
+    let inv = null;
+    try { inv = await apiFetch(`/inventory/product/${editingProductId}`); } catch { inv = null; }
+    if (inv && inv.id) {
+      const q = inv.quantity ?? 0;
+      const ok = confirm(
+        `Birlik o'zgartirilmoqda: ${_pmOriginalUnit} → ${payload.sale_unit}\n\n` +
+        `Ombordagi qoldiq (${q} ${inv.unit || ''}) RAQAM sifatida o'zgarmaydi — ` +
+        `faqat yorlig'i yangilanadi.\n\n` +
+        `Kerak bo'lsa qoldiqni qo'lda tuzating. Davom etamizmi?`
+      );
+      if (!ok) return;      // saqlash bekor qilindi, forma ochiq qoladi
+    }
+  }
+
   const btn = document.getElementById('pmSaveBtn');
   btn.disabled=true; btn.textContent='Saqlanmoqda...';
   try {
@@ -2126,6 +2149,8 @@ async function saveProduct() {
     // esa avvalgidek yopiladi. Ro'yxat ikkalasida ham fonda yangilanadi.
     const _yangiEdi = !editingProductId;
     toast(_yangiEdi ? "Qo'shildi" : 'Yangilandi', 'success');
+    // Server ombor birligini ham yangilagan bo'lsa — qoldiq haqida eslatma
+    if (saved && saved.unit_warning) toast(saved.unit_warning, 'warning');
     cachedCategories = [];
     loadProducts();                      // fonda — kutmaymiz, forma tez ochilsin
     if (_yangiEdi) await pmResetForNextEntry();

@@ -121,10 +121,11 @@ def test_ochirilgan_dokon_ANIQ_XABAR_beradi(client, expired_tenant):
 
     rc = client.get(f"/api/v1/auth/resolve-code?code={ACCESS_CODE}")
     assert rc.status_code == 403, f"{rc.status_code} {rc.text}"
-    assert rc.json()["detail"]["code"] == "STORE_INACTIVE"
+    assert rc.json()["code"] == "STORE_INACTIVE"
+    assert isinstance(rc.json()["detail"], str), "detail obyekt → '[object Object]'"
     assert "topilmadi" not in rc.text.lower(), "eski adashtiruvchi matn qaytdi"
 
     r = client.post("/api/v1/auth/pin-login",
                     json={"pin": PIN, "access_code": ACCESS_CODE})
     assert r.status_code == 403
-    assert r.json()["detail"]["code"] == "STORE_INACTIVE"
+    assert r.json()["code"] == "STORE_INACTIVE"

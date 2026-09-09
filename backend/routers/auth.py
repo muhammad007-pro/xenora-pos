@@ -12,7 +12,7 @@ from core.security import (
     create_access_token, create_refresh_token,
     verify_refresh_token
 )
-from core.exceptions import InvalidCredentialsError, UserNotFoundError
+from core.exceptions import InvalidCredentialsError, UserNotFoundError, StoreInactiveError
 from core.password_policy import validate_password
 from core.feature_flags import resolve_enabled_features
 from core.subscription import get_plan_limits, is_within_user_limit
@@ -91,13 +91,10 @@ def _find_store_by_code(db: Session, access_code: Optional[str],
     # super-admin bloklagan.
     tenant_status = (cafe.tenant_status or "active").lower()
     if cafe.is_active is False or tenant_status == "blocked":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "STORE_INACTIVE",
-                "detail": f"Do'kon vaqtincha faol emas. Bog'laning: {settings.SUPPORT_CONTACT}",
-            },
-        )
+        # `detail` — ODDIY MATN (loyiha konvensiyasi), `code` esa javob tanasida
+        # yonida alohida maydon. Ichma-ich obyekt qaytarilsa frontend uni
+        # "[object Object]" qilib ko'rsatadi — qarang: core/exceptions.py.
+        raise StoreInactiveError(settings.SUPPORT_CONTACT)
     return cafe
 
 

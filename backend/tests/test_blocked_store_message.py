@@ -193,16 +193,20 @@ def test_yopiq_dokon_resolve_code_403(client, seeded, kod, izoh):
     """ILGARI: 404 'Do'kon topilmadi' — kassir kodni xato tergan deb o'ylardi."""
     r = r_resolve(client, kod)
     assert r.status_code == 403, f"{izoh}: {r.status_code} {r.text}"
-    d = r.json()["detail"]
-    assert d["code"] == "STORE_INACTIVE"
-    assert d["detail"] == KUTILGAN_MATN
+    body = r.json()
+    assert body["code"] == "STORE_INACTIVE"
+    assert body["detail"] == KUTILGAN_MATN
+    # ⚠️ `detail` MATN bo'lishi SHART — obyekt bo'lsa frontend "[object Object]"
+    # ko'rsatadi (2026-09-09 da jonli chiqqan nuqson).
+    assert isinstance(body["detail"], str), f"detail obyekt: {body['detail']!r}"
 
 
 @pytest.mark.parametrize("kod", [KOD_OCHIQ, KOD_BLOCKED])
 def test_yopiq_dokon_pin_login_403(client, seeded, kod):
     r = r_pin(client, kod)
     assert r.status_code == 403, f"{r.status_code} {r.text}"
-    assert r.json()["detail"]["code"] == "STORE_INACTIVE"
+    assert r.json()["code"] == "STORE_INACTIVE"
+    assert isinstance(r.json()["detail"], str)
 
 
 @pytest.mark.parametrize("kod,phone", [
@@ -213,8 +217,32 @@ def test_yopiq_dokon_login_403(client, seeded, kod, phone):
     """Parol TO'G'RI bo'lsa ham do'kon yopiq → token berilmaydi."""
     r = r_login(client, kod, phone)
     assert r.status_code == 403, f"{r.status_code} {r.text}"
-    assert r.json()["detail"]["code"] == "STORE_INACTIVE"
+    assert r.json()["code"] == "STORE_INACTIVE"
+    assert isinstance(r.json()["detail"], str)
     assert "access_token" not in r.json()
+
+
+def test_detail_MATN_object_Object_chiqmaydi(client, seeded):
+    """NUQSON (2026-09-09, jonli): javob ichma-ich edi —
+
+        {"detail": {"code": "STORE_INACTIVE", "detail": "..."}}
+
+    chunki `HTTPException(detail=<obyekt>)` ni FastAPI yana `{"detail": ...}`
+    ichiga o'raydi. Frontend (`login.html:636`) `data.detail` ni MATN deb
+    kutadi → kassir ekranida "[object Object]" chiqardi.
+
+    Endi shakl TEKIS: `detail` — matn, `code` — yonida alohida maydon.
+    """
+    for javob in (r_resolve(client, KOD_BLOCKED),
+                  r_pin(client, KOD_BLOCKED),
+                  r_login(client, KOD_BLOCKED, "+998900000093")):
+        body = javob.json()
+        assert isinstance(body["detail"], str), f"detail obyekt qaytdi: {body!r}"
+        assert body["detail"] == KUTILGAN_MATN
+        assert body["code"] == "STORE_INACTIVE"
+        # JS `String(data.detail)` aynan shu natijani beradi
+        assert "[object Object]" not in str(body["detail"])
+        assert "{" not in body["detail"] and "}" not in body["detail"]
 
 
 def test_MUDDATI_TUGAGAN_dokon_YOPILMAYDI(client, seeded):
@@ -238,11 +266,13 @@ def test_MUDDATI_TUGAGAN_dokon_YOPILMAYDI(client, seeded):
 def test_uchala_endpoint_bir_xil_javob(client, seeded):
     """Uchala yo'l ham AYNAN bir xil tanani qaytaradi (izchillik)."""
     javoblar = [
-        r_resolve(client, KOD_BLOCKED).json()["detail"],
-        r_pin(client, KOD_BLOCKED).json()["detail"],
-        r_login(client, KOD_BLOCKED, "+998900000093").json()["detail"],
+        r_resolve(client, KOD_BLOCKED).json(),
+        r_pin(client, KOD_BLOCKED).json(),
+        r_login(client, KOD_BLOCKED, "+998900000093").json(),
     ]
     assert javoblar[0] == javoblar[1] == javoblar[2], javoblar
+    for j in javoblar:
+        assert set(j.keys()) == {"detail", "code"}, f"javob shakli o'zgardi: {j}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -276,8 +306,8 @@ def test_dokon_nomi_va_holati_oshkor_bolmaydi(client, seeded):
 
 def test_aloqa_raqami_konfiguratsiyadan(client, seeded):
     """Telefon kodda qattiq yozilmagan — `settings.SUPPORT_CONTACT` dan keladi."""
-    d = r_resolve(client, KOD_BLOCKED).json()["detail"]
-    assert settings.SUPPORT_CONTACT in d["detail"]
+    body = r_resolve(client, KOD_BLOCKED).json()
+    assert settings.SUPPORT_CONTACT in body["detail"]
 
 
 def test_enforce_subscription_bayrogidan_mustaqil(client, seeded, monkeypatch):
@@ -285,4 +315,4 @@ def test_enforce_subscription_bayrogidan_mustaqil(client, seeded, monkeypatch):
     monkeypatch.setattr(settings, "ENFORCE_SUBSCRIPTION", False)
     r = r_resolve(client, KOD_BLOCKED)
     assert r.status_code == 403
-    assert r.json()["detail"]["code"] == "STORE_INACTIVE"
+    assert r.json()["code"] == "STORE_INACTIVE"

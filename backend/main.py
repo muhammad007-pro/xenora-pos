@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
@@ -15,6 +16,7 @@ if sys.platform == "win32":
 from config import settings
 from database import init_db
 from core.logger import setup_logger
+from core.exceptions import StoreInactiveError
 from core.middleware import RequestIDMiddleware, LoggingMiddleware, ErrorHandlingMiddleware
 from core.rate_limit import RateLimitMiddleware
 from routers import (
@@ -103,6 +105,21 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=lifespan
 )
+
+
+# ── Yopiq do'kon javobi — TEKIS shakl ────────────────────────────────────────
+# FastAPI'ning standart HTTPException handleri javobni HAR DOIM `{"detail": ...}`
+# ichiga o'raydi. Shu sababli `detail` ga obyekt bersak, u ichma-ich tushib
+# qoladi va frontend (`login.html:636` — `data.detail` ni MATN deb kutadi)
+# ekranga "[object Object]" chiqaradi. Bu handler faqat `StoreInactiveError`
+# uchun tekis shakl beradi; boshqa barcha xatolar tegilmaydi.
+@app.exception_handler(StoreInactiveError)
+async def _store_inactive_handler(request, exc: StoreInactiveError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "code": exc.error_code},
+    )
+
 
 # Middleware (oxirgisi birinchi bajariladi — LIFO tartib)
 app.add_middleware(LoggingMiddleware)

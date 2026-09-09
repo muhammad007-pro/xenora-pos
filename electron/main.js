@@ -137,7 +137,17 @@ const usbTransport = {
             await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
             await _delay(300);   // render / shrift / QR
 
-            // PDF sahifasini 58mm × (kontent balandligi) qilamiz — ortiqcha bo'sh qog'oz yo'q.
+            // ── QOG'OZ KENGLIGI (sozlamadan) ────────────────────────────────
+            // ⚠️ AYNI JADVAL `frontend/js/core/receipt-print.js` (paperSpec) da
+            // ham bor — u CSS kontent kengligini beradi. Ikkalasi BIRGA
+            // o'zgarishi shart.
+            //   58/57 → sahifa 58mm (kontent 48mm)
+            //   80    → sahifa 80mm (kontent 72mm)
+            // NOMA'LUM/BO'SH → 58mm. ATAYLAB: sozlama yetib kelmasa ham mavjud
+            // 58mm do'konlarning (Fazza) cheki avvalgidek chiqsin.
+            const pageMm = Number(opts && opts.paperWidth) === 80 ? 80 : 58;
+
+            // PDF sahifasini <pageMm> × (kontent balandligi) qilamiz — ortiqcha bo'sh qog'oz yo'q.
             let hmm = 200;
             try {
                 const hpx = await wc.executeJavaScript('document.body.scrollHeight');
@@ -145,10 +155,10 @@ const usbTransport = {
             } catch { /* o'lchab bo'lmasa 200mm */ }
             try {
                 await wc.executeJavaScript(
-                    "(function(){var s=document.createElement('style');s.textContent='@page{size:58mm "
-                    + hmm + "mm;margin:0}';document.head.appendChild(s);})()"
+                    "(function(){var s=document.createElement('style');s.textContent='@page{size:"
+                    + pageMm + "mm " + hmm + "mm;margin:0}';document.head.appendChild(s);})()"
                 );
-            } catch { /* @page bermasak Letter bo'ladi — SumatraPDF fit tuzatadi */ }
+            } catch { /* @page bermasak Letter bo'ladi — chek noto'g'ri o'lchamda chiqadi */ }
             await _delay(60);
 
             const sumatra = _sumatraExe();
@@ -162,9 +172,14 @@ const usbTransport = {
                 pdfPath = path.join(os.tmpdir(), 'xenora_chek_' + Date.now() + '.pdf');
                 fs.writeFileSync(pdfPath, Buffer.from(pdf));
                 // SumatraPDF PDF'ni RASTER qilib GDI orqali bosadi (matn bayt yo'q → krakozyabra yo'q).
+                // `noscale` — 1:1 bosiladi (PDF sahifasi allaqachon to'g'ri o'lchamda).
+                // ILGARI `fit` edi va MUAMMO shu edi: `fit` nisbatni saqlab, sahifani
+                // bosiladigan maydonga sig'diradi. Chek UZUN bo'lgani uchun (200-300mm)
+                // cheklovchi o'lcham BALANDLIK bo'lib qolardi va butun sahifa
+                // kichrayardi — 58mm kenglik ~50mm ga tushardi (mijozda ko'rindi).
                 const args = dev
-                    ? ['-print-to', dev, '-silent', '-print-settings', 'fit', pdfPath]
-                    : ['-print-to-default', '-silent', '-print-settings', 'fit', pdfPath];
+                    ? ['-print-to', dev, '-silent', '-print-settings', 'noscale', pdfPath]
+                    : ['-print-to-default', '-silent', '-print-settings', 'noscale', pdfPath];
                 await _runExe(sumatra, args);
                 return { ok: true, device: dev || '(OS default)', engine: 'pdf' };
             }

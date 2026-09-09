@@ -98,10 +98,17 @@ def test_muddati_tugagan_dokonda_PIN_login_ISHLAYDI(client, expired_tenant):
     assert r.json().get("access_token")
 
 
-def test_ochirilgan_dokon_kirish_ekranida_KORINMAYDI(client, expired_tenant):
-    """Aksincha holat: super-admin QO'LDA o'chirgan do'kon yashirin qolsin.
+def test_ochirilgan_dokon_ANIQ_XABAR_beradi(client, expired_tenant):
+    """Aksincha holat: super-admin QO'LDA o'chirgan do'kon KIRA OLMAYDI.
 
     `is_active` ma'nosi shu — u obuna emas, do'konning o'zi o'chirilgani.
+
+    ⚠️ XULQ O'ZGARDI (2026-09-09): ilgari bu do'kon "umuman yo'q" kabi
+    ko'rinardi (404/400 "Do'kon topilmadi") va kassir kodni xato tergan deb
+    o'ylardi — eco aroma bloklanganda aynan shu kuzatildi. Endi kirish
+    baribir YOPIQ, lekin javob TUSHUNARLI: 403 {code: STORE_INACTIVE} +
+    aloqa raqami. Sabab (to'lov/obuna) va `blocked_reason` OSHKOR QILINMAYDI.
+    Qarang: tests/test_blocked_store_message.py.
     """
     from tests.conftest import TestingSessionLocal
     db = TestingSessionLocal()
@@ -112,7 +119,12 @@ def test_ochirilgan_dokon_kirish_ekranida_KORINMAYDI(client, expired_tenant):
     finally:
         db.close()
 
-    assert client.get(f"/api/v1/auth/resolve-code?code={ACCESS_CODE}").status_code == 404
+    rc = client.get(f"/api/v1/auth/resolve-code?code={ACCESS_CODE}")
+    assert rc.status_code == 403, f"{rc.status_code} {rc.text}"
+    assert rc.json()["detail"]["code"] == "STORE_INACTIVE"
+    assert "topilmadi" not in rc.text.lower(), "eski adashtiruvchi matn qaytdi"
+
     r = client.post("/api/v1/auth/pin-login",
                     json={"pin": PIN, "access_code": ACCESS_CODE})
-    assert r.status_code == 400
+    assert r.status_code == 403
+    assert r.json()["detail"]["code"] == "STORE_INACTIVE"

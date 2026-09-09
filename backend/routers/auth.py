@@ -16,6 +16,7 @@ from core.exceptions import InvalidCredentialsError, UserNotFoundError
 from core.password_policy import validate_password
 from core.feature_flags import resolve_enabled_features
 from core.subscription import get_plan_limits, is_within_user_limit
+from config import settings
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 from core.role_guard import (
     resolve_target_tenant, assert_can_assign_role, assert_branch_in_tenant,
@@ -47,6 +48,59 @@ def _build_token_data(user: User, db: Session, branch_id=None) -> dict:
             ))
     return data
 
+def _find_store_by_code(db: Session, access_code: Optional[str],
+                        not_found_status: int,
+                        not_found_detail: str = "Do'kon topilmadi") -> Cafe:
+    """Kirish kodi (100.200.N) bo'yicha do'konni topadi va HOLATINI tekshiradi.
+
+    MUAMMO (2026-09-09): uchala kirish yo'lida ham so'rov `Cafe.is_active == True`
+    filtri BILAN yozilgan edi. Natijada faolsizlantirilgan/bloklangan do'kon
+    "umuman yo'q" bilan bir xil ko'rinardi — kassir ekranida "Do'kon topilmadi"
+    chiqib, u kodni xato tergan deb o'ylardi va qayta-qayta urinardi.
+
+    Endi ikki holat AJRATILADI:
+      · kod umuman yo'q          → 404/400 "Do'kon topilmadi" (mavjud xulq)
+      · do'kon bor, lekin yopiq  → 403 {code: STORE_INACTIVE} + aloqa raqami
+
+    ⚠️ MATN ATAYLAB NEYTRAL. Kirish kodlari KETMA-KET (100.200.1, .2, .3…), ya'ni
+    ularni sanab chiqish oson. "To'lov qilinmagan" yoki "obuna tugagan" deb yozsak,
+    begona odam mijozning to'lov holatini bila olardi. Shuning uchun sabab
+    aytilmaydi. `blocked_reason` ham QAYTARILMAYDI — u super-admin uchun ichki
+    eslatma (erkin matn), mijoz ekraniga chiqadigan joyi emas.
+
+    Bu funksiya `ENFORCE_SUBSCRIPTION` dan MUSTAQIL: u kirish yo'lidagi XABAR
+    masalasi, enforcement emas. Bayroq o'chiq bo'lsa ham ishlaydi — chunki
+    `is_active=False` va qo'lda qo'yilgan `blocked` allaqachon kirishni to'sardi,
+    faqat tushunarsiz matn bilan.
+    """
+    ac = (access_code or "").strip()
+    cafe = db.query(Cafe).filter(Cafe.access_code == ac).first() if ac else None
+    if cafe is None:
+        # Topilmagan holatdagi matn har yo'lda O'ZGARMAYDI (mavjud klientlar va
+        # testlar shu matnlarga tayanadi) — faqat YOPIQ do'kon javobi yangi.
+        raise HTTPException(status_code=not_found_status, detail=not_found_detail)
+
+    # ⚠️ `expired` ATAYLAB YO'Q. 2026-09-02 da qulflangan kafolat (N1,
+    # tests/test_subscription_login_path.py): muddati tugagan do'kon KIRISH
+    # ekranida ko'rinishda davom etadi. Sabab — kassir "kod noto'g'ri" degan
+    # adashtiruvchi xato emas, LOGINDAN KEYIN tushunarli blok ekranini ko'rsin.
+    # Obuna bo'yicha bloklash `deps._enforce_subscription` ning ishi va u
+    # KILL-SWITCH ostida; bu yerga qo'shsak, `ENFORCE_SUBSCRIPTION=False`
+    # bo'lsa ham muddati tugaganlar bloklanardi — ya'ni kill-switch teshilardi.
+    # Bu yerda faqat QO'LDA qilingan yopishlar: do'konning o'zi o'chirilgan yoki
+    # super-admin bloklagan.
+    tenant_status = (cafe.tenant_status or "active").lower()
+    if cafe.is_active is False or tenant_status == "blocked":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "STORE_INACTIVE",
+                "detail": f"Do'kon vaqtincha faol emas. Bog'laning: {settings.SUPPORT_CONTACT}",
+            },
+        )
+    return cafe
+
+
 def _assert_code_matches_tenant(db: Session, user: User, access_code: Optional[str]) -> None:
     """Login ekranida terilgan DO'KON KODI foydalanuvchi do'koni bilan mos kelsinmi.
 
@@ -74,14 +128,9 @@ def _assert_code_matches_tenant(db: Session, user: User, access_code: Optional[s
     if user.is_superuser or user.tenant_id is None:
         return                                  # do'konga bog'lanmagan hisob
 
-    cafe = db.query(Cafe).filter(
-        Cafe.access_code == code, Cafe.is_active == True
-    ).first()
-    if cafe is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Do'kon kodi noto'g'ri",
-        )
+    # Kod noto'g'ri bo'lsa 400 (avvalgidek), do'kon yopiq bo'lsa 403 + aniq matn.
+    cafe = _find_store_by_code(db, code, status.HTTP_400_BAD_REQUEST,
+                               "Do'kon kodi noto'g'ri")
     if cafe.id != user.tenant_id:
         # 403: parol TO'G'RI, lekin hisob boshqa do'konniki. Yangi ma'lumot
         # ochilmaydi — bu javobni faqat to'g'ri parolni bilgan oladi.
@@ -315,10 +364,7 @@ async def resolve_code(code: str, db: Session = Depends(get_db)):
     Login sahifasi kod to'g'riligini tekshirib do'kon nomini ko'rsatish uchun.
     RO'YXAT YO'Q — faqat aniq kod bitta do'konni qaytaradi (klientlar bir-birini
     ko'rmaydi). Maxfiy ma'lumot qaytarilmaydi. Kod noto'g'ri → 404."""
-    ac = (code or "").strip()
-    cafe = db.query(Cafe).filter(Cafe.access_code == ac, Cafe.is_active == True).first() if ac else None
-    if not cafe:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Do'kon topilmadi")
+    cafe = _find_store_by_code(db, code, status.HTTP_404_NOT_FOUND)
     return {"id": cafe.id, "name": cafe.name, "business_type": cafe.business_type}
 
 
@@ -335,11 +381,8 @@ async def pin_login(
     tenant_id = None
     branch_id_for_pin = data.branch_id
     if data.access_code:
-        cafe = db.query(Cafe).filter(
-            Cafe.access_code == data.access_code.strip(), Cafe.is_active == True
-        ).first()
-        if not cafe:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Do'kon kodi noto'g'ri")
+        cafe = _find_store_by_code(db, data.access_code, status.HTTP_400_BAD_REQUEST,
+                                   "Do'kon kodi noto'g'ri")
         tenant_id = cafe.id
         branch_id_for_pin = None   # kod bilan — filial ro'yxatisiz
     elif data.branch_id:

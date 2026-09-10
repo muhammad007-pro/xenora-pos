@@ -378,3 +378,25 @@ faqat NOTO'G'RI holatda ishga tushadi.
 ⚠️ v1.12.9 da TEGILMADI (ataylab): u faqat ruxsat qatlamini yopdi
 (`fix/shift-pos-access`). Bu — alohida ish, chunki `POST /orders/` ga
 tegish jonli sotuv yo'li.
+
+### 13.3 Admin boshqa xodimga smena ocholmaydi — alohida endpoint kerak
+
+`create_shift` (v1.12.9 dan) smenani HAR DOIM so'rov yuborgan xodimga ochadi;
+boshqa `user_id` yuborilsa 403. Admin paneldagi xodim tanlash ro'yxati ham
+shu sabab olib tashlandi (`js/admin/shift.js: openShiftModal`) — u
+bajarib bo'lmaydigan va'da berardi.
+
+Amalda bu kerak bo'lishi mumkin: kassir smenani ochishni unutib savdoni
+boshlab yuborsa, yoki yangi xodim tizimga hali kirmagan bo'lsa, admin uning
+nomiga smena ochishi kerak bo'ladi.
+
+**Qilinishi kerak:** alohida, aniq niyatli endpoint —
+`POST /shifts/for-user` (yoki `create_shift` ga `on_behalf_of` maydoni),
+`Depends(has_permission("manage_shifts"))` bilan. Talablar:
+- maqsad xodim AYNI tenant'da bo'lsin;
+- audit'da "kim ochdi" va "kimga ochildi" ikkalasi ham yozilsin
+  (hozir `log_audit` da `user_id` faqat smena egasi);
+- admin UI'da xodim tanlash ro'yxati o'sha endpointga ulansin.
+
+Prod audit'i: 11 smenadan faqat 1 tasi (tenant 5, iyul 2026) shu yo'l bilan
+ochilgan — ya'ni shoshilinch emas, lekin butunlay yo'q qilish ham to'g'ri emas.

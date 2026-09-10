@@ -1850,8 +1850,12 @@
         <div class="modal-box" style="max-width:380px">
           <div class="modal-header"><h3>Smena ochish</h3><button class="close-btn" onclick="closeModal('shiftOpenModal')">×</button></div>
           <div class="modal-body">
+            <!-- Kassir TANLANMAYDI: smena har doim so'rov yuborgan xodimga
+                 ochiladi (backend `create_shift` majburlaydi). Ilgari bu yerda
+                 xodim ro'yxati bor edi — yolg'on va'da: boshqasini tanlasa 403. -->
             <div class="form-group"><label>Kassir</label>
-              <select class="form-control" id="shiftUser"></select>
+              <div class="form-control" id="shiftUser" style="display:flex;align-items:center;background:var(--bg3);cursor:default">—</div>
+              <small style="color:var(--text3);font-size:.75rem">Smena o'zingizga ochiladi. Boshqa xodim smenani o'zi ochadi.</small>
             </div>
             <div class="form-group" id="shiftRegisterGroup" style="display:none"><label>Kassa</label>
               <select class="form-control" id="shiftRegister"></select>

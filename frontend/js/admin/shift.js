@@ -162,9 +162,12 @@ function renderShifts() {
   }).join('');
 }
 async function openShiftModal() {
-  const users = await apiFetch('/users/?page_size=100');
-  const sel = document.getElementById('shiftUser');
-  sel.innerHTML = (users.items||users||[]).map(u=>`<option value="${u.id}">${escH(u.full_name||u.username)}</option>`).join('');
+  // Xodim TANLANMAYDI — smena har doim joriy foydalanuvchiga ochiladi
+  // (backend `create_shift` klient bergan `user_id` ni qabul qilmaydi, 403).
+  // Ilgari bu yerda `/users/` ro'yxati bor edi; boshqa xodim tanlansa server
+  // rad etardi — ya'ni ro'yxat bajarib bo'lmaydigan va'da berardi.
+  const me = getUser();
+  document.getElementById('shiftUser').textContent = me.full_name || me.username || '—';
   document.getElementById('shiftStartCash').value = '0';
 
   // Kassa tanlash — faqat cash_register flagi yoqilgan bo'lsa (faol kassalar mavjud)
@@ -186,9 +189,10 @@ async function openShiftModal() {
   openModal('shiftOpenModal');
 }
 async function openShift() {
-  const userId = +document.getElementById('shiftUser').value;
+  // `user_id` — sxema uni MAJBURIY deb biladi (aks holda 422), lekin server
+  // baribir joriy foydalanuvchini qo'yadi. Shuning uchun o'z id'imizni yuboramiz.
   const startCash = +document.getElementById('shiftStartCash').value || 0;
-  const body = { user_id: userId, starting_cash: startCash };
+  const body = { user_id: getUser().id, starting_cash: startCash };
   const regGroup = document.getElementById('shiftRegisterGroup');
   if (regGroup && regGroup.style.display !== 'none') {
     const regId = document.getElementById('shiftRegister').value;

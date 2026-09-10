@@ -76,8 +76,9 @@ async function ochish(browser, { bizType = 'store', stockFails = false } = {}) {
     localStorage.setItem('user', JSON.stringify({ id: 1, business_type: 'store' }));
   }, tkn);
 
-  const calls = [];   // yuborilgan so'rovlar (saralash qo'shimcha so'rov qilmasligini tekshirish uchun)
-  const xatolar = []; // sahifadagi JS xatolari
+  const calls = [];        // yuborilgan so'rovlar (nechta va qaysi endpoint)
+  const saqlanganlar = []; // POST /products/ tanalari
+  const xatolar = [];      // sahifadagi JS xatolari
   page.on('pageerror', e => xatolar.push(String(e.message)));
 
   await page.route('**/api/v1/**', async (route) => {
@@ -92,6 +93,12 @@ async function ochish(browser, { bizType = 'store', stockFails = false } = {}) {
       if (stockFails) return json({ detail: 'Ombor yiqildi' }, 500);
       return json({ items: STOCK, can_cost: false, block_oversell: false });
     }
+    if (path === '/products/' && route.request().method() === 'POST') {
+      saqlanganlar.push(JSON.parse(route.request().postData() || '{}'));
+      return json({ id: 999, name: 'YANGI', price: 1000, sale_unit: 'pcs', category: null });
+    }
+    if (path === '/stations/' || path === '/departments/') return json([]);
+    if (path.startsWith('/barcodes/product/')) return json([]);
     if (path === '/products/') {
       // qidiruv / kategoriya filtri — backend qiladi, biz taqlid qilamiz
       let items = PRODUCTS;
@@ -106,8 +113,11 @@ async function ochish(browser, { bizType = 'store', stockFails = false } = {}) {
 
   await page.goto(`${BASE}/app/admin.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.loadProducts === 'function');
-  return { page, ctx, calls, xatolar };
+  return { page, ctx, calls, saqlanganlar, xatolar };
 }
+
+/** `calls` ichida shu prefiks bilan boshlanuvchi so'rovlar soni. */
+const nechta = (calls, prefiks) => calls.filter(c => c.startsWith(prefiks)).length;
 
 /** Jadval qatorlarini o'qiydi: har qator — katakchalar matni massivi. */
 const qatorlar = (page) => page.$$eval('#productsBody tr', trs =>
@@ -189,16 +199,16 @@ const browser = await chromium.launch();
 
   // Qidiruv saralashni tiklaydi (server tartibi — nom bo'yicha)
   await page.fill('#productsSearch', 'ar');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(650);
   check('3_qidiruv_ishlaydi', await nomlar(page), ['SHAKAR', 'YANGI TOVAR']);
   check('3_saralash_tiklandi', await page.$eval('#thStock', t => t.textContent.trim()), 'Qoldiq');
   check('3_qidiruvda_qoldiq_bor', await qoldiqlar(page), ['0.5 kg', '—']);
 
   // Kategoriya filtri
   await page.fill('#productsSearch', '');
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(650);
   await page.selectOption('#productsCatFilter', '8');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(650);
   check('3_kategoriya_filtri', await nomlar(page), ['SHAKAR', 'ATIR ml']);
   check('3_filtrda_qoldiq_bor', await qoldiqlar(page), ['0.5 kg', '1.3 kg']);
 
@@ -222,6 +232,76 @@ for (const [biz, sarlavha, katak] of [
   check(`4_${biz}_extra_katak`,   (await qatorlar(page))[0][5], katak);
   // Qoldiq ustuni hamma turda joyida
   check(`4_${biz}_qoldiq`,        (await qatorlar(page))[0][4], '12 dona');
+  await ctx.close();
+}
+
+// ── 6. Qoldiq xaritasi KESHLANADI (v1.12.7 regressiyasi tuzatildi) ──────────
+// Ilgari har qidiruv/filtr `/inventory/pos-stock` ni qayta tortardi — jonli
+// serverda 442–909 ms. Endi sahifaga kirganda BIR MARTA olinadi.
+{
+  const { page, ctx, calls } = await ochish(browser);
+  await yukla(page);
+  check('6_sahifa_ochilganda_bir_marta', nechta(calls, '/inventory/pos-stock'), 1);
+
+  // qidiruv → pos-stock QAYTA CHAQIRILMAYDI (products esa chaqiriladi)
+  const prodOldin = nechta(calls, '/products/');
+  await page.fill('#productsSearch', 'ar');
+  await page.waitForTimeout(600);
+  check('6_qidiruvda_posstock_qayta_yoq', nechta(calls, '/inventory/pos-stock'), 1);
+  check('6_qidiruvda_products_chaqirildi', nechta(calls, '/products/') - prodOldin, 1);
+  check('6_qidiruvda_qoldiq_saqlandi', await qoldiqlar(page), ['0.5 kg', '—']);
+
+  // kategoriya filtri → ham qayta tortmaydi
+  await page.fill('#productsSearch', '');
+  await page.waitForTimeout(600);
+  await page.selectOption('#productsCatFilter', '8');
+  await page.waitForTimeout(650);
+  check('6_filtrda_posstock_qayta_yoq', nechta(calls, '/inventory/pos-stock'), 1);
+
+  // saralash → umuman so'rov yubormaydi
+  const jamiOldin = calls.length;
+  await page.click('#thStock');
+  check('6_saralashda_sorov_yoq', calls.length - jamiOldin, 0);
+
+  // "Yangilash" tugmasi → QAYTA tortiladi
+  // (`page.click` emas: offline-banner overlay bosishni to'sadi — to'g'ridan chaqiramiz)
+  await page.evaluate(() => document.getElementById('refreshBtn').click());
+  await page.waitForTimeout(700);
+  check('6_yangilash_qayta_tortdi', nechta(calls, '/inventory/pos-stock'), 2);
+
+  await ctx.close();
+}
+
+// ── 6b. DEBOUNCE: tez yozishda bitta so'rov ─────────────────────────────────
+{
+  const { page, ctx, calls } = await ochish(browser);
+  await yukla(page);
+  const oldin = nechta(calls, '/products/');
+
+  await page.type('#productsSearch', 'coca', { delay: 40 });   // 4 harf, 40ms oraliq
+  await page.waitForTimeout(700);
+  check('6b_debounce_bitta_sorov', nechta(calls, '/products/') - oldin, 1);
+  check('6b_natija_togri', await nomlar(page), ['COCA COLA 1L']);
+
+  await ctx.close();
+}
+
+// ── 6c. Mahsulot saqlangach xarita YANGILANADI ──────────────────────────────
+{
+  const { page, ctx, calls, saqlanganlar } = await ochish(browser);
+  await yukla(page);
+  check('6c_boshlangich', nechta(calls, '/inventory/pos-stock'), 1);
+
+  await page.evaluate(() => window.openProductModal());
+  await page.fill('#pmf_name', 'TEST MAHSULOT');
+  await page.fill('#pmf_price', '9000');
+  await page.selectOption('#pmf_category', '7');
+  await page.evaluate(() => window.saveProduct());
+  await page.waitForTimeout(900);
+
+  check('6c_saqlandi', saqlanganlar.length, 1);
+  check('6c_saqlagach_xarita_yangilandi', nechta(calls, '/inventory/pos-stock'), 2);
+
   await ctx.close();
 }
 

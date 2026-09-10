@@ -3,6 +3,44 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.7] — 2026-09-10 — Mahsulotlar ro'yxatida ombor qoldig'i
+
+FAQAT FRONTEND. Migratsiya yo'q, backend/schema tegilmadi. Serverda statik
+fayllar yangilanadi; `.exe` ham yangilanishi kerak (o'zgarish klient tomonida).
+
+### Qo'shildi
+- **Mahsulotlar ro'yxatida "Qoldiq" ustuni** — qoldiq va o'lchov birligi birga
+  (`12 dona`, `0.5 kg`). Do'konchi endi har safar Ombor bo'limiga o'tmaydi
+  (1001 BARAKA so'rovi).
+  - Manba: `GET /inventory/pos-stock?limit=2000` — MAVJUD endpoint, o'zgartirilmadi.
+    Mahsulotlar so'rovi bilan PARALLEL (`Promise.all`) — ro'yxat kutdirilmaydi.
+  - Ombor qatori yo'q mahsulot `—` ko'rsatadi (`0` EMAS — qoldiq noma'lum).
+- **Qoldiq bo'yicha saralash** — sarlavha bosilsa kam→ko'p / ko'p→kam.
+  Faqat KLIENTDA (`_loadedProducts`), qo'shimcha so'rovsiz. `—` lar har doim
+  oxirida. Yangi qidiruv/filtr saralashni server tartibiga (nom) qaytaradi.
+
+### Tuzatildi
+- **Kategoriya ustuni DOIM `—` ko'rsatardi.** Backend `category` OBYEKTINI
+  qaytaradi (`ProductInDB.category`), kod esa mavjud bo'lmagan `category_name`
+  ni o'qirdi. Endi `p.category?.name`.
+
+### O'zgardi
+- **ID ustuni olib tashlandi** — hech qayerda o'qilmasdi, faqat joy egallardi.
+  Ustun soni 8 da qoldi (`colspan` tegilmadi). ⚠️ `checkbox value` va
+  `onclick` ichidagi `p.id` TEGILMADI — ommaviy kategoriya berish, tahrirlash
+  va o'chirish avvalgidek ishlaydi.
+
+### Ishonchlilik
+- `/inventory/pos-stock` yiqilsa (403/500/tarmoq) mahsulotlar ro'yxati BARIBIR
+  ko'rinadi — Qoldiq ustuni `—` bo'ladi va ogohlantirish chiqadi (jimgina
+  yutilmaydi). Ombor so'rovi mahsulotlarni bloklamaydi.
+
+### Test
+- Yangi: `frontend/tests/test_product_list_stock.mjs` — 40 ta tekshiruv
+  (qoldiq/birlik, kasrli qiymat, `—`, pos-stock yiqilishi, kategoriya nomi,
+  ID yo'qligi + `p.id` saqlanganligi, saralash ikki yo'nalishda va qo'shimcha
+  so'rovsiz, qidiruv+kategoriya filtri, 4 biznes turi, mobil skroll, JS xatosi).
+
 ## [1.12.6] — 2026-09-10 — Chek kengligi: 80 mm sozlamasi ishlaydi
 
 Frontend + Electron. Migratsiya yo'q, backend mantig'i tegilmadi — lekin `.exe`

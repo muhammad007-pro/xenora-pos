@@ -290,3 +290,32 @@ Solishtirish uchun: qaytarish (returns) `process_payments` talab qiladi
 **Qilinishi kerak:** `cancel` uchun ham mos permission tanlansin
 (`process_orders` yoki `process_payments`) — POS oqimini buzmasligi
 tekshirilib.
+
+## 12. Frontend test to'plami (2026-09-10, v1.12.7 relizidan)
+
+### 12.1 `test_searchable_select_stage_b.mjs` main'da yiqiladi
+
+`node frontend/tests/test_searchable_select_stage_b.mjs` →
+
+```
+[FAIL] B7_qidiruv_inputi_qoshildi: 0 (kutilgan 1)
+page.evaluate: TypeError: window.openAdd is not a function
+    at frontend/tests/test_searchable_select_stage_b.mjs:165
+```
+
+**OLDINDAN MAVJUD** — v1.12.7 o'zgarishlaridan EMAS. `main` (fa172f4) da
+stash bilan tekshirildi: o'sha xato, o'sha qator. B1–B6 o'tadi, B7 dan
+keyin test uzulib qoladi (`process.exit` gacha yetmaydi).
+
+**Ma'nosi:** `window.openAdd` global emas yoki nomi o'zgargan. Bu aynan
+`test_module_inline_onclick.js` ushlaydigan sinf xatosiga o'xshaydi
+(modul ichidagi funksiya `window` ga chiqmaydi), lekin u test o'tadi —
+demak `openAdd` inline `onclick` da emas, faqat testda chaqiriladi.
+
+**Xavf:** noma'lum. Ikki ehtimol:
+1. Test eskirgan (funksiya qayta nomlangan) → testni tuzatish kerak.
+2. Priyomka/kirim oynasidagi "qo'shish" haqiqatan sinsan → MIJOZGA TEGADI.
+
+**Qilinishi kerak:** qaysi ekan — aniqlansin. Ikkinchi holatda tez
+tuzatish, birinchisida test yangilansin. Shu holatda to'plam "yashil"
+emas va yangi regressiya ko'rinmay qolishi mumkin.

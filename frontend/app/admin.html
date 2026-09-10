@@ -709,7 +709,10 @@
           <table>
             <thead><tr id="productsThead">
               <th style="width:34px;text-align:center"><input type="checkbox" id="productsSelectAll" title="Hammasini belgilash" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer"></th>
-              <th>ID</th><th>Nomi</th><th>Kategoriya</th><th>Narxi</th><th id="thExtra">Shtrixkod</th><th>Status</th><th>Amallar</th>
+              <th>Nomi</th><th>Kategoriya</th><th>Narxi</th>
+              <!-- Qoldiq — bosilganda klientda saralanadi (kam→ko'p / ko'p→kam) -->
+              <th id="thStock" onclick="toggleStockSort()" title="Qoldiq bo'yicha saralash" style="cursor:pointer;white-space:nowrap;user-select:none">Qoldiq</th>
+              <th id="thExtra">Shtrixkod</th><th>Status</th><th>Amallar</th>
             </tr></thead>
             <tbody id="productsBody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>

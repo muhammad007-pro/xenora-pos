@@ -11,7 +11,7 @@ Qo'shilganlar:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_
 from datetime import datetime, date
 from typing import Optional, List
@@ -166,7 +166,14 @@ async def get_pos_stock(
     userga qaytariladi — kassir sotuv siriga tegmasin. Tenant/branch izolyatsiyalangan.
     """
     can_cost = user_has_permission(current_user, "view_finance")
-    query = db.query(Inventory).join(Product)
+    # N+1 TUZATISH (2026-09-10): quyidagi sikl har qator uchun `i.product` ni
+    # o'qiydi. `joinedload` bo'lmasa SQLAlchemy har biriga ALOHIDA SELECT
+    # yuborardi — 1001 BARAKA da 524 qator = 524 so'rov, javob 442–909 ms
+    # (asosiy SQL o'zi 2 ms). `join(Product)` filtr/tartib uchun QOLADI.
+    # ⚠️ Javob SHAKLI o'zgarmaydi — pastdagi dict qo'lda quriladi, `joinedload`
+    # faqat `i.product` QANDAY yuklanishiga ta'sir qiladi. POS klientlari
+    # (`pos.js`, offline sync) shu endpointni ishlatadi — kalitlar tegilmadi.
+    query = db.query(Inventory).join(Product).options(joinedload(Inventory.product))
     query = apply_tenant_filter(query, Inventory, current_user)
     query = apply_branch_filter(query, Inventory, current_user)
     if search:

@@ -198,6 +198,9 @@ document.querySelectorAll('[data-page]').forEach(el => {
 
 function switchPage(page) {
   currentPage = page;
+  // Mahsulotlar sahifasiga har kirganda qoldiq bir marta yangilanadi
+  // (ichkarida qidiruv/filtr uni qayta tortmaydi).
+  if (page === 'products') invalidateStockMap();
   document.querySelectorAll('.admin-page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pageEl = document.getElementById('page' + page.charAt(0).toUpperCase() + page.slice(1));
@@ -216,7 +219,10 @@ function switchPage(page) {
   if (typeof initStatCountUp === 'function') initStatCountUp();  // yangi sahifa stat raqamlariga count-up ulash
 }
 
-document.getElementById('refreshBtn').addEventListener('click', () => loadPageData(currentPage));
+document.getElementById('refreshBtn').addEventListener('click', () => {
+  invalidateStockMap();          // "Yangilash" — qoldiq ham serverdan qayta olinsin
+  loadPageData(currentPage);
+});
 
 // Auto-refresh: oyna/tab yana faollashsa (POS'da savdo qilib qaytganда) dashboard
 // KPI + "Sotuv dinamikasi" grafigi avtomatik yangilanadi — qo'lda F5 shart emas.
@@ -933,6 +939,15 @@ function _extraCell(p) {
 // ortiqcha yuk.) Ruxsat: oddiy `get_current_active_user`, tenant/filial ajratilgan.
 let _stockMap = new Map();   // product_id → {quantity, unit}
 
+// Xarita SAHIFA OCHILGANDA bir marta to'ldiriladi. Qidiruv/kategoriya filtri/
+// saralash uni QAYTA TORTMAYDI — qoldiq ular bilan o'zgarmaydi, endpoint esa
+// qimmat (1001 BARAKA da 524 qator). Ilgari har harf bosilganda tortilardi.
+let _stockLoaded = false;
+
+// Qoldiq eskirgan bo'lishi mumkin bo'lgan joylarda chaqiriladi: sahifaga kirish,
+// "Yangilash" tugmasi, mahsulot qo'shish/tahrirlash/o'chirish/ommaviy o'zgarish.
+function invalidateStockMap() { _stockLoaded = false; }
+
 // Kasrli qoldiq: 0.5 kg, 1.3 kg. Float artefaktini (1.3000000000000003) 3 xonaga
 // yaxlitlaymiz — backend ham aynan shunday qiladi (kasrli sotuv, weight-sales).
 function _fmtQty(n) {
@@ -1028,18 +1043,29 @@ async function loadProducts() {
       }
     }
     // Qoldiq PARALLEL keladi — mahsulotlar ro'yxatini kutdirmaydi.
+    // FAQAT KERAK BO'LGANDA: xarita hali to'ldirilmagan bo'lsa (sahifaga kirish,
+    // "Yangilash", mahsulot o'zgarishi). Qidiruv/filtr/saralashda tortilmaydi.
     // `.catch(()=>null)`: ombor so'rovi yiqilsa (403/500/tarmoq) ro'yxat BARIBIR
     // ko'rinadi, faqat Qoldiq ustuni "—" bo'ladi. Jimgina yutilmaydi — ogohlantirish.
+    const _needStock = !_stockLoaded;
     let _stockFailed = false;
     const [data, stock] = await Promise.all([
       apiFetch('/products/?' + params),
-      apiFetch('/inventory/pos-stock?limit=2000').catch(() => { _stockFailed = true; return null; }),
+      _needStock
+        ? apiFetch('/inventory/pos-stock?limit=2000').catch(() => { _stockFailed = true; return null; })
+        : Promise.resolve(null),
     ]);
-    _stockMap = new Map();
-    for (const it of (stock?.items || [])) {
-      _stockMap.set(it.product_id, { quantity: it.quantity, unit: it.unit });
+    if (_needStock) {
+      _stockMap = new Map();
+      for (const it of (stock?.items || [])) {
+        _stockMap.set(it.product_id, { quantity: it.quantity, unit: it.unit });
+      }
+      // Yiqilganda ham TRUE — qayta urinish mexanizmi ATAYLAB yo'q. Aks holda
+      // har harf bosilganda yiqilayotgan endpoint qayta-qayta urilardi.
+      // Foydalanuvchi "Yangilash" bossa qaytadan uriniladi.
+      _stockLoaded = true;
+      if (_stockFailed) toast("Ombor qoldig'i yuklanmadi — Qoldiq ustuni bo'sh.", 'warning', 5000);
     }
-    if (_stockFailed) toast("Ombor qoldig'i yuklanmadi — Qoldiq ustuni bo'sh.", 'warning', 5000);
 
     const prods = data.items||data||[];
     _loadedProducts = prods;   // BOSQICH B7: pachka sozlash modali uchun (nom/narx/pack)
@@ -1048,7 +1074,14 @@ async function loadProducts() {
     refreshBulkCatOptions();        // bulk kategoriya select'ini yangilash
   } catch (err) { toast(err.message,'error'); }
 }
-document.getElementById('productsSearch').addEventListener('input', () => loadProducts());
+// DEBOUNCE: ilgari har HARF `/products/` ni chaqirardi — "coca" yozish 4 ta
+// so'rov. 280 ms jim turgandan keyin bitta so'rov ketadi.
+let _prodSearchTimer = null;
+document.getElementById('productsSearch').addEventListener('input', () => {
+  clearTimeout(_prodSearchTimer);
+  _prodSearchTimer = setTimeout(() => loadProducts(), 280);
+});
+// Kategoriya filtri — bitta hodisa, debounce shart emas.
 document.getElementById('productsCatFilter').addEventListener('change', () => loadProducts());
 
 // ── BUG 4: Bulk (ommaviy) kategoriya berish ────────────────────────────────────
@@ -1115,6 +1148,7 @@ async function bulkAssignCategory() {
     const data = await res.json().catch(()=>({}));
     toast(data.message || 'Kategoriya berildi', 'success');
     cachedCategories = [];   // kategoriya nomlari yangilansin
+    invalidateStockMap();    // ommaviy o'zgarish — qoldiq ham qayta olinsin
     loadProducts();          // ichida _resetBulkSelection chaqiriladi
   } catch (err) { toast(err.message, 'error'); }
   finally { btn.disabled = false; btn.textContent = 'Berish'; }
@@ -1248,7 +1282,7 @@ async function savePackSetup() {
   }
   btn.disabled = false; btn.textContent = 'Saqlash';
   toast(`${ok} ta saqlandi${fail ? `, ${fail} ta xato` : ''}`, fail ? 'warning' : 'success');
-  if (ok) { closePackSetup(); cachedCategories = []; loadProducts(); }
+  if (ok) { closePackSetup(); cachedCategories = []; invalidateStockMap(); loadProducts(); }
 }
 
 document.getElementById('pkSaveBtn')?.addEventListener('click', savePackSetup);
@@ -2223,6 +2257,7 @@ async function saveProduct() {
     // Server ombor birligini ham yangilagan bo'lsa — qoldiq haqida eslatma
     if (saved && saved.unit_warning) toast(saved.unit_warning, 'warning');
     cachedCategories = [];
+    invalidateStockMap();                // yangi mahsulot qoldig'i darrov ko'rinsin
     loadProducts();                      // fonda — kutmaymiz, forma tez ochilsin
     if (_yangiEdi) await pmResetForNextEntry();
     else closeProductModal();
@@ -2247,7 +2282,7 @@ async function deleteProduct(id, name) {
   try {
     const res = await fetch(`${API_BASE}/products/${id}`, { method:'DELETE', headers:{'Authorization':'Bearer '+token} });
     if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||'Xatolik'); }
-    toast("O'chirildi",'success'); loadProducts();
+    toast("O'chirildi",'success'); invalidateStockMap(); loadProducts();
   } catch (err) { toast(err.message,'error'); }
 }
 

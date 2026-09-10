@@ -926,10 +926,86 @@ function _extraCell(p) {
   return `<span style="font-family:monospace">${p.barcode||'—'}</span>`;
 }
 
+// ── Ombor qoldig'i (Qoldiq ustuni) ────────────────────────────────────────────
+// Mahsulot modelida stock ustuni YO'Q — qoldiq alohida `inventory` jadvalida.
+// Manba `/inventory/pos-stock`: yassi va yengil. (`/inventory/` ham qoldiq
+// beradi, lekin har qatorda BUTUN mahsulot obyektini takrorlaydi — 500 qatorda
+// ortiqcha yuk.) Ruxsat: oddiy `get_current_active_user`, tenant/filial ajratilgan.
+let _stockMap = new Map();   // product_id → {quantity, unit}
+
+// Kasrli qoldiq: 0.5 kg, 1.3 kg. Float artefaktini (1.3000000000000003) 3 xonaga
+// yaxlitlaymiz — backend ham aynan shunday qiladi (kasrli sotuv, weight-sales).
+function _fmtQty(n) {
+  return String(Math.round((Number(n) || 0) * 1000) / 1000);
+}
+
+function _stockCell(p) {
+  const s = _stockMap.get(p.id);
+  if (!s) return '—';                       // ombor qatori yo'q (xizmat, yangi mahsulot)
+  return `${_fmtQty(s.quantity)} ${escH(s.unit || '')}`.trim();
+}
+
+// Qoldiq bo'yicha saralash: 0 = tegilmagan (server tartibi — nom bo'yicha),
+// 1 = kam→ko'p, -1 = ko'p→kam. Ombori yo'q mahsulot ("—") HAR DOIM oxirida.
+let _stockSortDir = 0;
+
+function _sortByStock(list) {
+  if (!_stockSortDir) return list;
+  return list.slice().sort((a, b) => {
+    const sa = _stockMap.get(a.id), sb = _stockMap.get(b.id);
+    if (!sa && !sb) return 0;
+    if (!sa) return 1;
+    if (!sb) return -1;
+    return _stockSortDir * ((sa.quantity || 0) - (sb.quantity || 0));
+  });
+}
+
+function _updateStockTh() {
+  const th = document.getElementById('thStock');
+  if (th) th.textContent = 'Qoldiq' + (_stockSortDir === 1 ? ' ↑' : _stockSortDir === -1 ? ' ↓' : '');
+}
+
+// Sarlavha bosilganda — QAYTA SO'ROV YO'Q, allaqachon yuklangan ro'yxat
+// (`_loadedProducts`) klientda saralanadi. Qidiruv/kategoriya filtri tegilmaydi.
+function toggleStockSort() {
+  _stockSortDir = _stockSortDir === 1 ? -1 : 1;
+  _updateStockTh();
+  _renderProducts(_loadedProducts);
+}
+
+function _renderProducts(prods) {
+  const body = document.getElementById('productsBody');
+  if (!body) return;
+  if (!prods.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Mahsulot topilmadi</td></tr>';
+    _resetBulkSelection();
+    return;
+  }
+  body.innerHTML = _sortByStock(prods).map(p => {
+    const priceVal = p.daily_price ? fmtMoney(p.daily_price)+'/kun' : fmtMoney(p.price||0);
+    return `<tr>
+      <td style="text-align:center"><input type="checkbox" class="prod-cb" value="${p.id}" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer"></td>
+      <td class="td-bold">${p.name}</td>
+      <td>${p.category?.name||'—'}</td>
+      <td class="td-gold">${priceVal} UZS</td>
+      <td class="td-sub" style="white-space:nowrap">${_stockCell(p)}</td>
+      <td class="td-sub">${_extraCell(p)}</td>
+      <td><span class="badge ${p.is_available!==false?'badge-green':'badge-red'}">${p.is_available!==false?'Faol':'Nofaol'}</span></td>
+      <td class="td-actions">
+        <button class="act-btn" title="Tahrirlash" onclick='openProductModal(${JSON.stringify(p)})'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.8"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.8"/></svg></button>
+        <button class="act-btn danger" title="O'chirish" onclick="deleteProduct(${p.id},'${p.name.replace(/'/g,"\\'")}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.8"/></svg></button>
+      </td>
+    </tr>`;
+  }).join('');
+  _resetBulkSelection();          // yangi ro'yxatда belgilash tozalanadi
+}
+
 async function loadProducts() {
   // Set table header for extra column
   const thExtra = document.getElementById('thExtra');
   if (thExtra) thExtra.textContent = _extraHeader();
+  _stockSortDir = 0;              // yangi filtr/qidiruv → server tartibi (nom bo'yicha)
+  _updateStockTh();
 
   const search = document.getElementById('productsSearch').value;
   const catId  = document.getElementById('productsCatFilter').value;
@@ -951,29 +1027,24 @@ async function loadProducts() {
           cachedCategories.map(c=>`<option value="${c.id}"${c.id==cur?' selected':''}>${c.name}</option>`).join('');
       }
     }
-    const data = await apiFetch('/products/?' + params);
+    // Qoldiq PARALLEL keladi — mahsulotlar ro'yxatini kutdirmaydi.
+    // `.catch(()=>null)`: ombor so'rovi yiqilsa (403/500/tarmoq) ro'yxat BARIBIR
+    // ko'rinadi, faqat Qoldiq ustuni "—" bo'ladi. Jimgina yutilmaydi — ogohlantirish.
+    let _stockFailed = false;
+    const [data, stock] = await Promise.all([
+      apiFetch('/products/?' + params),
+      apiFetch('/inventory/pos-stock?limit=2000').catch(() => { _stockFailed = true; return null; }),
+    ]);
+    _stockMap = new Map();
+    for (const it of (stock?.items || [])) {
+      _stockMap.set(it.product_id, { quantity: it.quantity, unit: it.unit });
+    }
+    if (_stockFailed) toast("Ombor qoldig'i yuklanmadi — Qoldiq ustuni bo'sh.", 'warning', 5000);
+
     const prods = data.items||data||[];
     _loadedProducts = prods;   // BOSQICH B7: pachka sozlash modali uchun (nom/narx/pack)
-    const body  = document.getElementById('productsBody');
-    if (!prods.length) { body.innerHTML='<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Mahsulot topilmadi</td></tr>'; _resetBulkSelection(); return; }
-    body.innerHTML = prods.map(p => {
-      const priceVal = p.daily_price ? fmtMoney(p.daily_price)+'/kun' : fmtMoney(p.price||0);
-      return `<tr>
-        <td style="text-align:center"><input type="checkbox" class="prod-cb" value="${p.id}" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer"></td>
-        <td class="td-sub">${p.id}</td>
-        <td class="td-bold">${p.name}</td>
-        <td>${p.category_name||'—'}</td>
-        <td class="td-gold">${priceVal} UZS</td>
-        <td class="td-sub">${_extraCell(p)}</td>
-        <td><span class="badge ${p.is_available!==false?'badge-green':'badge-red'}">${p.is_available!==false?'Faol':'Nofaol'}</span></td>
-        <td class="td-actions">
-          <button class="act-btn" title="Tahrirlash" onclick='openProductModal(${JSON.stringify(p)})'><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="1.8"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="1.8"/></svg></button>
-          <button class="act-btn danger" title="O'chirish" onclick="deleteProduct(${p.id},'${p.name.replace(/'/g,"\\'")}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" stroke="currentColor" stroke-width="1.8"/></svg></button>
-        </td>
-      </tr>`;
-    }).join('');
+    _renderProducts(prods);
     document.getElementById('productsPaginInfo').textContent = `${prods.length} ta`;
-    _resetBulkSelection();          // yangi ro'yxatда belgilash tozalanadi
     refreshBulkCatOptions();        // bulk kategoriya select'ini yangilash
   } catch (err) { toast(err.message,'error'); }
 }

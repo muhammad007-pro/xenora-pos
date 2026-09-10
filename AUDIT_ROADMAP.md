@@ -400,3 +400,34 @@ nomiga smena ochishi kerak bo'ladi.
 
 Prod audit'i: 11 smenadan faqat 1 tasi (tenant 5, iyul 2026) shu yo'l bilan
 ochilgan — ya'ni shoshilinch emas, lekin butunlay yo'q qilish ham to'g'ri emas.
+
+### 13.4 Playwright testlari ketma-ket yugurtirilganda tasodifiy yiqiladi
+
+`frontend/tests/*.mjs` ni bitta tsiklda ketma-ket yugurtirganda testlar
+tasodifiy yiqiladi — brauzer ishga tushish raqobati. Belgilari:
+
+```
+page.goto: Timeout 30000ms exceeded
+  - navigating to "http://127.0.0.1:PORT/app/admin.html"
+```
+
+Aynan bir test alohida yugurtirilganda TO'LIQ o'tadi. 2026-09-10 da bu
+kamida to'rt marta uchradi: bir yugurishda `test_product_list_stock`,
+`test_blocked_store_login_message`, `test_supplier_dropdown_refresh`,
+`test_fast_product_entry` "XATO" bergan, keyin alohida yugurtirilganda
+52/52, 12/12, 5/5, 54/54 o'tgan. `sleep 3` qo'shish ham yetarli emas;
+fonda og'ir jarayon (pytest) ketayotganda ehtimol ortadi.
+
+**NEGA XAVFLI:** "yana o'sha flaky" deb o'tkazib yuborish odat bo'lib
+qoladi va HAQIQIY nuqson ham shu niqob ostida o'tib ketadi. Hozircha har
+"XATO" alohida qayta yugurtirilib tekshirilmoqda — bu qo'lda va
+ishonchsiz.
+
+**Qilinishi kerak:**
+- yagona runner skript (`scripts/run_frontend_tests.mjs`): testlarni BITTA
+  `chromium.launch()` bilan ketma-ket yugursin (har test o'z brauzerini
+  ko'tarmasin) yoki kamida qayta urinish (retry) bilan;
+- yagona yakuniy hisobot (nechta o'tdi/yiqildi) — hozir har fayl o'zicha
+  chop etadi, jami son qo'lda sanaladi;
+- CI'da shu runner ishlatilsin, `stage_b` esa 12.1 hal bo'lgunча aniq
+  "ma'lum yiqilish" deb belgilansin (jimgina o'tkazib yuborilmasin).

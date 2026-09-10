@@ -3,6 +3,59 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.9] — 2026-09-11 — Smena: POS'da yopish + ruxsat qatlami
+
+Frontend + backend (`routers/shift.py`). Migratsiya YO'Q. `.exe` yangilanishi
+kerak (POS sidebar o'zgardi).
+
+### Qo'shildi
+- **POS sidebar'ida "Smena" havolasi** (`shift.html`), rollar:
+  admin / menejer / kassir. Ilgari kassir smenani POS'dan **ocha olardi**
+  (gate), lekin **yopa olmasdi** — havola faqat `js/core/sidebar.js` da edi,
+  uni esa `pos.html` yuklamaydi (o'zining statik sidebar'i bor). Natijada
+  1001 BARAKA smenasi **2 kun** ochiq qoldi.
+
+### Tuzatildi (ruxsat)
+- **`POST /shifts/` — `user_id` klientdan kelardi va tekshirilmasdi.**
+  Istalgan xodim boshqa kassir nomiga smena ocha olardi. Bu shunchaki
+  noto'g'ri yozuv emas: sotuv aynan shu bog'lanish bo'yicha taqsimlanadi
+  (`order_service`: `Shift.user_id == waiter_id`), ya'ni **pul va kamomad
+  boshqa odamning Z-hisobotiga** tushardi. Endi smena har doim so'rov
+  yuborgan xodimga ochiladi; boshqa `user_id` yuborilsa **403**.
+- **`POST /shifts/{id}/close` — tenant'dan boshqa hech narsa
+  tekshirilmasdi.** Bir kassir ikkinchisining smenasini yopib, uning kun
+  yakunini yakunlab qo'yishi mumkin edi. Endi kassir **faqat o'zinikini**
+  yopadi; `manage_shifts` (admin va menejer) istalganini yopadi — kassir
+  yopmasdan ketsa kun yakunini kimdir yopishi kerak.
+  403 tekshiruvi 404 dan keyin, "allaqachon yopilgan" dan **oldin** —
+  begona smena holati (ochiq/yopiq) xato kodidan sizib chiqmasin.
+
+### O'zgardi
+- **Admin → Smena → "Smena ochish" da xodim tanlash ro'yxati olib
+  tashlandi** — u endi bajarib bo'lmaydigan va'da berardi (403). O'rniga
+  joriy foydalanuvchi nomi (o'zgarmas) + izoh. `openShiftModal` endi
+  `/users/` ni ham tortmaydi (ortiqcha so'rov yo'qoldi).
+
+### ⚠️ Jonli mijozlarga ta'siri
+Prod audit'i: **11 smenadan 10 tasi xodim O'ZI ochgan** — FAZZA (26) va
+1001 BARAKA (27) ikkalasi ham. Majburlash ularning oqimini buzmaydi.
+Faqat tenant 5 dagi bitta eski smena (iyul 2026) admin tomonidan kassirga
+ochilgan edi.
+
+### Test
+- **Yangi:** `backend/tests/test_shift_access.py` — 12 ta (o'zi ochish,
+  soxta `user_id`, o'z smenasini yopish, begona smenani yopolmaslik,
+  admin/menejer istalganini yopishi, tenant izolyatsiyasi, ikki kassir
+  parallel, holat sizmasligi).
+- **Yangi:** `frontend/tests/test_shift_open_modal.js` — 8 ta (statik,
+  brauzersiz).
+- Backend **527 passed** / 2 skipped.
+
+### TEGILMADI (AUDIT_ROADMAP §13.1–13.4)
+Smenasiz sotuv (`shift_id = NULL`) va `legacy_fallback` boshqa kassir
+sotuvini yutib yuborishi — **ataylab** qoldirildi, ular `POST /orders/`
+(jonli sotuv yo'li) ga tegadi va alohida ish.
+
 ## [1.12.8] — 2026-09-10 — Qoldiq keshi + `pos-stock` N+1 tuzatildi
 
 Frontend + backend (bitta qator). Migratsiya YO'Q, javob shakli o'zgarmadi.

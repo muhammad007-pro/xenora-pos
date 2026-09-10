@@ -319,3 +319,62 @@ demak `openAdd` inline `onclick` da emas, faqat testda chaqiriladi.
 **Qilinishi kerak:** qaysi ekan — aniqlansin. Ikkinchi holatda tez
 tuzatish, birinchisida test yangilansin. Shu holatda to'plam "yashil"
 emas va yangi regressiya ko'rinmay qolishi mumkin.
+
+## 13. Smena oqimi (2026-09-10, 1001 BARAKA auditidan)
+
+### 13.1 Smenasiz sotuv: `shift_id = NULL` hech qaysi Z-hisobotga tushmaydi
+
+`services/order_service.py:418` buyurtmani SOTUVCHINING o'z ochiq smenasiga
+bog'laydi:
+
+```python
+active_shift = self.db.query(Shift).filter(
+    Shift.user_id == waiter_id, Shift.end_time.is_(None)).first()
+shift_id = active_shift.id if active_shift else None
+```
+
+Xodimda ochiq smena bo'lmasa `shift_id = None`. `close_shift` esa buyurtmalarni
+`Order.shift_id == shift.id` bo'yicha topadi — NULL'lar HECH QAYERGA tushmaydi.
+Pul sotilgan, lekin kun yakunida ko'rinmaydi.
+
+**Hozir nega portlamayapti:** POS gate (`ensureShiftGate`) `cash_register` yoki
+`z_report` yoqilgan biznesda savdoni bloklaydi, ya'ni smenasiz sotib bo'lmaydi.
+Prodda tenant 27 da NULL yo'q (144/144 buyurtma smena 11 da). LEKIN gate FAQAT
+FRONTEND — `POST /orders/` serverda ochiq smena TALAB QILMAYDI. Offline sync,
+eski `.exe`, boshqa klient yoki to'g'ridan-to'g'ri API chaqiruvi teshikdan
+o'tadi.
+
+### 13.2 `legacy_fallback` boshqa kassir sotuvini yutib yuboradi
+
+`routers/shift.py` (close va report, ikkalasida ham):
+
+```python
+if not orders:                      # shift_id bo'yicha bitta ham topilmadi
+    legacy_fallback = True
+    orders = ...filter(Order.created_at >= shift.start_time,
+                       Order.created_at <= now).all()   # BUTUN TENANT
+```
+
+Fallback tenant bo'yicha, kassir bo'yicha EMAS. Ya'ni bo'sh smenani yopgan
+kassir o'sha vaqt oralig'idagi **boshqa kassirlarning** sotuvini ham o'z
+Z-hisobotiga yig'ib oladi. Ikki kassir parallel ishlaganda bu real xavf:
+navbatchi hech narsa sotmagan bo'lsa, hamkasbining butun kuni uning
+kamomadiga aylanadi.
+
+Fallback `shift_id` biriktirilmagan ESKI smenalar uchun yozilgan (orqaga
+moslik). Endi `shift_id` har buyurtmaga yoziladi, ya'ni fallback deyarli
+faqat NOTO'G'RI holatda ishga tushadi.
+
+**Qilinishi kerak (bitta ish sifatida):**
+1. `POST /orders/` serverda ochiq smena talab qilsin (smena majburiy
+   biznes turlarida) — 409 bilan. Frontend gate qolaveradi, lekin u yagona
+   himoya bo'lmasin.
+2. `legacy_fallback` kassir bo'yicha ham cheklansin
+   (`Order.waiter_id == shift.user_id`), yoki umuman olib tashlansin —
+   avval bazada `shift_id IS NULL` buyurtmalar bor-yo'qligi tekshirilib.
+3. `shift_id IS NULL` buyurtmalar uchun admin ko'radigan hisobot
+   ("smenasiz sotuvlar") — jimgina yo'qolmasin.
+
+⚠️ v1.12.9 da TEGILMADI (ataylab): u faqat ruxsat qatlamini yopdi
+(`fix/shift-pos-access`). Bu — alohida ish, chunki `POST /orders/` ga
+tegish jonli sotuv yo'li.

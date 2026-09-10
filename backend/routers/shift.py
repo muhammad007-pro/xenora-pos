@@ -7,7 +7,10 @@ from typing import Optional
 from database import get_db
 from models import Shift, User, Order, Payment, OrderItem, CashRegister, Return, Cafe
 from schemas import ShiftCreate, ShiftUpdate, ShiftInDB, MessageResponse
-from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
+from deps import (
+    resolve_tenant_id, get_current_user, get_current_active_user,
+    has_permission, apply_tenant_filter, user_has_permission,
+)
 from core.feature_flags import Feature, is_feature_enabled
 from services import printer_service
 from core.tenant_config import get_tenant_config  # BOSQICH 40 (3c): printer tenant-scoped
@@ -58,9 +61,31 @@ async def create_shift(
     """
     tenant_id = resolve_tenant_id(db, current_user)
 
+    # ── SMENA EGASI — KLIENTGA ISHONILMAYDI ───────────────────────────────────
+    # `ShiftCreate.user_id` klient tanasidan keladi va ILGARI umuman
+    # tekshirilmasdi: istalgan xodim istalgan `user_id` yozib, BOSHQA kassir
+    # nomiga smena ocha olardi. Bu shunchaki noto'g'ri yozuv emas — sotuv aynan
+    # shu bog'lanish bo'yicha taqsimlanadi (`order_service`:
+    # `Shift.user_id == waiter_id`), ya'ni pul boshqa odamning Z-hisobotiga
+    # tushardi va kamomad ham o'shanga yozilardi.
+    #
+    # Endi smena HAR DOIM so'rov yuborgan xodimga ochiladi. Klient boshqa
+    # `user_id` yuborsa — jimgina almashtirilmaydi, ANIQ xato qaytariladi
+    # (aks holda admin panelidagi xodim tanlash ro'yxati "ishlayotgandek"
+    # ko'rinib, aslida noto'g'ri egali smena yaratardi).
+    #
+    # Admin boshqa xodimga smena ochishi HOZIRCHA yo'q. Kerak bo'lsa alohida,
+    # aniq niyatli endpoint bilan qilinadi (`manage_shifts` + audit bilan).
+    if shift_data.user_id and shift_data.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Smena faqat o'zingizga ochiladi. Boshqa xodim smenani o'zi ochishi kerak.",
+        )
+    owner_id = current_user.id
+
     # Faol smena mavjudligini tekshirish (foydalanuvchi bo'yicha — mavjud xatti-harakat)
     active_shift = db.query(Shift).filter(
-        Shift.user_id == shift_data.user_id,
+        Shift.user_id == owner_id,
         Shift.end_time.is_(None)
     ).first()
 
@@ -87,7 +112,7 @@ async def create_shift(
 
     # BOSQICH 1.5: yangi smena yaratuvchi tenant'iga biriktiriladi
     shift = Shift(
-        user_id=shift_data.user_id,
+        user_id=owner_id,           # ⚠️ klient bergan `user_id` EMAS
         start_time=datetime.now(),
         starting_cash=shift_data.starting_cash,
         tenant_id=tenant_id,
@@ -117,6 +142,24 @@ async def close_shift(
     shift = apply_tenant_filter(db.query(Shift), Shift, current_user).filter(Shift.id == shift_id).first()
     if not shift:
         raise HTTPException(status_code=404, detail="Smena topilmadi")
+
+    # ── KIM YOPA OLADI ────────────────────────────────────────────────────────
+    # ILGARI: tenant ichidagi HAR KIM har kimning smenasini yopa olardi. Ya'ni
+    # bir kassir ikkinchisining smenasini yopib, uning Z-hisobotini yakunlab
+    # qo'yishi va kamomad o'sha odamning nomiga yozilishi mumkin edi.
+    #
+    # Endi: kassir FAQAT o'z smenasini yopadi. `manage_shifts` ruxsati borlar
+    # (admin va menejer — qarang `database.py` rol urug'i) istalganini yopadi:
+    # kassir smenani yopmasdan ketib qolsa, kun yakunini kimdir yopishi kerak.
+    # Tekshiruv 404 dan KEYIN, "allaqachon yopilgan" dan OLDIN — begona smena
+    # holati (ochiq/yopiq) sizib chiqmasin.
+    if shift.user_id != current_user.id and not user_has_permission(current_user, "manage_shifts"):
+        raise HTTPException(
+            status_code=403,
+            detail="Faqat o'z smenangizni yopa olasiz. Boshqa xodimning smenasini "
+                   "administrator yoki menejer yopadi.",
+        )
+
     if shift.end_time:
         raise HTTPException(status_code=400, detail="Smena allaqachon yopilgan")
 

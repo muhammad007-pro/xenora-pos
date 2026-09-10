@@ -186,7 +186,10 @@ const browser = await chromium.launch();
   await yukla(page);
   check('3_boshlangich_tartib', await nomlar(page), ['COCA COLA 1L', 'SHAKAR', 'ATIR ml', 'YANGI TOVAR']);
 
-  const oldin = calls.length;
+  // ⚠️ FAQAT ro'yxatga aloqador endpointlar sanaladi. `calls.length` ni butunlay
+  // sanash FLAKY: admin.html da badge pollerlari bor (updatePendingBadge 15 s,
+  // low-stock/reorder/debt 60–120 s) — ular tasodifan shu oynada tushib qolardi.
+  const oldin = nechta(calls, '/products/') + nechta(calls, '/inventory/pos-stock');
   await page.click('#thStock');
   // kam → ko'p; ombori yo'q ("—") HAR DOIM oxirida
   check('3_kam_kop', await nomlar(page), ['SHAKAR', 'ATIR ml', 'COCA COLA 1L', 'YANGI TOVAR']);
@@ -195,7 +198,8 @@ const browser = await chromium.launch();
   await page.click('#thStock');
   check('3_kop_kam', await nomlar(page), ['COCA COLA 1L', 'ATIR ml', 'SHAKAR', 'YANGI TOVAR']);
   check('3_strelka_pastga', await page.$eval('#thStock', t => t.textContent.trim()), 'Qoldiq ↓');
-  check('3_qoshimcha_sorov_yoq', calls.length - oldin, 0);
+  check('3_qoshimcha_sorov_yoq',
+        (nechta(calls, '/products/') + nechta(calls, '/inventory/pos-stock')) - oldin, 0);
 
   // Qidiruv saralashni tiklaydi (server tartibi — nom bo'yicha)
   await page.fill('#productsSearch', 'ar');
@@ -259,9 +263,11 @@ for (const [biz, sarlavha, katak] of [
   check('6_filtrda_posstock_qayta_yoq', nechta(calls, '/inventory/pos-stock'), 1);
 
   // saralash → umuman so'rov yubormaydi
-  const jamiOldin = calls.length;
+  // (badge pollerlari sanalmasin — yuqoridagi izohga qara)
+  const jamiOldin = nechta(calls, '/products/') + nechta(calls, '/inventory/pos-stock');
   await page.click('#thStock');
-  check('6_saralashda_sorov_yoq', calls.length - jamiOldin, 0);
+  check('6_saralashda_sorov_yoq',
+        (nechta(calls, '/products/') + nechta(calls, '/inventory/pos-stock')) - jamiOldin, 0);
 
   // "Yangilash" tugmasi → QAYTA tortiladi
   // (`page.click` emas: offline-banner overlay bosishni to'sadi — to'g'ridan chaqiramiz)

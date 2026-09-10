@@ -3,6 +3,50 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.8] — 2026-09-10 — Qoldiq keshi + `pos-stock` N+1 tuzatildi
+
+Frontend + backend (bitta qator). Migratsiya YO'Q, javob shakli o'zgarmadi.
+`.exe` yangilanishi kerak (frontend qismi).
+
+### Tuzatildi
+- **v1.12.7 regressiyasi: har qidiruv harfi `/inventory/pos-stock` ni qayta
+  tortardi.** Jonli o'lchov (1001 BARAKA, 524 qator): **442–909 ms**. "coca"
+  yozish = 4 ta qimmat so'rov. Endi qoldiq xaritasi sahifaga kirganda BIR
+  MARTA olinadi; qidiruv, kategoriya filtri va saralash uni qayta tortmaydi.
+- **`/inventory/pos-stock` da N+1.** `db.query(Inventory).join(Product)` da
+  eager loading yo'q edi → `i.product` har qator uchun ALOHIDA `SELECT`.
+  Asosiy SQL o'zi **2 ms** (`EXPLAIN ANALYZE`), qolgani lazy-load edi.
+  Yechim: `.options(joinedload(Inventory.product))`.
+  O'lchandi: 3 mahsulotda joinedload bilan **1** so'rov, usiz **4**.
+- **Qidiruvda debounce yo'q edi** — har HARF `/products/` ni chaqirardi.
+  Endi **280 ms**. Bu pos-stock dan qat'iy nazar foyda beradi.
+
+### ⚠️ POS klientlariga ta'siri
+`pos-stock` ni kassir ekrani va offline sync ham ishlatadi. **Javob SHAKLI
+o'zgarmadi** — dict qo'lda quriladi, `joinedload` faqat `i.product` QANDAY
+yuklanishiga ta'sir qiladi. Yangi kontrakt testi buni qulflaydi.
+
+### Qoldiq xaritasi qachon yangilanadi
+| Hodisa | Qayta tortiladimi |
+|---|---|
+| Mahsulotlar sahifasiga kirish | ha |
+| Qidiruv / kategoriya filtri / saralash | **yo'q** |
+| "Yangilash" tugmasi | ha |
+| Mahsulot qo'shish/tahrirlash/o'chirish | ha |
+| Ommaviy kategoriya, pachka sozlash | ha |
+
+So'rov yiqilsa qayta urinish ATAYLAB yo'q — `—` ko'rinaveradi. Aks holda
+yiqilayotgan endpoint har harfda qayta-qayta urilardi. "Yangilash" bilan
+qaytadan uriniladi.
+
+### Test
+- **Yangi:** `backend/tests/test_pos_stock_contract.py` — 9 ta. Kalitlar
+  to'plami (kassir/moliya alohida), qiymatlar, tenant izolyatsiyasi, `search`,
+  `limit`/tartib, ombor qatorisiz mahsulot, N+1 qaytmasligi.
+- `frontend/tests/test_product_list_stock.mjs` 40 → **52**: kesh, "Yangilash",
+  saqlagach yangilanish, debounce.
+- Backend **515 passed** / 2 skipped.
+
 ## [1.12.7] — 2026-09-10 — Mahsulotlar ro'yxatida ombor qoldig'i
 
 FAQAT FRONTEND. Migratsiya yo'q, backend/schema tegilmadi. Serverda statik

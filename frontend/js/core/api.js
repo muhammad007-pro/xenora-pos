@@ -1,4 +1,7 @@
 import { API_BASE } from './config.js';
+// Sahifa yo'llari — MUTLAQ yo'l yozilmaydi (Electron `file://` da sinadi).
+// Sabab va qoida: `js/core/paths.js` boshidagi izoh.
+import { PATHS } from './paths.js';
 
 // Bir vaqtning o'zida bir nechta 401 kelsa (POS/planshet parallel so'rovlar),
 // refresh faqat BIR MARTA bajarilsin — barcha so'rovlar shu bitta natijani kutadi.
@@ -13,7 +16,7 @@ function _handleSubscriptionBlock(message) {
     if (/subscription-blocked\.html$/.test(path) || /login\.html$/.test(path)) return;
     _subBlockHandled = true;
     try { sessionStorage.setItem('sub_block_msg', message || ''); } catch {}
-    try { window.location.href = '/shared/subscription-blocked.html'; } catch {}
+    try { window.location.href = PATHS.subscriptionBlocked(); } catch {}
 }
 
 // API Service - Backend bilan aloqa uchun
@@ -112,7 +115,7 @@ class API {
                 return data.access_token;
             } catch (error) {
                 this.clearTokens();
-                if (redirectOnFail) window.location.href = '/shared/login.html';
+                if (redirectOnFail) window.location.href = PATHS.login();
                 throw error;
             } finally {
                 _refreshInFlight = null;

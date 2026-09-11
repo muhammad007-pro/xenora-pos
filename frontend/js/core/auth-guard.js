@@ -10,6 +10,10 @@
  *   AuthGuard.check('cashier'); // to'g'ridan-to'g'ri rol tekshirish
  */
 
+// Sahifa yo'llari — MUTLAQ yo'l yozilmaydi (Electron `file://` da sinadi).
+// Sabab va qoida: `js/core/paths.js` boshidagi izoh.
+import { PATHS } from './paths.js';
+
 // Sahifa nomi → ruxsat berilgan rollar (lower-case substring match)
 // '*' → barcha rol
 const PAGE_ROLES = {
@@ -74,23 +78,8 @@ function canAccess(user, page) {
   });
 }
 
-/** POS sahifasiga NISBIY yo'l — joriy sahifa qayerdaligiga qarab.
- *
- * ⚠️ MUTLAQ yo'l (`/app/pos.html`) ISHLATILMAYDI. Electron sahifalarni
- * `loadFile()` bilan, ya'ni `file://` protokolida ochadi (electron/main.js:610).
- * U yerda `/app/pos.html` DISK ILDIZIGA ishora qiladi — fayl topilmaydi va
- * oyna QORAYIB qoladi (jonli hodisa, 1001 BARAKA 2026-09-10: kassir 403 dan
- * "POS ga" bosdi → qora ekran). Brauzerda esa o'sha yo'l ishlaydi, shuning
- * uchun nuqson faqat `.exe` da ko'rinardi.
- */
-function posPath() {
-  const p = location.pathname;
-  if (p.includes('/owner/') || p.includes('/shared/')) return '../app/pos.html';
-  return 'pos.html';          // /app/ ichida (va boshqa hollarda ham xavfsiz)
-}
-
 function show403(page) {
-  const pos = posPath();
+  const pos = PATHS.pos();      // MUTLAQ yo'l EMAS — paths.js izohiga qara
   document.body.innerHTML = `
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#f0f0f8;font-family:'Inter',sans-serif;gap:1.25rem;text-align:center;padding:2rem">
     <div style="font-size:4rem">🔒</div>
@@ -114,7 +103,7 @@ const AuthGuard = {
     // 1. Login check
     if (!tk || !user) {
       localStorage.removeItem('user');
-      location.href = '../shared/login.html';
+      location.href = PATHS.login();
       return false;
     }
 

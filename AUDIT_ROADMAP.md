@@ -504,16 +504,21 @@ QOLGANLARI tegilmadi — ular hozir yiqilmayapti, chunki bu yo'llarga borilmayap
 
 | Fayl | Nechta | Holat |
 |---|---|---|
-| `js/core/sidebar.js` | **39 ta** `href: '/app/...'` | 14 ta admin sahifasi ishlatadi; POS/kassir yo'lida emas |
-| `js/core/api.js:16` | `/shared/subscription-blocked.html` | obuna tugaganda — Electron'da SINADI |
-| `js/core/api.js:115` | `/shared/login.html` | refresh yiqilganda — Electron'da SINADI |
-| `shared/subscription-blocked.html:109` | `/app/admin.html` | o'sha ekrandan chiqishda |
+| `js/core/auth-guard.js:88` | `/app/pos.html` | ✅ TUZATILDI — qora ekran sababi edi |
+| `js/core/api.js:115` | `/shared/login.html` | ✅ TUZATILDI — eng xavflisi edi |
+| `js/core/api.js:16` | `/shared/subscription-blocked.html` | ✅ TUZATILDI |
+| `shared/subscription-blocked.html:109` | `/app/admin.html` | ✅ TUZATILDI |
+| **`js/core/sidebar.js`** | **39 ta** `href: '/app/...'` | ⚠️ **QOLDI** — 14 ta admin sahifasi ishlatadi; POS/kassir yo'lida emas |
 | `pwa/manifest.json`, `pwa/service-worker.js` | ~15 ta | TEGILMASIN — PWA faqat http(s) da, `file://` da SW ro'yxatdan ham o'tmaydi |
 
-**Eng xavflisi `api.js:115`** — token yangilash yiqilsa har qanday sahifada
-ishga tushadi va Electron'da qora ekran beradi. `did-fail-load` himoyasi
-(v1.12.11) endi uni ushlaydi, lekin yo'lning o'zi ham tuzatilishi kerak.
+**YAGONA MANBA yaratildi:** `js/core/paths.js` — `PATHS.pos()`, `.login()`,
+`.admin()`, `.subscriptionBlocked()`. Joriy sahifa joylashuviga qarab nisbiy
+yo'l beradi. Sinovi: `frontend/tests/test_path_helper.mjs` — brauzer va
+`file://` kontekstlarida, jumladan buzuq token bilan login'ga o'tish.
 
-**Qilinishi kerak:** `posPath()` kabi yagona yordamchi (`js/core/paths.js`) —
-joriy sahifa joylashuviga qarab nisbiy yo'l beradi; yuqoridagi 5 joy o'shanga
-o'tsin. `sidebar.js` dagi 39 ta — bitta partiya.
+**QOLGAN ISH — `sidebar.js` dagi 39 ta yo'l.** Ular admin sahifalarida
+(`suppliers.html`, `price_history.html`, `promotions.html` va yana 11 ta).
+Kassir POS yo'lida emas, shuning uchun hozir yiqilmayapti; admin `.exe` da
+bosgan bandi qora ekran berishi mumkin edi, lekin `did-fail-load` (v1.12.11)
+endi uni ushlaydi va POS'ga qaytaradi — ya'ni yo'qotish yo'q. Yo'lning o'zi
+ham `PATHS`/`pathTo()` ga o'tkazilsin: bitta partiya, mexanik ish.

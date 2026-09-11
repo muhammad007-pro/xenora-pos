@@ -42,26 +42,30 @@ const show403 = guardJs.slice(
 );
 check('1_show403_topildi', show403.length > 0, true);
 check('1_mutlaq_yol_YOQ', /href="\/app\//.test(show403), false);
-check('1_posPath_ishlatiladi', /href="\$\{pos\}"/.test(show403), true);
+check('1_PATHS_ishlatiladi', /href="\$\{pos\}"/.test(show403), true);
 
-// `posPath()` mavjud va mutlaq yo'l qaytarmaydi
-const posPathFn = guardJs.slice(
-  guardJs.indexOf('function posPath'),
-  guardJs.indexOf('function show403'),
-);
-check('1_posPath_mavjud', posPathFn.length > 0, true);
-check('1_posPath_mutlaq_emas', /return\s+['"]\//.test(posPathFn), false);
+// Yo'l YAGONA MANBADAN (js/core/paths.js) olinadi — `auth-guard.js` o'zining
+// nusxasini yozmaydi. Yo'l hisoblashning O'ZI `test_path_helper.mjs` da
+// (brauzer + `file://`) tekshiriladi; bu yerda ULANISH qulflanadi.
+check('1_paths_import_qilingan', /from '\.\/paths\.js'/.test(guardJs), true);
+check('1_PATHS_pos_chaqiriladi', /PATHS\.pos\(\)/.test(guardJs), true);
+check('1_login_ham_PATHS_dan',   /PATHS\.login\(\)/.test(guardJs), true);
+check('1_guardda_mutlaq_yol_yoq', /['"]\/(app|shared|owner)\//.test(guardJs), false);
 
-// Funksiyani haqiqatan yugurtiramiz — uch joylashuv uchun
-function makePosPath(pathname) {
-  // auth-guard.js dagi mantiqning aynan nusxasi emas — FAYLDAN olinadi
-  const body = posPathFn.replace('function posPath()', 'function posPath()');
-  const fn = new Function('location', body + '; return posPath();');
-  return fn({ pathname });
-}
-check('2_app_ichida',    makePosPath('/app/shift.html'),      'pos.html');
-check('2_shared_ichida', makePosPath('/shared/settings.html'), '../app/pos.html');
-check('2_owner_ichida',  makePosPath('/owner/cafes.html'),     '../app/pos.html');
+// `api.js` — BUTUN ILOVAGA tegadi (token muddati tugaganda har qanday
+// sahifadan login'ga o'tiladi). Obuna ekrani ham yagona manbadan.
+const apiJs = fs.readFileSync(path.join(ROOT, 'js', 'core', 'api.js'), 'utf8');
+check('1_api_paths_import',   /from '\.\/paths\.js'/.test(apiJs), true);
+check('1_api_mutlaq_yol_yoq', /['"]\/(app|shared)\//.test(apiJs), false);
+const subHtml = fs.readFileSync(path.join(ROOT, 'shared', 'subscription-blocked.html'), 'utf8');
+check('1_sub_mutlaq_yol_yoq',
+      /location\.href\s*=\s*['"]\/(app|shared)\//.test(subHtml), false);
+// `paths.js` ning O'ZIDA ham mutlaq yo'l bo'lmasin
+const pathsJs = fs.readFileSync(path.join(ROOT, 'js', 'core', 'paths.js'), 'utf8');
+check('2_pathsda_mutlaq_yol_yoq', /return\s+['"]\//.test(pathsJs), false);
+check('2_paths_eksportlari',
+      ['rootPrefix', 'pathTo', 'PATHS'].every(n => pathsJs.includes(`export function ${n}`)
+                                                || pathsJs.includes(`export const ${n}`)), true);
 
 // ── 3. shift.html orqaga tugmasi rolga qarab ────────────────────────────────
 check('3_backBtn_id_bor', /id="backBtn"/.test(shiftHtml), true);

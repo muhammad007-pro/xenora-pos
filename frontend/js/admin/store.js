@@ -46,6 +46,9 @@ async function loadStoreMargin() {
     document.getElementById('smRevenue').textContent = fmtMoney(data.total_revenue||0) + ' UZS';
     document.getElementById('smProfit').textContent  = fmtMoney(data.total_profit||0) + ' UZS';
     document.getElementById('smMargin').textContent  = (data.overall_margin_pct||0) + '%';
+    // Jadval kesilgan bo'lsa — foydalanuvchi buni bilsin (KPI kesilmagan)
+    const _note = document.getElementById('smLimitNote');
+    if (_note) _note.style.display = data.items_limited ? '' : 'none';
     const body  = document.getElementById('smBody');
     const items = data.items || [];
     if (!items.length) { body.innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Ma\'lumot yo\'q</td></tr>'; return; }

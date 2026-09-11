@@ -1272,7 +1272,11 @@
           <div class="mini-stat"><div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#f59e0b" stroke-width="1.8"/><path d="M12 8v4l3 3" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="smMargin" style="color:var(--gold)">—</div><div class="ms-lbl">Umumiy marja %</div></div></div>
         </div>
         <div class="data-table-wrap">
-          <div class="dt-head"><h3 class="dt-title">Mahsulot foyda tahlili</h3></div>
+          <!-- Jadval TOP-50 bilan cheklangan; yuqoridagi KPI kartalari esa
+               BUTUN davr bo'yicha (backend ikki alohida so'rov qiladi). -->
+          <div class="dt-head"><h3 class="dt-title">Mahsulot foyda tahlili (Top 50)</h3>
+            <span id="smLimitNote" style="margin-left:auto;font-size:.75rem;color:var(--text3);display:none">Jadval 50 ta bilan cheklangan — yuqoridagi jami butun davr bo'yicha</span>
+          </div>
           <table>
             <thead><tr><th>Mahsulot</th><th>Sotish narxi</th><th>Xarid narxi</th><th>Sotilgan</th><th>Foyda</th><th>Marja %</th></tr></thead>
             <tbody id="smBody"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>

@@ -538,7 +538,19 @@ async def get_store_margin(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
-    """Mahsulot foyda marjasi hisoboti вЂ” sotish vs xarid narxi (BOSQICH 14j+)"""
+    """Mahsulot foyda marjasi hisoboti — sotish vs xarid narxi (BOSQICH 14j+)
+
+    ⚠️ IKKI SO'ROV, ATAYLAB:
+      1. KPI (jami tushum / brutto foyda / marja) — `GROUP BY` va `LIMIT` SIZ,
+         BUTUN davr bo'yicha.
+      2. Jadval — top-50 mahsulot (uzun ro'yxat kesiladi).
+
+    NEGA: ilgari bitta so'rov bor edi va KPI'lar `.limit(50)` dan KEYINGI
+    qatorlar ustidan yig'ilardi. 1001 BARAKA'da 172 mahsulot sotilgan →
+    "Jami tushum" 4 406 005 o'rniga 2 699 445 ko'rsatardi (43% yo'qolgan).
+    Muammo katalog o'sgani sari yomonlashardi. Endi jadval kesiladi, KPI
+    kesilmaydi.
+    """
     now = tenant_now()
     if period == "today":
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -548,40 +560,72 @@ async def get_store_margin(
         start = now - timedelta(days=30)
     else:
         start = datetime(2000, 1, 1)
+    # YUQORI CHEGARA: ilgari yo'q edi — soati noto'g'ri qurilmadan kelgan
+    # KELAJAK sanali buyurtma hisobga kirardi va "bugun" ham buzilardi.
+    end = now
 
     from sqlalchemy import func as sqlfunc
-    query = db.query(
-        Product.id,
-        Product.name,
-        Product.price,
-        Product.cost_price,
-        sqlfunc.sum(OrderItem.quantity).label("qty_sold"),
-        # TUZATISH: marja chegirma AYIRILGAN tushumdan (avval katalog summasidan).
-        sqlfunc.sum(_A_REVENUE_EXPR).label("revenue"),
-        # TUZATISH (2026-09): tan narx SOTUV PAYTIDAGI snapshot'dan.
-        # Ilgari `Product.cost_price × qty` (BUGUNGI narx) olinardi — priyomka
-        # `cost_price` ni qayta yozgach eski sotuvlar marjasi ORQAGA o'zgarardi.
-        # Endi `period_totals()` va boshqa foyda ekranlari bilan BIR XIL qoida.
-        sqlfunc.sum(OrderItem.quantity * cost_expr()).label("cost_snap"),
-    ).join(OrderItem, OrderItem.product_id == Product.id)\
-     .join(Order, Order.id == OrderItem.order_id)\
-     .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id)\
-     .filter(Order.created_at >= start, Order.status == "completed")
-    query = apply_tenant_filter(query, Order, current_user)
-    results = query.group_by(Product.id, Product.name, Product.price, Product.cost_price)\
-        .order_by(sqlfunc.sum(_A_REVENUE_EXPR).desc()).limit(50).all()
 
-    total_revenue = 0.0
-    total_profit  = 0.0
+    def _scoped(q):
+        """Davr + status + tenant — ikkala so'rovda AYNAN bir xil."""
+        q = q.join(Order, Order.id == OrderItem.order_id) \
+             .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id) \
+             .filter(Order.created_at >= start,
+                     Order.created_at <= end,
+                     Order.status == "completed")
+        return apply_tenant_filter(q, Order, current_user)
+
+    # ── 1) KPI — BUTUN davr (GROUP BY yo'q, LIMIT yo'q) ───────────────────────
+    kpi = _scoped(
+        db.query(
+            sqlfunc.coalesce(sqlfunc.sum(_A_REVENUE_EXPR), 0.0).label("revenue"),
+            sqlfunc.coalesce(sqlfunc.sum(OrderItem.quantity * cost_expr()), 0.0).label("cost"),
+        ).select_from(OrderItem).join(Product, Product.id == OrderItem.product_id)
+    ).one()
+
+    total_revenue = float(kpi.revenue or 0)
+    total_cost    = float(kpi.cost or 0)
+
+    # ── QAYTARISH — "Foyda tahlili" (profit.py) bilan BIR XIL bo'lishi uchun ──
+    # Ilgari bu ekran vozvratni umuman ayirmasdi: tovar qaytsa ham marja o'sha
+    # sotuvdan olingandek qolaverardi va ikki ekran boshqa raqam ko'rsatardi.
+    # Sana — QAYTARILGAN sana (sotuv sanasi emas), faqat `approved` — qoidalar
+    # `utils/revenue.py` boshida.
+    ret = returns_totals(db, current_user, start, end)
+    total_revenue -= ret["revenue"]
+    total_cost    -= ret["cost"]
+    total_profit   = total_revenue - total_cost
+
+    # ── 2) JADVAL — top-50 mahsulot ──────────────────────────────────────────
+    # Vozvrat bu yerda mahsulot kesimida AYIRILMAYDI: `ReturnItem` har doim
+    # `order_item_id` ga bog'lanmaydi (bog'lanmagan vozvratni qaysi mahsulotga
+    # yozish noaniq). Shu sabab KPI (aniq) va jadval (taxminiy) orasida kichik
+    # farq bo'lishi MUMKIN — jadval reyting uchun, KPI esa raqam uchun.
+    results = _scoped(
+        db.query(
+            Product.id,
+            Product.name,
+            Product.price,
+            Product.cost_price,
+            sqlfunc.sum(OrderItem.quantity).label("qty_sold"),
+            # TUZATISH: marja chegirma AYIRILGAN tushumdan (avval katalog summasidan).
+            sqlfunc.sum(_A_REVENUE_EXPR).label("revenue"),
+            # TUZATISH (2026-09): tan narx SOTUV PAYTIDAGI snapshot'dan.
+            # Ilgari `Product.cost_price × qty` (BUGUNGI narx) olinardi — priyomka
+            # `cost_price` ni qayta yozgach eski sotuvlar marjasi ORQAGA o'zgarardi.
+            # Endi `period_totals()` va boshqa foyda ekranlari bilan BIR XIL qoida.
+            sqlfunc.sum(OrderItem.quantity * cost_expr()).label("cost_snap"),
+        ).select_from(OrderItem).join(Product, Product.id == OrderItem.product_id)
+    ).group_by(Product.id, Product.name, Product.price, Product.cost_price) \
+     .order_by(sqlfunc.sum(_A_REVENUE_EXPR).desc()).limit(50).all()
+
     items = []
     for r in results:
         revenue = float(r.revenue or 0)
-        qty     = int(r.qty_sold or 0)
+        qty     = float(r.qty_sold or 0)
         cost    = float(r.cost_snap or 0)        # snapshot (yuqoridagi izoh)
         profit  = revenue - cost
         margin  = round(profit / revenue * 100, 1) if revenue > 0 else 0
-        total_revenue += revenue
-        total_profit  += profit
         items.append({
             "id": r.id, "name": r.name,
             "sell_price": r.price, "cost_price": r.cost_price or 0,
@@ -595,6 +639,9 @@ async def get_store_margin(
         "total_revenue": round(total_revenue, 0),
         "total_profit":  round(total_profit, 0),
         "overall_margin_pct": round(total_profit / total_revenue * 100, 1) if total_revenue > 0 else 0,
+        # Klient uchun: KPI butun davr bo'yicha, jadval esa kesilgan.
+        "items_limited": len(items) >= 50,
+        "returns_revenue": round(ret["revenue"], 0),
     }
 
 

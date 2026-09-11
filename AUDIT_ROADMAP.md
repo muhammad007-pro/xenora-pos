@@ -464,3 +464,56 @@ va kattaroq nuqson edi), lekin bu qatlam OCHIQ qoldi.
   Z-hisobot ham Toshkent kalendar kunida ishlaydi.
 - Shundan keyin §1 dagi sana oralig'i filtri (`date_from`/`date_to`) ustiga
   qo'shilsin — ikkalasi bitta ish sifatida qilinsa arzonroq.
+
+## 15. POS navigatsiyasi va PIN almashish (2026-09-11)
+
+### 15.1 Adminga PIN bilan qaytish yo'li yo'q
+
+`sellerSwitchBtn` (POS qulf ikonkasi) `/auth/pin-login` orqali HAQIQIY token
+almashtiradi — `localStorage` dagi `access_token`, `refresh_token` va `user`
+to'liq qayta yoziladi. Eski token saqlanmaydi.
+
+Prod holati (2026-09-11):
+
+| tenant | ism | rol | PIN |
+|---|---|---|---|
+| 26 | FAZLIDDIN | admin | **yo'q** |
+| 26 | MUHAMMADIKROM | cashier | bor |
+| 27 | AZIZBEK | admin | **yo'q** |
+| 27 | XABILLOH | cashier | bor |
+| 27 | MUHAMMAD ALI | cashier | bor |
+
+Ya'ni admin PIN bilan kassirga o'ta oladi, LEKIN o'ziga qaytish uchun to'liq
+chiqib (`logoutBtn`) telefon + parol terishi kerak. Kassa oldida bu noqulay.
+
+**Qilinishi kerak:**
+- Adminga PIN o'rnatish **UI'si bor-yo'qligi tekshirilsin** (`/users/{id}/pin`
+  endpointi bormi, Xodimlar sahifasida maydon bormi). Yo'q bo'lsa qo'shilsin.
+- Admin PIN o'rnatgach qulf orqali qaytadi — qo'shimcha kod kerak emas,
+  `pin-login` allaqachon rolga qaramaydi.
+- ⚠️ Xavfsizlik savoli: 4 xonali PIN admin huquqlari uchun yetarlimi?
+  Ehtimol admin qaytishi uchun ALOHIDA (uzunroq) PIN yoki parol so'ralsin.
+
+### 15.2 Mutlaq yo'llar Electron (`file://`) da sinadi
+
+`electron/main.js:610` `loadFile()` ishlatadi → sahifalar `file://` da ochiladi.
+Mutlaq yo'l (`/app/pos.html`) u yerda DISK ILDIZIGA ishora qiladi.
+
+v1.12.11 da `auth-guard.js:88` tuzatildi (jonli qora ekran sababi edi), lekin
+QOLGANLARI tegilmadi — ular hozir yiqilmayapti, chunki bu yo'llarga borilmayapti:
+
+| Fayl | Nechta | Holat |
+|---|---|---|
+| `js/core/sidebar.js` | **39 ta** `href: '/app/...'` | 14 ta admin sahifasi ishlatadi; POS/kassir yo'lida emas |
+| `js/core/api.js:16` | `/shared/subscription-blocked.html` | obuna tugaganda — Electron'da SINADI |
+| `js/core/api.js:115` | `/shared/login.html` | refresh yiqilganda — Electron'da SINADI |
+| `shared/subscription-blocked.html:109` | `/app/admin.html` | o'sha ekrandan chiqishda |
+| `pwa/manifest.json`, `pwa/service-worker.js` | ~15 ta | TEGILMASIN — PWA faqat http(s) da, `file://` da SW ro'yxatdan ham o'tmaydi |
+
+**Eng xavflisi `api.js:115`** — token yangilash yiqilsa har qanday sahifada
+ishga tushadi va Electron'da qora ekran beradi. `did-fail-load` himoyasi
+(v1.12.11) endi uni ushlaydi, lekin yo'lning o'zi ham tuzatilishi kerak.
+
+**Qilinishi kerak:** `posPath()` kabi yagona yordamchi (`js/core/paths.js`) —
+joriy sahifa joylashuviga qarab nisbiy yo'l beradi; yuqoridagi 5 joy o'shanga
+o'tsin. `sidebar.js` dagi 39 ta — bitta partiya.

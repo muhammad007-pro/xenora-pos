@@ -74,7 +74,23 @@ function canAccess(user, page) {
   });
 }
 
+/** POS sahifasiga NISBIY yo'l — joriy sahifa qayerdaligiga qarab.
+ *
+ * ⚠️ MUTLAQ yo'l (`/app/pos.html`) ISHLATILMAYDI. Electron sahifalarni
+ * `loadFile()` bilan, ya'ni `file://` protokolida ochadi (electron/main.js:610).
+ * U yerda `/app/pos.html` DISK ILDIZIGA ishora qiladi — fayl topilmaydi va
+ * oyna QORAYIB qoladi (jonli hodisa, 1001 BARAKA 2026-09-10: kassir 403 dan
+ * "POS ga" bosdi → qora ekran). Brauzerda esa o'sha yo'l ishlaydi, shuning
+ * uchun nuqson faqat `.exe` da ko'rinardi.
+ */
+function posPath() {
+  const p = location.pathname;
+  if (p.includes('/owner/') || p.includes('/shared/')) return '../app/pos.html';
+  return 'pos.html';          // /app/ ichida (va boshqa hollarda ham xavfsiz)
+}
+
 function show403(page) {
+  const pos = posPath();
   document.body.innerHTML = `
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#f0f0f8;font-family:'Inter',sans-serif;gap:1.25rem;text-align:center;padding:2rem">
     <div style="font-size:4rem">🔒</div>
@@ -85,7 +101,7 @@ function show403(page) {
     </div>
     <div style="display:flex;gap:.75rem;margin-top:.75rem">
       <a href="javascript:history.back()" style="padding:.625rem 1.25rem;border-radius:.5rem;background:rgba(255,255,255,.08);color:#f0f0f8;text-decoration:none;font-size:.875rem;font-weight:500">← Orqaga</a>
-      <a href="/app/pos.html" style="padding:.625rem 1.25rem;border-radius:.5rem;background:linear-gradient(135deg,#c9a84c,#e2c97a);color:#07070f;text-decoration:none;font-size:.875rem;font-weight:600">🏠 POS ga</a>
+      <a href="${pos}" style="padding:.625rem 1.25rem;border-radius:.5rem;background:linear-gradient(135deg,#c9a84c,#e2c97a);color:#07070f;text-decoration:none;font-size:.875rem;font-weight:600">🏠 POS ga</a>
     </div>
   </div>`;
 }

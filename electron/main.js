@@ -672,6 +672,45 @@ function createWindow() {
         mainWindow.show();
     });
 
+    // ── NAVIGATSIYA YIQILSA — JIM QOLMASIN (2026-09-11) ─────────────────────
+    // JONLI HODISA (1001 BARAKA, 2026-09-10): kassir 403 ekranidagi "POS ga"
+    // tugmasini bosdi. U yerda MUTLAQ yo'l (`/app/pos.html`) edi, biz esa
+    // `loadFile()` bilan `file://` da ishlaymiz → yo'l disk ildiziga ishora
+    // qildi, fayl topilmadi va oyna QORAYIB qoldi. Hech qanday xabar yo'q edi,
+    // do'konchi nima bo'lganini bilmadi.
+    //
+    // Yo'lning o'zi tuzatildi (auth-guard.js), lekin bu himoya UMUMIY: har
+    // qanday sabab bilan (noto'g'ri yo'l, o'chirilgan fayl, tarmoq) navigatsiya
+    // yiqilsa — foydalanuvchi tushunarli xabar ko'radi va POS'ga qaytadi.
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDesc, validatedURL, isMainFrame) => {
+        // -3 = ABORTED: foydalanuvchi/kod navigatsiyani bekor qildi (normal holat,
+        // masalan tez ketma-ket ikki marta bosish). Freym ichidagi xatolar ham
+        // butun oynani almashtirmasin.
+        if (errorCode === -3 || !isMainFrame) return;
+
+        console.error('[did-fail-load]', { errorCode, errorDesc, validatedURL });
+
+        const target = resolveFrontend();                       // .../shared/login.html
+        const posFile = path.join(path.dirname(target), '..', 'app', 'pos.html');
+        const safe = fs.existsSync(posFile) ? posFile : target; // POS bo'lmasa login
+        const safeUrl = 'file:///' + safe.replace(/\\/g, '/');
+
+        const html = `<!doctype html><meta charset="utf-8">
+<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+             gap:1.1rem;background:#070f1e;color:#f0f0f8;font-family:Inter,system-ui,sans-serif;text-align:center;padding:2rem">
+  <div style="font-size:3.2rem">🧭</div>
+  <div style="font-size:1.3rem;font-weight:700;color:#e2c97a">Sahifa ochilmadi</div>
+  <div style="color:#9a9ab8;max-width:420px;line-height:1.5">
+    Dastur bu sahifaga o'ta olmadi. Ma'lumotlaringiz saqlangan —
+    POS'ga qaytib ishni davom ettiring.
+  </div>
+  <div style="color:#5a6a80;font-size:.75rem;font-family:monospace">${String(errorDesc || '').slice(0, 80)}</div>
+  <a href="${safeUrl}" style="padding:.7rem 1.4rem;border-radius:.5rem;text-decoration:none;font-weight:600;
+     background:linear-gradient(135deg,#c9a84c,#e2c97a);color:#07070f">🏠 POS ga qaytish</a>
+</body>`;
+        mainWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    });
+
     // Server health — keyin frontend
     waitForServerThenLoad();
 

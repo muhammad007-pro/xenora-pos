@@ -202,6 +202,12 @@ npm run build          # electron-builder → dist/ (Setup + Portable)
 
 ## 8. Oxirgi deploy holati (yozib boriladi)
 
+- **v1.12.10** (2026-09-11, `a00be7d`): "Foyda marjasi" KPI `.limit(50)` bilan kesilmasin (`routers/analytics.py`) + vozvrat ayirish + yuqori vaqt chegarasi. Migratsiya YO'Q, alembic `b3d7f1c92a48` o'zgarmadi. Backup: `~/xenora-backups/pre_1.12.10_2026-09-11_1033.sql.gz` (16.9 MB). Rollback: `5b5d203`. Health `version:1.12.10`. 5xx **0**, ERROR/CRITICAL **0**.
+  - ✅ **Hisobot raqamlari to'g'rilandi** (jonli o'lchov, 7 kun): FAZZA 13 274 852 → **22 988 832**, 1001 BARAKA 3 385 555 → **5 933 285**. Ikkalasida ham jadval 50 qator (`items_limited=true`), jadval yig'indisi KPI dan kichik — ya'ni tuzatish ishlayapti.
+  - ✅ **1001 BARAKA: ikki ekran AYNAN mos** — `store-margin` 5 933 285 = `profit/summary` 5 933 285 (farq **0**).
+  - ⚠️ **FAZZA: 984 000 farq QOLDI** — `store-margin` 22 988 832 vs `profit/summary` 22 004 832. Bu KPI nuqsonidan EMAS, **davr ta'rifi farqidan**: `profit.py` 7 KALENDAR kun (`bugun−6` 00:00 dan), `analytics.py` 168 SOAT (`now − 7 days`). Farq aynan o'lchandi: FAZZA'da 2026-09-04 15:42–23:51 oralig'ida 13 buyurtma / 984 000 — u `margin` ga kiradi, `profit` ga kirmaydi. 1001 BARAKA'da o'sha oraliqda sotuv yo'q, shuning uchun u yerda farq 0. **Alohida ish** (AUDIT_ROADMAP §14).
+  - ✅ **Sekinlashmadi.** Ikki so'rov bo'lishiga qaramay (prod ORM o'lchovi, 3 urinish): `store-margin` FAZZA 30–62 ms (o'rt. 42), BARAKA 29–32 ms (o'rt. 30); solishtirish uchun `profit/summary` 24–45 ms.
+  - Baseline: eco aroma va FAZZA o'zgarmagan; 1001 BARAKA buyurtma 283→284, to'lov 257→258 — deploy paytidagi jonli sotuv.
 - **v1.12.9** (2026-09-11, `7134d4e`): POS sidebar'ida "Smena" havolasi + smena ochish/yopish ruxsat qatlami (`routers/shift.py`). Migratsiya YO'Q, alembic `b3d7f1c92a48` o'zgarmadi. Backup: `~/xenora-backups/pre_1.12.9_2026-09-10_1921.sql.gz` (16.8 MB, `gzip -t` OK). Rollback: `6575265`. Health `version:1.12.9` (lokal + app.xenora.uz). 5xx **0**, ERROR/CRITICAL **0**. Baseline (20/26/27) **aynan o'zgarmagan** (`diff` toza).
   - ✅ **Ochiq smenalar butun.** Deploy oldi/keyin `diff` toza: 11 smena / 5 ochiq. FAZZA #9 (FAZLIDDIN, 2026-08-13 dan, **775 buyurtma** bog'langan) va 1001 BARAKA #11 (AZIZBEK, 2026-09-08 dan, **213 buyurtma**) — ikkalasi ham joyida, `starting_cash`/`counted_cash`/`total_sales` tegilmagan.
   - Serverdagi kod tasdiqlandi: `close_shift` 403 matni, `pos.html` da `shift.html` havolasi, `admin.html` da `shiftUser` (select EMAS).

@@ -431,3 +431,36 @@ ishonchsiz.
   chop etadi, jami son qo'lda sanaladi;
 - CI'da shu runner ishlatilsin, `stage_b` esa 12.1 hal bo'lgunча aniq
   "ma'lum yiqilish" deb belgilansin (jimgina o'tkazib yuborilmasin).
+
+## 14. Hisobot davr ta'riflari ajralib turadi (2026-09-11, v1.12.10 deployidan)
+
+`profit.py` va `analytics.py` "hafta"ni BOSHQACHA tushunadi:
+
+| | `profit.py:_period_range` | `analytics.py` (14 endpoint) |
+|---|---|---|
+| `week` | **7 KALENDAR kun**: `bugun−6` 00:00 → `bugun` 23:59:59 | **168 SOAT**: `now − 7 days` → `now` |
+| `month` | 30 kalendar kun | 30 × 24 soat |
+| Manba | yagona yordamchi | har endpointda TAKRORLANGAN (`if period == "today"` — 11 marta) |
+
+**JONLI ISBOT (v1.12.10 deployidan keyin, 2026-09-11 15:35 Toshkent):**
+FAZZA (26) da ikki ekran 984 000 farq qildi — `store-margin` 22 988 832 vs
+`profit/summary` 22 004 832. Sabab: 2026-09-04 15:42–23:51 oralig'ida
+13 buyurtma / 984 000 so'm bor. 168 soatlik oyna uni QAMRAYDI, 7 kalendar
+kunlik oyna (09-05 00:00 dan) QAMRAMAYDI.
+
+1001 BARAKA (27) da o'sha oraliqda sotuv yo'q edi — shuning uchun u yerda
+farq 0 va muammo ko'rinmaydi. Ya'ni bu nuqson **ma'lumotga bog'liq holda
+yashirinadi** va istalgan payt qaytadi.
+
+**NEGA MUHIM:** do'konchi ikki ekranda ikki xil "jami savdo" ko'radi va
+qaysi biriga ishonishni bilmaydi. v1.12.10 KPI kesilishini tuzatdi (asosiy
+va kattaroq nuqson edi), lekin bu qatlam OCHIQ qoldi.
+
+**Qilinishi kerak:**
+- `_period_range()` ni `core/timeutils.py` ga ko'chirib YAGONA manba qilish;
+  `analytics.py` dagi 11 ta takrorlangan blok o'shanga almashsin.
+- Kalendar kun ta'rifi TANLANSIN (`profit.py` dagi) — do'konchi "hafta"ni
+  kalendar kun deb tushunadi, "168 soat" deb emas; `daily_number` va
+  Z-hisobot ham Toshkent kalendar kunida ishlaydi.
+- Shundan keyin §1 dagi sana oralig'i filtri (`date_from`/`date_to`) ustiga
+  qo'shilsin — ikkalasi bitta ish sifatida qilinsa arzonroq.

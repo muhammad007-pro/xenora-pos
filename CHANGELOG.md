@@ -3,6 +3,59 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.10] — 2026-09-11 — Foyda marjasi: KPI `.limit(50)` bilan kesilmasin
+
+Backend (`routers/analytics.py`) + frontend. Migratsiya YO'Q.
+
+### ⚠️ HISOBOT RAQAMLARI O'ZGARADI (to'g'ri tomonga — oshadi)
+"Foyda marjasi" ekranidagi **Jami tushum / Brutto foyda / Umumiy marja %**
+ilgari kam ko'rsatardi. Deploydan keyin kutilgan o'zgarish (7 kun, prod):
+
+| Do'kon | Sotilgan mahsulot | Eski (top-50) | Yangi (hammasi) |
+|---|---|---|---|
+| FAZZA (26) | 255 | 13 274 852 | **22 759 832** (+71%) |
+| 1001 BARAKA (27) | 204 | 3 385 555 | **5 840 285** (+73%) |
+
+Bu **tuzatish**, sotuvning o'sishi emas — eski raqam noto'g'ri edi.
+
+### Tuzatildi
+- **KPI `.limit(50)` dan keyingi qatorlardan yig'ilardi.** `store-margin`
+  bitta so'rov qilardi: jadval top-50 bilan kesilardi va KPI'lar o'sha
+  kesilgan ro'yxat ustidan hisoblanardi. 1001 BARAKA'da 172 mahsulot
+  sotilganda tushumning **43%** i jamiga umuman kirmasdi; katalog o'sgani
+  sari farq kattalashardi. Endi **ikki so'rov**: KPI (`GROUP BY` va `LIMIT`
+  siz, butun davr) + jadval (top-50).
+  - Mijoz shikoyati shundan edi: "Foyda tahlili" 4 406 005, "Foyda marjasi"
+    2 699 445 — ikki ekran turli "jami savdo" ko'rsatardi. Ikkala raqam SQL
+    bilan aynan qayta hosil qilindi.
+- **Qaytarish endi bu ekranda ham ayiriladi** (`returns_totals` — `profit.py`
+  bilan bir xil manba). Ilgari ayirilmasdi: tovar qaytsa ham marja o'sha
+  sotuvdan olingandek qolaverardi.
+- **Yuqori vaqt chegarasi qo'shildi** (`end = now`). Ilgari yo'q edi — soati
+  noto'g'ri qurilmadan kelgan **kelajak sanali** buyurtma jamiga kirardi.
+- **`qty_sold` `int` → `float`**: kasrli (kg) sotuvda 0.5 kg jadvalda **0**
+  bo'lib ko'rinardi.
+
+### Qo'shildi
+- Javobda `items_limited` va `returns_revenue` (additiv — eski klientlar
+  buzilmaydi).
+- Jadval sarlavhasi: **"Mahsulot foyda tahlili (Top 50)"**; ro'yxat kesilgan
+  bo'lsa yonida izoh — jami butun davr bo'yicha ekani aytiladi.
+
+### KPI vs jadval
+Vozvrat jadvalda mahsulot kesimida **ayirilmaydi** — `ReturnItem` har doim
+`order_item_id` ga bog'lanmaydi va bog'lanmaganini qaysi mahsulotga yozish
+noaniq. Shu sabab KPI (aniq) va jadval yig'indisi (taxminiy) orasida kichik
+farq bo'lishi mumkin: **KPI — raqam uchun, jadval — reyting uchun.**
+
+### Test
+- **Yangi:** `backend/tests/test_store_margin_kpi.py` — 10 ta (60 mahsulotda
+  KPI hammasini hisoblashi, jadval 50 ta, KPI > jadval yig'indisi, kam
+  mahsulotda `items_limited: false`, qaytarish ayirilishi, **ikki endpoint
+  bir xil tushum** — vozvratsiz va vozvrat bilan, kelajak sanali buyurtma
+  kirmasligi, `today` davri).
+- Backend **537 passed** / 2 skipped.
+
 ## [1.12.9] — 2026-09-11 — Smena: POS'da yopish + ruxsat qatlami
 
 Frontend + backend (`routers/shift.py`). Migratsiya YO'Q. `.exe` yangilanishi

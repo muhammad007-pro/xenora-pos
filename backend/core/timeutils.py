@@ -94,3 +94,136 @@ def month_bounds(target=None, tz_name: str = None):
     """Joriy kalendar oy: (oy 1-kuni 00:00, ertaga 00:00), mahalliy zonada."""
     start_today, end_today = day_bounds(target, tz_name)
     return start_today.replace(day=1), end_today
+
+
+# ═══ DAVR TA'RIFI — YAGONA MANBA (2026-09) ════════════════════════════════════
+#
+# MUAMMO (jonli, FAZZA): ikki foyda ekrani bir xil "7 kun" uchun 984 000 so'm
+# farq ko'rsatardi.
+#   • profit.py:_period_range  → KALENDAR kun: bugun−6 00:00 … bugun oxiri
+#   • analytics.py (11 joyda)  → SURILUVCHI OYNA: `tenant_now() - timedelta(days=7)`
+#     ya'ni 168 soat orqaga. Bugun 14:00 bo'lsa oyna 7 kun oldingi 14:00 dan
+#     boshlanadi → o'sha kunning ERTALABKI savdosi TUSHIB QOLADI, lekin 8-kun
+#     qismi hisobga KIRADI. Kun bo'yi raqam "suzib" turardi.
+#
+# QAROR: hamma joyda KALENDAR KUN (tenant mahalliy zonasi, Toshkent).
+#   "7 kun" = bugun−6 00:00:00 … bugun 23:59:59.999999
+#   168 soatlik suriluvchi oyna BUTUNLAY olib tashlandi.
+#
+# Kun soni `days - 1` offset bilan olinadi (bugun ham davr ichida):
+#   today=1, week=7, month=30, quarter=90, year=365, all=2000-01-01 dan.
+
+from datetime import date as _date
+
+ALL_TIME_START = _date(2000, 1, 1)
+
+#: period nomi → davr QAMRAGAN kalendar kunlar soni (bugun bilan birga).
+PERIOD_DAYS = {
+    "today":   1,
+    "day":     1,
+    "week":    7,
+    "month":   30,
+    "quarter": 90,
+    "year":    365,
+}
+
+
+def parse_date(raw, field: str = "sana"):
+    """'YYYY-MM-DD' → `date`. None/'' → None. Buzuq qiymat → HTTP 400.
+
+    Ilgari `datetime.strptime()` to'g'ridan chaqirilardi → buzuq sana
+    ushlanmagan `ValueError` berib endpointni 500 qilardi (mijozga "server
+    xatosi" ko'rinardi, aslida so'rov xato edi).
+    """
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, datetime):
+        return raw.date()
+    if isinstance(raw, _date):
+        return raw
+    from fastapi import HTTPException
+    try:
+        return datetime.strptime(str(raw).strip(), "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field} formati noto'g'ri — YYYY-MM-DD kutiladi",
+        )
+
+
+def period_start_date(period: str, today: _date) -> _date:
+    """period nomi → davr BOSHLANISH kalendar sanasi (`today` ham davr ichida)."""
+    p = (period or "today").strip().lower()
+    if p in ("all", "barchasi", "lifetime"):
+        return ALL_TIME_START
+    return today - timedelta(days=PERIOD_DAYS.get(p, 1) - 1)
+
+
+def period_dates(period: str = "today", date_from=None, date_to=None, *, tz_name: str = None):
+    """(start_date, end_date) — INKLYUZIV kalendar sanalar, tenant zonasida.
+
+    • `date_from`/`date_to` berilsa — USTUN (period e'tiborsiz qoldiriladi).
+      Faqat bittasi berilsa, ikkinchisi period/bugundan to'ldiriladi (additiv).
+    • KELAJAK KESILADI: `end` hech qachon bugundan katta bo'lmaydi. Soati
+      noto'g'ri qurilmadan kelgan kelajak sanali yozuv hisobga kirmasin.
+    • So'ralgan davr BUTUNLAY kelajakda bo'lsa (`start > end`) — oraliq bo'sh
+      qoladi va so'rov 0 qator beradi (bu ATAYIN: "ertangi hisobot" ≠ "bugun").
+    """
+    today   = tenant_now(tz_name).date()
+    d_from  = parse_date(date_from, "date_from")
+    d_to    = parse_date(date_to,   "date_to")
+
+    if d_from is None and d_to is None:
+        start, end = period_start_date(period, today), today
+    else:
+        start = d_from if d_from is not None else period_start_date(period, today)
+        end   = d_to   if d_to   is not None else today
+
+    if end > today:
+        end = today
+    return start, end
+
+
+def period_bounds(period: str = "today", date_from=None, date_to=None, *, tz_name: str = None):
+    """(start, end) aware TIMESTAMP oralig'i — `created_at >= start AND <= end` uchun.
+
+    `start` = boshlanish kuni 00:00 (mahalliy), `end` = tugash kuni
+    23:59:59.999999 — ammo BUGUN uchun `tenant_now()` da kesiladi (kelajak
+    soatli yozuv "bugun" ga qo'shilmasin; `/analytics/store-margin` allaqachon
+    shu qoida bilan ishlardi).
+
+    Chegarasi `<` emas, `<=` — mavjud analytics/profit filtrlari shunday.
+    """
+    s_date, e_date = period_dates(period, date_from, date_to, tz_name=tz_name)
+    start, _       = day_bounds(s_date, tz_name)
+    _, next_day    = day_bounds(e_date, tz_name)
+    end            = next_day - timedelta(microseconds=1)
+    now            = tenant_now(tz_name)
+    return start, min(end, now)
+
+
+def report_bounds(date_from=None, date_to=None, *, default_days: int = 30, tz_name: str = None):
+    """Hisobot oralig'i → (boshlanish 00:00.000, tugash 23:59:59.999999) mahalliy zonada.
+
+    `routers/report.py:_dates()` dan KO'CHIRILDI — xulqi AYNAN saqlangan
+    (standart 30 kun orqaga, kelajak KESILMAYDI: hisobot ekranida do'konchi
+    o'zi oraliq tanlaydi). Yagona o'zgarish: buzuq sana 500 emas, 400 beradi.
+
+    ═══ TUZATILGAN XATO (P0-3) ═══
+    Avval ikkala chegara ham `strptime(...)` = o'sha kun 00:00:00 edi. Chaqiruvchi
+    servislar `created_at <= date_to` filtri bilan ishlaydi, ya'ni TUGASH KUNINING
+    O'ZI QAMRALMASDI. `report.html` standart holatda `date_from = date_to = bugun`
+    yuboradi → "Bugun" foyda/savdo hisoboti HAR DOIM BO'SH (0 so'm) chiqardi.
+
+    Ikkinchi xato: naive `datetime` — server UTC, shuning uchun kun chegarasi
+    Toshkent kunidan 5 soat siljirdi. Endi `day_bounds()` (tenant mahalliy,
+    aware) ishlatiladi.
+    """
+    today_local = tenant_now(tz_name).date()
+    d_from = parse_date(date_from, "date_from") or today_local - timedelta(days=default_days)
+    d_to   = parse_date(date_to,   "date_to")   or today_local
+
+    start, _    = day_bounds(d_from, tz_name)   # d_from 00:00 (mahalliy)
+    _, next_day = day_bounds(d_to, tz_name)     # d_to + 1 kun 00:00 (mahalliy)
+    # Servislar `<=` ishlatadi → ertangi yarim tunni QAMRAMASLIK uchun 1 mks orqaga.
+    return start, next_day - timedelta(microseconds=1)

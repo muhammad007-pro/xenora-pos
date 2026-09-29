@@ -1,20 +1,29 @@
 ﻿from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Annotated, Optional
 from collections import defaultdict
 
 from database import get_db
 from models import Order, Payment, Product, Customer, User, OrderItem, Category, Appointment, Service, Employee, ServiceOrder, Vehicle, Room, RoomBooking
 from deps import get_current_user, get_current_active_user, has_permission, apply_tenant_filter, user_has_permission, resolve_tenant_id, require_feature
 from services.analytics_service import AnalyticsService
-from core.timeutils import tenant_now, to_local
+from core.timeutils import period_bounds, period_dates, tenant_now, to_local
 from core.tenant_config import get_tenant_config
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak — avval
 # OrderItem.total_price (katalog summasi) olinardi. Izoh/formula: utils/revenue.py
 from utils.revenue import (
     cost_expr, net_revenue_expr, order_subtotal_subq, period_totals, returns_totals,
 )
+
+# `Annotated` + oddiy `= None` standart qiymat. NEGA shunday, `Query(None, ...)`
+# emas: bu endpointlar testlarda TO'G'RIDAN chaqiriladi
+# (`asyncio.run(an.get_summary(period="today", db=db, current_user=u))`). U holda
+# FastAPI aralashmaydi va `Query(None)` standart qiymati `Query` OBYEKTI bo'lib
+# kelardi — `None` emas → `parse_date()` uni buzuq sana deb 400 qaytarardi.
+# `Annotated` bilan haqiqiy standart `None` bo'ladi, OpenAPI izohi esa saqlanadi.
+_DateFrom = Annotated[Optional[str], Query(description="YYYY-MM-DD — berilsa `period` dan ustun")]
+_DateTo   = Annotated[Optional[str], Query(description="YYYY-MM-DD")]
 
 router = APIRouter()
 
@@ -28,6 +37,8 @@ _A_REVENUE_EXPR = net_revenue_expr(_A_SUB_SQ)   # qator SOF tushumi
 @router.get("/summary")
 async def get_summary(
     period: str = Query("today", pattern="^(today|week|month|year)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
@@ -35,18 +46,12 @@ async def get_summary(
     from sqlalchemy import func
     from deps import apply_tenant_filter
 
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    elif period == "month":
-        start = now - timedelta(days=30)
-    else:
-        start = now - timedelta(days=365)
+    now        = tenant_now()
+    start, end = period_bounds(period, date_from, date_to)
 
     orders_q = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.created_at >= start,
+        Order.created_at <= end,
         Order.status == "completed",
     )
     orders = orders_q.all()
@@ -58,6 +63,7 @@ async def get_summary(
 
     payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
         Payment.created_at >= start,
+        Payment.created_at <= end,
         Payment.status == "paid",
     ).all()
     by_method: dict = {}
@@ -67,6 +73,9 @@ async def get_summary(
     # Kunlik daromad grafigi — TANLANGAN period bo'yicha, KPI filtridan MUSTAQIL
     # so'rov bilan. (Ilgari `orders` period=today bilan filtrlangani uchun 7 kunlik
     # grafik faqat bugungi kunni ko'rsatib, qolgan kunlarni bo'sh qoldirardi.)
+    # ⚠️ Grafik `date_from/date_to` ni HISOBGA OLMAYDI — u har doim oxirgi
+    # 7/30 kunni ko'rsatadi (yuqoridagi izoh: KPI filtridan mustaqil). Aniq
+    # oraliq grafigi kerak bo'lsa `/profit/timeline` ishlatiladi.
     chart_days   = 30 if period == "month" else 7
     chart_start  = (now - timedelta(days=chart_days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
     chart_orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
@@ -407,20 +416,17 @@ async def export_analytics(
 @router.get("/waiter-report")
 async def get_waiter_report(
     period: str = Query("week", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Ofitsiant smena hisoboti вЂ” stol soni, tushum, tips (BOSQICH 14b+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.created_at >= start,
+        Order.created_at <= end,
         Order.status == "completed",
         Order.waiter_id.isnot(None),
     ).all()
@@ -535,6 +541,8 @@ async def get_loyalty_tiers(
 @router.get("/store-margin")
 async def get_store_margin(
     period: str = Query("week", pattern="^(today|week|month|all)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
@@ -551,18 +559,9 @@ async def get_store_margin(
     Muammo katalog o'sgani sari yomonlashardi. Endi jadval kesiladi, KPI
     kesilmaydi.
     """
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    elif period == "month":
-        start = now - timedelta(days=30)
-    else:
-        start = datetime(2000, 1, 1)
-    # YUQORI CHEGARA: ilgari yo'q edi — soati noto'g'ri qurilmadan kelgan
-    # KELAJAK sanali buyurtma hisobga kirardi va "bugun" ham buzilardi.
-    end = now
+    # YUQORI CHEGARA `period_bounds()` ichida: soati noto'g'ri qurilmadan kelgan
+    # KELAJAK sanali buyurtma hisobga kirmasin.
+    start, end = period_bounds(period, date_from, date_to)
 
     from sqlalchemy import func as sqlfunc
 
@@ -648,20 +647,17 @@ async def get_store_margin(
 @router.get("/cashier-report")
 async def get_cashier_report(
     period: str = Query("week", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Kassir smena hisoboti вЂ” to'lov usullari breakdown (BOSQICH 14j+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
         Payment.created_at >= start,
+        Payment.created_at <= end,
         Payment.status == "paid",
     ).all()
 
@@ -704,20 +700,17 @@ async def get_cashier_report(
 @router.get("/pharmacy-stats", dependencies=[Depends(require_feature("prescription_archive"))])
 async def get_pharmacy_stats(
     period: str = Query("week", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Dorixona retsept statistikasi вЂ” kunlik/haftalik/oylik (BOSQICH 14k+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.created_at >= start,
+        Order.created_at <= end,
         Order.status == "completed",
         Order.biz_meta.isnot(None),
     ).all()
@@ -795,20 +788,17 @@ async def get_rx_patients(
 @router.get("/salon-services", dependencies=[Depends(require_feature("services"))])
 async def get_salon_services(
     period: str = Query("week", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Xizmat tahlili вЂ” qaysi xizmat ko'p bronlanadi, tushum (BOSQICH 14l+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     apts = apply_tenant_filter(db.query(Appointment), Appointment, current_user).filter(
         Appointment.created_at >= start,
+        Appointment.created_at <= end,
         Appointment.status.in_(["completed", "confirmed", "pending"]),
     ).all()
 
@@ -847,20 +837,17 @@ async def get_salon_services(
 @router.get("/master-report", dependencies=[Depends(require_feature("commission_report"))])
 async def get_master_report(
     period: str = Query("week", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Usta daromad hisoboti вЂ” randevu soni, tushum, o'rtacha narx (BOSQICH 14l+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     apts = apply_tenant_filter(db.query(Appointment), Appointment, current_user).filter(
         Appointment.created_at >= start,
+        Appointment.created_at <= end,
         Appointment.employee_id.isnot(None),
         Appointment.status.in_(["completed", "confirmed", "pending"]),
     ).all()
@@ -902,20 +889,17 @@ async def get_master_report(
 @router.get("/auto-stats")
 async def get_auto_stats(
     period: str = Query("week", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Auto servis statistikasi вЂ” status counts, tushum, davomiylik (BOSQICH 14m+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     orders = apply_tenant_filter(db.query(ServiceOrder), ServiceOrder, current_user).filter(
         ServiceOrder.created_at >= start,
+        ServiceOrder.created_at <= end,
     ).all()
 
     status_counts = {"pending": 0, "in_progress": 0, "done": 0, "delivered": 0}
@@ -959,21 +943,18 @@ async def get_auto_stats(
 @router.get("/school-stats")
 async def get_school_stats(
     period: str = Query("month", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Maktab/Kurs statistikasi вЂ” o'quvchilar, tushum, kunlik/oylik breakdown (BOSQICH 14n+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     from sqlalchemy import cast as sa_cast, String
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.created_at >= start,
+        Order.created_at <= end,
         Order.biz_meta.isnot(None),
         Order.status.in_(["completed", "pending", "ready"]),
     ).all()
@@ -992,7 +973,8 @@ async def get_school_stats(
         if name:
             daily_map[day]["students"].add(name.lower())
 
-    # Monthly breakdown (last 6 months)
+    # Monthly breakdown (last 6 months) — `period` dan MUSTAQIL oyna
+    now = tenant_now()
     monthly_map: dict = defaultdict(lambda: {"count": 0, "revenue": 0.0, "students": set()})
     all_orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.biz_meta.isnot(None),
@@ -1029,20 +1011,17 @@ async def get_school_stats(
 @router.get("/dry-stats")
 async def get_dry_stats(
     period: str = Query("month", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Kimyoviy tozalash statistikasi вЂ” status counts, tushum, kunlik (BOSQICH 14o+)"""
-    now = tenant_now()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif period == "week":
-        start = now - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
+    start, end = period_bounds(period, date_from, date_to)
 
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.created_at >= start,
+        Order.created_at <= end,
         Order.biz_meta.isnot(None),
     ).all()
     dry_orders = [o for o in orders if o.biz_meta and o.biz_meta.get("cleaning_items") is not None]
@@ -1078,25 +1057,20 @@ async def get_dry_stats(
 @router.get("/hotel-stats")
 async def get_hotel_stats(
     period: str = Query("month", pattern="^(today|week|month)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Mehmonxona statistikasi вЂ” tushum, band xonalar, dolzarblik (BOSQICH 14p+)"""
     from datetime import date as ddate
-    now = tenant_now()
-    today = tenant_now().date()
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start_date = today
-    elif period == "week":
-        start = now - timedelta(days=7)
-        start_date = today - timedelta(days=7)
-    else:
-        start = now - timedelta(days=30)
-        start_date = today - timedelta(days=30)
+    today       = tenant_now().date()
+    start, end  = period_bounds(period, date_from, date_to)
+    start_date  = start.date()   # DATE ustunlar (RoomBooking.check_in) uchun
 
     bookings = apply_tenant_filter(db.query(RoomBooking), RoomBooking, current_user).filter(
         RoomBooking.created_at >= start,
+        RoomBooking.created_at <= end,
     ).all()
 
     rooms_all = apply_tenant_filter(db.query(Room), Room, current_user).filter(Room.is_active == True).all()
@@ -1154,20 +1128,14 @@ async def get_hotel_stats(
 @router.get("/abc-analysis")
 async def get_abc_analysis(
     period: str = Query("month", pattern="^(week|month|quarter|all)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """ABC tahlil — tovarlarni foyda ulushi bo'yicha A/B/C guruhiga ajratish"""
     from sqlalchemy import func as sqlfunc
-    now = tenant_now()
-    if period == "week":
-        start = now - timedelta(days=7)
-    elif period == "month":
-        start = now - timedelta(days=30)
-    elif period == "quarter":
-        start = now - timedelta(days=90)
-    else:
-        start = datetime(2000, 1, 1)
+    start, end = period_bounds(period, date_from, date_to)
 
     rows = db.query(
         Product.id,
@@ -1182,7 +1150,8 @@ async def get_abc_analysis(
     ).join(OrderItem, OrderItem.product_id == Product.id)\
      .join(Order, Order.id == OrderItem.order_id)\
      .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id)\
-     .filter(Order.created_at >= start, Order.status == "completed")
+     .filter(Order.created_at >= start, Order.created_at <= end,
+             Order.status == "completed")
     rows = apply_tenant_filter(rows, Order, current_user)
     rows = rows.group_by(Product.id, Product.name, Product.cost_price).all()
 
@@ -1272,16 +1241,20 @@ async def get_reorder_alerts(
 @router.get("/turnover")
 async def get_turnover_analysis(
     period: str = Query("month", pattern="^(week|month|quarter)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Oborot tahlili — tovar qancha tez sotiladi (tez/sekin/o'lik)"""
     from models import Inventory
     from sqlalchemy import func as sqlfunc
-    now = tenant_now()
-    days_map = {"week": 7, "month": 30, "quarter": 90}
-    days = days_map[period]
-    start = now - timedelta(days=days)
+    # `days` HAQIQIY oraliqdan olinadi — `avg_daily = qty_sold / days` bo'lgani
+    # uchun qattiq {week:7,...} xaritasi `date_from/date_to` bilan "kunlik
+    # o'rtacha" ni buzardi. period bilan natija o'zgarmaydi (7/30/90).
+    d_start, d_end = period_dates(period, date_from, date_to)
+    days       = max((d_end - d_start).days + 1, 1)
+    start, end = period_bounds(period, date_from, date_to)
 
     sold_rows = db.query(
         Product.id,
@@ -1289,7 +1262,8 @@ async def get_turnover_analysis(
         sqlfunc.sum(OrderItem.quantity).label("qty_sold"),
     ).join(OrderItem, OrderItem.product_id == Product.id)\
      .join(Order, Order.id == OrderItem.order_id)\
-     .filter(Order.created_at >= start, Order.status == "completed")
+     .filter(Order.created_at >= start, Order.created_at <= end,
+             Order.status == "completed")
     sold_rows = apply_tenant_filter(sold_rows, Order, current_user)
     sold_rows = sold_rows.group_by(Product.id, Product.name).all()
 
@@ -1335,20 +1309,17 @@ async def get_turnover_analysis(
 @router.get("/peak-hours", dependencies=[Depends(require_feature("peak_hours"))])
 async def get_peak_hours(
     period: str = Query("month", pattern="^(week|month|quarter)$"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Peak soatlar va kunlar — qaysi vaqtda ko'p savdo bo'ladi"""
-    now = tenant_now()
-    if period == "week":
-        start = now - timedelta(days=7)
-    elif period == "month":
-        start = now - timedelta(days=30)
-    else:
-        start = now - timedelta(days=90)
+    start, end = period_bounds(period, date_from, date_to)
 
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.created_at >= start,
+        Order.created_at <= end,
         Order.status == "completed",
     ).all()
 

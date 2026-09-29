@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast
 from sqlalchemy.dialects.postgresql import TIMESTAMP as PG_TIMESTAMP
-from typing import Optional
+from typing import Annotated, Optional
 from datetime import date, timedelta
 import calendar
 
@@ -34,11 +34,17 @@ from models import (
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 from core.audit import log_audit
-from core.timeutils import tenant_now
+from core.timeutils import period_dates, tenant_now
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak. Avval
 # OrderItem.total_price (katalog summasi) olinardi → foyda chegirma summasiga
 # teng miqdorda oshiq chiqardi. Formula/taqsimlash izohi: utils/revenue.py
 from utils.revenue import net_revenue_expr, order_subtotal_subq, returns_totals
+
+# `Annotated` + oddiy `= None`: bu endpointlar testlarda TO'G'RIDAN chaqiriladi,
+# u holda `Query(None)` standart qiymati `Query` OBYEKTI bo'lib kelardi (analytics.py
+# dagi bir xil izohga qara).
+_DateFrom = Annotated[Optional[str], Query(description="YYYY-MM-DD — berilsa davr dan ustun")]
+_DateTo   = Annotated[Optional[str], Query(description="YYYY-MM-DD")]
 
 router = APIRouter()
 
@@ -65,22 +71,43 @@ _MEMBERSHIP_TYPES  = frozenset({"fitness", "school"})
 
 # ─── Yordamchi funksiyalar ────────────────────────────────────────────────────
 
-def _period_range(period: str, start_date: Optional[date], end_date: Optional[date]):
-    """today | week | month | custom(start_date..end_date)
+def _period_range(period: str, start_date=None, end_date=None,
+                  date_from=None, date_to=None):
+    """today | week | month | aniq oraliq → (start_date, end_date) kalendar sanalar.
 
-    "Bugun" — TOSHKENT kuni. Ilgari `date.today()` (server = UTC) edi va
-    Toshkent 00:00–05:00 oralig'ida "bugun" hali KECHAgi kunni bildirardi.
+    TA'RIF `core/timeutils.py:period_dates()` da — YAGONA MANBA (2026-09).
+    Ilgari bu yerda mustaqil nusxa turardi va `analytics.py` 168 soatlik
+    suriluvchi oyna ishlatardi → FAZZA'da ikki foyda ekrani 984 000 so'm farq
+    qilardi. Endi ikkalasi ham kalendar kun (Toshkent) bo'yicha hisoblaydi.
+
+    `start_date`/`end_date` — ESKI nom (klientlar yuborib turadi), `date_from`/
+    `date_to` — analytics bilan BIR XIL yangi nom. Ikkisi ham qabul qilinadi;
+    yangi nom ustun.
     """
-    today = tenant_now().date()
-    if start_date and end_date:
-        return start_date, end_date
-    if period == "today":
-        return today, today
-    if period == "week":
-        return today - timedelta(days=6), today
-    if period == "month":
-        return today - timedelta(days=29), today
-    return today, today
+    return period_dates(
+        period,
+        date_from if date_from is not None else start_date,
+        date_to   if date_to   is not None else end_date,
+    )
+
+
+def _days_range(days: int, date_from=None, date_to=None):
+    """`days` kunlik oyna (bugun ham ichida) yoki aniq `date_from`..`date_to` oralig'i.
+
+    `days=30` → bugun−29 … bugun. Ilgari `date.today()` ishlatilardi — server UTC
+    bo'lgani uchun Toshkent 00:00–05:00 oralig'ida "bugun" hali KECHAgi kunni
+    bildirardi. Endi tenant zonasi va kelajak kesish `period_dates()` dan keladi.
+
+    Faqat `date_to` berilsa — oyna shu sanadan ORQAGA `days` kun (`days` ma'nosi
+    saqlanadi), faqat `date_from` berilsa — undan bugungacha.
+    """
+    if date_from is None and date_to is None:
+        today = tenant_now().date()
+        return today - timedelta(days=days - 1), today
+    if date_from is None:
+        _, end = period_dates("today", None, date_to)
+        return end - timedelta(days=days - 1), end
+    return period_dates("today", date_from, date_to)
 
 
 def _dt_bounds(start: date, end: date):
@@ -404,12 +431,16 @@ async def get_profit_summary(
     period: str = Query("today", description="today | week | month"),
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    # YANGI (2026-09): analytics bilan BIR XIL nom. `start_date`/`end_date`
+    # eski klientlar uchun saqlandi; berilsa yangi nom ustun turadi.
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
     """Davr bo'yicha foyda xulosasi — biznes turiga mos ko'rsatkichlar"""
     ensure_recurring_expenses(db, current_user)  # takroriy xarajatlar shu oygacha generatsiya
-    start, end = _period_range(period, start_date, end_date)
+    start, end = _period_range(period, start_date, end_date, date_from, date_to)
     biz_type  = _get_biz_type(db, current_user)
     expenses  = _fetch_expenses(db, current_user, start, end)
     # UI uchun: "Bu davrga tegishli X so'm (jami Y so'm dan)". Do'konchi
@@ -518,13 +549,15 @@ async def get_profit_summary(
 async def get_profit_timeline(
     days:  int = Query(30, ge=1, le=365),
     group: str = Query("day", description="day | week | month"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
     """Kunlik/haftalik/oylik daromad-tannarx-foyda grafigi uchun nuqtalar"""
     ensure_recurring_expenses(db, current_user)  # takroriy xarajatlar shu oygacha generatsiya
-    start = date.today() - timedelta(days=days - 1)
-    end   = date.today()
+    # `days` → kalendar oyna (bugun ham ichida). date_from/date_to berilsa u ustun.
+    start, end = _days_range(days, date_from, date_to)
     trunc = {"day": "day", "week": "week", "month": "month"}.get(group, "day")
     biz_type = _get_biz_type(db, current_user)
 
@@ -629,12 +662,13 @@ async def get_top_profit_items(
     limit: int = Query(10, ge=1, le=50),
     order: str = Query("best", description="best | worst"),
     days:  int = Query(30, ge=1, le=365),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
     """TOP mahsulotlar yoki xizmatlar foyda bo'yicha (biznes turiga qarab)"""
-    start    = date.today() - timedelta(days=days - 1)
-    end      = date.today()
+    start, end = _days_range(days, date_from, date_to)
     biz_type = _get_biz_type(db, current_user)
 
     # ── Xizmat asosli: Service bo'yicha ───────────────────────────────────────
@@ -738,12 +772,13 @@ async def get_top_profit_items(
 @router.get("/by-category")
 async def get_profit_by_category(
     days: int = Query(30, ge=1, le=365),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
     """Kategoriya bo'yicha daromad, tan narx va foyda"""
-    start    = date.today() - timedelta(days=days - 1)
-    end      = date.today()
+    start, end = _days_range(days, date_from, date_to)
     biz_type = _get_biz_type(db, current_user)
 
     # ── Xizmat asosli: Service.category bo'yicha ─────────────────────────────
@@ -888,12 +923,16 @@ async def get_expenses(
     period: str = Query("month"),
     start_date: Optional[date] = None,
     end_date:   Optional[date] = None,
+    # YANGI (2026-09): analytics bilan BIR XIL nom. `start_date`/`end_date`
+    # eski klientlar uchun saqlandi; berilsa yangi nom ustun turadi.
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
     """Davr ichidagi xarajatlar ro'yxati"""
     ensure_recurring_expenses(db, current_user)  # takroriy xarajatlar shu oygacha generatsiya
-    start, end = _period_range(period, start_date, end_date)
+    start, end = _period_range(period, start_date, end_date, date_from, date_to)
     q = db.query(Expense).filter(
         Expense.expense_date >= start,
         Expense.expense_date <= end,

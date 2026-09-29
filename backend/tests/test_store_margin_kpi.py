@@ -92,9 +92,12 @@ def seeded(db_session):
     # ketmasligi uchun kamida 03:00.
     _now = tenant_now()
     _now = _now.replace(tzinfo=None) if _now.tzinfo else _now
-    sotuv_vaqti = _now - timedelta(hours=2)
-    if sotuv_vaqti.date() != _now.date():
-        sotuv_vaqti = _now.replace(hour=3, minute=0, second=0, microsecond=0)
+    # BUGUN ichida va HOZIRDAN OLDIN. Zaxira `hour=3` XATO edi: test 00:00–03:00
+    # orasida ishga tushsa u KELAJAK vaqtini berardi va yuqori chegara (`end = now`)
+    # butun fixturani chiqarib tashlardi → 9 test yolg'on yiqilardi (faqat kechasi).
+    # `max(..., kun boshi)` esa ikkala shartni ham kafolatlaydi.
+    sotuv_vaqti = max(_now - timedelta(hours=2),
+                      _now.replace(hour=0, minute=0, second=0, microsecond=0))
 
     prods, kutilgan_tushum, kutilgan_tannarx = [], 0.0, 0.0
     for i in range(MAHSULOT_SONI):

@@ -77,6 +77,8 @@
   <script type="module">
     import { API_BASE } from '../js/core/config.js';
     import { clearTenantSession } from '../js/core/auth.js';
+    // MUTLAQ yo'l yozilmaydi — Electron `file://` da sinadi (paths.js izohi).
+    import { PATHS } from '../js/core/paths.js';
 
     // api.js bloklanганда sessionStorage'ga sababni yozadi.
     const savedMsg = (() => { try { return sessionStorage.getItem('sub_block_msg'); } catch { return null; } })();
@@ -106,7 +108,7 @@
         // Obuna tiklangan bo'lsa (blok yo'q) — darhol ilovaga qaytamiz.
         if(d && d.blocked === false){
           try { sessionStorage.removeItem('sub_block_msg'); } catch {}
-          location.href = '/app/admin.html';
+          location.href = PATHS.admin();
           return;
         }
 

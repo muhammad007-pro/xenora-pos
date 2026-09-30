@@ -464,3 +464,61 @@ va kattaroq nuqson edi), lekin bu qatlam OCHIQ qoldi.
   Z-hisobot ham Toshkent kalendar kunida ishlaydi.
 - Shundan keyin §1 dagi sana oralig'i filtri (`date_from`/`date_to`) ustiga
   qo'shilsin — ikkalasi bitta ish sifatida qilinsa arzonroq.
+
+## 15. POS navigatsiyasi va PIN almashish (2026-09-11)
+
+### 15.1 Adminga PIN bilan qaytish yo'li yo'q
+
+`sellerSwitchBtn` (POS qulf ikonkasi) `/auth/pin-login` orqali HAQIQIY token
+almashtiradi — `localStorage` dagi `access_token`, `refresh_token` va `user`
+to'liq qayta yoziladi. Eski token saqlanmaydi.
+
+Prod holati (2026-09-11):
+
+| tenant | ism | rol | PIN |
+|---|---|---|---|
+| 26 | FAZLIDDIN | admin | **yo'q** |
+| 26 | MUHAMMADIKROM | cashier | bor |
+| 27 | AZIZBEK | admin | **yo'q** |
+| 27 | XABILLOH | cashier | bor |
+| 27 | MUHAMMAD ALI | cashier | bor |
+
+Ya'ni admin PIN bilan kassirga o'ta oladi, LEKIN o'ziga qaytish uchun to'liq
+chiqib (`logoutBtn`) telefon + parol terishi kerak. Kassa oldida bu noqulay.
+
+**Qilinishi kerak:**
+- Adminga PIN o'rnatish **UI'si bor-yo'qligi tekshirilsin** (`/users/{id}/pin`
+  endpointi bormi, Xodimlar sahifasida maydon bormi). Yo'q bo'lsa qo'shilsin.
+- Admin PIN o'rnatgach qulf orqali qaytadi — qo'shimcha kod kerak emas,
+  `pin-login` allaqachon rolga qaramaydi.
+- ⚠️ Xavfsizlik savoli: 4 xonali PIN admin huquqlari uchun yetarlimi?
+  Ehtimol admin qaytishi uchun ALOHIDA (uzunroq) PIN yoki parol so'ralsin.
+
+### 15.2 Mutlaq yo'llar Electron (`file://`) da sinadi
+
+`electron/main.js:610` `loadFile()` ishlatadi → sahifalar `file://` da ochiladi.
+Mutlaq yo'l (`/app/pos.html`) u yerda DISK ILDIZIGA ishora qiladi.
+
+v1.12.11 da `auth-guard.js:88` tuzatildi (jonli qora ekran sababi edi), lekin
+QOLGANLARI tegilmadi — ular hozir yiqilmayapti, chunki bu yo'llarga borilmayapti:
+
+| Fayl | Nechta | Holat |
+|---|---|---|
+| `js/core/auth-guard.js:88` | `/app/pos.html` | ✅ TUZATILDI — qora ekran sababi edi |
+| `js/core/api.js:115` | `/shared/login.html` | ✅ TUZATILDI — eng xavflisi edi |
+| `js/core/api.js:16` | `/shared/subscription-blocked.html` | ✅ TUZATILDI |
+| `shared/subscription-blocked.html:109` | `/app/admin.html` | ✅ TUZATILDI |
+| **`js/core/sidebar.js`** | **39 ta** `href: '/app/...'` | ⚠️ **QOLDI** — 14 ta admin sahifasi ishlatadi; POS/kassir yo'lida emas |
+| `pwa/manifest.json`, `pwa/service-worker.js` | ~15 ta | TEGILMASIN — PWA faqat http(s) da, `file://` da SW ro'yxatdan ham o'tmaydi |
+
+**YAGONA MANBA yaratildi:** `js/core/paths.js` — `PATHS.pos()`, `.login()`,
+`.admin()`, `.subscriptionBlocked()`. Joriy sahifa joylashuviga qarab nisbiy
+yo'l beradi. Sinovi: `frontend/tests/test_path_helper.mjs` — brauzer va
+`file://` kontekstlarida, jumladan buzuq token bilan login'ga o'tish.
+
+**QOLGAN ISH — `sidebar.js` dagi 39 ta yo'l.** Ular admin sahifalarida
+(`suppliers.html`, `price_history.html`, `promotions.html` va yana 11 ta).
+Kassir POS yo'lida emas, shuning uchun hozir yiqilmayapti; admin `.exe` da
+bosgan bandi qora ekran berishi mumkin edi, lekin `did-fail-load` (v1.12.11)
+endi uni ushlaydi va POS'ga qaytaradi — ya'ni yo'qotish yo'q. Yo'lning o'zi
+ham `PATHS`/`pathTo()` ga o'tkazilsin: bitta partiya, mexanik ish.

@@ -10,6 +10,10 @@
  *   AuthGuard.check('cashier'); // to'g'ridan-to'g'ri rol tekshirish
  */
 
+// Sahifa yo'llari — MUTLAQ yo'l yozilmaydi (Electron `file://` da sinadi).
+// Sabab va qoida: `js/core/paths.js` boshidagi izoh.
+import { PATHS } from './paths.js';
+
 // Sahifa nomi → ruxsat berilgan rollar (lower-case substring match)
 // '*' → barcha rol
 const PAGE_ROLES = {
@@ -75,6 +79,7 @@ function canAccess(user, page) {
 }
 
 function show403(page) {
+  const pos = PATHS.pos();      // MUTLAQ yo'l EMAS — paths.js izohiga qara
   document.body.innerHTML = `
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0a0f;color:#f0f0f8;font-family:'Inter',sans-serif;gap:1.25rem;text-align:center;padding:2rem">
     <div style="font-size:4rem">🔒</div>
@@ -85,7 +90,7 @@ function show403(page) {
     </div>
     <div style="display:flex;gap:.75rem;margin-top:.75rem">
       <a href="javascript:history.back()" style="padding:.625rem 1.25rem;border-radius:.5rem;background:rgba(255,255,255,.08);color:#f0f0f8;text-decoration:none;font-size:.875rem;font-weight:500">← Orqaga</a>
-      <a href="/app/pos.html" style="padding:.625rem 1.25rem;border-radius:.5rem;background:linear-gradient(135deg,#c9a84c,#e2c97a);color:#07070f;text-decoration:none;font-size:.875rem;font-weight:600">🏠 POS ga</a>
+      <a href="${pos}" style="padding:.625rem 1.25rem;border-radius:.5rem;background:linear-gradient(135deg,#c9a84c,#e2c97a);color:#07070f;text-decoration:none;font-size:.875rem;font-weight:600">🏠 POS ga</a>
     </div>
   </div>`;
 }
@@ -98,7 +103,7 @@ const AuthGuard = {
     // 1. Login check
     if (!tk || !user) {
       localStorage.removeItem('user');
-      location.href = '../shared/login.html';
+      location.href = PATHS.login();
       return false;
     }
 

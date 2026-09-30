@@ -152,7 +152,11 @@ def test_sotuv_bor_endpoint_qulamaydi(db):
     # bo'ldi). Mahalliy kun boshidan +1 soat — har doim BUGUN ichida.
     now = tenant_now()
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    _seed(db, [day_start + timedelta(hours=1)])
+    # `day_start + 1h` O'ZI ham yetarli emas: test 00:00–01:00 orasida ishga
+    # tushsa u KELAJAK vaqti bo'ladi. `/analytics/summary` endi yuqori chegara
+    # (`end = now`) qo'yadi — kelajak sanali yozuv hisobga kirmaydi — va test
+    # yolg'on yiqilardi. `min(..., now)` bilan sotuv har doim BUGUN va O'TMISHDA.
+    _seed(db, [min(day_start + timedelta(hours=1), now)])
     r = _summary(db)                 # eski (buzuq) kodda shu yerda TypeError -> 500
     assert r["total_revenue"] == 45000
     assert r["total_orders"] == 1

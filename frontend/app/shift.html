@@ -116,7 +116,11 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
 <div class="xa-atmos" aria-hidden="true"></div>
 <div class="page-wrap">
   <header class="page-header">
-    <a href="admin.html" class="back-btn">←</a>
+    <!-- Orqaga: ROLGA QARAB. Ilgari doim `admin.html` edi va kassir bosganda
+         AuthGuard 403 berardi ("Siz admin sahifasiga kirishga ruxsat
+         etilmagan") — jonli hodisa, 1001 BARAKA 2026-09-10. Yo'nalish
+         pastdagi skriptda o'rnatiladi. -->
+    <a href="pos.html" class="back-btn" id="backBtn" title="Orqaga">←</a>
     <h1 class="page-title">🕐 Smena boshqaruvi</h1>
   </header>
   <div class="page-content">
@@ -178,6 +182,28 @@ const token = () => localStorage.getItem('access_token');
 if (!token()) { location.href = '../shared/login.html'; }
 
 const user  = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } })();
+
+// ── Orqaga tugmasi: ROLGA QARAB ───────────────────────────────────────────────
+// Kassir `admin.html` ga kira olmaydi (AuthGuard PAGE_ROLES: admin/manager) —
+// ilgari orqaga bosganda 403 ekrani chiqardi va undagi "POS ga" tugmasi
+// Electron'da qora ekranga olib borardi (jonli hodisa, 1001 BARAKA 2026-09-10).
+//
+// Tarix bo'lsa — o'sha yerga qaytamiz (foydalanuvchi qayerdan kelgan bo'lsa).
+// To'g'ridan-to'g'ri URL bilan kirilgan bo'lsa (tarix yo'q) — rolga mos sahifa.
+(function () {
+  const btn = document.getElementById('backBtn');
+  if (!btn) return;
+  const rn    = (user.role?.name || user.role || '').toLowerCase();
+  const admin = user.is_superuser || rn.includes('admin') || rn.includes('manager') || rn.includes('menej');
+  const uy    = admin ? 'admin.html' : 'pos.html';
+  btn.href = uy;
+  btn.addEventListener('click', (e) => {
+    // `history.length > 1` — shu oynada oldin sahifa bo'lgan. Electron'da
+    // bitta oyna butun sessiyani yuritadi, shuning uchun bu ishonchli.
+    if (history.length > 1) { e.preventDefault(); history.back(); }
+    // aks holda `href` (rolga mos sahifa) ishlaydi
+  });
+})();
 
 const api = {
   get:  (u)      => fetch(`${BASE}${u}`, {headers:{Authorization:'Bearer '+token()}}).then(r=>r.json()),

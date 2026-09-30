@@ -473,8 +473,12 @@ class Shift(Base):
     tenant_id = Column(Integer, ForeignKey("cafes.id"), nullable=True, index=True)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    start_time    = Column(DateTime, nullable=False)
-    end_time      = Column(DateTime)
+    # ⚠️ timezone=True SHART (migratsiya c9f2a71d3e84). Ilgari zona belgisiSIZ
+    # edi — butun bazada yolg'iz istisno — va naive `datetime.now()` bilan UTC
+    # devor vaqti yozilardi. Pydantic uni offsetSIZ berardi, JS esa offsetsiz
+    # ISO satrni MAHALLIY deb o'qiydi -> ekranda 5 soat orqada ko'rinardi.
+    start_time    = Column(DateTime(timezone=True), nullable=False)
+    end_time      = Column(DateTime(timezone=True))
     starting_cash = Column(Float, default=0.0)
     ending_cash   = Column(Float)
     total_sales   = Column(Float, default=0.0)

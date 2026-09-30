@@ -41,6 +41,48 @@ def tenant_now(tz_name: str = None) -> datetime:
     return datetime.now(_local_tz(tz_name))
 
 
+def to_utc(dt, tz_name: str = None):
+    """Qiymatni aware UTC ga keltiradi. SOLISHTIRISH/ARIFMETIKA uchun.
+
+    NEGA KERAK: bazadan kelgan qiymat naive ham (SQLite, yoki PostgreSQL'da
+    migratsiya HALI QO'LLANMAGAN bo'lsa) aware ham (timestamptz) bo'lishi
+    mumkin. Ularni to'g'ridan `utc_now()` bilan ayirish/solishtirish
+    `TypeError: can't subtract offset-naive and offset-aware datetimes`
+    beradi — ochiq smena hisoboti aynan shu sabab 500 qaytarardi.
+
+    Naive qiymat UTC deb qaraladi (ustunlar UTC saqlaydi — `to_local` bilan
+    bir xil shartnoma). Shu bilan kod migratsiyadan OLDIN ham, KEYIN ham,
+    ikkala bazada ham bir xil ishlaydi (deploy tartibi muhim emas).
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def utc_now() -> datetime:
+    """SAQLASH uchun joriy vaqt — aware UTC.
+
+    ═══ NEGA `tenant_now()` EMAS ═══
+    `tenant_now()` HISOBLASH uchun (kun chegarasi, solishtirish). Bazaga YOZISH
+    uchun esa UTC-aware kerak, chunki SQLAlchemy'ning SQLite dialekti zonani
+    SAQLAMAYDI — aware qiymatning DEVOR VAQTINI yozib, `tzinfo` ni tashlaydi:
+        tenant_now() = 01:55+05:00  ->  SQLite'da "01:55" (naive)
+    `to_local()` esa naive qiymatni UTC deb oladi (ustunlar UTC saqlaydi) ->
+    01:55 + 5 = 06:55. Ya'ni testlarda vaqt 5 soat OSHIQ chiqardi, prodda esa
+    to'g'ri — xulq baza turiga qarab AJRALARDI.
+        utc_now()    = 20:55+00:00  ->  SQLite'da "20:55" (naive UTC) -> to_local
+                                        -> 01:55 Toshkent ✔
+    PostgreSQL'da (timestamptz) ikkisi ham to'g'ri instantni saqlaydi. UTC-aware
+    esa IKKALA bazada bir xil ishlaydi — shuning uchun yozishda faqat shu.
+
+    Naive `datetime.now()` HAM ishlatilmaydi: u server zonasiga bog'liq
+    (hozir UTC bo'lgani uchun tasodifan to'g'ri) va zona belgisi qolmaydi.
+    """
+    return datetime.now(timezone.utc)
+
+
 def to_local(dt, tz_name: str = None):
     """DB dan o'qilgan timestampni TENANT MAHALLIY zonasiga o'giradi (aware).
 

@@ -21,6 +21,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+from core.timeutils import utc_now
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
@@ -50,7 +52,12 @@ class _OtherTenantUser(_User):
     id = 9
 
 
-NOW   = datetime.now()
+# ⚠️ UTC (naive `datetime.now()` EMAS). Bu ustunlar prodda timestamptz va
+# HAQIQIY UTC instantni saqlaydi; `close_shift` ham oynani `utc_now()` bilan
+# quradi (migratsiya c9f2a71d3e84). Mahalliy devor vaqti bilan seed qilinsa,
+# ma'lumot oynadan 5 soat CHETDA qolib, qarz to'lovi hisobga kirmasdi —
+# bu testning o'z konvensiyasi eski naive kodga moslangan edi.
+NOW   = utc_now()
 START = NOW - timedelta(hours=8)
 
 

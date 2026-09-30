@@ -2,6 +2,10 @@
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
+# ⚠️ CHEK VAQTI: `created_at` aware UTC — `strftime` zonani TASHLAB YUBORADI va
+# UTC devor vaqtini chop etadi (chekda 5 soat orqada). `to_local()` bilan tenant
+# zonasiga o'giriladi. Bir xil naqsh: routers/shift.py:_fmt_local.
+from core.timeutils import to_local, utc_now
 
 from database import get_db
 from models import Order, OrderItem, Product, Table, User, Cafe, ReceiptSettings
@@ -18,6 +22,11 @@ from core.feature_flags import Feature, is_feature_enabled  # kitchen_display ga
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 
 router = APIRouter()
+
+
+def _fmt_local(dt):
+    """Chek uchun vaqt — TENANT zonasida (Toshkent), "dd.mm.yyyy HH:MM"."""
+    return to_local(dt).strftime("%d.%m.%Y %H:%M") if dt else None
 
 
 def _enrich_order(o):
@@ -370,7 +379,7 @@ async def get_order_receipt(
 
     return {
         "receipt_number": order.order_number,
-        "date": order.created_at.strftime("%d.%m.%Y %H:%M"),
+        "date": _fmt_local(order.created_at),
         "table": order.table.number if order.table else None,
         "waiter": order.waiter.full_name if order.waiter else None,
         "customer": order.customer.name if order.customer else None,
@@ -455,7 +464,7 @@ async def print_order_receipt(
         "header_text":   rs.header_text if rs else None,
         "footer_text":   (rs.footer_text if rs and rs.footer_text else None),
         "qr_url":        (rs.qr_url if rs and rs.qr_enabled else None),
-        "datetime":      datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "datetime":      _fmt_local(utc_now()),
         "cashier":       current_user.full_name or current_user.username,
         "receipt_number": order.order_number,
         "items": [

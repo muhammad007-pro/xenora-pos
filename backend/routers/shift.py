@@ -15,12 +15,28 @@ from core.feature_flags import Feature, is_feature_enabled
 from services import printer_service
 from core.tenant_config import get_tenant_config  # BOSQICH 40 (3c): printer tenant-scoped
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
+# ⚠️ VAQT: naive `datetime.now()` server UTC'sini beradi va `shifts` ustunlari
+# zona belgisiSIZ edi -> ekranda 5 soat orqada ko'rinardi (migratsiya
+# c9f2a71d3e84). Endi yozishda `utc_now()` (aware UTC — SQLite'da ham to'g'ri),
+# ko'rsatishda `to_local()`.
+from core.timeutils import to_local, to_utc, utc_now
 # Kassaga tushgan pul — YAGONA manba. Nasiya qarzi to'lovlari `Payment` yozuvi
 # yaratmaydi, shuning uchun ular shu yerdan olinadi (tenant izolyatsiyasi
 # CustomerDebt join'i orqali ta'minlanadi).
 from utils.cashflow import debt_payments_totals, expected_cash as _expected_cash
 
 router = APIRouter()
+
+
+def _fmt_local(dt):
+    """Ko'rsatish uchun vaqt — TENANT zonasida (Toshkent), "dd.mm.yyyy HH:MM".
+
+    ⚠️ To'g'ridan `dt.strftime(...)` QILINMAYDI: `strftime` zona haqida hech
+    narsa bilmaydi va aware UTC qiymatdan UTC DEVOR VAQTINI chiqaradi. Chek va
+    Z-hisobotda aynan shu sabab 5 soat orqada ko'rinardi — satr serverda
+    tayyorlangani uchun frontend uni tuzata ham olmasdi.
+    """
+    return to_local(dt).strftime("%d.%m.%Y %H:%M") if dt else None
 
 @router.get("/", response_model=list[ShiftInDB])
 async def get_shifts(
@@ -113,7 +129,7 @@ async def create_shift(
     # BOSQICH 1.5: yangi smena yaratuvchi tenant'iga biriktiriladi
     shift = Shift(
         user_id=owner_id,           # ⚠️ klient bergan `user_id` EMAS
-        start_time=datetime.now(),
+        start_time=utc_now(),         # aware UTC — zona belgisi bilan saqlanadi
         starting_cash=shift_data.starting_cash,
         tenant_id=tenant_id,
         register_id=register_id,
@@ -163,7 +179,11 @@ async def close_shift(
     if shift.end_time:
         raise HTTPException(status_code=400, detail="Smena allaqachon yopilgan")
 
-    now = datetime.now()
+    now   = utc_now()                # aware UTC — `end_time` timestamptz ga yoziladi
+    # ⚠️ `shift.start_time` bazadan naive ham kelishi mumkin (SQLite, yoki
+    # migratsiya hali qo'llanmagan prod). Aware `now` bilan aralashtirish
+    # solishtirishni buzadi -> qarz to'lovi/vozvrat oynasi xato chiqardi.
+    start = to_utc(shift.start_time)
 
     # ── Smena buyurtmalari — Z-hisobot uchun aniq shift_id bog'lanishi ──────────
     # Bosqich 0 dan beri har buyurtma yaratilganda joriy smena id si yoziladi.
@@ -176,7 +196,7 @@ async def close_shift(
         # Orqaga moslik: shift_id biriktirilmagan eski smenalar — vaqt oralig'i bilan
         legacy_fallback = True
         orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
-            Order.created_at >= shift.start_time,
+            Order.created_at >= start,
             Order.created_at <= now,
         ).all()
 
@@ -190,7 +210,7 @@ async def close_shift(
     _status_ok = Payment.status.in_(("paid", "pending"))
     if legacy_fallback:
         payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
-            Payment.created_at >= shift.start_time,
+            Payment.created_at >= start,
             Payment.created_at <= now,
             _status_ok,
         ).all()
@@ -227,7 +247,7 @@ async def close_shift(
 
     # ── Qaytarishlar — vaqt oralig'i bo'yicha (Return smenaga bog'lanmagan) ─────
     returns = apply_tenant_filter(db.query(Return), Return, current_user).filter(
-        Return.created_at >= shift.start_time,
+        Return.created_at >= start,
         Return.created_at <= now,
         Return.status != "rejected",
     ).all()
@@ -241,7 +261,7 @@ async def close_shift(
     # (shortage > 0) bo'lib chiqardi — kassir asossiz ayblanardi.
     # Vaqt oralig'i bilan olinadi (DebtPayment da `shift_id` yo'q) — Return
     # ham yuqorida aynan shu naqsh bilan olingan.
-    debt_pay = debt_payments_totals(db, current_user, shift.start_time, now)
+    debt_pay = debt_payments_totals(db, current_user, start, now)
 
     # Naqd kassada bo'lishi kerak: boshlang'ich + naqd savdo − naqd qaytarish
     # + NAQD qarz to'lovlari. Karta bilan to'langan qarz yashikka tushmaydi.
@@ -273,8 +293,8 @@ async def close_shift(
     return {
         "id":             shift.id,
         "store_name":     (cafe.name if cafe else None) or "XENORA",
-        "start_time":     shift.start_time.isoformat(),
-        "end_time":       shift.end_time.isoformat(),
+        "start_time":     to_utc(shift.start_time).isoformat(),
+        "end_time":       to_utc(shift.end_time).isoformat(),
         "cashier":        shift.user.full_name if shift.user else None,
         "starting_cash":  shift.starting_cash,
         "cash_sales":     cash_sales,
@@ -331,8 +351,11 @@ async def get_shift_report(
     if not shift:
         raise HTTPException(status_code=404, detail="Smena topilmadi")
 
-    start = shift.start_time
-    end   = shift.end_time or datetime.now()
+    # ⚠️ UTC ga normallashtiriladi: bazadan naive ham kelishi mumkin (SQLite,
+    # yoki migratsiya hali qo'llanmagan prod) -> aware `utc_now()` bilan ayirish
+    # TypeError berardi. Ko'rsatish `_fmt_local` orqali mahalliyga o'giriladi.
+    start = to_utc(shift.start_time)
+    end   = to_utc(shift.end_time) or utc_now()
 
     # Buyurtmalar — aniq shift_id bog'lanishi (legacy smenalarda vaqt oralig'i)
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
@@ -402,8 +425,8 @@ async def get_shift_report(
     return {
         "shift_id":       shift.id,
         "cashier":        shift.user.full_name if shift.user else None,
-        "start_time":     start.strftime("%d.%m.%Y %H:%M"),
-        "end_time":       end.strftime("%d.%m.%Y %H:%M"),
+        "start_time":     _fmt_local(start),
+        "end_time":       _fmt_local(end),
         "duration_hours": round((end - start).total_seconds() / 3600, 2),
         "summary": {
             "total_orders":   total_orders,
@@ -455,9 +478,9 @@ def _shift_products(orders, paid_order_ids) -> list:
 
 def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
     """Yopilgan (yoki ochiq) smenadan Z-hisobot chek ma'lumotlarini tayyorlaydi."""
-    now = datetime.now()
-    start = shift.start_time
-    end   = shift.end_time or now
+    now = utc_now()
+    start = to_utc(shift.start_time)          # naive/aware — ikkisi ham UTC ga
+    end   = to_utc(shift.end_time) or now
 
     orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.shift_id == shift.id
@@ -507,12 +530,12 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
 
     return {
         "store_name":     (cafe.name if cafe else None) or "RestoPOS",
-        "datetime":       now.strftime("%d.%m.%Y %H:%M"),
+        "datetime":       _fmt_local(now),
         "shift_id":       shift.id,
         "cashier":        shift.user.full_name if shift.user else None,
         "register_name":  shift.register.name if shift.register else None,
-        "start_time":     start.strftime("%d.%m.%Y %H:%M"),
-        "end_time":       shift.end_time.strftime("%d.%m.%Y %H:%M") if shift.end_time else None,
+        "start_time":     _fmt_local(start),
+        "end_time":       _fmt_local(to_utc(shift.end_time)),
         "starting_cash":  shift.starting_cash or 0,
         "cash_sales":     cash_sales,
         "card_sales":     card_sales,

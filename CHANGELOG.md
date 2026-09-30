@@ -3,6 +3,68 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.12] — 2026-09-30 — Smena vaqti zonasi + davr ta'rifi yagona manbaga
+
+Backend. **⚠️ MIGRATSIYA BOR: `c9f2a71d3e84`** (`alembic upgrade head` SHART).
+
+### ⚠️ 1) Smena vaqti 5 soat orqada ko'rinardi — TUZATILDI
+
+`shifts.start_time/end_time` butun bazada YOLG'IZ zona belgisiSIZ ustunlar edi
+(orders/payments/audit_logs/stock_movements/returns — hammasi `timestamptz`).
+Ustiga `shift.py` naive `datetime.now()` yozardi:
+
+    server UTC -> bazaga UTC DEVOR VAQTI tushadi, zona belgisi qolmaydi
+    Pydantic   -> "2026-09-29T17:37:03.442941"   (OFFSET YO'Q)
+    JS new Date(offsetsiz ISO) -> MAHALLIY deb o'qiydi -> ekranda 17:37
+    kompyuter soati            -> 22:37    ya'ni AYNAN 5 SOAT ORQADA
+
+Ochiq smena taymeri teskari xato berardi (+5 soat: 8.07 soat ko'rsatardi,
+haqiqiy 3.07). Z-hisobot va smena cheki ham UTC chiqarardi — satr SERVERDA
+formatlangani uchun frontend uni tuzata olmasdi.
+
+**Migratsiya ma'lumotni O'ZGARTIRMAYDI**, faqat zona belgisini qo'shadi:
+
+    2026-09-29 17:37:03.442941  ->  2026-09-29 17:37:03.442941+00
+    (ekranda: 17:37  ->  22:37 Toshkent)
+
+Uch bosqichda tekshirilgan: prodda `SELECT` (46 smena, 5 tasi ochiq), alembic
+offline DDL, mahalliy PostgreSQL 17 da TEMP jadval + prod qiymatlari + ROLLBACK
+(downgrade aylanmasi aynan tikladi).
+
+**Chek (reprint):** `order.py` da sotuv tarixi va qayta chop etish vaqti ham
+Toshkentga o'girildi. **Oddiy sotuv cheki tegilmagan** — u 100% lokal
+(brauzer soati) va server `/receipt` ga umuman bormaydi.
+
+### 2) Foyda ekranlari 984 000 so'm farq qilardi — TUZATILDI
+
+`profit.py` KALENDAR kun bilan, `analytics.py` esa SURILUVCHI 168 SOAT bilan
+ishlardi. 168 soatlik oyna kun bo'yi "suzib" turadi: bugun 14:00 bo'lsa, 7 kun
+oldingi kunning ertalabki savdosi tushib qolardi, 8-kun qismi esa kirardi.
+
+Endi yagona manba — `core/timeutils.py`. Ta'rif: kalendar kun (Toshkent),
+"7 kun" = bugun-6 00:00 ... bugun 23:59:59. 168 soatlik oyna olib tashlandi.
+
+**⚠️ HISOBOT RAQAMLARI O'ZGARADI:** `/analytics/*` da `week`/`month` endi
+kalendar kun bo'yicha. `/profit/summary` va `/analytics/store-margin` bir xil
+davr uchun AYNAN bir xil jami tushum beradi.
+
+### 3) Yangi: sana oralig'i (`date_from` / `date_to`)
+
+14 `analytics` + 5 `profit` endpointiga ixtiyoriy `date_from`/`date_to`.
+`period` parametri SAQLANGAN — eski klientlar buzilmaydi. Kelajak sanasi
+kesiladi, buzuq sana 400 qaytaradi (ilgari 500 edi).
+
+Bonus: `analytics.py` da 14 ta takrorlangan davr bloki yagona chaqiruvga
+tushdi (-166 qator); har bir davr so'roviga yuqori chegara qo'shildi.
+
+### Testlar
+598 passed, 2 skipped (+61: `test_date_range_unified.py` 42,
+`test_shift_timezone.py` 19).
+
+### Ma'lum cheklov (tuzatilmagan)
+`order.py:115` `datetime.now()` oylik buyurtma sanog'ida — oy chegarasida
+00:00-05:00 oynasida xato oyga tushadi. Alohida ko'rib chiqiladi.
+
 ## [1.12.10] — 2026-09-11 — Foyda marjasi: KPI `.limit(50)` bilan kesilmasin
 
 Backend (`routers/analytics.py`) + frontend. Migratsiya YO'Q.

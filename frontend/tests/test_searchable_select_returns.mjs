@@ -123,8 +123,11 @@ await page.evaluate(() => {
 // ── R3: MAHSULOT qatori — boshlang'ich 1000 va qidiruv inputi ───────────────
 check('R3_mahsulot_boshlangich_1000',
       await page.$$eval('#ip0 option', o => o.length), 1001);           // + "— Mahsulot —"
-check('R3_qator_grid_4_ustun',
-      await page.$eval('#cItems .item-row', r => r.children.length), 4);
+// v1.12.13: qatorga BRAK katakchasi qo'shildi (restore_to_inventory=false) —
+// 4 -> 5 ustun. Sarlavha ham 5 ustun; mos kelmasa grid siljiydi, shuning uchun
+// bu tekshiruv saqlanadi (faqat kutilgan son yangilandi).
+check('R3_qator_grid_5_ustun',
+      await page.$eval('#cItems .item-row', r => r.children.length), 5);
 
 // ── R4: 1000 dan TASHQARIDAGI mahsulot SERVERDAN topiladi ──────────────────
 await page.fill('#ssRow0', 'KERASYS');

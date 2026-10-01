@@ -581,8 +581,8 @@ window.addItemRow = function() {
   row.className = 'item-row';
   row.id = `irow${idx}`;
   // Select <div> ichida: searchableSelect qidiruv inputini select'ning OTA
-  // elementiga qo'yadi — to'g'ridan-to'g'ri qatorga tushsa 4 ustunli grid
-  // (mahsulot/miqdor/narx/tugma) surilib ketardi. O'ram faqat layout uchun,
+  // elementiga qo'yadi — to'g'ridan-to'g'ri qatorga tushsa 5 ustunli grid
+  // (mahsulot/miqdor/narx/brak/tugma) surilib ketardi. O'ram faqat layout uchun,
   // `getElementById('ip..')` o'qishlari o'zgarmaydi.
   row.innerHTML = `
     <div>
@@ -590,6 +590,7 @@ window.addItemRow = function() {
     </div>
     <input class="form-control" type="number" id="iq${idx}" value="1" min="0.01" step="any" oninput="calcTotal()">
     <input class="form-control" type="number" id="ipr${idx}" value="" placeholder="narx" oninput="calcTotal()">
+    <div class="brak-cell"><input type="checkbox" id="ibrak${idx}" title="Omborga qaytarilmasin (brak)"></div>
     <button class="btn btn-red btn-sm" onclick="removeRow(${idx})">✕</button>
   `;
   document.getElementById('cItems').appendChild(row);

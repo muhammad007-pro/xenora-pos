@@ -3,6 +3,87 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.13] — 2026-10-02 — Vozvrat: sotilganidan ko'p qaytarish to'sildi
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).
+
+### ⛔ 1) Sotilganidan ko'p qaytarishni to'sish
+
+`POST /returns/` miqdorni HECH QANDAY tekshirmasdi — 10 dona sotib 50 dona
+qaytarish mumkin edi. Ombor yo'q tovarga to'lardi, foyda esa asossiz
+kamayardi. Bu xato emas, niyat bilan ham ishlatiladigan yo'l edi.
+
+SABABI kiritish tomonida edi: kassir mahsulotni qo'lda tanlab, miqdor va
+narxni qo'lda yozardi, `order_item_id` serverga HECH QACHON yetib bormasdi.
+Shu bitta maydon yo'qligi uchun UCHTA mexanizm o'lik turardi:
+miqdor cheklovi, pachka nisbati (`_return_base_qty`) va foyda hisobidagi
+snapshot tan narx (`utils/revenue.py` dagi `outerjoin(OrderItem, ...)`).
+
+Endi (`_validate_return_items`): qaytariladigan ≤ sotilgan − qaytarilgan.
+  • `pending` vozvrat miqdorni BAND qiladi — aks holda ikki kassir bir
+    sotuvga 10 talik ikkita pending vozvrat yozib, ikkalasi tasdiqlanganda
+    20 dona qaytardi. `rejected` miqdorni bo'shatadi.
+  • bitta so'rovdagi takroriy qator jamlanadi (2 × 6 > 10 → 400)
+  • begona buyurtmaning qatoriga suyanib aylanib o'tib bo'lmaydi
+  • `order_item_id` yo'q bo'lsa — vozvrat O'TADI (orqaga moslik), lekin
+    javobda OGOHLANTIRISH qaytadi (`ReturnInDB.warnings`)
+
+### 2) Chek raqami bo'yicha sotuvni topish — `GET /returns/lookup`
+
+`order_number` → `daily_number` → `id` → qismli moslik. Faqat `completed`.
+Qaytaradi: qatorlar (`order_item_id`, sotilgan, qaytarilgan, qaytarish
+mumkin, narx), to'lov usullari, `suggested_refund_method`, `is_credit_sale`.
+
+`returns.html`: "Topish" → qatorlar serverdan chiziladi, kassir faqat
+QAYTARILADIGAN MIQDORNI kiritadi (narx sotuvdan, readonly). Mijoz avtomatik
+tanlanadi. Qo'lda kiritish yo'li SAQLANADI (eski chek, boshqa kassa).
+
+### 3) BRAK belgisi — buzuq tovar sotuvga qaytmaydi
+
+Har qatorda checkbox → `restore_to_inventory=false`. Backend buni allaqachon
+hurmat qilardi, frontend esa doim `true` yuborardi: sabab "Buzuq" bo'lsa ham
+buzuq tovar sotiladigan qoldiqqa qo'shilardi.
+
+### 4) Nasiyaga sotilganga naqd/karta qaytarish — TO'SILDI (400)
+
+Nasiya to'lovi `pending`, `_refund_money()` esa naqd/kartada faqat
+`status="paid"` to'lovlarni qidiradi. Ya'ni "Naqd" tanlansa: `Payment`
+yozuvi yaratilmasdi, mijoz qarzi kamaymasdi, LEKIN Z-hisobot naqd
+kamayganini ko'rsatardi. Uchtasi birga — pul yo'qotish.
+Karta↔naqd nomuvofiqligi esa ogohlantirish (to'siq emas).
+
+### ⚠️ 5) Z-HISOBOT VAQT ASOSI — `created_at` → `approved_at`
+
+Uchta joy (`close_shift`, `get_shift_report`, `_build_zreport_data`) yagona
+`_returns_in_range()` ga yig'ildi. Ikki qoida BIR VAQTDA o'zgardi:
+
+    status:  != "rejected"   ->  == "approved"    (RETURN_COUNTED_STATUSES)
+    vaqt:    created_at      ->  coalesce(approved_at, created_at)
+
+Faqat status tuzatilsa YANGI TESHIK ochilardi: kecha yaratilib bugun
+tasdiqlangan vozvrat kechaning (yopilgan) hisobotiga tushib, bugungi
+yashikdan pul sababsiz kam chiqardi. Endi smena/Z-hisobot va foyda hisoboti
+(`utils/revenue.py:return_date_expr`) AYNAN BIR XIL qoida bilan ishlaydi.
+
+Ilgari `pending` vozvrat ham sanalardi: kassadan pul chiqmagan bo'lsa ham
+`expected_cash` kamayardi va yashikdagi naqd "ortiqcha" bo'lib ko'rinardi —
+kassir asossiz ayblanardi (`utils/cashflow.py` dagi xato sinfining o'zi).
+
+DEPLOY OLDIDAN PRODDA TEKSHIRILDI: tasdiqlanmagan (pending) vozvrat **0 ta**,
+6 ochiq smenada eski/yangi qoida AYNAN bir xil raqam beradi (FAZZA 488 000
+ikkala qoidada ham). Ya'ni jonli ma'lumotda o'zgarish YO'Q.
+
+### 6) `ReturnItemCreate.quantity` — 3 xonaga yaxlitlash
+
+Sotuv tomonidagi `_yaxlitla_miqdor` bilan AYNAN bir funksiya. Ilgari
+vozvratda yaxlitlanmasdi va `0.3333333` xom holida saqlanardi.
+
+### Testlar
+
++28 (`backend/tests/test_returns_validation.py`) → jami **626 passed,
+2 skipped** (baseline 598 + 2). Playwright 16/17 (stage_b oldindan buzuq,
+`admin.html`/`inventory.html` — bu relizda tegilmagan).
+
 ## [1.12.12] — 2026-09-30 — Smena vaqti zonasi + davr ta'rifi yagona manbaga
 
 Backend. **⚠️ MIGRATSIYA BOR: `c9f2a71d3e84`** (`alembic upgrade head` SHART).

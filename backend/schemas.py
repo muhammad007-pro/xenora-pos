@@ -1285,6 +1285,13 @@ class ReturnItemCreate(BaseModel):
     unit_price: float = Field(gt=0)
     restore_to_inventory: bool = True
 
+    # KASRLI QAYTARISH: sotuv tomonida (`OrderItemCreate`) miqdor 3 xonagacha
+    # yaxlitlanadi, vozvratda esa YAXLITLANMASDI — 0.3333333 xom holida
+    # saqlanardi va omborga `round(inv+qty, 3)` bilan tushib, sotuv/vozvrat
+    # juftligi aynan nolga qaytmasdi (0.001 dan kichik axlat qoldiq).
+    # Endi ikkala tomon BIR XIL funksiyadan o'tadi.
+    _v_quantity = field_validator("quantity")(_yaxlitla_miqdor)
+
 # BOSQICH D: `exchange` (almashtirish) OLIB TASHLANDI. Sabab: pul harakati
 # (`returns._refund_money`) faqat cash/card/credit ni biladi — `exchange` kelsa
 # JIMGINA hech narsa qilmasdi: pul ham qaytmasdi, qarz ham kamaymasdi, ammo
@@ -1343,6 +1350,12 @@ class ReturnInDB(BaseModel):
     created_at: datetime
     items: List[ReturnItemInDB] = []
     customer: Optional[CustomerInDB] = None
+    # OGOHLANTIRISHLAR — to'siq EMAS, kassirga ko'rsatiladigan xabar.
+    # Vozvrat buyurtma qatoriga bog'lanmagan bo'lsa (`order_item_id` yo'q)
+    # "sotilganidan ko'p qaytarish" tekshiruvi MUMKIN EMAS — shunda vozvrat
+    # o'tadi, lekin kassir nima tekshirilmaganini biladi.
+    # Mapped ustun emas: router ORM obyektiga oddiy atribut sifatida qo'yadi.
+    warnings: List[str] = []
 
     class Config:
         from_attributes = True

@@ -63,7 +63,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 /* Items table inside modal */
 .items-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
 .items-header span{font-size:.8125rem;font-weight:600;color:var(--text2)}
-.item-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;align-items:center;padding:.375rem 0;border-bottom:1px solid var(--border)}
+.item-row{display:grid;grid-template-columns:2fr .9fr 1fr auto auto;gap:.5rem;align-items:center;padding:.375rem 0;border-bottom:1px solid var(--border)}
+.item-row .brak-cell{display:flex;justify-content:center;align-items:center}
+.item-row .brak-cell input{width:18px;height:18px;cursor:pointer;accent-color:var(--danger,#ef4444)}
+.oi-name{font-size:.8125rem;font-weight:600;line-height:1.25}
+.oi-meta{font-size:.7rem;color:var(--text3)}
 .item-row:last-child{border-bottom:none}
 .item-row-head{font-size:.7rem;color:var(--text3);font-weight:600;text-transform:uppercase;padding:.25rem 0;border-bottom:1px solid var(--border)}
 
@@ -170,10 +174,20 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </select>
       </div>
     </div>
+    <!-- CHEK RAQAMI bo'yicha sotuvni topish.
+         Ilgari bu yerda ichki DB `id` so'raydigan raqam inputi turardi —
+         kassir uni bilmaydi. Natijada har vozvrat qo'lda qayta kiritilardi:
+         `order_item_id` yuborilmasdi, miqdor cheklovini tekshirib bo'lmasdi,
+         pachka sotuvi omborga "1 pachka = 1 dona" bo'lib qaytardi. -->
     <div class="form-row">
       <div class="form-group">
-        <label>Buyurtma # (ixtiyoriy)</label>
-        <input class="form-control" type="number" id="cOrderId" placeholder="Buyurtma ID">
+        <label>Chek raqami</label>
+        <div style="display:flex;gap:.375rem">
+          <input class="form-control" type="text" id="cOrderSearch"
+                 placeholder="CHK00123 yoki kunlik raqam" style="flex:1"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();lookupOrder()}">
+          <button class="btn btn-gold btn-sm" type="button" onclick="lookupOrder()">Topish</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Mijoz (ixtiyoriy)</label>
@@ -182,6 +196,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </select>
       </div>
     </div>
+    <!-- `cOrderId` YASHIRIN bo'lib qoladi: submitReturn uni avvalgidek o'qiydi -->
+    <input type="hidden" id="cOrderId">
+    <div id="cOrderInfo" style="display:none;background:var(--surface2);border:1px solid var(--border);
+         border-radius:.5rem;padding:.5rem .75rem;margin-bottom:.625rem;font-size:.8125rem"></div>
     <div class="form-group">
       <label>Izoh</label>
       <input class="form-control" type="text" id="cNotes" placeholder="Qo'shimcha izoh...">
@@ -193,7 +211,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <button class="btn btn-out btn-sm" onclick="addItemRow()">+ Qo'shish</button>
     </div>
     <div class="item-row item-row-head">
-      <span>Mahsulot</span><span>Miqdor</span><span>Narx (so'm)</span><span></span>
+      <span>Mahsulot</span><span>Miqdor</span><span>Narx (so'm)</span>
+      <span title="Belgilansa tovar omborga QAYTMAYDI (buzuq/yaroqsiz)">Brak</span><span></span>
     </div>
     <div id="cItems"></div>
     <div id="cTotal" style="text-align:right;font-size:.875rem;color:var(--gold);margin-top:.5rem;font-weight:700"></div>
@@ -243,6 +262,8 @@ let allProducts = [];
 let allCustomers = [];
 let currentReturnId = null;
 let itemRowCount = 0;
+// Topilgan sotuv konteksti. null = QO'LDA KIRITISH rejimi (eski yo'l saqlanadi).
+let _orderCtx = null;
 
 const REASON_LABELS = {
   broken: 'Buzuq', dislike: "Yoqmadi", expired: "Muddati o'tgan",
@@ -407,6 +428,8 @@ window.openCreateModal = function() {
   document.getElementById('cTotal').textContent = '';
   document.getElementById('cOrderId').value = '';
   document.getElementById('cNotes').value = '';
+  document.getElementById('cOrderSearch').value = '';
+  _clearOrderCtx();
   const cs = document.getElementById('cCustomerId');
   // Modal QAYTA ochilganda eski qidiruv matni qolmasin va ro'yxat yangilansin
   // (dmCustomer naqshi) — `reset()` dan KEYIN tozalaymiz, aks holda filtrdan
@@ -417,6 +440,137 @@ window.openCreateModal = function() {
   addItemRow();
   document.getElementById('createModal').classList.add('open');
 };
+
+// ══ CHEK RAQAMI BO'YICHA SOTUVNI TOPISH ═══════════════════════════════════
+//
+// NEGA: vozvratning eng katta nuqsoni kiritish tomonida edi — kassir
+// mahsulotni qo'lda tanlab, miqdor va narxni qo'lda yozardi. Natijada
+// `order_item_id` SERVERGA HECH QACHON yetib bormasdi va u bilan birga:
+//   • "sotilganidan ko'p qaytarish" cheklovi ishlamasdi
+//   • pachka sotuvi omborga "1 pachka = 1 dona" bo'lib qaytardi
+//   • foyda hisobidagi snapshot tan narx shoxi o'lik edi
+// Endi sotuv topiladi va qatorlar SERVERDAN keladi; kassir faqat
+// QAYTARILADIGAN MIQDORNI yozadi.
+//
+// Qo'lda kiritish yo'li SAQLANADI (eski chek, boshqa kassadagi sotuv):
+// "Qo'lda kiritish" tugmasi kontekstni tashlaydi.
+
+function _fmtQ(x) {
+  const n = Number(x) || 0;
+  return String(Math.round(n * 1000) / 1000);
+}
+
+window._clearOrderCtx = function() {
+  _orderCtx = null;
+  document.getElementById('cOrderId').value = '';
+  const info = document.getElementById('cOrderInfo');
+  info.style.display = 'none';
+  info.innerHTML = '';
+  // Nasiya sotuvida o'chirilgan usullarni qaytarish
+  const rm = document.getElementById('cRefundMethod');
+  Array.from(rm.options).forEach(o => { o.disabled = false; });
+};
+
+window.manualMode = function() {
+  _clearOrderCtx();
+  document.getElementById('cItems').innerHTML = '';
+  document.getElementById('cTotal').textContent = '';
+  itemRowCount = 0;
+  addItemRow();
+};
+
+window.lookupOrder = async function() {
+  const q = document.getElementById('cOrderSearch').value.trim();
+  if (!q) { showToast('Chek raqamini kiriting', 'warning'); return; }
+  try {
+    const r = await fetch(`${API}/returns/lookup?q=${encodeURIComponent(q)}`, { headers: h() });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'Sotuv topilmadi');
+    }
+    const o = await r.json();
+    _orderCtx = o;
+    document.getElementById('cOrderId').value = o.order_id;
+
+    // Mijoz — sotuvdagi mijoz avtomatik tanlanadi (nasiya vozvratida SHART:
+    // `_refund_money` qarzni mijoz bo'yicha topadi).
+    if (o.customer_id) {
+      const cs = document.getElementById('cCustomerId');
+      // Ro'yxatda bor bo'lsa TO'LIQ obyekt (telefon bilan) ishlatiladi — yorliq
+      // "Anvar · +998.." bo'lib qolsin; bo'lmasa minimal obyekt bilan qo'shiladi.
+      const known = allCustomers.find(c => c.id === o.customer_id);
+      if (cs._ss) cs._ss.ensure(known || { id: o.customer_id, name: o.customer_name || '' });
+      else cs.value = String(o.customer_id);
+    }
+
+    // To'lov usulini TAKLIF qilish. Nasiya sotuvda naqd/karta BLOKLANADI —
+    // server ham 400 qaytaradi (pul yozuvsiz chiqib ketish yo'li).
+    const rm = document.getElementById('cRefundMethod');
+    Array.from(rm.options).forEach(x => {
+      x.disabled = o.is_credit_sale && x.value !== 'credit';
+    });
+    rm.value = o.suggested_refund_method || 'cash';
+
+    _renderOrderInfo(o);
+    _renderOrderRows(o);
+  } catch (e) {
+    showToast(e.message || 'Topilmadi', 'error');
+  }
+};
+
+function _renderOrderInfo(o) {
+  const info = document.getElementById('cOrderInfo');
+  const sana = o.created_at ? fmtDate(o.created_at) : '—';
+  const nasiya = o.is_credit_sale
+    ? ' <b style="color:var(--danger,#ef4444)">· NASIYAGA sotilgan (faqat Balansga)</b>' : '';
+  info.innerHTML =
+    `<b>${escHtml(o.order_number || '')}</b>` +
+    (o.daily_number ? ` (kunlik #${o.daily_number})` : '') +
+    ` · ${sana} · ${fmtNum(o.final_amount)} so'm` +
+    (o.customer_name ? ` · ${escHtml(o.customer_name)}` : '') + nasiya +
+    `<button class="btn btn-out btn-sm" type="button" style="float:right" onclick="manualMode()">Qo'lda kiritish</button>`;
+  info.style.display = '';
+}
+
+function _renderOrderRows(o) {
+  const box = document.getElementById('cItems');
+  box.innerHTML = '';
+  itemRowCount = 0;
+  document.getElementById('cTotal').textContent = '';
+
+  const bor = (o.items || []).filter(it => it.returnable_qty > 0);
+  if (!bor.length) {
+    box.innerHTML = '<div style="padding:.75rem;color:var(--text3);font-size:.8125rem">'
+      + "Bu chekda qaytarish uchun qolgan tovar yo'q (hammasi qaytarilgan).</div>";
+    return;
+  }
+
+  bor.forEach(it => {
+    const idx = itemRowCount++;
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.id = `irow${idx}`;
+    const qaytarilgan = it.returned_qty > 0
+      ? ` · <span style="color:var(--danger,#ef4444)">${_fmtQ(it.returned_qty)} qaytarilgan</span>` : '';
+    row.innerHTML = `
+      <div>
+        <div class="oi-name">${escHtml(it.product_name)}</div>
+        <div class="oi-meta">sotilgan: ${_fmtQ(it.sold_qty)}${it.unit_sold ? ' ' + escHtml(it.unit_sold) : ''}${qaytarilgan}
+          · qaytarish mumkin: <b>${_fmtQ(it.returnable_qty)}</b></div>
+        <input type="hidden" id="ioi${idx}" value="${it.order_item_id}"
+               data-product-id="${it.product_id}" data-max="${it.returnable_qty}"
+               data-name="${escHtml(it.product_name)}">
+      </div>
+      <input class="form-control" type="number" id="iq${idx}" value="" placeholder="0"
+             min="0" max="${it.returnable_qty}" step="any" oninput="calcTotal()">
+      <input class="form-control" type="number" id="ipr${idx}" value="${it.unit_price}" readonly
+             title="Narx sotuvdan olinadi — o'zgartirilmaydi">
+      <div class="brak-cell"><input type="checkbox" id="ibrak${idx}" title="Omborga qaytarilmasin (brak)"></div>
+      <span></span>
+    `;
+    box.appendChild(row);
+  });
+}
 
 window.addItemRow = function() {
   const idx = itemRowCount++;
@@ -474,14 +628,42 @@ window.calcTotal = function() {
 window.submitReturn = async function() {
   const items = [];
   let valid = true;
+  let oshib = null;      // chegaradan oshgan qator (serverga bormasdan aytamiz)
+
   document.querySelectorAll('[id^="irow"]').forEach(row => {
     const id = row.id.replace('irow', '');
-    const pId = parseInt(document.getElementById(`ip${id}`)?.value);
-    const qty = parseFloat(document.getElementById(`iq${id}`)?.value);
+    const oiEl  = document.getElementById(`ioi${id}`);     // buyurtmadan kelgan qator
+    const selEl = document.getElementById(`ip${id}`);      // qo'lda tanlangan
+    const qty   = parseFloat(document.getElementById(`iq${id}`)?.value);
     const price = parseFloat(document.getElementById(`ipr${id}`)?.value);
+    // BRAK: belgilansa tovar omborga QAYTMAYDI. Ilgari frontend
+    // `restore_to_inventory: true` ni QATTIQ yozardi — sabab "Buzuq" bo'lsa
+    // ham buzuq tovar sotiladigan qoldiqqa qo'shilardi.
+    const brak  = !!document.getElementById(`ibrak${id}`)?.checked;
+
+    if (oiEl) {
+      // Buyurtma qatori: miqdor bo'sh/nol = qaytarilmaydi (o'tkazib yuboriladi)
+      if (!qty || qty <= 0) return;
+      const maxQ = parseFloat(oiEl.dataset.max || '0');
+      if (qty > maxQ + 0.0005) { oshib = { nom: oiEl.dataset.name, max: maxQ }; return; }
+      items.push({
+        product_id: parseInt(oiEl.dataset.productId),
+        order_item_id: parseInt(oiEl.value),
+        quantity: qty, unit_price: price,
+        restore_to_inventory: !brak,
+      });
+      return;
+    }
+
+    const pId = parseInt(selEl?.value);
     if (!pId || !qty || !price) { valid = false; return; }
-    items.push({ product_id: pId, quantity: qty, unit_price: price, restore_to_inventory: true });
+    items.push({ product_id: pId, quantity: qty, unit_price: price, restore_to_inventory: !brak });
   });
+
+  if (oshib) {
+    showToast(oshib.nom + ": ko'pi bilan " + oshib.max + " ta qaytarish mumkin", 'error');
+    return;
+  }
 
   if (!items.length || !valid) {
     showToast('Barcha mahsulot ma\'lumotlarini to\'ldiring', 'error');
@@ -507,8 +689,13 @@ window.submitReturn = async function() {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.detail || 'Xato');
     }
+    const created = await r.json().catch(() => ({}));
     closeModal('createModal');
     showToast('Qaytarish yaratildi', 'success');
+    // SERVER OGOHLANTIRISHLARI: to'siq emas, lekin kassir ko'rishi shart
+    // (masalan "qator sotuvga bog'lanmagan — miqdor tekshirilmadi").
+    (created.warnings || []).forEach((w, i) =>
+      setTimeout(() => showToast(w, 'warning'), 400 * (i + 1)));
     load();
   } catch (e) {
     showToast(e.message || 'Xato yuz berdi', 'error');

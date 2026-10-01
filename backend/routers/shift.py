@@ -28,6 +28,38 @@ from utils.cashflow import debt_payments_totals, expected_cash as _expected_cash
 router = APIRouter()
 
 
+def _returns_in_range(db, current_user, start, end):
+    """Smena/Z-hisobot uchun vozvratlar — FOYDA HISOBOTI BILAN BIR XIL QOIDA.
+
+    ═══ NEGA O'ZGARTIRILDI (2026-10-01) ═══
+    Ilgari bu yerda `Return.status != "rejected"` turardi, ya'ni TASDIQLANMAGAN
+    (`pending`) vozvrat ham sanalardi. Natijada kassadan pul CHIQMAGAN bo'lsa
+    ham `expected_cash` kamayardi va yashikdagi haqiqiy naqd "ortiqcha" bo'lib
+    ko'rinardi — kassir asossiz ayblanardi (`utils/cashflow.py` da tasvirlangan
+    xato sinfining aynan o'zi).
+
+    Ikki qoida bir vaqtda to'g'rilanadi — ikkinchisisiz birinchisi yangi teshik
+    ochadi:
+      1) FAQAT `approved` — `utils/revenue.py:RETURN_COUNTED_STATUSES` bilan bir xil.
+      2) VAQT — `approved_at` (fallback `created_at`), `utils/revenue.py:
+         return_date_expr()` bilan bir xil. Pul aynan TASDIQLANGANDA chiqadi.
+         Faqat (1) qilinsa: kecha yaratilgan, bugun tasdiqlangan vozvrat
+         kechaning (yopilgan) hisobotiga tushib, bugungi yashikdan pul
+         sababsiz kam chiqardi.
+    Bir smena ichida yaratilib tasdiqlangan vozvratda (odatiy hol) natija
+    O'ZGARMAYDI: `approved_at` ~ `created_at`.
+    """
+    from utils.revenue import RETURN_COUNTED_STATUSES, return_date_expr
+
+    dt = return_date_expr()
+    q = db.query(Return).filter(
+        Return.status.in_(RETURN_COUNTED_STATUSES),
+        dt >= start,
+        dt <= end,
+    )
+    return apply_tenant_filter(q, Return, current_user).all()
+
+
 def _fmt_local(dt):
     """Ko'rsatish uchun vaqt — TENANT zonasida (Toshkent), "dd.mm.yyyy HH:MM".
 
@@ -246,11 +278,8 @@ async def close_shift(
     discount_total = sum((o.discount_amount or 0) for o in orders if o.id in paid_order_ids)
 
     # ── Qaytarishlar — vaqt oralig'i bo'yicha (Return smenaga bog'lanmagan) ─────
-    returns = apply_tenant_filter(db.query(Return), Return, current_user).filter(
-        Return.created_at >= start,
-        Return.created_at <= now,
-        Return.status != "rejected",
-    ).all()
+    # Filtr `_returns_in_range()` da — foyda hisoboti bilan BIR XIL qoida.
+    returns = _returns_in_range(db, current_user, start, now)
     returns_total = sum(r.total_amount or 0 for r in returns)
     cash_refunds  = sum((r.total_amount or 0) for r in returns if r.refund_method == "cash")
 
@@ -398,11 +427,7 @@ async def get_shift_report(
                 if p.method == "credit" or str(getattr(p.status, "value", p.status)) == "paid"]
 
     # Qaytarishlar jami — vaqt oralig'i bo'yicha
-    returns = apply_tenant_filter(db.query(Return), Return, current_user).filter(
-        Return.created_at >= start,
-        Return.created_at <= end,
-        Return.status != "rejected",
-    ).all()
+    returns = _returns_in_range(db, current_user, start, end)
     returns_total = sum(r.total_amount or 0 for r in returns)
 
     by_method: dict = {}
@@ -511,10 +536,7 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
     sales_count    = len(paid_order_ids)
     discount_total = sum((o.discount_amount or 0) for o in orders if o.id in paid_order_ids)
 
-    returns = apply_tenant_filter(db.query(Return), Return, current_user).filter(
-        Return.created_at >= start, Return.created_at <= end,
-        Return.status != "rejected",
-    ).all()
+    returns = _returns_in_range(db, current_user, start, end)
     returns_total = sum(r.total_amount or 0 for r in returns)
     cash_refunds  = sum((r.total_amount or 0) for r in returns if r.refund_method == "cash")
 

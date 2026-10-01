@@ -202,6 +202,21 @@ npm run build          # electron-builder → dist/ (Setup + Portable)
 
 ## 8. Oxirgi deploy holati (yozib boriladi)
 
+- **v1.12.13** (2026-10-01, `e1aec77`): vozvrat — sotilganidan ko'p qaytarish to'sildi, chek raqami bo'yicha sotuvni topish (`GET /returns/lookup`), BRAK belgisi, nasiyaga naqd qaytarish to'siq, **Z-hisobot vaqt asosi `created_at` → `approved_at`**. Migratsiya YO'Q, alembic `c9f2a71d3e84` o'zgarmadi (`upgrade` no-op, oldin/keyin bir xil). Backup: `~/xenora-backups/pre_1.12.13_2026-10-01_1942.sql.gz` (4.35 MB; `gzip -t` OK + **to'liqlik tasdiqlandi**: 84 `CREATE TABLE` = 84 `COPY`, `off_products` 139 134 qator ichida, tugash markeri bor). Rollback: `bf12dae`. Health `version:1.12.13` (lokal:8000, nginx:80, app.xenora.uz). 5xx **0**, ERROR/CRITICAL **0**.
+  - ⚠️ **ENG XATARLI QISM — Z-hisobot vaqt asosi. DEPLOY OLDIDAN prodda o'lchandi va o'zgarish YO'Q:**
+    - tasdiqlanmagan (`pending`) vozvrat butun bazada **0 ta** → status filtri (`!= rejected` → `== approved`) jonli ma'lumotga ta'sir qilmaydi
+    - 6 ochiq smenada eski/yangi qoida **AYNAN bir xil**: FAZZA 488 000 = 488 000 (naqd ham), qolgan 5 smenada 0 = 0
+    - `created_at <> approved_at` (boshqa KUN) faqat 2 vozvratda: FAZZA #3 (09-07 → 09-11) va #1 (`rejected`). FAZZA'ning yolg'iz smenasi (id 9) 2026-08-13 dan ochiq, ya'ni ikki sana BIR smena ichida → smena darajasida farq yo'q.
+    - Deploydan keyin surat **qayta olindi** — hammasi bir xil.
+  - ✅ Baseline (20/26/27/28) deploy oldi/keyin **aynan bir xil**: eco aroma 17/16/555/551, FAZZA 1420/1206/1002/1002/11 vozvrat/3 qarz, 1001 BARAKA 1715/1533/670/670, NICE SHOPPING 15/13/412/412. Yo'qotish yo'q.
+  - ✅ Yangi endpoint marshrutlangan: `/api/v1/returns/lookup` → **401** (404 EMAS — `/lookup` `/{return_id}` dan oldin turgani tasdiqlandi).
+  - ✅ Uch do'kon kirish kodi ishlaydi: `resolve-code` 100.200.5 → FAZZA PERFUM, 100.200.6 → 1001 BARAKA, 100.200.7 → NICE SHOPPING GROUP (hammasi 200). Login noto'g'ri parolda **401** (500 emas). *To'liq kredensial bilan login qilinmadi — do'kon parollari menda yo'q.*
+  - ✅ Frontend yetkazildi: `http://127.0.0.1/app/returns.html` → 36 453 bayt, `Last-Modified 2026-10-01 19:43`, `lookupOrder`=3, `brak-cell`=4; `/shared/version.js` → 1.12.13.
+    - ⚠️ **TUZOQ:** nginx `root /opt/xenora/frontend`, ya'ni to'g'ri URL `/app/returns.html` — **`/frontend/app/...` EMAS**. Noto'g'ri yo'lda `try_files $uri $uri/ /index.html` ishlab, 16 868 baytli **2026-08-20** sanali `index.html` qaytadi va "deploy yetmagan" degan YOLG'ON xulosaga olib keladi. Backend:8000 da esa `/frontend/...` prefiksi TO'G'RI (`app.mount("/frontend", ...)`). Ikki yo'l har xil — adashtirmaslik kerak.
+  - ⚠️ **.exe QAYTA QURISH SHART** (frontend o'zgargan): `electron/package.json` → `extraResources: {from: '../frontend'}` va `mainWindow.loadFile()` — ya'ni .exe UI'ni O'Z ICHIDA saqlaydi, serverdan OLMAYDI. Server yangilanishi mijoz .exe'siga yetmaydi.
+  - ✅ **.exe qurildi va ICHI tekshirildi**: `XENORA Setup 1.12.13.exe` (79.9 MB) + `XENORA-Portable-1.12.13.exe` (79.6 MB). Qadoqlangan `resources/frontend/app/returns.html` = **36 453 bayt** (manba bilan bayt-bayt bir xil), `lookupOrder`=3, `brak-cell`=4, `shared/version.js` = 1.12.13. Faqat "build OK" ga ishonmaslik kerak — BOM tuzog'i (a96afa8) jimgina eski mazmun qadoqlaganini ko'rsatgan edi.
+  - Testlar: backend **626 passed, 2 skipped** (+28 yangi, baseline 598+2). Playwright **16/17**; `test_searchable_select_stage_b.mjs` oldindan buzuq (`admin.html`/`inventory.html` — bu relizda **tegilmagan**, `git diff bf12dae..HEAD` bilan tasdiqlangan).
+
 - **v1.12.10** (2026-09-11, `a00be7d`): "Foyda marjasi" KPI `.limit(50)` bilan kesilmasin (`routers/analytics.py`) + vozvrat ayirish + yuqori vaqt chegarasi. Migratsiya YO'Q, alembic `b3d7f1c92a48` o'zgarmadi. Backup: `~/xenora-backups/pre_1.12.10_2026-09-11_1033.sql.gz` (16.9 MB). Rollback: `5b5d203`. Health `version:1.12.10`. 5xx **0**, ERROR/CRITICAL **0**.
   - ✅ **Hisobot raqamlari to'g'rilandi** (jonli o'lchov, 7 kun): FAZZA 13 274 852 → **22 988 832**, 1001 BARAKA 3 385 555 → **5 933 285**. Ikkalasida ham jadval 50 qator (`items_limited=true`), jadval yig'indisi KPI dan kichik — ya'ni tuzatish ishlayapti.
   - ✅ **1001 BARAKA: ikki ekran AYNAN mos** — `store-margin` 5 933 285 = `profit/summary` 5 933 285 (farq **0**).

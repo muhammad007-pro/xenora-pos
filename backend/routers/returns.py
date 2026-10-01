@@ -5,6 +5,7 @@ Endpointlar:
   POST /returns/              — yangi qaytarish yaratish
   GET  /returns/              — ro'yxat (filter bilan)
   GET  /returns/report        — hisobot (sabab, usul bo'yicha)
+  GET  /returns/lookup        — CHEK RAQAMI bo'yicha buyurtmani topish (qatorlari bilan)
   GET  /returns/{id}          — bitta tafsilot
   POST /returns/{id}/approve  — tasdiqlash (pul + ombor)
   POST /returns/{id}/reject   — rad etish
@@ -91,6 +92,176 @@ def _return_base_qty(db: Session, order_item_id, quantity: float) -> float:
     return quantity
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# SOTILGANIDAN KO'P QAYTARISHNI TO'SISH
+#
+# MUAMMO (2026-10-01 auditi): `POST /returns/` miqdorni HECH QANDAY tekshirmasdi.
+# 10 dona sotib 50 dona qaytarish mumkin edi:
+#   • ombor 40 dona YO'Q tovarga to'ladi (keyin inventarizatsiya "kamomad" deydi)
+#   • foyda hisobidan asossiz summa ayriladi (`utils/revenue.py` vozvratni
+#     so'zsiz ayiradi — u miqdor to'g'riligini tekshirmaydi, tekshira ham olmaydi)
+# Bu xato emas, NIYAT bilan ham ishlatiladigan yo'l edi.
+#
+# QOIDA: cheklov FAQAT `order_item_id` bog'langan qatorga qo'llanadi —
+#   qaytariladigan ≤ sotilgan − allaqachon qaytarilgan
+# `order_item_id` yo'q bo'lsa tekshirish MUMKIN EMAS (qaysi sotuv qatori
+# ekani noma'lum) -> vozvrat o'tadi, lekin javobda OGOHLANTIRISH qaytadi.
+#
+# NEGA `pending` HAM SANALADI: tasdiqlanmagan vozvrat miqdorni BAND qiladi.
+# Aks holda ikki kassir bir sotuvga 10 talik ikkita pending vozvrat yozib,
+# ikkalasi tasdiqlanganda 20 dona qaytardi.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# 3 xonali yaxlitlashdan kichik farq — "teng" deb qaraladi (float qoldig'i).
+_QTY_EPS = 0.0005
+
+
+def _fq(x: float) -> str:
+    """Miqdorni o'qishga qulay ko'rsatadi: 3.0 -> "3", 0.740 -> "0.74"."""
+    t = f"{float(x):.3f}".rstrip("0").rstrip(".")
+    return t or "0"
+
+
+def _returned_qty_map(db: Session, order_item_ids) -> dict:
+    """`order_item_id` -> ALLAQACHON qaytarilgan miqdor.
+
+    `rejected` sanalmaydi (u bekor qilingan), `pending` va `approved` sanaladi.
+    """
+    ids = [i for i in order_item_ids if i]
+    if not ids:
+        return {}
+    rows = (
+        db.query(
+            ReturnItem.order_item_id,
+            func.coalesce(func.sum(ReturnItem.quantity), 0.0),
+        )
+        .join(Return, Return.id == ReturnItem.return_id)
+        .filter(
+            ReturnItem.order_item_id.in_(ids),
+            Return.status != "rejected",
+        )
+        .group_by(ReturnItem.order_item_id)
+        .all()
+    )
+    return {oid: float(q or 0) for oid, q in rows}
+
+
+def _validate_return_items(db: Session, data, current_user) -> list:
+    """Miqdor cheklovini tekshiradi. Buzilsa 400, aks holda ogohlantirishlar.
+
+    Qaytaradi: ogohlantirishlar ro'yxati (bo'sh bo'lishi mumkin).
+    """
+    warnings: list = []
+
+    # Bir so'rovda BIR XIL qator ikki marta kelishi mumkin — jamlab tekshiramiz,
+    # aks holda 2 × 6 dona = 12 dona 10 talik sotuvdan o'tib ketardi.
+    talab: dict = {}
+    for it in data.items:
+        if it.order_item_id:
+            talab[it.order_item_id] = talab.get(it.order_item_id, 0.0) + float(it.quantity)
+
+    bogsiz = sum(1 for it in data.items if not it.order_item_id)
+    if bogsiz:
+        warnings.append(
+            f"{bogsiz} qator sotuvga bog'lanmagan (buyurtma qatori tanlanmagan) — "
+            "sotilgan miqdordan oshib ketmaganini tizim TEKSHIRA OLMADI."
+        )
+
+    if not talab:
+        return warnings
+
+    items = (
+        apply_tenant_filter(db.query(OrderItem), OrderItem, current_user)
+        .filter(OrderItem.id.in_(list(talab.keys())))
+        .all()
+    )
+    by_id = {oi.id: oi for oi in items}
+    qaytarilgan = _returned_qty_map(db, talab.keys())
+
+    for oi_id, soralgan in talab.items():
+        oi = by_id.get(oi_id)
+        if oi is None:
+            raise HTTPException(400, f"Sotuv qatori #{oi_id} topilmadi")
+        # Buyurtma ko'rsatilgan bo'lsa — qator SHU buyurtmaga tegishli bo'lishi shart.
+        # Aks holda boshqa buyurtmaning qatoriga suyanib cheklov aylanib o'tilardi.
+        if data.order_id and oi.order_id != data.order_id:
+            raise HTTPException(
+                400,
+                f"Sotuv qatori #{oi_id} bu buyurtmaga tegishli emas "
+                f"(u #{oi.order_id} buyurtmada)",
+            )
+
+        sotilgan = float(oi.quantity or 0)
+        allaqachon = qaytarilgan.get(oi_id, 0.0)
+        mumkin = sotilgan - allaqachon
+
+        if soralgan > mumkin + _QTY_EPS:
+            nomi = oi.product.name if oi.product else f"Mahsulot #{oi.product_id}"
+            if allaqachon > 0:
+                raise HTTPException(
+                    400,
+                    f"{nomi}: bu buyurtmada faqat {_fq(sotilgan)} ta sotilgan, "
+                    f"{_fq(allaqachon)} tasi allaqachon qaytarilgan — "
+                    f"ko'pi bilan {_fq(mumkin)} ta qaytarish mumkin "
+                    f"(so'ralgan: {_fq(soralgan)}).",
+                )
+            raise HTTPException(
+                400,
+                f"{nomi}: bu buyurtmada faqat {_fq(sotilgan)} ta sotilgan — "
+                f"{_fq(soralgan)} ta qaytarib bo'lmaydi.",
+            )
+
+    return warnings
+
+
+def _validate_refund_method(db: Session, data, current_user) -> list:
+    """To'lov usuli mosligi. NASIYA sotuvga naqd/karta tanlansa — TO'SADI.
+
+    NEGA TO'SIQ (ogohlantirish emas): nasiya to'lovi `pending` holatda turadi,
+    `_refund_money()` esa naqd/kartada FAQAT `status="paid"` to'lovlarni qidiradi.
+    Ya'ni nasiyaga sotilgan tovarga "Naqd" tanlansa:
+      • hech qanday `Payment` yozuvi yaratilmaydi (pul qaytganining izi yo'q)
+      • mijoz QARZI kamaymaydi (tovar qaytdi, qarz qoldi)
+      • Z-hisobot esa `refund_method="cash"` ni ko'rib kutilgan naqdni kamaytiradi
+    Uchtasi birga — to'g'ridan-to'g'ri pul yo'qotish. Shuning uchun 400.
+    """
+    warnings: list = []
+    if not data.order_id:
+        return warnings
+
+    pays = db.query(Payment).filter(Payment.order_id == data.order_id).all()
+    if not pays:
+        return warnings          # to'lovsiz buyurtma — taqqoslashga asos yo'q
+
+    def _m(p):
+        return str(getattr(p.method, "value", p.method) or "").lower()
+
+    def _st(p):
+        return str(getattr(p.status, "value", p.status) or "").lower()
+
+    tolangan = [p for p in pays if _st(p) == "paid"]
+    nasiya   = [p for p in pays if _m(p) == "credit" and _st(p) == "pending"]
+    usul     = (data.refund_method or "cash").lower()
+
+    if nasiya and not tolangan and usul != "credit":
+        raise HTTPException(
+            400,
+            "Bu buyurtma NASIYAGA sotilgan (pul hali kelmagan) — naqd yoki karta "
+            "qaytarib bo'lmaydi. 'Balansga' (nasiya) usulini tanlang: mijozning "
+            "qarzi kamayadi.",
+        )
+
+    if usul in ("cash", "card") and tolangan:
+        haqiqiy = {_m(p) for p in tolangan}
+        if usul not in haqiqiy:
+            warnings.append(
+                "Buyurtma " + ", ".join(sorted(haqiqiy)) + " usulida to'langan, "
+                "qaytarish esa " + usul + " tanlangan."
+            )
+
+    return warnings
+
+
 # ── POST /returns/ ───────────────────────────────────────────────────────────
 @router.post("/", response_model=ReturnInDB)
 def create_return(
@@ -111,6 +282,12 @@ def create_return(
         )
         if not order:
             raise HTTPException(404, "Buyurtma topilmadi")
+
+    # ── TEKSHIRUVLAR (yozishdan OLDIN) ──────────────────────────────────────
+    # Miqdor cheklovi va to'lov usuli mosligi. Ikkisi ham hech narsa yozilmagan
+    # holatda ishlaydi -> 400 da baza toza qoladi (rollback kerak emas).
+    warnings = _validate_return_items(db, data, current_user)
+    warnings += _validate_refund_method(db, data, current_user)
 
     total_amount = sum(item.quantity * item.unit_price for item in data.items)
 
@@ -160,6 +337,9 @@ def create_return(
         "order_id": data.order_id,
         "items_count": len(data.items),
     })
+    # OGOHLANTIRISHLAR javobga qo'shiladi (mapped ustun emas — oddiy atribut,
+    # `ReturnInDB.warnings` uni from_attributes orqali o'qiydi).
+    ret.warnings = warnings
     return ret
 
 
@@ -221,6 +401,108 @@ def returns_report(
         by_reason=by_reason,
         by_refund_method=by_refund,
     )
+
+
+# ── GET /returns/lookup ──────────────────────────────────────────────────────
+# ⚠️ MARSHRUT TARTIBI: `/lookup` `/{return_id}` DAN OLDIN turishi SHART —
+# aks holda FastAPI "lookup" ni return_id deb o'qib 422 qaytaradi
+# (`/report` ham shu sababdan yuqorida).
+@router.get("/lookup")
+def lookup_order(
+    q: str = Query(..., min_length=1, description="Chek raqami, kunlik raqam yoki buyurtma ID"),
+    db: Session = Depends(get_db),
+    current_user=Depends(has_permission("process_payments")),
+):
+    """CHEK RAQAMI bo'yicha sotuvni topadi va QAYTARILADIGAN qatorlarni qaytaradi.
+
+    NEGA KERAK: ilgari kassir vozvratda mahsulotni qo'lda tanlab, miqdor va
+    narxni qo'lda yozardi. Natijada:
+      • `order_item_id` HECH QACHON yuborilmasdi -> miqdor cheklovini tekshirib
+        bo'lmasdi va `utils/revenue.py` dagi snapshot tan narx shoxi o'lik edi
+      • pachka sotuvi omborga "1 pachka = 1 dona" bo'lib qaytardi
+        (`_return_base_qty` nisbatni `order_item_id` orqali topadi)
+      • buyurtmani topish uchun ichki DB `id` kerak edi — kassir uni bilmaydi
+
+    Qidiruv tartibi: `order_number` (aniq) -> `daily_number` -> `id`.
+    Faqat `completed` sotuvlar (bekor qilingani qaytarilmaydi).
+    """
+    term = (q or "").strip()
+    if not term:
+        raise HTTPException(400, "Qidiruv so'zi bo'sh")
+
+    base = apply_tenant_filter(db.query(Order), Order, current_user).filter(
+        Order.status == "completed"
+    )
+
+    order = base.filter(Order.order_number == term).first()
+    if not order and term.isdigit():
+        n = int(term)
+        # Kunlik raqam — kassir/mijoz ko'radigan son. Bir necha kun bir xil
+        # bo'lishi mumkin, shuning uchun ENG YANGISI olinadi.
+        order = base.filter(Order.daily_number == n).order_by(Order.id.desc()).first()
+        if not order:
+            order = base.filter(Order.id == n).first()
+    if not order:
+        # Aniq topilmadi — qismli moslik (kassir chek raqamining oxirini yozgan)
+        order = (
+            base.filter(Order.order_number.ilike(f"%{term}%"))
+            .order_by(Order.id.desc())
+            .first()
+        )
+    if not order:
+        raise HTTPException(404, f"'{term}' bo'yicha tugallangan sotuv topilmadi")
+
+    items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+    qaytarilgan = _returned_qty_map(db, [oi.id for oi in items])
+
+    rows = []
+    for oi in items:
+        sotilgan   = float(oi.quantity or 0)
+        allaqachon = qaytarilgan.get(oi.id, 0.0)
+        qoldi      = round(max(0.0, sotilgan - allaqachon), 3)
+        rows.append({
+            "order_item_id": oi.id,
+            "product_id":    oi.product_id,
+            "product_name":  oi.product.name if oi.product else f"Mahsulot #{oi.product_id}",
+            "unit_sold":     oi.unit_sold,
+            "sold_qty":      round(sotilgan, 3),
+            "returned_qty":  round(allaqachon, 3),
+            "returnable_qty": qoldi,
+            "unit_price":    float(oi.unit_price or 0),
+        })
+
+    # To'lov usuli — kassirga TAKLIF qilish uchun (nasiya sotuvga naqd tanlansa
+    # `_validate_refund_method` 400 beradi; UI'ni oldindan to'g'ri qo'yamiz).
+    pays = db.query(Payment).filter(Payment.order_id == order.id).all()
+
+    def _m(pp):
+        return str(getattr(pp.method, "value", pp.method) or "").lower()
+
+    def _st(pp):
+        return str(getattr(pp.status, "value", pp.status) or "").lower()
+
+    tolangan = [p for p in pays if _st(p) == "paid"]
+    nasiya   = [p for p in pays if _m(p) == "credit" and _st(p) == "pending"]
+    if nasiya and not tolangan:
+        taklif = "credit"
+    elif tolangan:
+        taklif = _m(tolangan[0]) if _m(tolangan[0]) in ("cash", "card") else "card"
+    else:
+        taklif = "cash"
+
+    return {
+        "order_id":       order.id,
+        "order_number":   order.order_number,
+        "daily_number":   order.daily_number,
+        "created_at":     order.created_at,
+        "final_amount":   float(order.final_amount or 0),
+        "customer_id":    order.customer_id,
+        "customer_name":  order.customer.name if order.customer else None,
+        "payment_methods": sorted({_m(p) for p in pays if _m(p)}),
+        "suggested_refund_method": taklif,
+        "is_credit_sale": bool(nasiya and not tolangan),
+        "items":          rows,
+    }
 
 
 # ── GET /returns/{id} ────────────────────────────────────────────────────────

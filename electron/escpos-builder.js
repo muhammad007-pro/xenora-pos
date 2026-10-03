@@ -187,6 +187,53 @@ function buildReceiptBytes(structured, widthMm, opts) {
         parts.push(line(w, '='));
     }
 
+    // ── CHEK RAQAMI SHTRIX-KODI (Code128) — qaytarishda skanerlash uchun ──
+    // Chiziqlarni PRINTER O'ZI kodlaydi (`GS k`), biz faqat qiymat yuboramiz.
+    // USB yo'lida esa printer buyruqni ko'rmaydi (rasm oladi), shuning uchun
+    // u yerda SVG chiziladi (`frontend/js/core/code128.js`). Ikki yo'l, bitta
+    // natija.
+    //
+    // ⚠️ Code128 ma'lumoti `{B` yoki `{C` bilan BOSHLANISHI shart (ESC/POS
+    // kodlash tanlovi). BIZ DOIM `{B` ISHLATAMIZ — ataylab:
+    //
+    //   `{C` (raqamlarni ikkilab qisadi) da ESC/POS ma'lumotni ASCII emas,
+    //   IKKILIK JUFTLIK deb o'qiydi: "26" uchun 0x1A (26) bayti kerak,
+    //   ASCII '2''6' (0x32 0x36) yuborilsa printer ularni 50 va 54 juftliklari
+    //   deb kodlaydi va chekda BOSHQA RAQAM chiqadi — skaner "5054..." o'qiydi.
+    //   Xato JIMGINA bo'ladi: chek chiroyli ko'rinadi, lekin qiymat boshqa.
+    //   `{B` da esa ASCII to'g'ridan o'tadi, ya'ni aynan `order_number`.
+    //
+    // Kenglik: `{B` da 10 belgi = 11×12+13 = 145 modul. 58mm da bosiladigan
+    // zona 384 nuqta → modul 2 nuqta bilan 290 nuqta, bemalol sig'adi.
+    // Uzun kod sig'masa modul 1 nuqtaga tushiriladi.
+    //
+    // (USB/PDF yo'lida esa chiziqlarni biz chizamiz va u yerda Code128C
+    // ishlatiladi — tor bo'ladi. Ikki yo'l bir XIL QIYMATni beradi, skaner
+    // ikkisini ham bir xil o'qiydi.)
+    if (s.barcode) {
+        const bc = sanitize(String(s.barcode)).trim();
+        // Faqat ASCII 32..126 — boshqasi printerda axlat beradi.
+        if (bc && /^[\x20-\x7e]+$/.test(bc)) {
+            const data = '{B' + bc;
+            const modules = 11 * (bc.length + 2) + 13;      // start + data + check + stop
+            const printable = widthMm === 80 ? 576 : 384;   // 203 dpi bosiladigan zona
+            const mw = (modules * 2 <= printable) ? 2 : 1;
+            parts.push(CMD.ALIGN_CENTER);
+            parts.push(Buffer.from([GS, 0x68, 48]));        // GS h 48 — balandlik ~6mm (203dpi)
+            parts.push(Buffer.from([GS, 0x77, mw]));        // GS w   — modul kengligi (nuqta)
+            parts.push(Buffer.from([GS, 0x48, 0]));         // GS H 0 — ostida raqam YOZILMAYDI
+            // GS k m n d1..dn — m=73 (CODE128, uzunlik ko'rsatilgan shakl).
+            // Uzunlik ko'rsatilgani uchun ma'lumot ichida 0x00/0x0a bo'lsa ham
+            // buyruq uzilmaydi (NUL bilan tugaydigan m=6 shakli ishlatilmaydi).
+            parts.push(Buffer.concat([
+                Buffer.from([GS, 0x6b, 73, data.length]),
+                Buffer.from(data, 'latin1'),
+            ]));
+            parts.push(Buffer.from([0x0a]));
+            parts.push(CMD.ALIGN_LEFT);
+        }
+    }
+
     // ── Footer ──
     parts.push(CMD.ALIGN_CENTER);
     for (const ln of wrapText(s.footer || 'Xarid uchun rahmat!', w)) parts.push(textLine(ln));

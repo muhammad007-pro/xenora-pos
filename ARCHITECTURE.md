@@ -294,7 +294,10 @@ printer_service.py  →  baytni YUBORISH (rejimga qarab):
 
 ## 13. Offline-first (PWA)
 
-- `frontend/pwa/service-worker.js` — statik kesh, offline sahifa.
+- `frontend/service-worker.js` — statik kesh, offline sahifa. **ILDIZDA** turishi
+  shart: service worker faqat o'z papkasi va undan pastini boshqaradi, `pwa/` da
+  bo'lganda scope `/pwa/` bo'lib `/app/*` ni ko'rmasdi. Ro'yxatga olish —
+  `frontend/shared/register-sw.js` (yagona joy).
 - `frontend/js/core/db.js` (IndexedDB `restopos_db`) + `sync.js` — lokal saqlash va serverga sinxronlash.
 - **API contract:** `api.js` javobni `{success, data, offline}` shaklida wrap qiladi; `pos.js`/`sync.js` shunga moslangan (`res.data.id`). Bu **tarmoq xatosi** (offline navbatga) va **server xatosi** (ko'rsatiladi) ni farqlaydi — offline buyurtma yo'qolmaydi.
 - Offline'da: buyurtma, to'lov (checkout), chek, mahsulot ko'rish, stol boshqaruvi ishlaydi; internet tiklanganda navbat avtomatik yuboriladi.

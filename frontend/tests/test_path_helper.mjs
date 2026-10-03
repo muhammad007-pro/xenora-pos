@@ -49,6 +49,19 @@ const server = createServer(async (req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${server.address().port}`;
 
+/**
+ * ⚠️ `serviceWorkers: 'block'` — NEGA SHART.
+ *
+ * `shared/login.html` (va `app/pos.html`) service worker'ni ro'yxatga oladi
+ * va u 2026-10-04 dan beri scope `/` bilan ishlaydi, ya'ni API so'rovlarini
+ * HAQIQATAN ushlaydi. Playwright'ning `page.route()` esa service worker
+ * ichidan ketgan `fetch`'ni USHLAMAYDI — natijada mock chetlab o'tiladi va
+ * so'rov test serveriga borib "not found" (404) qaytaradi, JSON parse yiqiladi.
+ *
+ * Bu test service worker'ni sinamaydi (u `test_service_worker.mjs` da), shu
+ * sabab eng to'g'ri yo'l — kontekstda SW'ni butunlay o'chirish.
+ */
+
 let pass = 0, fail = 0;
 const check = (name, got, want) => {
   const ok = JSON.stringify(got) === JSON.stringify(want);
@@ -60,7 +73,7 @@ const browser = await chromium.launch();
 
 /** `paths.js` ni berilgan sahifadan import qilib, hisoblangan yo'llarni oladi. */
 async function yollar(pageUrl, modUrl) {
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ serviceWorkers: 'block' });
   const page = await ctx.newPage();
   await page.goto(pageUrl, { waitUntil: 'domcontentloaded' });
   const out = await page.evaluate(async (u) => {
@@ -98,7 +111,7 @@ async function yollar(pageUrl, modUrl) {
 //    (mutlaq yo'l bo'lganda aynan shu qadam sinardi)
 // ══════════════════════════════════════════════════════════════════════════
 {
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ serviceWorkers: 'block' });
   const page = await ctx.newPage();
   await page.goto(`${BASE}/app/shift.html`, { waitUntil: 'domcontentloaded' });
   const target = await page.evaluate(async (u) => {
@@ -152,7 +165,7 @@ async function yollar(pageUrl, modUrl) {
 //    Token buzuq → api.js refresh yiqiladi → login'ga o'tishi KERAK
 // ══════════════════════════════════════════════════════════════════════════
 {
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ serviceWorkers: 'block' });
   const page = await ctx.newPage();
   const xatolar = [];
   page.on('pageerror', e => xatolar.push(String(e.message)));

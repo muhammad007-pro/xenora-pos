@@ -13,6 +13,8 @@ name: Frontend tekshiruvi
 # Shu sabab bu yerda IKKALASI ham ishlaydi:
 #   1) check_syntax.py — HTML ichidagi <script> bloklarini ham parse qiladi
 #   2) eslint          — `.js` fayllarda `no-undef` qo'riqchisi
+#   3) versiya izchilligi — pastdagi izohga qara
+#   4) service worker testi — pastdagi izohga qara
 
 on:
   push:
@@ -45,3 +47,18 @@ jobs:
 
       - name: ESLint (no-undef)
         run: npm run lint
+
+      # NEGA BOR: versiya 6 joyda yozilgan va QO'LDA yangilanardi. Natijada
+      # `service-worker.js` dagi APP_VERSION v1.55.1 da qotib qoldi — v1.10.1
+      # dan keyin 6+ reliz davomida unutilgan. Service worker esa eski keshni
+      # FAQAT shu qiymat o'zgarganda tozalaydi, ya'ni brauzerdan kirgan
+      # kassirlar oylar davomida eski frontendni ko'rgan. Endi mos kelmasa
+      # CI YIQILADI. Tuzatish: `py scripts/bump_version.py <versiya>`.
+      - name: Versiya hamma joyda bir xilmi
+        run: python3 scripts/bump_version.py --check
+
+      # Service worker mantig'i: eski kesh tozalanishi, js/core/* ning
+      # yangilanishi (network-first) va OFFLINE buzilmasligi.
+      # Brauzer talab qilmaydi — SW `node:vm` sandbox'ida ishga tushadi.
+      - name: Service worker testi
+        run: node frontend/tests/test_service_worker.mjs

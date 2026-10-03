@@ -1530,9 +1530,8 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
 <div id="toasts"></div>
 
 <!-- SW -->
+<script src="../shared/register-sw.js"></script>
 <script>
-if('serviceWorker' in navigator)
-  navigator.serviceWorker.register('../pwa/service-worker.js').catch(()=>{});
 
   // ── Dark/Light mode toggle ──────────────────────────────────────────────────
   (function() {

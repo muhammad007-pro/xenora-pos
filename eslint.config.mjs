@@ -147,8 +147,12 @@ export default [
   },
 
   // ── Service worker (window yo'q, o'z global to'plami bor) ──────────────────
+  // ⚠️ Fayl ILDIZDA: `frontend/service-worker.js`. Ilgari `frontend/pwa/` da
+  // edi va aynan shu sabab scope `/pwa/` bo'lib qolgan (qarang faylning o'z
+  // izohi). Yo'lni o'zgartirsangiz BU RO'YXATNI ham yangilang, aks holda SW
+  // lint qamrovidan chiqib ketadi.
   {
-    files: ['frontend/pwa/service-worker.js'],
+    files: ['frontend/service-worker.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',

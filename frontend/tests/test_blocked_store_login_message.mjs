@@ -36,6 +36,19 @@ const server = createServer(async (req, res) => {
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const PAGE = `http://127.0.0.1:${server.address().port}/shared/login.html`;
 
+/**
+ * ⚠️ `serviceWorkers: 'block'` — NEGA SHART.
+ *
+ * `shared/login.html` (va `app/pos.html`) service worker'ni ro'yxatga oladi
+ * va u 2026-10-04 dan beri scope `/` bilan ishlaydi, ya'ni API so'rovlarini
+ * HAQIQATAN ushlaydi. Playwright'ning `page.route()` esa service worker
+ * ichidan ketgan `fetch`'ni USHLAMAYDI — natijada mock chetlab o'tiladi va
+ * so'rov test serveriga borib "not found" (404) qaytaradi, JSON parse yiqiladi.
+ *
+ * Bu test service worker'ni sinamaydi (u `test_service_worker.mjs` da), shu
+ * sabab eng to'g'ri yo'l — kontekstda SW'ni butunlay o'chirish.
+ */
+
 let pass = 0, fail = 0;
 const check = (name, got, want) => {
   const ok = JSON.stringify(got) === JSON.stringify(want);
@@ -56,7 +69,7 @@ const browser = await chromium.launch({ headless: true });
 
 /** Sahifani ochadi, resolve-code javobini stublaydi. */
 async function ochish(javoblar = JAVOBLAR) {
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ serviceWorkers: 'block' });
   const page = await ctx.newPage();
   await page.route('**/api/v1/**', async (route) => {
     const u = new URL(route.request().url());

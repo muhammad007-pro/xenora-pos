@@ -119,21 +119,41 @@ Agar `pip` bog'liqliklari o'zgargan bo'lsa (requirements.txt): `venv/bin/pip ins
 
 ---
 
-## 4. Versiya — HAMMASI bir xil bo'lsin
+## 4. Versiya — BITTA BUYRUQ
 
-Har relizda quyidagi **6 joyni bir xil versiyaga** yangilang (masalan `1.0.3`):
+```bash
+py scripts/bump_version.py 1.12.18      # hammasini birga ko'taradi
+py scripts/bump_version.py --check      # mos kelmasa 1 qaytaradi (CI'da ham)
+```
+
+Skript quyidagi **6 joyni** birga yangilaydi va `versionCode` ni **+1** qiladi
+(versiya raqami haqiqatan o'zgarganda; orqada qolgan faylni tuzatishda emas):
 
 | Fayl | Maydon |
 |---|---|
 | `backend/config.py` | `VERSION` (default) |
-| `backend/.env` (serverda) | `VERSION=` ⚠️ pastdagi eslatma |
 | `frontend/shared/version.js` | `window.APP_VERSION` |
-| `frontend/shared/login.html` | `id="appVersion"` fallback (runtime'da version.js bosadi) |
+| `frontend/service-worker.js` | `APP_VERSION` ⚠️ pastdagi eslatma |
 | `electron/package.json` | `"version"` |
-| `android/android/app/build.gradle` | `versionName` + `versionCode` (**+1 oshir**) |
+| `android/android/app/build.gradle` | `versionName` + `versionCode` (+1) |
+| `frontend/shared/login.html` | `id="appVersion"` fallback |
 
-Frontend PWA cache (alohida versiya sxemasi):
-- `frontend/pwa/service-worker.js` → `APP_VERSION = 'vX.Y.Z'` ni **oshir** (mijoz eski frontendni ko'rmasin). v1.0.3 = `v1.24.0`.
+> ⚠️ **NEGA SKRIPT BOR.** Bular qo'lda yangilanardi va `service-worker.js`
+> dagi `APP_VERSION` **`v1.55.1` da qotib qoldi** — v1.10.1 dan keyin 6+ reliz
+> (1.10.x … 1.12.17) davomida unutilgan. Service worker eski keshni FAQAT shu
+> qiymat o'zgarganda tozalaydi, ya'ni **brauzerdan kirgan kassirlar oylar
+> davomida eski frontendni ko'rgan**. `login.html` yorlig'i ham v1.10.1 da
+> qolgan edi. Endi `bump_version.py --check` CI'da ishlaydi va mos kelmasa
+> **build yiqiladi**.
+
+> ⚠️ `frontend/shared/version.js` **BOM bilan** saqlanadi (shunday qoladi),
+> `electron/package.json` esa **BOM'siz** bo'lishi SHART (BOM bilan
+> electron-builder yiqiladi). Skript har faylni o'z kodlashida qayta yozadi —
+> shu sabab versiyani **PowerShell bilan qo'lda tahrir qilmang**.
+
+**Serverdagi `backend/.env`** alohida: `VERSION=` kaliti pydantic'da config.py
+default'idan USTUN turadi, ya'ni `/health` **.env** qiymatini qaytaradi.
+Deploy qadamlarida (§3) `sed` bilan yangilanadi — unutilmasin.
 
 `CHANGELOG.md` ni ham yangilang.
 

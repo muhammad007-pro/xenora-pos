@@ -285,3 +285,229 @@ async def get_customer_history(
             "items": items,
         })
     return {"items": result, "total": total, "page": page, "page_size": page_size}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# QARZ KARTOCHKASI (nasiya) — FAQAT KO'RSATISH
+#
+# Do'konchi mijoz bilan turganda ochadigan ekran: "qara, hammasi shu yerda".
+# Naqsh `routers/suppliers.py` dagi firma OBOROT VARAG'I bilan BIR XIL:
+# xronologik harakat + yugurib boruvchi qoldiq.
+#
+# ⚠️ PUL MANTIG'IGA TEGMAYDI. Bu yerda hech narsa YOZILMAYDI va qoldiq
+#    QAYTA HISOBLANMAYDI — `remaining`/`status`/`total_debt` qiymatlari
+#    `routers/debt.py` (va vozvratda `routers/returns.py`) yozgan HOLICHA
+#    o'qiladi. Shu sababli kartochkadagi "Jami qoldiq" Nasiya ro'yxatidagi
+#    raqam bilan aynan bir xil bo'ladi.
+#
+# TENANT IZOLYATSIYASI — ikki qavat:
+#   1) mijoz `apply_tenant_filter` bilan topiladi → begona mijoz 404
+#   2) qarzlar va buyurtmalar ham `apply_tenant_filter` bilan o'qiladi
+# ═══════════════════════════════════════════════════════════════════════════
+@router.get("/{customer_id}/debt-card")
+async def get_customer_debt_card(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_reports")),
+):
+    """Mijoz qarz kartochkasi: qarzlar + olingan mahsulotlar + to'lovlar + oborot."""
+    from datetime import datetime, timezone
+    from models import CustomerDebt, DebtPayment, OrderItem, Product
+    from core.timeutils import to_utc
+
+    # Oborotni saralash kaliti. `created_at` NULL bo'lishi kutilmaydi
+    # (server_default bor), lekin xom SQL bilan kiritilgan qatorda bo'lishi
+    # MUMKIN — unda `None` solishtirishda TypeError berib butun kartochkani
+    # 500 qilardi. NULL eng tepaga chiqadi.
+    _FAR_PAST = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+    def _ts(dt):
+        return to_utc(dt) or _FAR_PAST
+
+    customer = (
+        apply_tenant_filter(db.query(Customer), Customer, current_user)
+        .filter(Customer.id == customer_id)
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Mijoz topilmadi")
+
+    debts = (
+        apply_tenant_filter(db.query(CustomerDebt), CustomerDebt, current_user)
+        .filter(CustomerDebt.customer_id == customer_id)
+        .order_by(CustomerDebt.created_at.asc(), CustomerDebt.id.asc())
+        .all()
+    )
+
+    # ── Chek raqami + olingan mahsulotlar ──────────────────────────────────
+    # `order_id IS NULL` = QO'LDA kiritilgan qarz ("+ Qarz yozish" tugmasi,
+    # POS'siz). Bu XATO EMAS: chek raqami o'rniga shunday belgilanadi va
+    # mahsulot ro'yxati bo'sh qoladi (frontend buni ko'rsatadi).
+    order_ids = [d.order_id for d in debts if d.order_id]
+    orders_map: dict = {}
+    items_map: dict = {}
+    if order_ids:
+        for o in (
+            apply_tenant_filter(db.query(Order), Order, current_user)
+            .filter(Order.id.in_(order_ids))
+            .all()
+        ):
+            orders_map[o.id] = o
+        if orders_map:
+            rows = (
+                db.query(OrderItem, Product.name)
+                .outerjoin(Product, Product.id == OrderItem.product_id)
+                .filter(OrderItem.order_id.in_(list(orders_map.keys())))
+                .order_by(OrderItem.order_id.asc(), OrderItem.id.asc())
+                .all()
+            )
+            for it, pname in rows:
+                items_map.setdefault(it.order_id, []).append({
+                    "product_id":  it.product_id,
+                    "name":        pname or (f"Mahsulot #{it.product_id}" if it.product_id else "—"),
+                    "quantity":    it.quantity,
+                    "unit_sold":   it.unit_sold,
+                    "unit_price":  it.unit_price,
+                    "total_price": it.total_price,
+                })
+
+    # ── To'lovlar (kim qabul qilgani bilan) ────────────────────────────────
+    debt_ids = [d.id for d in debts]
+    pay_rows = []
+    if debt_ids:
+        pay_rows = (
+            db.query(DebtPayment, User.full_name, User.username)
+            .outerjoin(User, User.id == DebtPayment.user_id)
+            .filter(DebtPayment.debt_id.in_(debt_ids))
+            .order_by(DebtPayment.created_at.asc(), DebtPayment.id.asc())
+            .all()
+        )
+
+    payments = [{
+        "id":             p.id,
+        "debt_id":        p.debt_id,
+        "amount":         p.amount,
+        "payment_method": p.payment_method,
+        "notes":          p.notes,
+        "created_at":     p.created_at,
+        "user_id":        p.user_id,
+        "user_name":      full_name or uname or "—",
+    } for p, full_name, uname in pay_rows]
+
+    paid_by_debt: dict = {}
+    for p in payments:
+        paid_by_debt[p["debt_id"]] = paid_by_debt.get(p["debt_id"], 0.0) + (p["amount"] or 0)
+
+    # ── Qarzlar ro'yxati ───────────────────────────────────────────────────
+    debt_list = []
+    for d in debts:
+        o = orders_map.get(d.order_id) if d.order_id else None
+        debt_list.append({
+            "id":            d.id,
+            "created_at":    d.created_at,
+            "order_id":      d.order_id,
+            "order_number":  o.order_number if o else None,
+            "daily_number":  o.daily_number if o else None,
+            # Qarz POS sotuvidan emas, qo'lda kiritilgan (yoki buyurtma
+            # boshqa tenantga tegishli) — frontend chek raqami o'rniga shuni
+            # ko'rsatadi, xato bermaydi.
+            "is_manual":     d.order_id is None,
+            # Vozvrat avansi: `amount`/`remaining` MANFIY (returns.py) —
+            # qarz emas, mijoz foydasiga qoldiq.
+            "is_advance":    (d.amount or 0) < 0,
+            "amount":        d.amount,
+            "paid_amount":   d.paid_amount,
+            "remaining":     d.remaining,
+            "status":        d.status,
+            "due_date":      d.due_date,
+            "notes":         d.notes,
+            "items":         items_map.get(d.order_id, []) if d.order_id else [],
+        })
+
+    # ── XRONOLOGIK OBOROT (qarz / to'lov aralash, yugurib boruvchi qoldiq) ──
+    # KAFOLAT: oxirgi qator `balance` = `customers.total_debt` (ochiq+qisman
+    # qarzlar `remaining` yig'indisi). Shuning uchun uchinchi tur yozuv ham
+    # kerak: VOZVRAT qarzni `paid_amount` orqali kamaytiradi, lekin
+    # `DebtPayment` qatori YARATMAYDI (routers/returns.py:590). Shu farq
+    # (`paid_amount` − to'lovlar yig'indisi) "vozvrat bilan yopilgan" qatori
+    # bo'lib tushadi, aks holda oborot qoldig'i kartadagi raqamdan oshardi.
+    events = []
+    for d in debts:
+        advance = (d.amount or 0) < 0
+        if d.order_id:
+            o = orders_map.get(d.order_id)
+            label = f"Chek #{o.order_number}" if o else f"Buyurtma #{d.order_id}"
+        else:
+            label = "Qo'lda kiritilgan qarz"
+        if advance:
+            label = d.notes or "Vozvrat avansi"
+        events.append((_ts(d.created_at), 0, d.id, {
+            "date":         d.created_at,
+            "kind":         "advance" if advance else "debt",
+            "label":        label,
+            "amount":       d.amount,
+            "debt_id":      d.id,
+            "order_id":     d.order_id,
+            "order_number": (orders_map.get(d.order_id).order_number
+                             if d.order_id and orders_map.get(d.order_id) else None),
+        }))
+
+        ret_offset = round((d.paid_amount or 0) - paid_by_debt.get(d.id, 0.0), 2)
+        if ret_offset > 0.009:
+            events.append((_ts(d.updated_at or d.created_at), 2, d.id, {
+                "date":    d.updated_at or d.created_at,
+                "kind":    "return",
+                "label":   "Vozvrat bilan yopilgan",
+                "amount":  -ret_offset,
+                "debt_id": d.id,
+            }))
+
+    for p in payments:
+        usul = {"cash": "naqd", "card": "karta", "click": "Click", "payme": "Payme"}.get(
+            p["payment_method"], p["payment_method"] or "—")
+        events.append((_ts(p["created_at"]), 1, p["id"], {
+            "date":    p["created_at"],
+            "kind":    "payment",
+            "label":   f"To'lov ({usul}) · {p['user_name']}",
+            "amount":  -(p["amount"] or 0),
+            "debt_id": p["debt_id"],
+        }))
+
+    # Bir kun ichida tartib: qarz → to'lov → vozvrat (o'qishga qulay)
+    events.sort(key=lambda t: (t[0], t[1], t[2]))
+    ledger = []
+    running = 0.0
+    for _dt, _ord, _id, e in events:
+        running += (e["amount"] or 0)
+        e["balance"] = round(running, 2)
+        ledger.append(e)
+
+    total_charged = round(sum((d.amount or 0) for d in debts if (d.amount or 0) > 0), 2)
+    total_paid    = round(sum((p["amount"] or 0) for p in payments), 2)
+
+    return {
+        "customer": {
+            "id":           customer.id,
+            "name":         customer.name,
+            "phone":        customer.phone,
+            "total_debt":   customer.total_debt or 0.0,
+            "credit_limit": customer.credit_limit,
+        },
+        "summary": {
+            # Manba — `customers.total_debt` (Nasiya ro'yxati bilan bir xil raqam).
+            "total_debt":     customer.total_debt or 0.0,
+            # Oborotdan hisoblangan qoldiq — yuqoridagi bilan mos bo'lishi shart
+            # (test bilan qotirilgan). Farq chiqsa — ma'lumotda nuqson bor.
+            "ledger_balance": round(running, 2),
+            "total_charged":  total_charged,
+            "total_paid":     total_paid,
+            "debt_count":     len(debts),
+            "open_count":     sum(1 for d in debts if d.status == "open"),
+            "partial_count":  sum(1 for d in debts if d.status == "partial"),
+            "paid_count":     sum(1 for d in debts if d.status == "paid"),
+            "manual_count":   sum(1 for d in debts if d.order_id is None),
+        },
+        "debts":    debt_list,
+        "payments": payments,
+        "ledger":   ledger,
+    }

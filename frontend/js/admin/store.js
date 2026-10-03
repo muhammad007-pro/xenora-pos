@@ -476,14 +476,20 @@ async function loadDebtSummary() {
 async function loadDebts() {
   const status = document.getElementById('dFilterStatus')?.value || '';
   const overdueOnly = document.getElementById('dOverdueOnly')?.checked ? '&overdue_only=true' : '';
-  const url = `/debts/?page=${debtCurrentPage}&page_size=50${status ? '&status='+status : ''}${overdueOnly}`;
+  // QIDIRUV: ism yoki telefon (server tomonda, `/debts/?search=` — tenant ichida)
+  const sq = (document.getElementById('dSearch')?.value || '').trim();
+  const search = sq ? '&search=' + encodeURIComponent(sq) : '';
+  const url = `/debts/?page=${debtCurrentPage}&page_size=50${status ? '&status='+status : ''}${overdueOnly}${search}`;
   const body = document.getElementById('debtBody');
   body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr>';
   try {
     const data = await apiFetch(url);
     const list = Array.isArray(data) ? data : [];
     if (!list.length) {
-      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Qarz yo\'q</td></tr>';
+      body.innerHTML = sq
+        ? `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">"${escH(sq)}" bo'yicha qarzdor topilmadi</td></tr>`
+        : '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Qarz yo\'q</td></tr>';
+      document.getElementById('debtPagInfo').textContent = '0 ta yozuv';
       return;
     }
     const today = new Date().toISOString().slice(0,10);
@@ -496,7 +502,11 @@ async function loadDebts() {
         : '<span style="color:var(--red);font-size:.75rem">● Ochiq</span>';
       return `<tr>
         <td style="font-size:.75rem;color:var(--text3)">${fmtDate2(d.created_at)}</td>
-        <td>${d.customer ? escH(d.customer.name) : '—'}<br><span style="font-size:.7rem;color:var(--text3)">${d.customer?.phone||''}</span></td>
+        <td>${d.customer
+            ? `<a href="#" onclick="openDebtCard(${d.customer_id},'${escJs(d.customer.name)}');return false"
+                  style="color:var(--text);text-decoration:none;border-bottom:1px dashed var(--text3)"
+                  title="Qarz kartochkasini ochish">${escH(d.customer.name)}</a>`
+            : '—'}<br><span style="font-size:.7rem;color:var(--text3)">${d.customer?.phone||''}</span></td>
         <td style="color:var(--text2)">${fmtMoney(d.amount)} UZS</td>
         <td style="color:var(--success)">${fmtMoney(d.paid_amount)} UZS</td>
         <td style="color:var(--red);font-weight:600">${fmtMoney(d.remaining)} UZS</td>
@@ -676,6 +686,111 @@ function fmtDate2(s) {
   return `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}.${d.getFullYear()}`;
 }
 function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Inline `onclick="...'...'"` ichiga nom qo'yish uchun: apostrof va teskari
+// sleshni qochiradi. `escH` HTML uchun, bu esa JS satri uchun — ikkisi
+// boshqa-boshqa (O'tkir, D'Artagnan kabi ismlar tugmani o'ldirardi).
+function escJs(s) {
+  return String(s || '')
+    .replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    // Nom ichidagi " HTML atributidan chiqib ketardi (atribut "..." bilan
+    // o'ralgan). &quot; — HTML parser uni " ga qaytaradi, JS satri ichida esa
+    // qo'shtirnoq bexatar.
+    .replace(/"/g, '&quot;')
+    .replace(/\r?\n/g, ' ');
+}
+
+// QIDIRUV: har harfda so'rov yubormaslik uchun 350ms kutadi.
+let _dSearchTimer = null;
+function debtSearchInput() {
+  clearTimeout(_dSearchTimer);
+  _dSearchTimer = setTimeout(() => { debtCurrentPage = 1; loadDebts(); }, 350);
+}
+
+// ══ QARZ KARTOCHKASI (mijoz oborot varag'i) ═══════════════════════════════════
+// Do'konchi mijoz bilan turganda ochadigan ekran. Hisob BACKENDDA
+// (`/customers/{id}/debt-card`) — bu yerda YANGI mantiq yo'q, shuning uchun
+// kartochkadagi "Jami qoldiq" Nasiya ro'yxatidagi raqam bilan bir xil bo'ladi.
+// Naqsh: suppliers.html `openLedger` (firma oborot varag'i).
+let _dcItems = {};   // debt_id -> mahsulotlar (chek raqamiga bosilganda ochiladi)
+
+async function openDebtCard(customerId, customerName) {
+  const body = document.getElementById('dcBody');
+  document.getElementById('dcTitle').textContent =
+    `Qarz kartochkasi — ${customerName || 'Mijoz #' + customerId}`;
+  document.getElementById('dcSummary').textContent = 'Yuklanmoqda...';
+  body.innerHTML = '';
+  _dcItems = {};
+  openModal('debtCardModal');
+
+  let data;
+  try {
+    data = await apiFetch(`/customers/${customerId}/debt-card`);
+  } catch (e) {
+    document.getElementById('dcSummary').textContent = '';
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--red)">Kartochka yuklanmadi</td></tr>';
+    return;
+  }
+
+  const s = data.summary || {};
+  (data.debts || []).forEach(d => { _dcItems[d.id] = d.items || []; });
+
+  const rows = data.ledger || [];
+  if (!rows.length) {
+    document.getElementById('dcSummary').innerHTML =
+      `<b>${escH(data.customer?.phone || '')}</b> · Qarz tarixi yo'q.`;
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text3)">Yozuv topilmadi</td></tr>';
+    return;
+  }
+
+  const KIND = { debt: '🧾', payment: '💵', return: '↩', advance: '🎁' };
+  body.innerHTML = rows.map(e => {
+    const plus = (e.amount || 0) > 0;
+    // Chekli qarz — yorliq bosiladigan: mahsulotlar ochiladi/yopiladi.
+    const items = e.kind === 'debt' && e.debt_id ? (_dcItems[e.debt_id] || []) : [];
+    const label = items.length
+      ? `<a href="#" onclick="dcToggleItems(${e.debt_id});return false"
+             style="color:var(--text);border-bottom:1px dashed var(--text3);text-decoration:none"
+             title="Mahsulotlarni ko'rsatish">${escH(e.label)} ▾</a>`
+      : escH(e.label);
+    const itemRow = items.length ? `
+      <tr id="dcItems${e.debt_id}" style="display:none">
+        <td></td>
+        <td colspan="3" style="padding:.5rem .75rem">
+          <div style="background:var(--bg3);border-radius:var(--r);padding:.5rem .75rem;font-size:.8125rem">
+            ${items.map(i => `<div style="display:flex;justify-content:space-between;gap:1rem;padding:.15rem 0">
+                 <span>${escH(i.name)} <span style="color:var(--text3)">× ${i.quantity}${i.unit_sold ? ' ' + escH(i.unit_sold) : ''}</span></span>
+                 <span style="color:var(--text2)">${fmtMoney(i.total_price || 0)} UZS</span>
+               </div>`).join('')}
+          </div>
+        </td>
+      </tr>` : '';
+    return `<tr>
+      <td style="color:var(--text3);font-size:.8125rem">${fmtDate2(e.date)}</td>
+      <td>${KIND[e.kind] || ''} ${label}</td>
+      <td style="text-align:right;font-weight:600;color:${plus ? 'var(--red)' : 'var(--success)'}">
+        ${plus ? '+' : '−'}${fmtMoney(Math.abs(e.amount || 0))}
+      </td>
+      <td style="text-align:right;font-weight:700">${fmtMoney(e.balance || 0)}</td>
+    </tr>${itemRow}`;
+  }).join('');
+
+  const qoldiq = s.total_debt || 0;
+  const holat = qoldiq > 0
+    ? `<b style="color:var(--red)">${fmtMoney(qoldiq)} UZS qarz</b>`
+    : (qoldiq < 0 ? `<b style="color:var(--success)">${fmtMoney(-qoldiq)} UZS avans</b>`
+                  : '<b>0</b> — hisob-kitob yopiq');
+  document.getElementById('dcSummary').innerHTML =
+    `${escH(data.customer?.phone || '')} · Joriy qoldiq: ${holat}
+     <span style="color:var(--text3)">· olingan ${fmtMoney(s.total_charged || 0)} · to'langan ${fmtMoney(s.total_paid || 0)}
+     · ${s.debt_count || 0} yozuv${s.manual_count ? ` (${s.manual_count} qo'lda)` : ''}</span>`;
+}
+
+function dcToggleItems(debtId) {
+  const row = document.getElementById('dcItems' + debtId);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
 
 async function updateSalonExpiryBadge() {
   try {

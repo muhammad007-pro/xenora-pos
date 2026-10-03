@@ -1587,6 +1587,9 @@
           <label class="tb-filter-check" style="display:flex;align-items:center;gap:.4rem;font-size:.8125rem;color:var(--text2)">
             <input type="checkbox" id="dOverdueOnly" onchange="loadDebts()"> Muddati o'tganlar
           </label>
+          <!-- QIDIRUV: qarzdorlar soni o'sganda varaqlab topish real emas -->
+          <input class="form-control" id="dSearch" style="width:220px" placeholder="Ism yoki telefon..."
+                 oninput="debtSearchInput()" onkeydown="if(event.key==='Enter')loadDebts()">
           <button class="tb-btn" onclick="loadDebts()">Yangilash</button>
           <button class="tb-btn" style="margin-left:auto" onclick="openDebtModal()">+ Qarz yozish</button>
         </div>
@@ -1667,6 +1670,35 @@
           <div class="modal-footer">
             <button class="tb-btn" onclick="closeModal('payDebtModal')">Bekor</button>
             <button class="tb-btn tb-btn-primary" onclick="submitDebtPayment()">To'lash</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ QARZ KARTOCHKASI — mijoz oborot varag'i ══
+           Naqsh: suppliers.html `ledgerModal` (firma oboroti) bilan bir xil.
+           FAQAT KO'RSATISH — bu modalda hech narsa saqlanmaydi. -->
+      <div class="modal-overlay" id="debtCardModal" onclick="if(event.target===this)closeModal('debtCardModal')">
+        <div class="modal-card" style="max-width:820px">
+          <div class="modal-header">
+            <span class="modal-title" id="dcTitle">Qarz kartochkasi</span>
+            <button class="modal-close" onclick="closeModal('debtCardModal')">✕</button>
+          </div>
+          <div class="modal-body">
+            <div id="dcSummary" style="font-size:.875rem;color:var(--text2);margin-bottom:.875rem"></div>
+            <div class="data-table-wrap" style="max-height:52vh;overflow:auto">
+              <table>
+                <thead><tr>
+                  <th style="width:110px">Sana</th>
+                  <th>Hujjat</th>
+                  <th style="text-align:right;width:140px">Summa</th>
+                  <th style="text-align:right;width:150px">Qoldiq</th>
+                </tr></thead>
+                <tbody id="dcBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('debtCardModal')">Yopish</button>
           </div>
         </div>
       </div>

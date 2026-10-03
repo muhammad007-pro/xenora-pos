@@ -289,6 +289,7 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
     <select class="sort-sel" id="sortSel">
       <option value="name">Ism bo'yicha</option>
       <option value="spent">Xarajat bo'yicha</option>
+      <option value="debt">Qarz bo'yicha</option>
       <option value="visits">Tashriflar bo'yicha</option>
       <option value="points">Ballar bo'yicha</option>
       <option value="recent">So'nggi tashrif</option>
@@ -305,6 +306,7 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
           <th>Telefon</th>
           <th>Tashriflar</th>
           <th>Jami xarajat</th>
+          <th>Qarz</th>
           <th>Ballar</th>
           <th>So'nggi tashrif</th>
           <th></th>
@@ -312,11 +314,11 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
       </thead>
       <tbody id="tbody">
         <!-- Skeleton (yuklanish) — load()/render() bu qatorlarni almashtiradi -->
-        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:120px"></span></div></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
-        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:100px"></span></div></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:62%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:48%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
-        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:140px"></span></div></td><td><span class="sk-line" style="width:64%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
-        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:110px"></span></div></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:66%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
-        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:130px"></span></div></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:46%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:120px"></span></div></td><td><span class="sk-line" style="width:60%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:70%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:100px"></span></div></td><td><span class="sk-line" style="width:55%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:62%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:48%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:140px"></span></div></td><td><span class="sk-line" style="width:64%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:110px"></span></div></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:66%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
+        <tr class="sk-row"><td><div style="display:flex;align-items:center;gap:.75rem"><span class="sk-av"></span><span class="sk-line" style="width:130px"></span></div></td><td><span class="sk-line" style="width:52%"></span></td><td><span class="sk-line" style="width:30px"></span></td><td><span class="sk-line" style="width:58%"></span></td><td><span class="sk-line" style="width:50%"></span></td><td><span class="sk-line" style="width:64px;height:18px;border-radius:99px"></span></td><td><span class="sk-line" style="width:46%"></span></td><td><span class="sk-line" style="width:42px"></span></td></tr>
       </tbody>
     </table>
     <div class="pager" id="pager" style="display:none">
@@ -437,6 +439,7 @@ function applyFilter() {
   filtered.sort((a,b)=>{
     if(sort==='name')    return (a.name||'').localeCompare(b.name||'');
     if(sort==='spent')   return (b.total_spent||0)-(a.total_spent||0);
+    if(sort==='debt')    return (b.total_debt||0)-(a.total_debt||0);
     if(sort==='visits')  return (b.total_visits||0)-(a.total_visits||0);
     if(sort==='points')  return (b.points||0)-(a.points||0);
     if(sort==='recent')  return new Date(b.last_visit||0)-new Date(a.last_visit||0);
@@ -454,7 +457,7 @@ function render() {
   document.getElementById('countBadge').textContent = total ? `${total} ta mijoz` : '';
 
   if (!total) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/></svg>
       Mijozlar topilmadi</td></tr>`;
     document.getElementById('pager').style.display = 'none';
@@ -477,6 +480,13 @@ function render() {
       <td>${esc(c.phone||'—')}</td>
       <td>${c.total_visits||0}</td>
       <td>${fmtN(c.total_spent||0)} so'm</td>
+      <!-- QARZ: `customers.total_debt` — nasiya moduli yozgan qiymat
+           (bu yerda QAYTA HISOBLANMAYDI). Manfiy = avans (vozvratdan oshgan). -->
+      <td>${(c.total_debt||0) > 0
+            ? `<span style="color:#ef4444;font-weight:600">${fmtN(c.total_debt)} so'm</span>`
+            : ((c.total_debt||0) < 0
+               ? `<span style="color:#22c55e;font-weight:600">${fmtN(-c.total_debt)} avans</span>`
+               : '<span style="color:var(--text3)">—</span>')}</td>
       <td><span class="points-badge">${c.points||0} ball</span> <span class="tier ${t.cls}">${t.label}</span></td>
       <td>${fmtD(c.last_visit)}</td>
       <td><div class="actions">

@@ -95,6 +95,7 @@ def list_debts(
     overdue_only: bool = False,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    search: Optional[str] = None,        # mijoz ismi yoki telefoni
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -104,6 +105,14 @@ def list_debts(
 
     if customer_id:
         q = q.filter(CustomerDebt.customer_id == customer_id)
+    # QIDIRUV: qarzdorlar soni o'sganda ro'yxatni varaqlab topish real emas.
+    # Mijoz ismi yoki telefoni bo'yicha — `/customers/?search=` bilan bir xil
+    # qoida (ilike). `join` qarz qatorini ko'paytirmaydi (customer_id → 1 mijoz).
+    if search:
+        like = f"%{search.strip()}%"
+        q = q.join(Customer, Customer.id == CustomerDebt.customer_id).filter(
+            Customer.name.ilike(like) | Customer.phone.ilike(like)
+        )
     if status:
         q = q.filter(CustomerDebt.status == status)
     if overdue_only:

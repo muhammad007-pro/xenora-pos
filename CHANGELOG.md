@@ -3,6 +3,68 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.15] — 2026-10-03 — Vozvrat nazorati: ikkinchi ko'z
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).
+⚠️ **PUL YO'LIGA TEGADI** — vozvratni tasdiqlash ruxsati o'zgardi.
+
+### 🔒 1) Ikkinchi ko'z — tasdiqlash rahbar ishi
+
+**MUAMMO (jonli, XOZMAG 28):** `RET261002001` 09:51:42 da yozilgan,
+09:51:54 da tasdiqlangan — **12 sekund**, bitta odam, chekka bog'lanmagan.
+Kassadan 17 800 so'm chiqdi. Sabab: yaratish ham, tasdiqlash ham
+`process_payments` edi, ya'ni kassir o'z vozvratini o'zi tasdiqlardi.
+
+* `POST /returns/{id}/approve` va `/reject` → **`manage_shifts`**
+  (`admin` va `menejer` rollarida BOR, `cashier` da YO'Q)
+* kassir vozvrat **YOZADI** (`pending`); pul va ombor rahbar tasdiqlagandan
+  **KEYIN** harakatlanadi
+* yaratish (`POST /returns/`) va `GET /returns/lookup` o'zgarmadi —
+  kassir avvalgidek vozvrat yozadi va chekni topadi
+
+**Yangi ruxsat kodi ATAYIN qo'shilmadi:** `roles` jadvali GLOBAL
+(`tenant_id` ustuni yo'q), yangi `approve_returns` kodi barcha tenantlar
+rollariga seed qilinishi kerak bo'lardi — jonli bazaga ortiqcha xavf.
+`manage_shifts` shu "rahbar" chizig'ini allaqachon ajratadi.
+
+Admin **o'zi** yozgan vozvratni tasdiqlay oladi (bir kishilik do'konda boshqa
+yo'l yo'q) — bu audit logda `self_approved: true` bo'lib qoladi.
+
+### 📋 2) Audit izi
+
+* `approve` detaliga qo'shildi: `created_by`, `created_by_name`,
+  `approved_by`, `self_approved`, `order_linked`, `order_id`
+* **`reject` endi auditga tushadi** — ilgari `log_audit` umuman yo'q edi,
+  kim rad etgani hech qayerda qolmasdi
+* `reject` da `approved_at` aware UTC (`approve` yo'lida allaqachon
+  tuzatilgan). Rad etilgan vozvrat hisobotlarga kirmaydi
+  (`RETURN_COUNTED_STATUSES = ("approved",)`) → xulq o'zgarmaydi
+* `ReturnInDB` ga 4 ta **ixtiyoriy** maydon: `user_id`, `approved_by`,
+  `created_by_name`, `approved_by_name` (orqaga mos)
+
+### 🖥 3) UI (`returns.html`)
+
+* ro'yxatda **"Kim yozdi" / "Kim tasdiqladi"** ustunlari; o'zi yozib o'zi
+  tasdiqlagan hol ⚠ bilan belgilanadi
+* chekka bog'lanmagan vozvrat: ro'yxatda ⚠, tafsilotda sariq blok,
+  tasdiqlash oynasida alohida savol
+* 403 da tushunarli xabar ("administrator yoki menejer tasdiqlashi kerak")
+* chek qidiruvi asosiy yo'l, qo'lda kiritish kichik havola + eslatma
+* ⚠️ `openCreateModal()` dagi `addItemRow()` **SAQLANDI** — olib tashlansa
+  `#ip0` yo'qolib `frontend/tests/test_searchable_select_returns.mjs`
+  (R3/R4) buziladi. Ustunlik stil bilan beriladi, qatorni o'chirib emas.
+
+### ✅ Testlar
+
+`backend/tests/test_returns_control.py` — 11 ta: kassir yaratadi (200,
+`pending`), kassir tasdiqlaydi (**403**, ombor tegilmaydi), kassir rad etadi
+(403), admin tasdiqlaydi (200, ombor tiklanadi), admin rad etadi (200, ombor
+tegilmaydi), auditda yaratuvchi/tasdiqlovchi alohida, `self_approved`, reject
+auditi, `order_id NULL` ogohlantirishi, `order_linked: false`, ro'yxatda ikki
+ustun. Jami **645 passed, 2 skipped**.
+
+---
+
 ## [1.12.14] — 2026-10-03 — Mijoz qarz kartochkasi (faqat ko'rsatish)
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).

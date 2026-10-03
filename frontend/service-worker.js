@@ -1,21 +1,64 @@
 /**
- * XENORA Service Worker (BOSQICH 3.3)
+ * XENORA Service Worker
+ *
+ * ⚠️ BU FAYL ILDIZDA TURISHI SHART (`frontend/service-worker.js`).
+ * Service worker faqat O'Z PAPKASI va undan pastini boshqaradi (standart
+ * scope = skript turgan papka). Ilgari fayl `/pwa/service-worker.js` edi,
+ * ya'ni scope `/pwa/` — u `/app/pos.html`, `/js/core/*.js` larni UMUMAN
+ * ko'rmasdi: `fetch` ishlov beruvchi ular uchun hech qachon ishlamagan,
+ * offline fallback ham ishlamagan. `pwa/manifest.json` esa `"scope": "/"`
+ * deb yozilgan — ya'ni niyat boshidan `/` edi.
+ *
+ * Ildizdan berilganda scope `/` AVTOMATIK bo'ladi va serverdan hech qanday
+ * qo'shimcha header talab qilinmaydi. (`Service-Worker-Allowed: /` bilan
+ * `/pwa/` dan ham bo'lardi, lekin u header ishlab chiqarish nginx'ida
+ * YO'Q — repo'dagi `nginx/conf.d/common.conf` deploy qilinmagan. Shunga
+ * tayanish `register({scope:'/'})` ni SecurityError bilan yiqitardi va
+ * offline rejimni butunlay o'chirardi.)
  *
  * Strategiyalar:
- *   statik fayllar  → Cache First (versiyalangan cache)
- *   API GET         → Stale-While-Revalidate (kesh + fon yangilanish)
- *   API POST/PATCH  → Network Only (o'zgartiruvchi so'rovlar keshulanmaydi)
- *   WebSocket       → o'tkazib yuboriladi
- *   Navigatsiya     → Network First + offline.html fallback
+ *   kod (js/mjs/css) → Network First + timeout, keshga fallback  ⬅ qarang (*)
+ *   boshqa statik    → Cache First (rasm/ikonka/shrift — o'zgarmaydi)
+ *   API GET          → Stale-While-Revalidate
+ *   API POST/PATCH   → Network Only
+ *   Navigatsiya      → Network First + offline.html fallback
+ *   WebSocket / boshqa origin → o'tkazib yuboriladi
+ *
+ * (*) NEGA KOD UCHUN CACHE FIRST EMAS: kod fayllari ES MODUL va bir-birini
+ * `import` qiladi. Cache-first'da brauzer eski `receipt-print.js` ni keshdan
+ * olib, uning yangi `import './code128.js'` bog'liqligini esa tarmoqdan
+ * izlaydi — ikki versiya ARALASHADI. Import yiqilsa modul butunlay
+ * yuklanmaydi, ya'ni chek bosilmay qoladi. Network-first'da onlayn bo'lsa
+ * doim izchil (bir xil versiyali) to'plam keladi.
+ *
+ * OFFLINE BUZILMAYDI: tarmoq yiqilsa yoki TIMEOUT oshsa keshdagi nusxa
+ * qaytariladi — ya'ni offline xatti-harakat avvalgidek. Timeout sekin
+ * internetda POS'ni osib qo'ymaslik uchun (kassir kutib turmasin).
  *
  * Background Sync:
  *   'sync-orders' tegi bo'lganda navbatdagi buyurtmalarni yuboradi
  */
 
-const APP_VERSION   = 'v1.55.1';
-const STATIC_CACHE  = `restopos-static-${APP_VERSION}`;
-const API_CACHE     = `restopos-api-${APP_VERSION}`;
+// ⚠️ VERSIYA — `frontend/shared/version.js` BILAN BIR XIL BO'LISHI SHART.
+// Qo'lda tahrir qilmang: `py scripts/bump_version.py <versiya>` hammasini
+// birga ko'taradi. `frontend/tests/test_service_worker.mjs` ikkisining
+// tengligini qulflaydi (CI'da ishlaydi) — mos kelmasa test yiqiladi.
+//
+// NEGA `importScripts('/shared/version.js')` EMAS (bitta manba bo'lardi-ku):
+//   1. `importScripts` SINXRON va `install` paytida ishlaydi — fayl 404 bo'lsa
+//      service worker UMUMAN o'rnatilmaydi, ya'ni offline rejim o'ladi.
+//   2. Brauzer yangilanishni SW SKRIPTI BAYTLARI o'zgarganda aniqlaydi.
+//      Versiya boshqa faylda bo'lsa bu fayl o'zgarmaydi va yangilanish
+//      aniqlanishi brauzer tafsilotiga (import'larni revalidatsiya qilishiga)
+//      bog'lanib qoladi. Literal qiymat — kafolat.
+const APP_VERSION   = '1.12.17';
+const STATIC_CACHE  = `xenora-static-${APP_VERSION}`;
+const API_CACHE     = `xenora-api-${APP_VERSION}`;
 const API_BASE      = '/api';
+
+// Kod fayllari uchun tarmoqni qancha kutamiz (ms). Oshsa keshga tushamiz.
+// Sekin mobil internetda kassir kutib qolmasligi uchun ataylab qisqa.
+const CODE_NET_TIMEOUT_MS = 3500;
 
 // Versiya o'zgarishida yangilanadigan statik resurslar
 const STATIC_ASSETS = [
@@ -94,6 +137,14 @@ self.addEventListener('install', event => {
 });
 
 // ── Faollashtirish ────────────────────────────────────────────────────────
+// Versiya o'zgarsa STATIC_CACHE/API_CACHE nomlari ham o'zgaradi va bu yerda
+// MOS KELMAYDIGAN HAMMA kesh o'chiriladi. Ya'ni "versiya ko'tarildi → eski
+// kesh majburan tozalandi" kafolati shu bir nechta satrda.
+//
+// ⚠️ Shu sabab APP_VERSION har relizda ko'tarilishi SHART. U `v1.55.1` da
+// qotib qolgan edi (v1.10.1 dan keyin 6+ reliz) — natijada bu tozalash hech
+// qachon ishlamagan va brauzer kassirlar eski kodni ko'rishda davom etgan.
+// Endi `scripts/bump_version.py` + CI testi buni qulflaydi.
 
 self.addEventListener('activate', event => {
     event.waitUntil(
@@ -109,6 +160,11 @@ self.addEventListener('activate', event => {
 
 // ── Fetch ushlash ─────────────────────────────────────────────────────────
 
+// Kod fayli (ES modul zanjiri) — versiyalar ARALASHMASLIGI kerak.
+function _isCode(pathname) {
+    return /\.(?:js|mjs|css)$/i.test(pathname);
+}
+
 self.addEventListener('fetch', event => {
     const { request } = event;
     const url = new URL(request.url);
@@ -116,15 +172,24 @@ self.addEventListener('fetch', event => {
     // WebSocket — o'tkazib yuboramiz
     if (url.protocol === 'ws:' || url.protocol === 'wss:') return;
 
-    // POST/PATCH/DELETE API — keshulanmaydi
-    if (url.pathname.startsWith(API_BASE) && request.method !== 'GET') {
+    // BOSHQA ORIGIN (cdnjs'dan Chart.js kabi) — umuman qo'l tegizmaymiz.
+    // Keshlashning foydasi yo'q (javob "opaque"), brauzer o'zi yaxshiroq
+    // bajaradi. Ilgari bular ham cacheFirst'ga tushardi.
+    if (url.origin !== self.location.origin) return;
+
+    // O'ZGARTIRUVCHI so'rovlar (API bo'lsa ham, bo'lmasa ham) keshulanmaydi
+    if (request.method !== 'GET') {
         event.respondWith(networkOnly(request));
         return;
     }
 
-    // GET API — stale-while-revalidate
-    if (url.pathname.startsWith(API_BASE) && _isCacheableAPI(url.pathname)) {
-        event.respondWith(staleWhileRevalidate(request, API_CACHE));
+    // GET API — stale-while-revalidate (faqat ro'yxatdagilar)
+    if (url.pathname.startsWith(API_BASE)) {
+        if (_isCacheableAPI(url.pathname)) {
+            event.respondWith(staleWhileRevalidate(request, API_CACHE));
+        } else {
+            event.respondWith(networkOnly(request));
+        }
         return;
     }
 
@@ -134,7 +199,16 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // Statik resurslar — cache first
+    // KOD (js/mjs/css) — network first + timeout, keshga fallback.
+    // Sarlavhadagi (*) izohga qara: ES modul zanjirida eski va yangi
+    // versiyalar aralashmasligi uchun.
+    if (_isCode(url.pathname)) {
+        event.respondWith(networkFirstCode(request, STATIC_CACHE));
+        return;
+    }
+
+    // Qolgan statik (rasm, ikonka, shrift, svg) — cache first.
+    // Bular mazmuni o'zgarmaydi; tezlik muhimroq.
     event.respondWith(cacheFirst(request, STATIC_CACHE));
 });
 
@@ -160,6 +234,54 @@ async function cacheFirst(request, cacheName) {
     }
 }
 
+/**
+ * KOD uchun: tarmoq birinchi, lekin CHEKSIZ KUTMAYDI.
+ *
+ *   onlayn        → tarmoqdan yangi nusxa, kesh ham yangilanadi
+ *   tarmoq yiqildi→ keshdagi nusxa (OFFLINE AVVALGIDEK ISHLAYDI)
+ *   tarmoq sekin  → CODE_NET_TIMEOUT_MS dan keyin keshdagi nusxa
+ *   kesh ham yo'q → tarmoq javobini kutib qolamiz (boshqa ilojsiz)
+ *
+ * ⚠️ Timeout tarmoq so'rovini BEKOR QILMAYDI — u fonda davom etadi va
+ * tugaganda keshni yangilaydi. Ya'ni keyingi yuklash yangi bo'ladi.
+ */
+async function networkFirstCode(request, cacheName) {
+    const cache = await caches.open(cacheName);
+
+    const network = fetch(request).then(response => {
+        if (response && response.status === 200) {
+            // Fonda keshni yangilaymiz (timeout bo'lgan holat uchun ham)
+            cache.put(request, response.clone()).catch(() => {});
+        }
+        return response;
+    });
+
+    const cached = await cache.match(request);
+
+    // Keshda yo'q — tarmoqni kutishdan boshqa ilojimiz yo'q
+    if (!cached) {
+        try {
+            return await network;
+        } catch {
+            return new Response('Offline', { status: 503 });
+        }
+    }
+
+    // Keshda bor — tarmoqni cheklangan vaqt kutamiz
+    let timer;
+    const timeout = new Promise(resolve => {
+        timer = setTimeout(() => resolve(null), CODE_NET_TIMEOUT_MS);
+    });
+
+    try {
+        const winner = await Promise.race([network.catch(() => null), timeout]);
+        if (winner && winner.status === 200) return winner;
+        return cached;          // timeout yoki tarmoq xatosi → kesh
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 async function staleWhileRevalidate(request, cacheName) {
     const cache  = await caches.open(cacheName);
     const cached = await cache.match(request);
@@ -180,7 +302,7 @@ async function networkOnly(request) {
         return await fetch(request);
     } catch {
         return new Response(
-            JSON.stringify({ error: 'Offline', detail: 'Internet aloqasi yo\'q' }),
+            JSON.stringify({ error: 'Offline', detail: "Internet aloqasi yo'q" }),
             { status: 503, headers: { 'Content-Type': 'application/json' } }
         );
     }

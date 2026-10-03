@@ -67,8 +67,7 @@ window.addEventListener('scroll', () => {
     navbar?.classList.toggle('scrolled', window.scrollY > 50);
 });
 
-// ── Service Worker ro'yxatdan o'tkazish ──────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('pwa/service-worker.js')
-        .catch(() => {});
-}
+// ── Service Worker ───────────────────────────────────────────
+// Ro'yxatga olish `shared/register-sw.js` da (yagona joy, scope `/`).
+// `index.html` uni alohida `<script src>` bilan yuklaydi — shu sabab
+// bu yerda takrorlanmaydi.

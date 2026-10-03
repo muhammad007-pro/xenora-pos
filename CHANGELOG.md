@@ -3,6 +3,66 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.16] — 2026-10-03 — Vozvrat: chekni ro'yxatdan tanlash
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).
+`models.py` va `schemas.py` **tegilmagan**.
+
+### 📋 1) `GET /returns/orders`
+
+**MUAMMO:** `GET /returns/lookup` chek raqamini **bilishni** talab qiladi.
+Mijoz chekni yo'qotgan yoki raqamni eslamagan bo'lsa kassir yana qo'lda
+kiritishga qaytardi — `order_item_id` yuborilmasdi, "sotilganidan ko'p
+qaytarish" tekshiruvi o'tkazilmasdi (XOZMAG `RET261002001` aynan shunday:
+`order_id IS NULL`).
+
+* oxirgi **50** `completed` sotuv, standart davr **30 kun**
+  (`report_bounds` — `routers/report.py` bilan **bir xil** qoida: tenant
+  mahalliy zonasi, tugash kuni to'liq qamraladi, kelajak kesiladi)
+* qaytaradi: `order_id`, chek raqami, kunlik raqam, sana, summa,
+  mijoz nomi, `payment_methods`
+* **qidiruv** `?search=` uch kanalda: chek raqami (qismli `ilike`),
+  mijoz ismi, **summa** — aniq moslik **BIRINCHI** (`order_by` dagi
+  `case`), keyin **±1000** taxminiy oraliq. Son kiritilsa kunlik raqam ham
+* `?date_from` / `?date_to` — buzuq sana **400** (500 emas)
+* **belgilar:** `has_returns` (vozvrat bor — `pending`/`approved`) va
+  `fully_returned` (qaytarish uchun qolgani yo'q). `rejected` **sanalmaydi**
+  (`_returned_qty_map` bilan bir xil qoida)
+* tenant izolyatsiyasi; N+1 yo'q (`order_items` va `payments` bittadan so'rovda)
+* ⚠️ marshrut **`/{return_id}` DAN OLDIN** turishi SHART — aks holda FastAPI
+  "orders" ni `return_id` deb o'qib **422** qaytaradi (`/lookup` va `/report`
+  ham shu sababdan yuqorida). Alohida test bilan qotirilgan.
+
+### 🖥 2) Frontend (`returns.html`)
+
+* "Topish" yonida **"📋 Ro'yxatdan"** tugmasi + `orderPickerModal`:
+  jadval (sana, chek №, summa, mijoz, to'lov), qidiruv (350 ms debounce),
+  sana filtri, "Tozalash"
+* qatorga bosilsa chek raqami `cOrderSearch` ga yoziladi va **AYNAN
+  `lookupOrder()`** chaqiriladi → qatorlar serverdan, narx `readonly`,
+  nasiya/to'lov usuli mantig'i **o'zgarmaydi**. Picker ichida vozvrat
+  mantig'i YO'Q
+* **to'liq qaytarilgan** sotuv kulrang va **bosilmaydi** (qator qolmagan —
+  tanlash foydasiz); **qisman** qaytarilgani tanlanadi, lekin **↩** belgisi bilan
+
+### ✅ Testlar
+
+`backend/tests/test_returns_order_picker.py` — 11 ta: ro'yxat (bekor qilingan
+sotuv chiqmaydi, eng yangisi tepada), marshrut tartibi, `has_returns`/
+`fully_returned`, `rejected` sanalmasligi, qidiruv (chek raqami, qismli,
+mijoz, summa — aniq birinchi), natijasiz qidiruv, sana filtri (kelajak bo'sh,
+buzuq sana 400), begona tenant (ikki tomonga + qidiruv orqali),
+`lookup` oqimi buzilmaganligi. Jami **656 passed, 2 skipped**.
+
+### ℹ️ Diqqat
+
+`/returns/orders` ruxsati `process_payments` — ya'ni **kassir ham ro'yxatni
+ko'radi** (vozvrat yozishi uchun kerak). Bu sotuv tarixini (chek raqami,
+summa, mijoz ismi) kassirga ochadi. Maqbul bo'lmasa ruxsatni `view_reports`
+ga ko'tarish mumkin, lekin unda xususiyatning maqsadi yo'qoladi.
+
+---
+
 ## [1.12.15] — 2026-10-03 — Vozvrat nazorati: ikkinchi ko'z
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).

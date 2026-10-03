@@ -1350,6 +1350,14 @@ class ReturnInDB(BaseModel):
     created_at: datetime
     items: List[ReturnItemInDB] = []
     customer: Optional[CustomerInDB] = None
+    # IKKINCHI KO'Z: kim yaratdi / kim tasdiqladi — ALOHIDA. Ilgari ikkisi ham
+    # javobda umuman yo'q edi, shuning uchun UI'da "o'zi yozdi, o'zi tasdiqladi"
+    # holini ko'rish imkonsiz edi. Nomlar mapped ustun emas — router
+    # `_attach_names()` bilan qo'yadi (`warnings` bilan bir xil naqsh).
+    user_id: Optional[int] = None
+    approved_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    approved_by_name: Optional[str] = None
     # OGOHLANTIRISHLAR — to'siq EMAS, kassirga ko'rsatiladigan xabar.
     # Vozvrat buyurtma qatoriga bog'lanmagan bo'lsa (`order_item_id` yo'q)
     # "sotilganidan ko'p qaytarish" tekshiruvi MUMKIN EMAS — shunda vozvrat

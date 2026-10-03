@@ -30,6 +30,21 @@ from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 router = APIRouter()
 
 
+def _attach_names(ret: Return) -> Return:
+    """`created_by_name` / `approved_by_name` ni ORM obyektiga qo'yadi.
+
+    `ReturnInDB` bu ikkisini `from_attributes` orqali o'qiydi — mapped ustun
+    EMAS (`warnings` bilan bir xil naqsh). Vozvrat ro'yxatida "kim yaratdi" va
+    "kim tasdiqladi" ALOHIDA ustun bo'lib chiqishi uchun kerak: ilgari ikkisi
+    ham UI'da umuman ko'rinmasdi, ya'ni ikkinchi ko'z bor-yo'qligini
+    do'konchi ko'ra olmasdi.
+    """
+    u, a = ret.user, ret.approver
+    ret.created_by_name  = (u.full_name or u.username) if u else None
+    ret.approved_by_name = (a.full_name or a.username) if a else None
+    return ret
+
+
 def _next_return_number(db: Session, tenant_id: Optional[int]) -> str:
     today = date.today()
     prefix = f"RET{today.strftime('%y%m%d')}"
@@ -340,6 +355,7 @@ def create_return(
     # OGOHLANTIRISHLAR javobga qo'shiladi (mapped ustun emas — oddiy atribut,
     # `ReturnInDB.warnings` uni from_attributes orqali o'qiydi).
     ret.warnings = warnings
+    _attach_names(ret)
     return ret
 
 
@@ -367,7 +383,7 @@ def list_returns(
         q = q.filter(Return.created_at <= datetime.combine(date_to, datetime.max.time()))
 
     q = q.order_by(Return.created_at.desc())
-    return q.offset((page - 1) * page_size).limit(page_size).all()
+    return [_attach_names(r) for r in q.offset((page - 1) * page_size).limit(page_size).all()]
 
 
 # ── GET /returns/report ──────────────────────────────────────────────────────
@@ -519,7 +535,7 @@ def get_return(
     )
     if not ret:
         raise HTTPException(404, "Qaytarish topilmadi")
-    return ret
+    return _attach_names(ret)
 
 
 # ── POST /returns/{id}/approve ───────────────────────────────────────────────
@@ -640,8 +656,27 @@ def _recalc_customer_debt(db: Session, customer_id: int) -> None:
 def approve_return(
     return_id: int,
     db: Session = Depends(get_db),
-    # RBAC: tasdiqlash ham admin + kassir (ofitsiant/oshpaz emas)
-    current_user=Depends(has_permission("process_payments")),
+    # ═══ IKKINCHI KO'Z (2026-10-03) ═══════════════════════════════════════
+    # ILGARI: yaratish ham, tasdiqlash ham `process_payments` edi — ya'ni
+    # kassir o'z vozvratini o'zi tasdiqlab, kassadan pul chiqarib yuborardi.
+    # Nazorat yo'q edi: XOZMAG'da `RET261002001` 12 SEKUND ichida yozilgan
+    # va tasdiqlangan (bir odam, chekka bog'lanmagan).
+    #
+    # ENDI: tasdiqlash/rad etish `manage_shifts` talab qiladi. Bu ruxsat
+    # `admin` va `menejer` rollarida BOR, `cashier` da YO'Q (database.py rol
+    # urug'i). Ya'ni kassir vozvrat YOZADI (`pending`), pul va ombor esa
+    # rahbar tasdiqlagandan KEYIN harakatlanadi.
+    #
+    # ⚠️ YANGI RUXSAT KODI ATAYIN QO'SHILMADI: `roles` jadvali GLOBAL
+    # (tenant_id ustuni YO'Q), shuning uchun yangi `approve_returns` kodi
+    # barcha tenantlar rollariga urug'lantirilishi kerak bo'lardi — jonli
+    # bazaga migratsiya/seed = ortiqcha xavf. `manage_shifts` ayni shu
+    # "rahbar" chizig'ini allaqachon ajratadi.
+    #
+    # ⚠️ Admin O'ZI yaratgan vozvratni tasdiqlay OLADI (bir kishilik do'konda
+    # boshqa yo'l yo'q — XOZMAG'da faol xodim 1 ta). Bunday hol audit logda
+    # `self_approved: true` bo'lib ko'rinadi.
+    current_user=Depends(has_permission("manage_shifts")),
 ):
     ret = (
         apply_tenant_filter(db.query(Return), Return, current_user)
@@ -700,6 +735,9 @@ def approve_return(
     db.commit()
     db.refresh(ret)
 
+    # Audit: KIM yaratdi va KIM tasdiqladi — ALOHIDA ko'rinadi. `self_approved`
+    # bir odam ikki rolni bajargan holni belgilaydi (bir kishilik do'konda
+    # qonuniy, ko'p xodimli do'konda tekshirish signali).
     log_audit(current_user, "returns", "UPDATE", ret.id, tenant_id=ret.tenant_id, detail={
         "action": "approve",
         "return_number": ret.return_number,
@@ -708,7 +746,16 @@ def approve_return(
         "refund_payments": money["refund_payments"],
         "debt_reduced": money["debt_reduced"],
         "advance": money["advance"],
+        "created_by": ret.user_id,
+        "created_by_name": (ret.user.full_name if ret.user else None),
+        "approved_by": current_user.id,
+        "self_approved": (ret.user_id == current_user.id),
+        # Chekka bog'lanmagan vozvrat: "sotilganidan ko'p qaytarish" tekshiruvi
+        # MUMKIN EMAS edi — audit shuni yozib qoldiradi.
+        "order_linked": ret.order_id is not None,
+        "order_id": ret.order_id,
     })
+    _attach_names(ret)
     return ret
 
 
@@ -717,8 +764,10 @@ def approve_return(
 def reject_return(
     return_id: int,
     db: Session = Depends(get_db),
-    # RBAC: rad etish ham admin + kassir (ofitsiant/oshpaz emas)
-    current_user=Depends(has_permission("process_payments")),
+    # IKKINCHI KO'Z: rad etish ham rahbar ishi — tasdiqlash bilan BIR XIL
+    # ruxsat (`manage_shifts`). Aks holda kassir o'z vozvratini rad etib,
+    # nazorat izini o'chirib yuborishi mumkin edi.
+    current_user=Depends(has_permission("manage_shifts")),
 ):
     ret = (
         apply_tenant_filter(db.query(Return), Return, current_user)
@@ -732,8 +781,26 @@ def reject_return(
 
     ret.status = "rejected"
     ret.approved_by = current_user.id
-    ret.approved_at = datetime.utcnow()
+    # AWARE UTC — `approve` yo'lida allaqachon tuzatilgan (naive qiymatni
+    # PostgreSQL SESSIYA ZONASIDA talqin qiladi). Rad etilgan vozvrat
+    # hisobotlarga KIRMAYDI (`RETURN_COUNTED_STATUSES = ("approved",)`),
+    # shuning uchun bu izchillik tuzatishi, xatti-harakat o'zgarishi EMAS.
+    ret.approved_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(ret)
+
+    # Audit: rad etish ham yoziladi (ilgari YOZILMASDI — kim rad etgani
+    # hech qayerda qolmasdi).
+    log_audit(current_user, "returns", "UPDATE", ret.id, tenant_id=ret.tenant_id, detail={
+        "action": "reject",
+        "return_number": ret.return_number,
+        "total_amount": float(ret.total_amount or 0),
+        "created_by": ret.user_id,
+        "created_by_name": (ret.user.full_name if ret.user else None),
+        "rejected_by": current_user.id,
+        "self_rejected": (ret.user_id == current_user.id),
+        "order_linked": ret.order_id is not None,
+    })
+    _attach_names(ret)
     return ret

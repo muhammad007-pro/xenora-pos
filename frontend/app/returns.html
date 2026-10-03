@@ -137,6 +137,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
           <th>To'lov usuli</th>
           <th>Summa</th>
           <th>Holat</th>
+          <!-- IKKINCHI KO'Z: kim yozgani va kim tasdiqlagani ALOHIDA ko'rinsin -->
+          <th>Kim yozdi</th>
+          <th>Kim tasdiqladi</th>
           <th>Amal</th>
         </tr>
       </thead>
@@ -206,13 +209,26 @@ tr:hover td{background:rgba(255,255,255,.02)}
     </div>
 
     <!-- Mahsulotlar -->
+    <!-- ASOSIY YO'L = yuqoridagi "Chek raqami → Topish".
+         Qo'lda kiritish IKKINCHI DARAJADA: tugma emas, kichik havola.
+         Sabab: qo'lda kiritilgan vozvratda `order_item_id` bo'lmaydi, ya'ni
+         "sotilganidan ko'p qaytarish" tekshiruvi MUMKIN EMAS va chek bilan
+         bog'lanish yo'qoladi (XOZMAG `RET261002001` aynan shunday edi). -->
     <div class="items-header">
       <span>Qaytariladigan mahsulotlar *</span>
-      <button class="btn btn-out btn-sm" onclick="addItemRow()">+ Qo'shish</button>
+      <a href="#" onclick="addItemRow();return false"
+         style="font-size:.75rem;color:var(--text3);text-decoration:underline">+ qator qo'shish</a>
     </div>
     <div class="item-row item-row-head">
       <span>Mahsulot</span><span>Miqdor</span><span>Narx (so'm)</span>
       <span title="Belgilansa tovar omborga QAYTMAYDI (buzuq/yaroqsiz)">Brak</span><span></span>
+    </div>
+    <div id="cManualHint" style="padding:.625rem .75rem;font-size:.8125rem;color:var(--text3);
+         background:var(--surface2);border:1px dashed var(--border);border-radius:.5rem">
+      Yuqoridan <b>chek raqamini toping</b> — mahsulotlar va narxlar sotuvdan
+      avtomatik keladi, miqdor cheklovi tekshiriladi.
+      <a href="#" onclick="manualMode();return false" style="color:var(--text3);text-decoration:underline">
+        yoki qo'lda kiriting</a>
     </div>
     <div id="cItems"></div>
     <div id="cTotal" style="text-align:right;font-size:.875rem;color:var(--gold);margin-top:.5rem;font-weight:700"></div>
@@ -261,6 +277,9 @@ const h = () => ({ Authorization: 'Bearer ' + getToken(), 'Content-Type': 'appli
 let allProducts = [];
 let allCustomers = [];
 let currentReturnId = null;
+// Ochilgan vozvrat obyekti — tasdiqlash oynasidagi ogohlantirish uchun
+// (`order_id` bor-yo'qligi). `currentReturnId` TEGILMAYDI.
+let currentReturn = null;
 let itemRowCount = 0;
 // Topilgan sotuv konteksti. null = QO'LDA KIRITISH rejimi (eski yo'l saqlanadi).
 let _orderCtx = null;
@@ -399,18 +418,31 @@ function updateStats(list) {
 function renderTable(list) {
   const tb = document.getElementById('tbody');
   if (!list.length) {
-    tb.innerHTML = '<tr><td colspan="8" class="empty">Qaytarish yo\'q</td></tr>';
+    tb.innerHTML = '<tr><td colspan="10" class="empty">Qaytarish yo\'q</td></tr>';
     return;
   }
   tb.innerHTML = list.map(ret => `
     <tr>
-      <td style="font-family:monospace;font-size:.75rem;color:var(--text3)">${ret.return_number}</td>
+      <td style="font-family:monospace;font-size:.75rem;color:var(--text3)">${ret.return_number}${
+        ret.order_id ? '' : ' <span title="Chekka bog&quot;lanmagan — sotilganidan ko&quot;p qaytarish tekshirilmagan" style="color:var(--warning,#f59e0b)">⚠</span>'
+      }</td>
       <td>${fmtDate(ret.created_at)}</td>
       <td>${ret.customer ? escHtml(ret.customer.name) : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${REASON_LABELS[ret.reason] || ret.reason}</td>
       <td>${REFUND_LABELS[ret.refund_method] || ret.refund_method}</td>
       <td style="font-weight:600;color:var(--gold)">${fmtNum(ret.total_amount)} so'm</td>
       <td><span class="badge badge-${ret.status}">${statusLabel(ret.status)}</span></td>
+      <td style="font-size:.8125rem">${ret.created_by_name ? escHtml(ret.created_by_name) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="font-size:.8125rem">${
+        !ret.approved_by_name
+          ? '<span style="color:var(--text3)">—</span>'
+          : (ret.user_id && ret.approved_by === ret.user_id
+              // O'zi yozdi, o'zi tasdiqladi — ikkinchi ko'z ishlamagan.
+              // To'siq EMAS (bir kishilik do'konda boshqa yo'l yo'q), lekin
+              // do'konchi buni ro'yxatdan ko'rib turishi kerak.
+              ? `<span style="color:var(--warning,#f59e0b)" title="O&quot;zi yozdi, o&quot;zi tasdiqladi">${escHtml(ret.approved_by_name)} ⚠</span>`
+              : escHtml(ret.approved_by_name))
+      }</td>
       <td>
         <button class="btn btn-out btn-sm" onclick="openDetail(${ret.id})">Ko'rish</button>
       </td>
@@ -437,6 +469,14 @@ window.openCreateModal = function() {
   if (cs._ss) { cs._ss.setInitial(allCustomers); cs._ss.reset(); }
   cs.value = '';
   itemRowCount = 0;
+  // Eslatma: chekni topish ASOSIY yo'l. Bo'sh qator ATAYIN saqlanadi —
+  // `addItemRow()` ni olib tashlash `#ip0` ni yo'q qilib,
+  // `frontend/tests/test_searchable_select_returns.mjs` ni buzardi (R3/R4
+  // mahsulot qatorining qidiruvli select'ini tekshiradi). Ustunlik stil
+  // bilan beriladi: yuqorida chek qidiruvi + sariq eslatma, qo'lda kiritish
+  // esa kichik havola (tugma emas).
+  const _h = document.getElementById('cManualHint');
+  if (_h) _h.style.display = '';
   addItemRow();
   document.getElementById('createModal').classList.add('open');
 };
@@ -472,6 +512,9 @@ window._clearOrderCtx = function() {
 };
 
 window.manualMode = function() {
+  // Kassir ataylab qo'lda kiritishni tanladi — eslatma kerak emas.
+  const _h = document.getElementById('cManualHint');
+  if (_h) _h.style.display = 'none';
   _clearOrderCtx();
   document.getElementById('cItems').innerHTML = '';
   document.getElementById('cTotal').textContent = '';
@@ -537,6 +580,9 @@ function _renderOrderRows(o) {
   box.innerHTML = '';
   itemRowCount = 0;
   document.getElementById('cTotal').textContent = '';
+  // Chek topildi — "chekni toping" eslatmasi kerak emas.
+  const _h = document.getElementById('cManualHint');
+  if (_h) _h.style.display = 'none';
 
   const bor = (o.items || []).filter(it => it.returnable_qty > 0);
   if (!bor.length) {
@@ -573,6 +619,10 @@ function _renderOrderRows(o) {
 }
 
 window.addItemRow = function() {
+  // DIQQAT: eslatma bu yerda YASHIRILMAYDI. Modal bo'sh qator bilan ochiladi,
+  // ya'ni yashirilsa eslatma hech qachon ko'rinmasdi. Uni faqat chek topilganda
+  // (`_renderOrderRows`) yoki kassir ataylab qo'lda kiritishni tanlaganda
+  // (`manualMode`) olib tashlaymiz.
   const idx = itemRowCount++;
   const opts = allProducts.map(p =>
     `<option value="${p.id}" data-price="${p.price}">${escHtml(p.name)}</option>`
@@ -714,6 +764,7 @@ window.openDetail = async function(id) {
   try {
     const r = await fetch(`${API}/returns/${id}`, { headers: h() });
     const ret = await r.json();
+    currentReturn = ret;
     document.getElementById('dTitle').textContent = `Qaytarish — ${ret.return_number}`;
 
     if (ret.status === 'pending') {
@@ -731,14 +782,34 @@ window.openDetail = async function(id) {
       `;
     }).join('');
 
-    document.getElementById('dBody').innerHTML = `
+    // CHEKKA BOG'LANMAGAN VOZVRAT — tasdiqlashdan OLDIN ko'rinadigan
+    // ogohlantirish. To'siq emas: eski chek yoki boshqa kassadagi sotuv
+    // qonuniy hol. Lekin bunda "sotilganidan ko'p qaytarish" tekshiruvi
+    // MUMKIN EMAS, shuning uchun tasdiqlovchi buni bilib turishi kerak.
+    const bogsizOgoh = ret.order_id ? '' : `
+      <div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);
+                  border-radius:.5rem;padding:.5rem .75rem;margin-bottom:.75rem;font-size:.8125rem">
+        <b style="color:var(--warning,#f59e0b)">⚠ Bu vozvrat chekka bog'lanmagan.</b>
+        Sotuv topilmagani uchun "sotilganidan ko'p qaytarish" tekshiruvi
+        o'tkazilmagan. Tasdiqlashdan oldin chekni tekshiring.
+      </div>`;
+
+    const ozi = ret.user_id && ret.approved_by && ret.user_id === ret.approved_by;
+
+    document.getElementById('dBody').innerHTML = bogsizOgoh + `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem;font-size:.8125rem;margin-bottom:.75rem">
         <div><span style="color:var(--text3)">Holat:</span> <span class="badge badge-${ret.status}">${statusLabel(ret.status)}</span></div>
         <div><span style="color:var(--text3)">Sana:</span> ${fmtDate(ret.created_at)}</div>
         <div><span style="color:var(--text3)">Sabab:</span> ${REASON_LABELS[ret.reason] || ret.reason}</div>
         <div><span style="color:var(--text3)">Qaytarish:</span> ${REFUND_LABELS[ret.refund_method] || ret.refund_method}</div>
         <div><span style="color:var(--text3)">Mijoz:</span> ${ret.customer ? escHtml(ret.customer.name) : '—'}</div>
-        <div><span style="color:var(--text3)">Buyurtma #:</span> ${ret.order_id || '—'}</div>
+        <div><span style="color:var(--text3)">Buyurtma #:</span> ${ret.order_id || '<span style="color:var(--warning,#f59e0b)">bog\'lanmagan</span>'}</div>
+        <div><span style="color:var(--text3)">Kim yozdi:</span> ${ret.created_by_name ? escHtml(ret.created_by_name) : '—'}</div>
+        <div><span style="color:var(--text3)">Kim tasdiqladi:</span> ${
+          ret.approved_by_name
+            ? escHtml(ret.approved_by_name) + (ozi ? ' <span style="color:var(--warning,#f59e0b)" title="O\'zi yozdi, o\'zi tasdiqladi">⚠</span>' : '')
+            : '<span style="color:var(--text3)">hali yo\'q</span>'
+        }</div>
         ${ret.notes ? `<div colspan="2"><span style="color:var(--text3)">Izoh:</span> ${escHtml(ret.notes)}</div>` : ''}
       </div>
       <div class="detail-items">
@@ -755,10 +826,27 @@ window.openDetail = async function(id) {
 };
 
 window.approveReturn = async function() {
-  if (!confirm('Qaytarishni tasdiqlaysizmi? Tovar omborga qaytariladi.')) return;
+  // Chekka bog'lanmagan vozvratda tasdiqlash oynasida ham ogohlantiriladi —
+  // modal ichidagi sariq blokni o'qimay "Tasdiqlash" bosilishi mumkin.
+  let savol = 'Qaytarishni tasdiqlaysizmi? Tovar omborga qaytariladi.';
+  if (currentReturn && !currentReturn.order_id) {
+    savol = "⚠ Bu vozvrat CHEKKA BOG'LANMAGAN — sotilganidan ko'p qaytarish "
+          + "tekshiruvi o'tkazilmagan.\n\nShunday bo'lsa ham tasdiqlaysizmi? "
+          + "Tovar omborga qaytariladi va pul chiqadi.";
+  }
+  if (!confirm(savol)) return;
   try {
     const r = await fetch(`${API}/returns/${currentReturnId}/approve`, { method: 'POST', headers: h() });
-    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Xato');
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      // IKKINCHI KO'Z: kassirda `manage_shifts` yo'q -> 403. Umumiy "Xato"
+      // o'rniga nima qilish kerakligini aytamiz.
+      if (r.status === 403) {
+        throw new Error("Vozvratni tasdiqlash huquqi yo'q — administrator yoki "
+                      + "menejer tasdiqlashi kerak. Vozvrat 'Kutilmoqda' holatida saqlanadi.");
+      }
+      throw new Error(err.detail || 'Xato');
+    }
     closeModal('detailModal');
     showToast('Qaytarish tasdiqlandi, tovar omborga qaytarildi', 'success');
     load();
@@ -771,7 +859,13 @@ window.rejectReturn = async function() {
   if (!confirm('Qaytarishni rad etasizmi?')) return;
   try {
     const r = await fetch(`${API}/returns/${currentReturnId}/reject`, { method: 'POST', headers: h() });
-    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || 'Xato');
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      if (r.status === 403) {
+        throw new Error("Vozvratni rad etish huquqi yo'q — administrator yoki menejer rad etishi kerak.");
+      }
+      throw new Error(err.detail || 'Xato');
+    }
     closeModal('detailModal');
     showToast('Qaytarish rad etildi', 'error');
     load();

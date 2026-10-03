@@ -13,7 +13,7 @@ Endpointlar:
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_, case
 from datetime import datetime, date, timezone
 from typing import Optional, List
 
@@ -26,6 +26,9 @@ from services.payment_service import PaymentService
 from schemas import ReturnCreate, ReturnInDB, ReturnReport, MessageResponse
 from deps import get_current_active_user, apply_tenant_filter, has_permission
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
+# Davr ta'rifi YAGONA manbadan — routers/report.py bilan bir xil qoida
+# (tenant mahalliy zonasi, tugash kuni to'liq qamraladi).
+from core.timeutils import report_bounds
 
 router = APIRouter()
 
@@ -129,6 +132,11 @@ def _return_base_qty(db: Session, order_item_id, quantity: float) -> float:
 
 # 3 xonali yaxlitlashdan kichik farq — "teng" deb qaraladi (float qoldig'i).
 _QTY_EPS = 0.0005
+
+# Summa bo'yicha qidiruvda TAXMINIY moslik oynasi (so'm). Kassir chek
+# summasini yaqinlashtirib eslaydi ("360 mingga yaqin") — aniq moslik
+# baribir BIRINCHI turadi (order_by dagi `case`).
+_AMOUNT_EPS = 1000.0
 
 
 def _fq(x: float) -> str:
@@ -519,6 +527,120 @@ def lookup_order(
         "is_credit_sale": bool(nasiya and not tolangan),
         "items":          rows,
     }
+
+
+
+
+# ── GET /returns/orders ──────────────────────────────────────────────────────
+# ⚠️ `/{return_id}` DAN OLDIN turishi SHART — aks holda FastAPI "orders" ni
+# `return_id` deb o'qib 422 qaytaradi (`/lookup` va `/report` ham shu sababdan
+# yuqorida).
+@router.get("/orders")
+def list_returnable_orders(
+    search: Optional[str] = Query(None, description="Chek raqami, summa yoki mijoz ismi"),
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
+    date_to:   Optional[str] = Query(None, description="YYYY-MM-DD"),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user=Depends(has_permission("process_payments")),
+):
+    """Vozvrat uchun SOTUVLAR RO'YXATI — kassir chekni ro'yxatdan tanlaydi.
+
+    NEGA KERAK: `GET /returns/lookup` chek raqamini BILISHNI talab qiladi.
+    Mijoz chekni yo'qotgan bo'lsa yoki raqamni eslamasa, kassir yana qo'lda
+    kiritishga qaytadi — `order_item_id` yuborilmaydi, miqdor cheklovi
+    tekshirilmaydi (XOZMAG `RET261002001` aynan shunday paydo bo'lgan).
+    Bu endpoint oxirgi sotuvlarni ko'rsatadi; tanlangandan keyin UI
+    AVVALGIDEK `/lookup` ga boradi — ya'ni qaytarish oqimi O'ZGARMAYDI.
+
+    Davr: standart oxirgi **30 kun** (`report_bounds` — tenant mahalliy zonasi,
+    `routers/report.py` bilan BIR XIL qoida). Faqat `completed` sotuvlar.
+
+    BELGILAR (kassir bilib turishi uchun):
+      • `has_returns`     — bu sotuvga vozvrat BOR (pending yoki approved)
+      • `fully_returned`  — qaytarish uchun qolgani YO'Q (hammasi qaytarilgan)
+    `rejected` vozvrat sanalmaydi (`_returned_qty_map` bilan bir xil qoida).
+    """
+    start, end = report_bounds(date_from, date_to, default_days=30)
+
+    q = apply_tenant_filter(db.query(Order), Order, current_user).filter(
+        Order.status == "completed",
+        Order.created_at >= start,
+        Order.created_at <= end,
+    )
+
+    term = (search or "").strip()
+    tartib = [Order.created_at.desc(), Order.id.desc()]
+    if term:
+        like = f"%{term}%"
+        shartlar = [
+            Order.order_number.ilike(like),
+            Order.customer.has(Customer.name.ilike(like)),
+        ]
+        son = None
+        try:
+            son = float(term.replace(" ", "").replace(",", "."))
+        except ValueError:
+            son = None
+
+        if son is not None:
+            # SUMMA bo'yicha qidiruv. ANIQ moslik BIRINCHI turadi, keyin
+            # taxminiy (±1000 so'm) — kassir "360000" yozib 359 500 lik chekni
+            # ham ko'rsin, lekin aniq mos kelgani tepada bo'lsin.
+            shartlar.append(Order.final_amount == son)
+            shartlar.append(Order.final_amount.between(son - _AMOUNT_EPS, son + _AMOUNT_EPS))
+            # Kunlik raqam ham son bilan izlanadi (kassir "3" yozsa)
+            if term.isdigit():
+                shartlar.append(Order.daily_number == int(term))
+            tartib = [
+                case((Order.final_amount == son, 0), else_=1).asc(),
+                Order.created_at.desc(),
+                Order.id.desc(),
+            ]
+        q = q.filter(or_(*shartlar))
+
+    orders = q.order_by(*tartib).limit(limit).all()
+    if not orders:
+        return []
+
+    # ── Qaytarish holati: BIR so'rovda (N+1 bo'lmasin) ─────────────────────
+    order_ids = [o.id for o in orders]
+    items = db.query(OrderItem).filter(OrderItem.order_id.in_(order_ids)).all()
+    qaytarilgan = _returned_qty_map(db, [oi.id for oi in items])
+
+    sotilgan_jami: dict = {}
+    qaytgan_jami:  dict = {}
+    for oi in items:
+        sotilgan_jami[oi.order_id] = sotilgan_jami.get(oi.order_id, 0.0) + float(oi.quantity or 0)
+        qaytgan_jami[oi.order_id]  = qaytgan_jami.get(oi.order_id, 0.0) + qaytarilgan.get(oi.id, 0.0)
+
+    # To'lov usullari — bitta so'rovda
+    pays = db.query(Payment).filter(Payment.order_id.in_(order_ids)).all()
+    usullar: dict = {}
+    for p in pays:
+        m = str(getattr(p.method, "value", p.method) or "").lower()
+        if m:
+            usullar.setdefault(p.order_id, set()).add(m)
+
+    natija = []
+    for o in orders:
+        sotilgan = sotilgan_jami.get(o.id, 0.0)
+        qaytgan  = qaytgan_jami.get(o.id, 0.0)
+        natija.append({
+            "order_id":       o.id,
+            "order_number":   o.order_number,
+            "daily_number":   o.daily_number,
+            "created_at":     o.created_at,
+            "final_amount":   float(o.final_amount or 0),
+            "customer_id":    o.customer_id,
+            "customer_name":  o.customer.name if o.customer else None,
+            "payment_methods": sorted(usullar.get(o.id, set())),
+            "has_returns":    qaytgan > _QTY_EPS,
+            # Hammasi qaytarilgan — bu chekni tanlash FOYDASIZ (qator qolmagan).
+            # `sotilgan == 0` (qatorsiz sotuv) "to'liq qaytarilgan" DEB SANALMAYDI.
+            "fully_returned": bool(sotilgan > 0 and (sotilgan - qaytgan) <= _QTY_EPS),
+        })
+    return natija
 
 
 # ── GET /returns/{id} ────────────────────────────────────────────────────────

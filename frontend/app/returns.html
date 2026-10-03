@@ -186,9 +186,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <div class="form-group">
         <label>Chek raqami</label>
         <div style="display:flex;gap:.375rem">
+          <!-- SKANER: chekdagi Code128 ni o'qib, qiymatni klaviatura kabi
+               "yozadi" va oxirida Enter (ba'zi modellar Tab) yuboradi —
+               shuning uchun ikkalasi ham "Topish" ni ishga tushiradi.
+               QO'LDA TERISH ham avvalgidek ishlaydi (eski, kodsiz cheklar). -->
           <input class="form-control" type="text" id="cOrderSearch"
-                 placeholder="CHK00123 yoki kunlik raqam" style="flex:1"
-                 onkeydown="if(event.key==='Enter'){event.preventDefault();lookupOrder()}">
+                 placeholder="Skanerlang yoki chek raqamini kiriting" style="flex:1"
+                 autocomplete="off"
+                 onkeydown="if(event.key==='Enter'||event.key==='Tab'){event.preventDefault();lookupOrder()}">
           <button class="btn btn-gold btn-sm" type="button" onclick="lookupOrder()">Topish</button>
           <!-- Mijoz chekni yo'qotgan/raqamni eslamagan hol — ro'yxatdan tanlash.
                Tanlangandan keyin AYNAN `lookupOrder()` ga tushadi, ya'ni
@@ -517,6 +522,9 @@ window.openCreateModal = function() {
   if (_h) _h.style.display = '';
   addItemRow();
   document.getElementById('createModal').classList.add('open');
+  // SKANER uchun fokus: modal ochilishi bilan chek maydoni tayyor bo'lsin,
+  // kassir sichqonchaga tegmasdan shtrix-kodni o'qitadi.
+  setTimeout(() => { document.getElementById('cOrderSearch')?.focus(); }, 60);
 };
 
 

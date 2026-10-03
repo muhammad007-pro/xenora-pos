@@ -12,6 +12,10 @@
  * Bu modul HECH QANDAY global o'zgaruvchi yaratmaydi — faqat export qiladi.
  */
 
+// Chek raqamining shtrix-kodi (faqat USB/PDF yo'lida chiziladi — LAN yo'lida
+// printer o'zi kodlaydi, qarang: electron/escpos-builder.js `GS k`).
+import { code128Svg } from './code128.js';
+
 // Electron server rejimida printReceipt IPC mavjudmi?
 export function isElectron() {
   return !!(window.electronAPI && window.electronAPI.isElectron && window.electronAPI.printReceipt);
@@ -309,6 +313,36 @@ export function giftRow(name, qty) {
        + `<td>${_esc(qty)}</td><td style="text-align:right">BEPUL</td></tr>`;
 }
 
+/**
+ * Chek raqamining Code128 shtrix-kodi — QAYTARISHDA SKANERLASH uchun.
+ *
+ * NEGA: vozvratda kassir chek raqamini QO'LDA teradi (10 xonali: 2610029124).
+ * Xato tersa sotuv topilmaydi va u qo'lda kiritishga qaytadi — natijada
+ * `order_item_id` yuborilmaydi va miqdor cheklovi tekshirilmaydi
+ * (XOZMAG `RET261002001` aynan shunday paydo bo'lgan).
+ *
+ * JOYLASHUVI: jamidan KEYIN, footer'dan OLDIN. Kelajakdagi fiskal QR esa
+ * chekning eng pastida (alohida ajratgich bilan) — ikkisi CHALKASHMASIN.
+ * Shuning uchun QR emas, CHIZIQLI kod: skaner ikkisini aralashtirmaydi va
+ * fiskal QR o'z joyida qoladi.
+ *
+ * `data-barcode` — LAN (ESC/POS) yo'li uchun: `electron/main.js` chek DOM'idan
+ * aynan shu atributni o'qiydi va printerga `GS k` bilan yuboradi (chiziqlarni
+ * printer O'ZI kodlaydi). Ya'ni bu SVG faqat USB/PDF yo'lida ko'rinadi.
+ */
+function barcodeBlock(rec) {
+  const val = rec.order_number != null ? String(rec.order_number) : '';
+  if (!val) return '';
+  const contentMm = paperSpec(rec.paper_width).content;
+  // Balandlik 6 mm — skaner oladigan eng kichik amaliy qiymat. Chek balandligi
+  // ~8 mm ga oshadi (6 mm kod + 2 mm bo'shliq), ya'ni sezilmaydi.
+  const svg = code128Svg(val, { heightMm: 6, maxWidthMm: contentMm - 2 });
+  if (!svg) return '';   // kodlanmadi (g'alati chek raqami) → chek BUZILMAYDI
+  // Raqam ostida YOZILMAYDI: u chekning tepasida "Chek #..." bo'lib turibdi.
+  return `<div class="receipt-barcode" data-barcode="${_esc(val)}"`
+       + ` style="text-align:center;margin:3px 0 1px">${svg}</div>`;
+}
+
 export function buildReceipt58(rec) {
   rec = rec || {};
   const items = rec.items || [];
@@ -361,6 +395,7 @@ export function buildReceipt58(rec) {
       <div class="rt-row"><span>To'lov:</span><span>${_esc(payTxt)}</span></div>
       ${loyaltyRows(rec)}
     </div>
+    ${barcodeBlock(rec)}
     <div class="receipt-footer">Xarid uchun rahmat!</div>`;
 
   if (rec.fiscal_qr_url) {

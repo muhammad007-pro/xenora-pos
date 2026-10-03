@@ -261,7 +261,14 @@ const _RECEIPT_EXTRACT_JS = `(function(){
   var fiscalMatch = document.body.textContent.match(/№\\s*([\\w-]+)/);
   if (document.body.textContent.indexOf('FISKAL') !== -1 && fiscalMatch) fiscalNumber = fiscalMatch[1];
   var footer = txt(document.querySelector('.receipt-footer'));
-  return { storeName: storeName, addressLines: addressLines, meta: meta, rows: rows, totals: totals, footer: footer, fiscalNumber: fiscalNumber };
+  // Chek raqamining shtrix-kodi: SVG ni O'QIMAYMIZ — data-barcode atributidan
+  // AYNAN qiymatni olamiz va printerga GS k bilan yuboramiz (Code128 ni
+  // printer o'zi kodlaydi). "Chek #..." matnini parse qilish mo'rt bo'lardi.
+  // DIQQAT: bu blok TEMPLATE LITERAL ichida — teskari tirnoq YOZILMAYDI,
+  // u satrni uzib main.js ni buzadi (ESLint "Unexpected token" beradi).
+  var bcEl = document.querySelector('.receipt-barcode[data-barcode]');
+  var barcode = bcEl ? String(bcEl.getAttribute('data-barcode') || '').trim() : null;
+  return { storeName: storeName, addressLines: addressLines, meta: meta, rows: rows, totals: totals, footer: footer, fiscalNumber: fiscalNumber, barcode: barcode || null };
 })()`;
 
 // Chek HTML'ni yashirin oynada yuklab, structured ma'lumotni DOM'dan o'qiydi.

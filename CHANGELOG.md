@@ -3,6 +3,60 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.14] — 2026-10-03 — Mijoz qarz kartochkasi (faqat ko'rsatish)
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).
+**PUL MANTIG'IGA TEGILMAGAN** — hech narsa yozilmaydi, qoldiq qayta hisoblanmaydi.
+
+### 📋 1) `GET /customers/{id}/debt-card`
+
+Do'konchi mijoz bilan turganda ochadigan ekran. Bitta javobda:
+
+* **qarzlar** — sana, chek raqami (`order_number` + kunlik raqam), summa,
+  to'langan, qolgan, holat, **olingan mahsulotlar** (`order_items`)
+* **to'lovlar tarixi** — sana, summa, usul, **kim qabul qilgan**
+* **xronologik oborot** — qarz/to'lov aralash, yugurib boruvchi qoldiq
+
+Naqsh `routers/suppliers.py` dagi firma oborot varag'i bilan bir xil.
+Tenant izolyatsiyasi ikki qavat: mijoz `apply_tenant_filter` bilan topiladi
+(begona mijoz → 404) + qarz va buyurtmalar ham filtrlanadi.
+
+**KAFOLAT (test bilan qotirilgan):** oborotning oxirgi qatori `balance` =
+`customers.total_debt`. Buning uchun uchinchi tur yozuv kerak bo'ldi —
+`routers/returns.py` qarzni `paid_amount` orqali kamaytiradi, lekin
+`DebtPayment` qatori **YARATMAYDI**. Oborotni faqat to'lovlardan yig'ganda
+qoldiq kartadagi raqamdan oshib ketardi; endi `paid_amount` − Σ(to'lovlar)
+farqi "Vozvrat bilan yopilgan" qatori bo'lib tushadi.
+
+`order_id IS NULL` (POS'siz, "+ Qarz yozish" bilan kiritilgan qarz) →
+"Qo'lda kiritilgan qarz", mahsulot ro'yxati bo'sh, **xato bermaydi**.
+Vozvrat avansi (`amount` manfiy) alohida belgilanadi.
+
+### 🔍 2) Nasiya ro'yxatiga qidiruv — `GET /debts/?search=`
+
+Mijoz ismi yoki telefoni bo'yicha (`ilike`, `/customers/?search=` bilan bir
+xil qoida), tenant ichida. Mavjud filtrlarga qo'shimcha — orqaga mos.
+
+### 🖥 3) Frontend
+
+* `admin.html` — `debtCardModal` (`suppliers.html` `ledgerModal` naqshi) +
+  qidiruv maydoni (350ms debounce)
+* `store.js` — nasiya ro'yxatida mijoz nomi bosiladigan → kartochka;
+  kartochkada chek raqamiga bosilsa mahsulotlar ochiladi/yopiladi.
+  `escJs()` qo'shildi — apostrofli ismlar (O'tkir, D'Artagnan) inline
+  `onclick` ni buzardi
+* `customers.html` — **"Qarz" ustuni** (qizil=qarz, yashil=avans, `—`=yo'q)
+  + "Qarz bo'yicha" saralash
+
+### ✅ Testlar
+
+`backend/tests/test_customer_debt_card.py` — 8 ta: qoldiq mosligi, to'lovni
+kim qabul qilgani, chek raqami + mahsulotlar, `order_id NULL`, qarzsiz mijoz,
+vozvrat qatori, begona tenant 404 (ikki tomonga), qidiruv tenant ichida.
+Jami **634 passed, 2 skipped**.
+
+---
+
 ## [1.12.13] — 2026-10-02 — Vozvrat: sotilganidan ko'p qaytarish to'sildi
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).

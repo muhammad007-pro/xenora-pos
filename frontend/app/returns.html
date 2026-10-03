@@ -190,6 +190,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
                  placeholder="CHK00123 yoki kunlik raqam" style="flex:1"
                  onkeydown="if(event.key==='Enter'){event.preventDefault();lookupOrder()}">
           <button class="btn btn-gold btn-sm" type="button" onclick="lookupOrder()">Topish</button>
+          <!-- Mijoz chekni yo'qotgan/raqamni eslamagan hol — ro'yxatdan tanlash.
+               Tanlangandan keyin AYNAN `lookupOrder()` ga tushadi, ya'ni
+               qaytarish oqimi o'zgarmaydi. -->
+          <button class="btn btn-out btn-sm" type="button" onclick="openOrderPicker()"
+                  title="Oxirgi sotuvlar ro'yxatidan tanlash">📋 Ro'yxatdan</button>
         </div>
       </div>
       <div class="form-group">
@@ -236,6 +241,39 @@ tr:hover td{background:rgba(255,255,255,.02)}
     <div class="modal-footer">
       <button class="btn btn-out" onclick="closeModal('createModal')">Bekor</button>
       <button class="btn btn-gold" onclick="submitReturn()">Saqlash</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SOTUV TANLASH MODAL (ro'yxatdan chek tanlash) ── -->
+<div class="modal-overlay" id="orderPickerModal">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-title">Sotuvni tanlash</div>
+    <div style="display:flex;gap:.375rem;flex-wrap:wrap;margin-bottom:.625rem">
+      <input class="form-control" type="text" id="opSearch" style="flex:1;min-width:180px"
+             placeholder="Chek raqami, summa yoki mijoz ismi..."
+             oninput="opSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();loadPickerOrders()}">
+      <input class="form-control" type="date" id="opFrom" style="width:150px" onchange="loadPickerOrders()">
+      <input class="form-control" type="date" id="opTo" style="width:150px" onchange="loadPickerOrders()">
+      <button class="btn btn-out btn-sm" type="button" onclick="opReset()">Tozalash</button>
+    </div>
+    <div style="font-size:.75rem;color:var(--text3);margin-bottom:.5rem">
+      Standart: oxirgi 30 kun, 50 ta sotuv. Qatorga bosing.
+    </div>
+    <div class="tbl-wrap" style="max-height:52vh;overflow:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th style="width:130px">Sana</th>
+          <th>Chek №</th>
+          <th style="text-align:right;width:130px">Summa</th>
+          <th>Mijoz</th>
+          <th style="width:90px">To'lov</th>
+        </tr></thead>
+        <tbody id="opBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-out" onclick="closeModal('orderPickerModal')">Yopish</button>
     </div>
   </div>
 </div>
@@ -479,6 +517,95 @@ window.openCreateModal = function() {
   if (_h) _h.style.display = '';
   addItemRow();
   document.getElementById('createModal').classList.add('open');
+};
+
+
+// ══ SOTUV TANLASH (ro'yxatdan chek tanlash) ═══════════════════════════════════
+// NEGA: `lookupOrder()` chek raqamini BILISHNI talab qiladi. Mijoz chekni
+// yo'qotgan bo'lsa kassir yana qo'lda kiritishga qaytardi — `order_item_id`
+// yuborilmasdi va miqdor cheklovi tekshirilmasdi.
+//
+// GOLDEN: bu yerda vozvrat mantig'i YO'Q. Qator tanlangach chek raqami
+// `cOrderSearch` ga yoziladi va AYNAN `lookupOrder()` chaqiriladi — qatorlar,
+// readonly narx, nasiya/to'lov usuli mantig'i o'zgarmaydi.
+let _opTimer = null;
+
+window.openOrderPicker = function() {
+  document.getElementById('orderPickerModal').classList.add('open');
+  loadPickerOrders();
+};
+
+window.opSearchInput = function() {
+  clearTimeout(_opTimer);
+  _opTimer = setTimeout(loadPickerOrders, 350);
+};
+
+window.opReset = function() {
+  ['opSearch', 'opFrom', 'opTo'].forEach(id => { document.getElementById(id).value = ''; });
+  loadPickerOrders();
+};
+
+window.loadPickerOrders = async function() {
+  const body = document.getElementById('opBody');
+  body.innerHTML = '<tr><td colspan="5" class="empty">Yuklanmoqda...</td></tr>';
+
+  const p = new URLSearchParams();
+  const s = document.getElementById('opSearch').value.trim();
+  const f = document.getElementById('opFrom').value;
+  const t = document.getElementById('opTo').value;
+  if (s) p.set('search', s);
+  if (f) p.set('date_from', f);
+  if (t) p.set('date_to', t);
+
+  let list;
+  try {
+    const r = await fetch(`${API}/returns/orders?${p}`, { headers: h() });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'Yuklanmadi');
+    }
+    list = await r.json();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="empty" style="color:var(--danger,#ef4444)">${escHtml(e.message)}</td></tr>`;
+    return;
+  }
+
+  if (!list.length) {
+    body.innerHTML = `<tr><td colspan="5" class="empty">${
+      s ? `"${escHtml(s)}" bo'yicha sotuv topilmadi` : 'Bu davrda sotuv yo\'q'
+    }</td></tr>`;
+    return;
+  }
+
+  const METOD = { cash: 'naqd', card: 'karta', credit: 'nasiya', click: 'Click', payme: 'Payme', qr: 'QR' };
+  body.innerHTML = list.map(o => {
+    // To'liq qaytarilgan sotuvni tanlash FOYDASIZ (qator qolmagan) — kulrang
+    // va bosilmaydigan. Qisman qaytarilgani tanlanadi, lekin belgi bilan.
+    const tugagan = o.fully_returned;
+    const bosish = tugagan
+      ? ''
+      : ` onclick="pickOrder('${String(o.order_number || '').replace(/'/g, "\\'")}')" style="cursor:pointer"`;
+    const belgi = tugagan
+      ? ' <span style="color:var(--text3);font-size:.7rem">(to\'liq qaytarilgan)</span>'
+      : (o.has_returns ? ' <span style="color:var(--warning,#f59e0b)" title="Qisman qaytarilgan">↩</span>' : '');
+    const usul = (o.payment_methods || []).map(m => METOD[m] || m).join(', ') || '—';
+    return `<tr${bosish} style="${tugagan ? 'opacity:.45' : ''}">
+      <td style="font-size:.8125rem;color:var(--text3)">${fmtDate(o.created_at)}</td>
+      <td style="font-family:monospace;font-size:.8125rem">${escHtml(o.order_number || '')}${
+        o.daily_number ? ` <span style="color:var(--text3)">#${o.daily_number}</span>` : ''
+      }${belgi}</td>
+      <td style="text-align:right;font-weight:600;color:var(--gold)">${fmtNum(o.final_amount)}</td>
+      <td style="font-size:.8125rem">${o.customer_name ? escHtml(o.customer_name) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="font-size:.75rem;color:var(--text3)">${escHtml(usul)}</td>
+    </tr>`;
+  }).join('');
+};
+
+// Qator tanlandi → MAVJUD lookup oqimiga topshiramiz (yangi mantiq yo'q).
+window.pickOrder = function(orderNumber) {
+  document.getElementById('cOrderSearch').value = orderNumber;
+  closeModal('orderPickerModal');
+  lookupOrder();
 };
 
 // ══ CHEK RAQAMI BO'YICHA SOTUVNI TOPISH ═══════════════════════════════════

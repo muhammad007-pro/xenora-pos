@@ -3,6 +3,63 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.17] — 2026-10-04 — Chekda Code128 shtrix-kod (vozvratda skanerlash)
+
+Faqat **frontend + electron**. **Backend TEGILMAGAN**, **MIGRATSIYA YO'Q**
+(alembic head o'zgarmaydi: `c9f2a71d3e84`). `models.py`, `schemas.py`,
+`routers/` — **tegilmagan**.
+
+### 🏷 1) Chek raqamining shtrix-kodi
+
+**MUAMMO:** vozvratda kassir chek raqamini **qo'lda** teradi (10 xonali:
+`2610029124`). Xato tersa sotuv topilmaydi va u qo'lda kiritishga qaytadi —
+`order_item_id` yuborilmaydi, "sotilganidan ko'p qaytarish" tekshiruvi
+o'tkazilmaydi (v1.12.13 da qo'yilgan cheklov chetlab o'tiladi).
+
+**YECHIM:** chekka `order_number` ning **Code128** shtrix-kodi bosiladi.
+
+* `frontend/js/core/code128.js` — **yangi** modul, SVG generator
+  (Code128 B/C, nazorat belgisi, `crispEdges`). Global o'zgaruvchi
+  yaratmaydi
+* **joylashuvi:** jamidan **KEYIN**, footer'dan **OLDIN**. Fiskal QR
+  chekning eng pastida qoladi — skaner ikkisini **chalkashtirmaydi**
+  (shuning uchun QR emas, **chiziqli** kod)
+* balandlik **6 mm** → chek **+6.8 mm** (o'lchangan, test bilan qotirilgan)
+* `order_number` yo'q yoki kodlanmasa blok **qo'shilmaydi** — chek
+  avvalgidek chiqadi (eski, kodsiz cheklar buzilmaydi)
+
+### 🖨 2) Ikki bosib chiqarish yo'li — bitta qiymat
+
+* **USB/PDF:** chiziqlarni **biz** chizamiz (SVG, Code128C — tor)
+* **LAN/ESC-POS:** `electron/escpos-builder.js` printerga faqat
+  **qiymatni** yuboradi (`GS k`), chiziqlarni **printer o'zi** kodlaydi
+* ⚠️ ESC/POS da **doim `{B`** (ASCII) ishlatiladi, `{C` **EMAS**: `{C`
+  ma'lumotni ikkilik juftlik deb o'qiydi va chekda **boshqa raqam**
+  chiqadi — xato **jimgina** bo'ladi (chek chiroyli, qiymat boshqa)
+* `electron/main.js` chek DOM'idan `.receipt-barcode[data-barcode]`
+  atributini o'qiydi — SVG **parse qilinmaydi**
+* ⚠️ `main.js` dagi o'qish kodi **template literal** ichida — teskari
+  tirnoq yozilsa satr uzilib fayl buziladi (izoh qoldirilgan)
+
+### 📷 3) Vozvratda skanerlash (`returns.html`)
+
+* chek maydoni skanerni qabul qiladi: `Enter` **va** `Tab` ikkisi ham
+  "Topish" ni ishga tushiradi (skaner modellari farq qiladi)
+* modal ochilishida maydonga **fokus** — kassir sichqonchaga tegmaydi
+* **qo'lda terish o'zgarmaydi** (eski cheklar uchun)
+
+### 🧪 Testlar
+
+* `test_code128.mjs` — 18 tekshiruv (naqshlar, nazorat belgisi, SVG,
+  bo'sh/null/kirill qiymat)
+* `test_receipt_barcode.mjs` — 18 tekshiruv (atribut, joylashuv, 58/80 mm
+  sig'ishi, balandlik o'smasligi, fiskal QR bilan birga yashashi,
+  `main.js` o'qish kodi aynan ishlashi)
+* ⚠️ bu testlar **fizik skanerlashni almashtirmaydi** — bir marta chek
+  bosib skaner o'qishini tasdiqlash SHART
+
+---
+
 ## [1.12.16] — 2026-10-03 — Vozvrat: chekni ro'yxatdan tanlash
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).

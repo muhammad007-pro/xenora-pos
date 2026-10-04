@@ -15,6 +15,7 @@ from services.stock_guard import InsufficientStock
 from services.order_service import OrderService
 from services.kitchen_service import KitchenService
 from services.printer_service import PrinterService, print_receipt as escpos_print_receipt
+from services.unit_converter import pack_size_label   # chek pachka yorlig'i (sale_unit bo'yicha)
 from websocket.manager import manager
 from core.subscription import is_within_order_limit, get_plan_limits
 from core.tenant_config import get_tenant_config  # BOSQICH 40 (3b): printer tenant-scoped
@@ -469,9 +470,20 @@ async def print_order_receipt(
         "receipt_number": order.order_number,
         "items": [
             {
-                # BOSQICH B6: pachka sotilsa nomga yorliq (termal chek) — 1 pachka = N dona
+                # BOSQICH B6: pachka sotilsa nomga yorliq (termal chek).
+                #
+                # Yorliq `sale_unit` ga qarab: kg → "(qop, 20 kg)",
+                # ml → "(butun, 150 ml)", qolgani → "(pachka, 10 dona)"
+                # (avvalgidek). Ilgari bu yerda "dona" QOTIB yozilgan va
+                # `int()` kasrni kesib tashlagan edi — 20 kg qop chekda
+                # "(pachka, 20 dona)" bo'lib chiqardi.
+                #
+                # Matn frontend bilan BIR XIL manbada emas (backend JS faylini
+                # o'qiy olmaydi) — qoida `services/unit_converter.py` da,
+                # ikkisining mos kelishi `tests/test_pack_label.py` da
+                # qulflangan.
                 "name": ((it.product.name if it.product else "")
-                         + (f" (pachka, {int(it.base_qty / it.quantity)} dona)"
+                         + (f" ({pack_size_label(getattr(it.product, 'sale_unit', None), it.base_qty / it.quantity)})"
                             if it.unit_sold == "pachka" and it.base_qty and it.quantity else "")),
                 "quantity": it.quantity,
                 "unit_price": it.unit_price,

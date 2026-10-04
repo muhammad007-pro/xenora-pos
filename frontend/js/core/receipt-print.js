@@ -313,6 +313,57 @@ export function giftRow(name, qty) {
        + `<td>${_esc(qty)}</td><td style="text-align:right">BEPUL</td></tr>`;
 }
 
+/* ─── PACHKA YORLIQLARI — YAGONA MANBA ───────────────────────────────
+ *
+ * Pachka nomi mahsulotning `sale_unit` iga qarab o'zgaradi. Ilgari u TO'RT
+ * joyda alohida yozilgan edi (POS tanlov modali, savat yorlig'i, POS cheki,
+ * bosiladigan chek) va hammasida "dona" QOTIB qolgan edi — kg mahsulotda
+ * "Qop (20 dona)" bo'lib chiqardi. Endi bitta joy:
+ *
+ *   kg, g, l, litr  →  "Qop (20 kg)"        ⚖️  ulgurji og'irlik/suyuqlik
+ *   ml, dl, cl      →  "Butun (150 ml)"     🧴  atir/flakon (#20)
+ *   qolgani         →  "Pachka (10 dona)"   📦  do'kon (dona)
+ *
+ * ⚠️ GOLDEN: `ml` va `dona` chiqishi AVVALGIDEK — mavjud mahsulotlar
+ * (ml 185, pcs 83, m 3) uchun matn BIT-BITIGA o'zgarmaydi. Testlar bilan
+ * qulflangan (`frontend/tests/test_weight_pack_price.mjs`).
+ */
+const _PACK_WEIGHT_UNITS = ['kg', 'g', 'l', 'litr'];
+const _PACK_VOL_UNITS    = ['ml', 'dl', 'cl'];
+
+/**
+ * Miqdorni 3 xonagacha yaxlitlab, ortiqcha nollarsiz matn qiladi.
+ *
+ * NEGA `Math.round` EMAS: pachka yorlig'i `base_qty / quantity` dan
+ * hisoblanadi va ikkisi ham Float (`models.py`: `quantity`, `base_qty`).
+ * Kasrli natijada `Math.round` jimgina yo'qotadi — 0.5 → 1 (yoki 0).
+ * 3 xona pul/og'irlik hisobidagi aniqlik bilan bir xil.
+ *
+ * (Bazada `pack_size` — `Integer`, ya'ni hozir nisbat butun chiqadi;
+ * yaxlitlash kelajakda kasrli qop kiritilsa ham xato bermasligi uchun.)
+ */
+export function fmtPackQty(n) {
+  return String(Math.round((Number(n) || 0) * 1000) / 1000);
+}
+
+/** `sale_unit` uchun pachka turi: nomi, ikonkasi, birlik so'zi. */
+export function packKind(saleUnit) {
+  const u = String(saleUnit || '').toLowerCase();
+  if (_PACK_WEIGHT_UNITS.includes(u)) {
+    return { pack: 'Qop',    packIcon: '📦', unitWord: u,      unitIcon: '⚖️', perUnit: true };
+  }
+  if (_PACK_VOL_UNITS.includes(u)) {
+    return { pack: 'Butun',  packIcon: '🧴', unitWord: u,      unitIcon: '',   perUnit: true };
+  }
+  return   { pack: 'Pachka', packIcon: '📦', unitWord: 'Dona', unitIcon: '',   perUnit: false };
+}
+
+/** "Qop (20 kg)" | "Butun (150 ml)" | "Pachka (10 dona)" */
+export function packSizeLabel(saleUnit, per) {
+  const k = packKind(saleUnit);
+  return `${k.pack} (${fmtPackQty(per)} ${k.perUnit ? k.unitWord : 'dona'})`;
+}
+
 /**
  * Chek raqamining Code128 shtrix-kodi — QAYTARISHDA SKANERLASH uchun.
  *
@@ -364,7 +415,10 @@ export function buildReceipt58(rec) {
     // Pachka yorlig'i (1 pachka = base_qty/quantity dona) — POS bilan bir xil
     let sub2 = '';
     if (it.unit_sold === 'pachka' && it.base_qty && qty) {
-      sub2 = `<br><small>📦 Pachka (${Math.round(it.base_qty / qty)} dona)</small>`;
+      // Yorliq `sale_unit` ga qarab: kg → "Qop (20 kg)", ml → "Butun (150 ml)",
+      // qolgani → "Pachka (10 dona)" (avvalgidek). Yaxlitlash 3 xona.
+      const _pk = packKind(it.sale_unit);
+      sub2 = `<br><small>${_pk.packIcon} ${_esc(packSizeLabel(it.sale_unit, it.base_qty / qty))}</small>`;
     }
     // "11 x 5 000" — miqdor × birlik narx (v1.8.7). LAN yo'li shu katakchani
     // DOM'dan o'qiydi, shuning uchun USB va LAN bir xil ko'rinadi.

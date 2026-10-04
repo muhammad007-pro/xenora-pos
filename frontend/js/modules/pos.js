@@ -8,7 +8,8 @@ import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
 import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow,
-         qtyPriceLabel, unitPriceOf } from '../core/receipt-print.js';
+         qtyPriceLabel, unitPriceOf,
+         packKind, packSizeLabel, fmtPackQty } from '../core/receipt-print.js';
 import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
 
 const api = new API();
@@ -583,15 +584,23 @@ let _packChoiceProduct = null;
 
 function showPackChoiceModal(product) {
   _packChoiceProduct = product;
-  // #20 atir (hajm): sale_unit "ml" → "Butun (150 ml)" / "ml"; oddiy → "Pachka (N dona)" / "Dona"
-  const isVol = product.sale_unit === 'ml';
-  const unit  = product.sale_unit || 'dona';
+  // Yorliqlar `sale_unit` ga qarab — yagona manba `packKind()` (receipt-print.js):
+  //   kg   → "📦 Qop"    / hint "20 kg"  · "⚖️ Kg bo'yicha"  / "3 000 UZS / kg"
+  //   ml   → "🧴 Butun"  / hint "150 ml" · "ml"              / "... / ml"   (avvalgidek)
+  //   dona → "📦 Pachka" / hint "10 dona" · "Dona"                          (avvalgidek)
+  const k = packKind(product.sale_unit);
   document.getElementById('packChoiceName').textContent = product.name;
-  document.getElementById('packChoicePackLbl').textContent   = isVol ? '🧴 Butun' : '📦 Pachka';
+  document.getElementById('packChoicePackLbl').textContent   = `${k.packIcon} ${k.pack}`;
   document.getElementById('packChoicePackPrice').textContent = fmtNum(product.pack_price) + ' UZS';
-  document.getElementById('packChoicePackHint').textContent  = product.pack_size + (isVol ? ' ' + unit : ' dona');
-  document.getElementById('packChoiceDonaLbl').textContent   = isVol ? unit : 'Dona';
-  document.getElementById('packChoiceDonaPrice').textContent = fmtNum(product.price) + ' UZS' + (isVol ? ' / ' + unit : '');
+  document.getElementById('packChoicePackHint').textContent  =
+    `${fmtPackQty(product.pack_size)} ${k.perUnit ? k.unitWord : 'dona'}`;
+  // Birlik tomoni: og'irlikda "⚖️ Kg bo'yicha" (bosilsa og'irlik oynasi ochiladi)
+  document.getElementById('packChoiceDonaLbl').textContent   =
+    isWeightUnit(product.sale_unit)
+      ? `${k.unitIcon} ${k.unitWord.charAt(0).toUpperCase()}${k.unitWord.slice(1)} bo'yicha`
+      : (k.perUnit ? k.unitWord : 'Dona');
+  document.getElementById('packChoiceDonaPrice').textContent =
+    fmtNum(product.price) + ' UZS' + (k.perUnit ? ' / ' + k.unitWord : '');
   openModal('packChoiceModal');
 }
 
@@ -603,8 +612,17 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
 
   // BOSQICH B4: Pachkali mahsulot — AVVAL birlik tanlash (pachka/dona), keyin qolgan
   // oqim (rx-tasdiq, modifikator) bir marta. Pachkasiz mahsulot — tanlovsiz, avvalgidek.
-  // Weight (tarozi) mahsulot pachkali bo'lmaydi (B2 bloklaydi) — himoya uchun tekshiramiz.
-  if (unitMode == null && presetWeight == null && isPackProduct(p) && !isWeightUnit(p.sale_unit)) {
+  //
+  // KG/QOP: og'irlik birliklari ham pachkali bo'lishi MUMKIN (20 kg qop + kg
+  // bo'yicha). Ilgari bu yerda `&& !isWeightUnit(p.sale_unit)` turardi va
+  // kg mahsulotda tanlov modali umuman ochilmasdi.
+  //
+  // ⚠️ `presetWeight == null` sharti SAQLANADI — u OG'IRLIK ALLAQACHON
+  // MA'LUM bo'lgan yo'l: tarozi/skaner EAN-13 dan kelgan og'irlik
+  // (`addToCart(id, weight)`). U holda savol berish mantiqsiz va zararli:
+  // modal ochilsa kassir o'lchangan og'irlikni yo'qotadi. Shu sabab
+  // presetWeight bilan kelgan chaqiruv TO'G'RIDAN savatga tushadi.
+  if (unitMode == null && presetWeight == null && isPackProduct(p)) {
     showPackChoiceModal(p);
     return;
   }
@@ -634,8 +652,14 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
     return;
   }
 
-  // Tarozi mahsulotlar uchun og'irlik modali
-  if (isWeightUnit(p.sale_unit)) {
+  // Tarozi mahsulotlar uchun og'irlik modali.
+  //
+  // ⚠️ `unitMode !== 'pachka'` — KG/QOP uchun SHART. Kassir tanlov modalida
+  // "📦 Qop" ni bosganda `addToCart(id, null, 'pachka')` qaytib keladi; bu
+  // tekshiruv unitMode'ni ko'rmasa kg mahsulot BU YERDA og'irlik modaliga
+  // tushib ketardi va qop oqimi hech qachon savatga yetmasdi.
+  // "⚖️ Kg bo'yicha" esa bu yerga `unitMode == null` bilan keladi → modal.
+  if (isWeightUnit(p.sale_unit) && unitMode !== 'pachka') {
     if (presetWeight != null) {
       doAddToCart(p, [], presetWeight);
     } else {
@@ -958,9 +982,8 @@ function doAddToCart(product, modifiers, weight = null, unitMode = null) {
         id: product.id, name: product.name, price: priceP, qty: 1,
         _modKey: pkKey, modifiers, modLabel: modLabelP || null,
         _unitSold : 'pachka',
-        _packLabel: product.sale_unit === 'ml'
-          ? `Butun (${product.pack_size} ml)`      // #20 atir: butun flakon
-          : `Pachka (${product.pack_size} dona)`,
+        // "Qop (20 kg)" | "Butun (150 ml)" | "Pachka (10 dona)" — yagona manba
+        _packLabel: packSizeLabel(product.sale_unit, product.pack_size),
         _batch    : product.batch_number || null,
         _master   : state.staffMember ? { ...state.staffMember } : null,
       });
@@ -1034,8 +1057,12 @@ document.getElementById('packChoicePackBtn')?.addEventListener('click', () => {
 document.getElementById('packChoiceDonaBtn')?.addEventListener('click', () => {
   const p = _packChoiceProduct; closeModal('packChoiceModal');
   if (!p) return;
-  // #20 atir: "ml" tanlansa "necha ml?" (weight modal); oddiy pachka: 'dona' (avvalgidek)
-  if (p.sale_unit === 'ml') showWeightModal(p);
+  // Birlik tomoni bosildi:
+  //   ml (#20 atir)      → "necha ml?" (og'irlik/hajm modali)
+  //   kg/g/l/litr (QOP)  → "necha kg?" (AYNAN o'sha og'irlik modali — qop
+  //                        tanlanmaganda kg mahsulot odatdagi tarozi oqimida)
+  //   dona (avvalgidek)  → to'g'ridan savatga 'dona' rejimida
+  if (p.sale_unit === 'ml' || isWeightUnit(p.sale_unit)) showWeightModal(p);
   else addToCart(p.id, null, 'dona');
 });
 
@@ -2325,9 +2352,10 @@ function _rcptPackLabel(i) {
   if (i._packLabel) return i._packLabel;
   const q = i.quantity || i.qty;
   if (i.unit_sold === 'pachka' && i.base_qty && q) {
-    const per = Math.round(i.base_qty / q);
-    // #20 atir (sale_unit "ml") → "Butun (150 ml)"; oddiy pachka → "Pachka (N dona)"
-    return i.sale_unit === 'ml' ? `Butun (${per} ml)` : `Pachka (${per} dona)`;
+    // Yorliq `sale_unit` ga qarab (kg → "Qop (20 kg)", ml → "Butun (150 ml)",
+    // qolgani → "Pachka (N dona)"). Yaxlitlash 3 xona: `base_qty` va
+    // `quantity` ikkisi ham Float, `Math.round` kasrni jimgina yo'qotardi.
+    return packSizeLabel(i.sale_unit, i.base_qty / q);
   }
   return '';
 }

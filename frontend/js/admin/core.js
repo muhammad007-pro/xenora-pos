@@ -1831,7 +1831,20 @@ function buildProductModal(product) {
         const hint  = document.getElementById('pmPackHint');
         const pp = document.getElementById('pmf_pack_price');
         const ps = document.getElementById('pmf_pack_size');
-        if (_volUnits.includes(u)) {
+        if (_wUnits.includes(u)) {
+          // OG'IRLIK/SUYUQLIK (kg, g, l, litr) — "Qop" yorliqlari.
+          //
+          // NEGA ALOHIDA SHOX: bu birliklar `_volUnits` ro'yxatida ham bor va
+          // ilgari "Flakon" yorliqlarini olardi. Ahamiyatsiz edi, chunki
+          // `togglePack` pachka blokini kg uchun YASHIRARDI — matn ko'rinmasdi.
+          // Endi blok ko'rinadi, ya'ni 20 kg qop "Flakon hajmi (kg)" deb
+          // yozilib qolardi. Shart `_volUnits` DAN OLDIN turishi SHART.
+          if (title) title.textContent = 'Qop bilan sotish (ixtiyoriy)';
+          if (pp) pp.placeholder = 'Qop narxi (450000)';
+          if (ps) ps.placeholder = `Qopdagi ${u} (20)`;
+          if (hint) hint.innerHTML = `Kiritilsa — yuqoridagi <b>narx = 1 ${u} narxi</b> bo'ladi. Ikkalasi ham to'ldirilsin (qop narxi + qopdagi ${u}, ≥ 2).`;
+          if (_priceLabel) _priceLabel.textContent = `1 ${u} narxi (UZS) *`;
+        } else if (_volUnits.includes(u)) {
           // Atir/suyuqlik — "Flakon (butun)" yorliqlari
           if (title) title.textContent = 'Butun (flakon) bilan sotish (ixtiyoriy)';
           if (pp) pp.placeholder = 'Flakon narxi (250000)';
@@ -1847,13 +1860,18 @@ function buildProductModal(product) {
           if (_priceLabel) _priceLabel.textContent = _origPriceLabel;   // avvalgidek
         }
       };
+      // Pachka/qop bloki HAMMA birlik uchun ko'rinadi.
+      //
+      // ILGARI: `_wUnits` (kg, g, l, litr) uchun blok YASHIRILAR va maydonlar
+      // TOZALANARDI. Shu sabab "20 kg qop" ni kiritishning yo'li yo'q edi —
+      // garchi backend buni allaqachon qo'llab-quvvatlaydi (`pack_enabled`
+      // faqat `pack_size>=2 AND pack_price>0` ga qaraydi, `sale_unit` ga EMAS
+      // — `services/order_service.py`).
+      //
+      // ⚠️ Tozalash mantig'i ham OLIB TASHLANDI: u endi mavjud qop
+      // ma'lumotini yo'q qilardi (kassir birlikni kg ga o'zgartirsa).
       const togglePack = () => {
-        const isW = _wUnits.includes(_saleUnitEl2.value);
-        packBlock.style.display = isW ? 'none' : '';
-        if (isW) {
-          document.getElementById('pmf_pack_price').value = '';
-          document.getElementById('pmf_pack_size').value = '';
-        }
+        packBlock.style.display = '';
         updatePackLabels();   // yorliqlar birlikка mos yangilansin
       };
       _saleUnitEl2.addEventListener('change', togglePack);
@@ -1867,6 +1885,11 @@ function buildProductModal(product) {
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:.75rem;margin-top:.375rem';
     _cEl.parentElement.appendChild(hint);
+    // Pachka/qop marjasi uchun alohida qator (birlik marjasidan PASTDA).
+    const packHint = document.createElement('div');
+    packHint.style.cssText = 'font-size:.75rem;margin-top:.25rem';
+    _cEl.parentElement.appendChild(packHint);
+
     const updMargin = () => {
       const p = parseFloat(_pEl.value)||0, c = parseFloat(_cEl.value)||0;
       if (p > 0 && c > 0) {
@@ -1874,9 +1897,40 @@ function buildProductModal(product) {
         hint.textContent = `Foyda: ${fmtMoney(p - c)} UZS · marja ${m.toFixed(1)}%`;
         hint.style.color = m < 15 ? '#ef4444' : '#10b981';
       } else hint.textContent = '';
+
+      // ── PACHKA/QOP marjasi ────────────────────────────────────────────────
+      // Tan narx HAR DOIM bir birlik uchun (1 dona / 1 kg) — server ham
+      // shunday hisoblaydi: `unit_cost = dona_cost × pack_size`
+      // (`services/order_service.py`). Shuning uchun qop tannarxi = c × size.
+      //
+      // NEGA KERAK: 20 kg qopni 450 000 ga sotish 1 kg ni 25 000 ga sotishdan
+      // foydali ko'rinadi, lekin tannarx ham 20 barobar. Qop narxini
+      // kiritayotgan odam marjani KO'RMASA zararga sotishi mumkin.
+      // ⚠️ Birlik ro'yxatlari BU YERDA qayta e'lon qilinadi: yuqoridagi
+      // `_wUnits`/`_volUnits`/`_saleUnitEl2` boshqa blok ichida (`const`,
+      // blok doirasi) va bu yerdan KO'RINMAYDI. ESLint `no-undef` aynan
+      // shuni ushlagan.
+      const _mW = ['kg', 'g', 'l', 'litr'];
+      const _mV = ['ml', 'dl', 'cl'];
+      const pp = parseFloat(document.getElementById('pmf_pack_price')?.value) || 0;
+      const ps = parseFloat(document.getElementById('pmf_pack_size')?.value) || 0;
+      const u  = (document.getElementById('pmf_sale_unit')?.value || '').toLowerCase();
+      const word = _mW.includes(u) ? 'Qop' : (_mV.includes(u) ? 'Butun' : 'Pachka');
+      const perWord = (_mW.includes(u) || _mV.includes(u)) ? u : 'dona';
+      if (pp > 0 && ps >= 2 && c > 0) {
+        const packCost = c * ps;
+        const pm = (pp - packCost) / pp * 100;
+        packHint.textContent =
+          `${word} (${ps} ${perWord}): tannarx ${fmtMoney(packCost)}`
+          + ` · foyda ${fmtMoney(pp - packCost)} UZS · marja ${pm.toFixed(1)}%`;
+        packHint.style.color = pm < 0 ? '#ef4444' : (pm < 15 ? '#f59e0b' : '#10b981');
+      } else packHint.textContent = '';
     };
     _pEl.addEventListener('input', updMargin);
     _cEl.addEventListener('input', updMargin);
+    document.getElementById('pmf_pack_price')?.addEventListener('input', updMargin);
+    document.getElementById('pmf_pack_size')?.addEventListener('input', updMargin);
+    document.getElementById('pmf_sale_unit')?.addEventListener('change', updMargin);
     updMargin();
   }
 

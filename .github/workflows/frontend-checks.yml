@@ -62,3 +62,10 @@ jobs:
       # Brauzer talab qilmaydi — SW `node:vm` sandbox'ida ishga tushadi.
       - name: Service worker testi
         run: node frontend/tests/test_service_worker.mjs
+
+      # Kg mahsulotda qop (pachka) narxi: oqim shartlari + yorliqlar.
+      # Brauzer talab qilmaydi — funksiyalar fayllardan ajratib olinadi.
+      # GOLDEN: tarozi/skanerdan kelgan og'irlik pachka modalini ochmasligi va
+      # mavjud ml/pcs/m yorliqlari bit-bitiga o'zgarmasligi shu yerda qulflangan.
+      - name: Qop narxi testi (kg)
+        run: node frontend/tests/test_weight_pack_price.mjs

@@ -3,6 +3,87 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.12.18] — 2026-10-04 — Service worker: scope, kesh strategiyasi, versiya
+
+Faqat **frontend** (+ skript/CI/hujjat). **Backend TEGILMAGAN**,
+**MIGRATSIYA YO'Q** (alembic head o'zgarmaydi: `c9f2a71d3e84`).
+
+⚠️ **BRAUZERDAN kiradigan foydalanuvchilarga tegadi.** Mijoz `.exe`'lari
+service worker ishlatmaydi (`file://` da ro'yxatdan o'tmaydi) — ularga
+ta'sir yo'q.
+
+### 🔧 1) SCOPE — service worker umuman ishlamayotgan edi
+
+**MUAMMO:** fayl `/pwa/service-worker.js` da turardi, ya'ni standart scope
+**`/pwa/`**. Service worker faqat o'z papkasi va undan pastini boshqaradi —
+`/app/*`, `/js/*`, `/shared/*` so'rovlarini **UMUMAN ko'rmasdi**. `fetch`
+ishlov beruvchi ular uchun hech qachon ishlamagan, offline fallback ham
+yo'q edi. `pwa/manifest.json` esa boshidan `"scope": "/"` deb turardi.
+(Roadmapda "Service worker buzuq — scope yo'q" deb qayd etilgan edi.)
+
+* fayl **ildizga** ko'chdi: `frontend/service-worker.js` → scope `/` **avtomatik**
+* ⚠️ `Service-Worker-Allowed: /` header'iga **tayanilMADI**: u repo
+  `nginx/conf.d/common.conf` da bor, lekin ishlab chiqarish nginx'iga
+  **deploy qilinmagan** (jonli server `snippets/xenora-common.conf` ni
+  ishlatadi). Header'siz `register({scope:'/'})` **SecurityError** beradi va
+  offline rejim butunlay o'chardi
+* ro'yxatga olish uch joyda takrorlangan edi (`login.html`, `pos.html`,
+  `js/main.js`) → **`shared/register-sw.js`** (yagona joy). Eski `/pwa/`
+  ro'yxatini o'zi tozalaydi (`getRegistrations` + scope tekshiruvi)
+
+### 🔁 2) APP_VERSION `v1.55.1` da qotib qolgan edi
+
+Eski kesh FAQAT shu qiymat o'zgarganda tozalanadi (`activate`) — u esa
+v1.10.1 dan keyin **6+ reliz** (1.10.x … 1.12.17) davomida ko'tarilmagan,
+ya'ni **tozalash hech qachon ishlamagan**. `login.html` yorlig'i ham
+v1.10.1 da qolgan edi.
+
+* **`scripts/bump_version.py`** — bitta buyruqda **6 joy** + `versionCode` +1
+  (versiya raqami haqiqatan o'zgarganda). BOM holatini saqlaydi:
+  `version.js` BOM'li qoladi, `electron/package.json` BOM'siz
+* `--check` rejimi **CI'da** ishlaydi → mos kelmasa **build yiqiladi**
+* kesh nomlari `restopos-*` → `xenora-*` (brend izchilligi; eski nomlar
+  baribir `activate` da o'chadi)
+
+### ⚡ 3) Kod uchun cache-first → network-first
+
+**MUAMMO:** `js/core/*` fayllari **ES modul** va bir-birini `import` qiladi.
+Cache-first'da brauzer eski `receipt-print.js` ni keshdan olib, uning yangi
+`import './code128.js'` bog'liqligini tarmoqdan izlardi — **ikki versiya
+aralashadi**. Import yiqilsa modul yuklanmaydi, ya'ni **chek bosilmay
+qoladi**.
+
+* kod (`js`/`mjs`/`css`) → **network-first + 3.5s timeout**, keshga fallback
+* rasm/ikonka/shrift → **cache-first qoldi** (mazmuni o'zgarmaydi, tezlik muhim)
+* boshqa origin (cdnjs'dan Chart.js) → endi **umuman ushlanmaydi**
+* o'zgartiruvchi so'rovlar (API bo'lmasa ham) → keshlanmaydi
+
+> ⚠️ Timeout tarmoq so'rovini **bekor qilmaydi** — u fonda davom etadi va
+> tugaganda keshni yangilaydi, ya'ni keyingi yuklash yangi bo'ladi.
+
+### 🧪 GOLDEN — offline BUZILMADI
+
+`frontend/tests/test_service_worker.mjs` — **28 tekshiruv**. Service worker
+`node:vm` sandbox'ida **haqiqatan ishga tushadi** (brauzer kerak emas, CI'da
+ishlaydi): tarmoq yiqilgan → keshdan; sekin tarmoq → timeout'dan keyin
+keshdan; kesh ham yo'q → 503 (sahifa osilmaydi); navigatsiya →
+`offline.html`; POST → keshlanmaydi; versiya o'zgarsa eski kesh o'chadi.
+
+`js/core/api.js` dagi `offline: (status === 503 || status === 0)` — service
+worker'ning sintetik 503 javobini **allaqachon** "offline" deb biladi, ya'ni
+offline navbat mantig'i (`js/core/sync.js`) **tegilmagan**.
+
+### ⚠️ Playwright tuzog'i
+
+`page.route()` **service worker ichidan ketgan `fetch`ni USHLAMAYDI**. Scope
+`/` bo'lgandan keyin SW API so'rovlarini haqiqatan ushlay boshladi va test
+mock'lari chetlab o'tildi (`test_blocked_store_login_message` 12/12 → 8/12).
+Yechim: SW'ni sinamaydigan testlarda
+`browser.newContext({ serviceWorkers: 'block' })` —
+`test_blocked_store_login_message` va `test_path_helper` ga qo'shildi.
+
+---
+
 ## [1.12.17] — 2026-10-04 — Chekda Code128 shtrix-kod (vozvratda skanerlash)
 
 Faqat **frontend + electron**. **Backend TEGILMAGAN**, **MIGRATSIYA YO'Q**

@@ -8,6 +8,8 @@ SOFT-DELETE qiladi — `is_active = False`, `is_available = False` — lekin
   • qoldig'i ombor QIYMATIGA (`/inventory/value`) qo'shilardi
   • "kam qoldi" ogohlantirishini (`/inventory/low-stock`) berardi
   • "o'lik tovar" ro'yxatiga tushardi (`/inventory/report/summary`)
+  • AVTO-ZAKAZ ogohlantirishida qolardi (`/analytics/reorder-alerts`) —
+    ya'ni o'chirilgan tovar uchun "zakaz bering" deb turardi
 
 JONLI O'LCHOV (prod, 2026-10-05): 35 qator / 4 do'kon (FAZZA 10, 1001 BARAKA
 11, NICE SHOPPING 11, MANHATTAN 3); 10 tasida qoldiq bor; ombor qiymatiga
@@ -30,8 +32,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from database import Base
-from models import Cafe, Category, Inventory, Product, User
+from models import Cafe, Category, Inventory, Product, ProductReorderSetting, User
 
+import routers.analytics as an_router
 import routers.inventory as inv_router
 
 TID = 1
@@ -212,3 +215,89 @@ def test_is_active_NULL_FAOL_deb_qaraladi(db):
         page=1, page_size=100, low_stock_only=False, category_id=None,
         search=None, db=db, current_user=_User()))
     assert "NULL HOLAT" in [i.product.name for i in r.items]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. AVTO-ZAKAZ OGOHLANTIRISHI (`/analytics/reorder-alerts`)
+#
+# Bu yo'l `product_reorder_settings` qatorlari bo'yicha yuradi — `inventory`
+# bo'yicha EMAS — shuning uchun `_faqat_faol()` unga ta'sir qilmaydi va
+# ALOHIDA filtr kerak bo'ldi.
+#
+# PRODDA (2026-10-06 o'lchandi): reorder sozlamasi 0 ta — xususiyat
+# `require_feature("auto_reorder")` bilan yopilgan va hali ishlatilmaydi.
+# Ya'ni bu PROFILAKTIK tuzatish: jonli ta'sir yo'q, lekin xususiyat
+# yoqilganda o'chirilgan tovar ro'yxatga tushib qolmasin.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _reorder(db, product_id, min_qty=20.0, rid=None):
+    """Sozlama: joriy qoldiq `min_qty` dan past -> ogohlantirish chiqadi."""
+    db.add(ProductReorderSetting(id=rid, tenant_id=TID, product_id=product_id,
+                                 min_qty=min_qty, reorder_qty=50.0))
+    db.commit()
+
+
+def test_reorder_faol_mahsulot_ogohlantiradi(db):
+    """GOLDEN: faol mahsulot avvalgidek ro'yxatda (10 < 20)."""
+    _reorder(db, 1, min_qty=20.0, rid=1)
+    out = asyncio.run(an_router.get_reorder_alerts(db=db, current_user=_User()))
+    assert out["total"] == 1
+    assert out["alerts"][0]["product_name"] == "AKTIV ATIR"
+    assert out["alerts"][0]["current_qty"] == 10
+    assert out["alerts"][0]["deficit"] == 10
+
+
+def test_reorder_ochirilgan_mahsulot_OGOHLANTIRMAYDI(db):
+    """O'chirilgan #2: qoldiq 7 < 20 -> ilgari ro'yxatga TUSHARDI."""
+    _reorder(db, 2, min_qty=20.0, rid=2)
+    out = asyncio.run(an_router.get_reorder_alerts(db=db, current_user=_User()))
+    assert out["total"] == 0
+    assert out["alerts"] == []
+
+
+def test_reorder_faol_va_ochirilgan_birga(db):
+    """Aralash holat: faqat faol qoladi — nom bilan tasdiqlanadi."""
+    _reorder(db, 1, min_qty=20.0, rid=1)
+    _reorder(db, 2, min_qty=20.0, rid=2)
+    _reorder(db, 3, min_qty=20.0, rid=3)      # o'chirilgan, qoldiq 0
+    out = asyncio.run(an_router.get_reorder_alerts(db=db, current_user=_User()))
+    assert [a["product_name"] for a in out["alerts"]] == ["AKTIV ATIR"]
+    assert out["total"] == 1
+
+
+def test_reorder_qayta_faollashtirilsa_qaytadi(db):
+    """Mahsulot qayta yoqilsa ogohlantirish ham qaytadi (qoldiq 7 < 20)."""
+    _reorder(db, 2, min_qty=20.0, rid=2)
+    p = db.query(Product).filter(Product.id == 2).first()
+    p.is_active = True
+    db.commit()
+
+    out = asyncio.run(an_router.get_reorder_alerts(db=db, current_user=_User()))
+    assert out["total"] == 1
+    assert out["alerts"][0]["product_name"] == "OCHIRILGAN ATIR"
+    assert out["alerts"][0]["current_qty"] == 7
+
+
+def test_reorder_is_active_NULL_FAOL(db):
+    """`isnot(False)` — NULL FAOL deb qaraladi (boshqa 5 joy bilan bir xil)."""
+    db.add(Product(id=5, name="NULL REORDER", price=1000, cost_price=500,
+                   sale_unit="pcs", category_id=1, tenant_id=TID,
+                   is_active=None, is_available=True))
+    db.add(Inventory(id=5, tenant_id=TID, product_id=5, quantity=1,
+                     unit="dona", min_threshold=1))
+    db.commit()
+    _reorder(db, 5, min_qty=20.0, rid=5)
+
+    out = asyncio.run(an_router.get_reorder_alerts(db=db, current_user=_User()))
+    assert [a["product_name"] for a in out["alerts"]] == ["NULL REORDER"]
+
+
+def test_reorder_javob_shakli_ozgarmagan(db):
+    """GOLDEN: frontend shu kalitlarga tayanadi."""
+    _reorder(db, 1, min_qty=20.0, rid=1)
+    out = asyncio.run(an_router.get_reorder_alerts(db=db, current_user=_User()))
+    assert set(out) == {"alerts", "total"}
+    for k in ("product_id", "product_name", "current_qty", "min_qty",
+              "reorder_qty", "deficit", "supplier_id", "supplier_name",
+              "supplier_phone", "setting_id", "notes"):
+        assert k in out["alerts"][0], f"{k} yo'qolgan"

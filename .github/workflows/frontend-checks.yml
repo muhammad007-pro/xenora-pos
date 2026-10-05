@@ -69,3 +69,9 @@ jobs:
       # mavjud ml/pcs/m yorliqlari bit-bitiga o'zgarmasligi shu yerda qulflangan.
       - name: Qop narxi testi (kg)
         run: node frontend/tests/test_weight_pack_price.mjs
+
+      # Qaytarishda "SUMMA" rejimi: bo'luvchi SOTUVDAGI narx bo'lishi (joriy
+      # narx emas), chegara, dona mahsulotda rejim ko'rinmasligi va savatning
+      # YAGONA MANBADAN (miqdor) o'qishi. Soxta DOM — brauzer kerak emas.
+      - name: Qaytarish summa rejimi testi
+        run: node frontend/tests/test_returns_sum_mode.mjs

@@ -318,6 +318,64 @@ async def update_fiscal_settings(
     set_tenant_config(db, tid, "fiscal", config)
     return {"message": "Fiskal sozlamalar saqlandi"}
 
+# ── TO'LOV USULLARI ──────────────────────────────────────────────────────────
+# Standart: FAQAT naqd va karta.
+#
+# NEGA Click/Payme STANDART O'CHIQ: shlyuz integratsiyasi YO'Q.
+# `services/payment_service.py` dagi `_process_online_payment` — TODO stub:
+# u `status="pending"` yozuv yaratadi va hech qanday API'ga chiqmaydi.
+# `confirm_payment()` mavjud, lekin CHAQIRUVCHISI YO'Q, webhook/callback
+# marshruti ham yo'q. Ya'ni Click/Payme to'lovi MANGU `pending` qoladi.
+#
+# JONLI OQIBAT (prodda 2026-10-06 o'lchandi): 24 ta pending CLICK to'lovi bor
+# va ULARNING HAMMASI (24/24) BEKOR QILINGAN buyurtmada — kassir Click'ni
+# bosadi, to'lov o'tmaydi, sotuv bekor qilinadi. Ya'ni tugma yo'qotilgan
+# sotuv keltiradi. Shlyuz ulanganda sozlama orqali yoqiladi.
+#
+# `transfer` ATAYLAB YO'Q — u `PaymentMethod` enum'ida mavjud emas. Ilgari
+# sozlamalar UI'sida bor edi; tanlansa server `invalid input value for enum`
+# bilan 500 berib BUTUN sotuvni rollback qilardi (v1.9.1 da `credit` bilan
+# aynan shu bo'lgan). Kerak bo'lsa avval enum + migratsiya.
+PAYMENT_METHODS_DEFAULT = ["cash", "card"]
+
+# Sozlama boshqaradigan usullar. `credit` (nasiya) va `room_charge` bu yerda
+# YO'Q — ular POS'da BIZNES TURI bo'yicha ko'rinadi (store/supermarket va
+# hotel) va sozlamaga bog'liq emas. Shu qoida TEGILMAYDI.
+PAYMENT_METHODS_ALLOWED = {"cash", "card", "click", "payme", "qr"}
+
+
+def _payment_methods(cfg: Dict[str, Any]) -> list:
+    """Yoqilgan usullar ro'yxati — yagona manba (POS ham, admin UI ham).
+
+    ⚠️ `cash` HAR DOIM qoladi: kassir hamma usulni o'chirib qo'ysa POS'da
+    bitta ham tender tugmasi bo'lmasdi va sotuv UMUMAN o'tmasdi.
+    """
+    xom = cfg.get("methods") if isinstance(cfg, dict) else None
+    if not isinstance(xom, list):
+        return list(PAYMENT_METHODS_DEFAULT)
+    toza = [m for m in PAYMENT_METHODS_DEFAULT if m in xom]
+    toza += [m for m in xom
+             if isinstance(m, str) and m in PAYMENT_METHODS_ALLOWED and m not in toza]
+    if "cash" not in toza:
+        toza.insert(0, "cash")
+    return toza
+
+
+@router.get("/payment-methods")
+async def get_enabled_payment_methods(
+    db: Session = Depends(get_db),
+    # ⚠️ KASSIR o'qiydi — shuning uchun `manage_settings` EMAS. Javobda
+    # faqat yoqilgan usullar NOMI bor; Click/Payme MAXFIY KALITLARI
+    # (`secret_key`, `key`) BU YERGA TUSHMAYDI — ular `/settings/payment`
+    # da qoladi va u admin-only.
+    current_user: User = Depends(get_current_active_user),
+):
+    """POS uchun: qaysi to'lov usullari yoqilgan (kalitlarsiz)."""
+    tid = resolve_tenant_id(db, current_user)
+    cfg = get_tenant_config(db, tid, "payment") or {}
+    return {"methods": _payment_methods(cfg)}
+
+
 @router.get("/payment")
 async def get_payment_settings(
     db: Session = Depends(get_db),
@@ -325,7 +383,12 @@ async def get_payment_settings(
 ):
     """To'lov shlyuzi sozlamalari (Click/Payme) — BOSQICH 40: tenant-scoped"""
     tid = resolve_tenant_id(db, current_user)
-    return get_tenant_config(db, tid, "payment") or {}
+    cfg = get_tenant_config(db, tid, "payment") or {}
+    # `methods` yozuv bo'lmasa ham ANIQ qaytariladi — ilgari UI `if (r.methods)`
+    # shartida to'xtab, toggle'lar HTML standartida qolib ketardi (ya'ni ekran
+    # haqiqatni ko'rsatmasdi).
+    cfg["methods"] = _payment_methods(cfg)
+    return cfg
 
 @router.patch("/payment")
 async def update_payment_settings(

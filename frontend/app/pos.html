@@ -949,7 +949,10 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
         </button>
         <button class="pay-method" data-method="card">
           <svg class="pm-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M2 10h20" stroke="currentColor" stroke-width="1.8"/></svg>
-          <span>Karta</span>
+          <!-- Karta terminali ham SHU tugma: ikkisi ham bank kartasi tenderi
+               (`PaymentMethod.CARD`). Alohida enum qiymati QO'SHILMADI —
+               sabab commit izohida. -->
+          <span>Karta / Terminal</span>
         </button>
         <button class="pay-method" data-method="click">
           <svg class="pm-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -980,9 +983,9 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
       <div id="splitSection" style="display:none;margin-bottom:1rem">
         <div style="display:flex;flex-direction:column;gap:.5rem">
           <div style="display:flex;align-items:center;gap:.625rem"><span style="width:70px;font-size:.8125rem;color:var(--text2)">Naqd</span><input type="text" inputmode="numeric" id="split_cash" placeholder="0" autocomplete="off" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.45rem .7rem;color:var(--text);outline:none;font-family:inherit"><span style="font-size:.72rem;color:var(--text3)">UZS</span></div>
-          <div style="display:flex;align-items:center;gap:.625rem"><span style="width:70px;font-size:.8125rem;color:var(--text2)">Karta</span><input type="text" inputmode="numeric" id="split_card" placeholder="0" autocomplete="off" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.45rem .7rem;color:var(--text);outline:none;font-family:inherit"><span style="font-size:.72rem;color:var(--text3)">UZS</span></div>
-          <div style="display:flex;align-items:center;gap:.625rem"><span style="width:70px;font-size:.8125rem;color:var(--text2)">Click</span><input type="text" inputmode="numeric" id="split_click" placeholder="0" autocomplete="off" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.45rem .7rem;color:var(--text);outline:none;font-family:inherit"><span style="font-size:.72rem;color:var(--text3)">UZS</span></div>
-          <div style="display:flex;align-items:center;gap:.625rem"><span style="width:70px;font-size:.8125rem;color:var(--text2)">Payme</span><input type="text" inputmode="numeric" id="split_payme" placeholder="0" autocomplete="off" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.45rem .7rem;color:var(--text);outline:none;font-family:inherit"><span style="font-size:.72rem;color:var(--text3)">UZS</span></div>
+          <div style="display:flex;align-items:center;gap:.625rem"><span style="width:70px;font-size:.8125rem;color:var(--text2)">Karta/term.</span><input type="text" inputmode="numeric" id="split_card" placeholder="0" autocomplete="off" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.45rem .7rem;color:var(--text);outline:none;font-family:inherit"><span style="font-size:.72rem;color:var(--text3)">UZS</span></div>
+          <div id="splitRow_click" style="display:flex;align-items:center;gap:.625rem"><span style="width:70px;font-size:.8125rem;color:var(--text2)">Click</span><input type="text" inputmode="numeric" id="split_click" placeholder="0" autocomplete="off" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.45rem .7rem;color:var(--text);outline:none;font-family:inherit"><span style="font-size:.72rem;color:var(--text3)">UZS</span></div>
+          <div id="splitRow_payme" style="display:flex;align-items:center;gap:.625rem"><span style="width:70px;font-size:.8125rem;color:var(--text2)">Payme</span><input type="text" inputmode="numeric" id="split_payme" placeholder="0" autocomplete="off" style="flex:1;min-width:0;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.45rem .7rem;color:var(--text);outline:none;font-family:inherit"><span style="font-size:.72rem;color:var(--text3)">UZS</span></div>
         </div>
         <div style="margin-top:.75rem;font-size:.8125rem;display:flex;flex-direction:column;gap:.2rem">
           <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Jami:</span><span id="splitTotal">0</span></div>

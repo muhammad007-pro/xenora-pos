@@ -1777,6 +1777,84 @@ document.querySelectorAll('.cash-preset').forEach(btn => {
   });
 });
 
+/* ═══ YOQILGAN TO'LOV USULLARI ═══════════════════════════════════════════════
+ *
+ * MUAMMO: Click/Payme tugmalari HAR DOIM ko'rinardi, lekin shlyuz
+ * integratsiyasi YO'Q (`payment_service._process_online_payment` — TODO
+ * stub). Kassir bossa to'lov MANGU `pending` qolardi va sotuv o'tmasdi.
+ * Prodda 24 ta pending CLICK bor va HAMMASI bekor qilingan buyurtmada.
+ *
+ * Ustiga: sozlamalar sahifasida toggle'lar bor va saqlanardi, lekin POS
+ * ularni UMUMAN O'QIMASDI — ya'ni sozlama hech narsaga ta'sir qilmasdi.
+ *
+ * ENDI: POS `/settings/payment-methods` ni o'qiydi (kassir ham o'qiydi,
+ * MAXFIY KALITLARSIZ — ular admin-only `/settings/payment` da qoladi).
+ * Standart: naqd + karta. Click/Payme sozlama bilan yoqiladi.
+ *
+ * ⚠️ `credit` (nasiya) va `room_charge` BU RO'YXATGA KIRMAYDI — ular
+ * biznes turi bo'yicha ko'rinadi (store/supermarket, hotel) va bu mantiq
+ * TEGILMAYDI (GOLDEN: nasiya oqimi o'zgarmaydi).
+ */
+const _PM_SOZLAMA_USULLAR = ['cash', 'card', 'click', 'payme', 'qr'];
+// Standart — so'rov yiqilsa yoki offline bo'lsa SHU ishlatiladi.
+let _enabledPayMethods = ['cash', 'card'];
+
+/**
+ * Tugmalar va split qatorlarini yoqilgan usullar bo'yicha ko'rsatadi.
+ *
+ * ⚠️ IKKI KIRISH NUQTASI: yagona usul tugmalari VA aralash to'lov
+ * (`splitRow_click`/`splitRow_payme`). Faqat tugmani yashirish yetmaydi —
+ * split orqali baribir pending Click yaratish mumkin bo'lardi.
+ *
+ * ⚠️ Grid ustunlari QO'LDA sanaladi: `.pay-methods` CSS'da `repeat(4,1fr)`
+ * (yoki `has-credit` da 5). Tugma `display:none` bo'lsa BO'SH USTUN qolardi
+ * va qolgan tugmalar qiyshayib ketardi.
+ */
+function applyPayMethods() {
+  const ruxsat = new Set(_enabledPayMethods);
+  _PM_SOZLAMA_USULLAR.forEach(m => {
+    const btn = document.querySelector(`.pay-method[data-method="${m}"]`);
+    if (btn) btn.style.display = ruxsat.has(m) ? '' : 'none';
+    const row = document.getElementById(`splitRow_${m}`);
+    if (row) row.style.display = ruxsat.has(m) ? '' : 'none';
+    // Yashiringan split maydoni bo'sh qolsin — aks holda eski qiymat
+    // `buildSplitPayments()` ga qo'shilib ketardi.
+    if (!ruxsat.has(m)) { const el = document.getElementById(`split_${m}`); if (el) el.value = ''; }
+  });
+
+  // Faol tugma yashirilgan bo'lsa — naqdga qaytamiz (tender tanlanmagan
+  // holatda qolib ketmasin).
+  const faol = document.querySelector('.pay-method.active');
+  if (!faol || faol.style.display === 'none') {
+    document.querySelectorAll('.pay-method').forEach(b =>
+      b.classList.toggle('active', b.dataset.method === 'cash'));
+    payMethod = 'cash';
+    const cs = document.getElementById('cashSection');
+    if (cs) cs.style.display = '';
+  }
+
+  // Ko'rinadigan tugmalar soniga qarab ustunlar
+  const pm = document.querySelector('.pay-methods');
+  if (pm) {
+    const n = [...pm.querySelectorAll('.pay-method')]
+      .filter(b => b.style.display !== 'none').length;
+    if (n > 0) pm.style.gridTemplateColumns = `repeat(${n},1fr)`;
+  }
+}
+
+/** Sozlamani serverdan oladi. Yiqilsa standart qoladi (POS to'xtamaydi). */
+async function loadPayMethods() {
+  try {
+    const res = await api.get('/settings/payment-methods');
+    const d = res?.data ?? res;
+    if (d && Array.isArray(d.methods) && d.methods.length) {
+      _enabledPayMethods = d.methods.filter(m => _PM_SOZLAMA_USULLAR.includes(m));
+      if (!_enabledPayMethods.includes('cash')) _enabledPayMethods.unshift('cash');
+    }
+  } catch { /* offline/403 — standart (naqd+karta) qoladi */ }
+  applyPayMethods();
+}
+
 // ─── #32: Aralash to'lov (split) — bir necha usul, order jamiga teng ─────────────
 // Backend allaqachon ko'p Payment'ni sum qiladi (migratsiya yo'q). FAQAT ONLINE.
 // Karta/Click/Payme = ANIQ ulush (ortiqcha bo'lmaydi); Naqd qolganini qoplaydi
@@ -3784,6 +3862,15 @@ async function init() {
 
     await loadData();
     applyBusinessMode();
+    // ⚠️ `applyBusinessMode()` DAN KEYIN: u nasiya/xonaga tugmalarini
+    // ko'rsatadi, `applyPayMethods()` esa ko'rinadigan tugmalarni sanab grid
+    // ustunlarini qo'yadi. Avval chaqirilsa ustun soni xato bo'lardi.
+    //
+    // Darhol bir marta (Click/Payme standart o'chiq — ko'rinib ketmasin),
+    // keyin server javobi bilan qayta. `await` QILINMAYDI: sekin javob POS
+    // ochilishini kechiktirmasin (`refreshStockMap` bilan bir xil naqsh).
+    applyPayMethods();
+    loadPayMethods();
     renderCategories(state.categories);
     renderProducts();
     renderCart();

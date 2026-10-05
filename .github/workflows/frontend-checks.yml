@@ -80,3 +80,9 @@ jobs:
       # QAYTA SO'ROV KETMASLIGI (v1.12.8 xatosi). Sidebar tartibi ham shu yerda.
       - name: POS qoldiq ko'rinishi testi
         run: node frontend/tests/test_pos_stock_display.mjs
+
+      # To'lov usullari: Click/Payme standart O'CHIQ (shlyuz yo'q), sozlama
+      # POS'ga ta'sir qilishi, aralash to'lov qatorlari ham yopilishi va
+      # nasiya/xonaga mantig'i TEGILMAGANI.
+      - name: To'lov usullari testi
+        run: node frontend/tests/test_payment_methods.mjs

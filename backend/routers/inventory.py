@@ -41,6 +41,29 @@ router = APIRouter()
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
+def _faqat_faol(query):
+    """Ombor so'roviga `Product.is_active` filtrini qo'shadi.
+
+    ⛔ NUQSON (2026-10-05 topildi): `delete_product` (`routers/product.py`)
+    SOFT-DELETE qiladi — `is_active = False`, lekin `inventory` QATORI
+    TEGILMAYDI. Natijada o'chirilgan mahsulot ombor ro'yxatida ko'rinib
+    turardi va uning qoldig'i ombor QIYMATIGA qo'shilardi.
+    Prodda (2026-10-05): 35 qator, 10 tasi qoldiqli, 1 859 001 so'm.
+
+    ⚠️ Inventory QATORI O'CHIRILMAYDI — mahsulot qayta faollashtirilsa
+    qoldiq joyida qolishi kerak. Faqat KO'RINISH filtrlanadi.
+
+    ⚠️ `isnot(False)` ataylab, `is_(True)` EMAS: `is_active` NULL bo'lgan
+    qator (xom SQL bilan yaratilgan bo'lsa) FAOL deb qaraladi. Xato
+    yo'nalishi xavfsiz — haqiqiy mahsulotni yashirib qo'yishdan ko'ra
+    ortiqcha ko'rsatish yaxshi. (Prodda bunday qator yo'q: 3648 true,
+    38 false, 0 NULL.)
+
+    `query` ichida `Product` JOIN qilingan bo'lishi SHART.
+    """
+    return query.filter(Product.is_active.isnot(False))
+
+
 def _get_inv(db, inv_id, current_user) -> Inventory:
     # ROW-LOCK: qo'lda kirim/chiqim/writeoff — o'qi→hisobla→yoz atomik bo'lsin
     # (add/remove/writeoff shu helper orqali oladi). Faqat yozuvchi endpointlar ishlatadi.
@@ -134,6 +157,7 @@ async def get_inventory_items(
     query = db.query(Inventory).join(Product)
     query = apply_tenant_filter(query, Inventory, current_user)
     query = apply_branch_filter(query, Inventory, current_user)
+    query = _faqat_faol(query)          # o'chirilgan mahsulot ko'rinmaydi
 
     if low_stock_only:
         query = query.filter(Inventory.quantity <= Inventory.min_threshold)
@@ -176,6 +200,7 @@ async def get_pos_stock(
     query = db.query(Inventory).join(Product).options(joinedload(Inventory.product))
     query = apply_tenant_filter(query, Inventory, current_user)
     query = apply_branch_filter(query, Inventory, current_user)
+    query = _faqat_faol(query)          # o'chirilgan mahsulot ko'rinmaydi
     if search:
         query = query.filter(Product.name.ilike(f"%{search}%"))
     items = query.order_by(Product.name).limit(limit).all()
@@ -224,7 +249,7 @@ async def get_low_stock_items(
     query = apply_tenant_filter(db.query(Inventory), Inventory, current_user)
     query = apply_branch_filter(query, Inventory, current_user)
     items = (
-        query.join(Product)
+        _faqat_faol(query.join(Product))   # o'chirilgan mahsulot ogohlantirmaydi
         .filter(Inventory.quantity <= Inventory.min_threshold)
         .order_by(Product.name).all()
     )
@@ -268,7 +293,7 @@ async def get_inventory_value(
     """Ombor umumiy qiymati (tannarx + sotuv + potensial foyda)"""
     q = apply_tenant_filter(db.query(Inventory), Inventory, current_user)
     q = apply_branch_filter(q, Inventory, current_user)
-    results = q.join(Product).with_entities(
+    results = _faqat_faol(q.join(Product)).with_entities(
         func.sum(Inventory.quantity * Product.cost_price).label('total_cost'),
         func.sum(Inventory.quantity * Product.price).label('total_retail'),
         func.count(Inventory.id).label('item_count'),
@@ -359,7 +384,7 @@ async def get_report_summary(
     # O'lik tovar: 30 kunda harakati bo'lmagan mahsulotlar
     q_inv = apply_tenant_filter(db.query(Inventory), Inventory, current_user)
     q_inv = apply_branch_filter(q_inv, Inventory, current_user)
-    all_inv = q_inv.join(Product).all()
+    all_inv = _faqat_faol(q_inv.join(Product)).all()
 
     moved_product_ids = {
         r[0] for r in q_mv.with_entities(StockMovement.product_id).distinct().all()

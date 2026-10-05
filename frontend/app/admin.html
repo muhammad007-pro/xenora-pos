@@ -45,6 +45,32 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="1.8"/><path d="M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="currentColor" stroke-width="1.8"/><path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         Sotuvlar tarixi
       </a>
+      <!-- OMBOR bloki ATAYLAB "Mahsulotlar" dan OLDIN: kunlik ish
+           oqimi kirim/qoldiqdan boshlanadi, katalog tahriri keyin.
+           Blok = `inventory` + uning `nav-sub` bolalari (kirim,
+           chiqim, inventarizatsiya, hisobot) — ular PARENT bilan
+           birga turishi shart. Qolgan bandlar tartibi TEGILMAGAN. -->
+      <a class="nav-item" data-page="inventory">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" stroke="currentColor" stroke-width="1.8"/></svg>
+        Ombor
+        <span class="nav-badge" id="lowStockBadge" style="display:none">0</span>
+      </a>
+      <a class="nav-item nav-sub" data-page="stockIn" style="padding-left:2.25rem;font-size:.8125rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Kirim tarixi
+      </a>
+      <a class="nav-item nav-sub" data-page="stockOut" style="padding-left:2.25rem;font-size:.8125rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Chiqim / Hisobdan o'chirish
+      </a>
+      <a class="nav-item nav-sub" data-page="invCount" style="padding-left:2.25rem;font-size:.8125rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2"/></svg>
+        Inventarizatsiya
+      </a>
+      <a class="nav-item nav-sub" data-page="invReport" style="padding-left:2.25rem;font-size:.8125rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/><polyline points="14 2 14 8 20 8" stroke="currentColor" stroke-width="2"/><line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="2"/><line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="2"/></svg>
+        Ombor hisoboti
+      </a>
       <a class="nav-item" data-page="products">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" stroke="currentColor" stroke-width="1.8"/></svg>
         Mahsulotlar
@@ -381,27 +407,6 @@
       <a class="nav-item" href="profit.html">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 7v6h-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Foyda tahlili
-      </a>
-      <a class="nav-item" data-page="inventory">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" stroke="currentColor" stroke-width="1.8"/></svg>
-        Ombor
-        <span class="nav-badge" id="lowStockBadge" style="display:none">0</span>
-      </a>
-      <a class="nav-item nav-sub" data-page="stockIn" style="padding-left:2.25rem;font-size:.8125rem">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Kirim tarixi
-      </a>
-      <a class="nav-item nav-sub" data-page="stockOut" style="padding-left:2.25rem;font-size:.8125rem">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Chiqim / Hisobdan o'chirish
-      </a>
-      <a class="nav-item nav-sub" data-page="invCount" style="padding-left:2.25rem;font-size:.8125rem">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" stroke="currentColor" stroke-width="2"/></svg>
-        Inventarizatsiya
-      </a>
-      <a class="nav-item nav-sub" data-page="invReport" style="padding-left:2.25rem;font-size:.8125rem">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/><polyline points="14 2 14 8 20 8" stroke="currentColor" stroke-width="2"/><line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="2"/><line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="2"/></svg>
-        Ombor hisoboti
       </a>
       <a class="nav-item nav-restaurant nav-feature-kitchen_display" data-page="stations" style="display:none">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8"/><path d="M14 17.5h7M17.5 14v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>

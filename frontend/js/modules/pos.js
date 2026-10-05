@@ -564,6 +564,7 @@ function renderProducts(catId = null) {
         <div class="prod-name">${p.name}</div>
         ${dosageLbl}${expiryDate}${durationBadge}${periodBadge}${sessionsBadge}${lessonsBadge}${partBadge}
         <div class="prod-price">${fmtNum(p.price)} <span class="prod-unit">UZS${unitLbl ? ' '+unitLbl : ''}</span></div>
+        ${_stockBadge(p.id)}
       </div>
     </div>`;
   }).join('');
@@ -896,7 +897,7 @@ function collectModifiers() {
 // ogohlantirish: kassir savatni to'ldirib bo'lgach 400 olishdan ko'ra, darhol
 // bilgani yaxshi. Xarita eskirishi mumkin (boshqa kassa sotgan bo'lishi), shuning
 // uchun BLOKLAMAYDI — server so'nggi so'zni aytadi.
-let _stockMap  = new Map();   // product_id -> { quantity, unit }
+let _stockMap  = new Map();   // product_id -> { quantity, unit, min_threshold }
 let _guardOn   = false;
 
 async function refreshStockMap() {
@@ -905,10 +906,72 @@ async function refreshStockMap() {
     const d = res?.data ?? res;
     if (!d || !Array.isArray(d.items)) return;
     _guardOn = !!d.block_oversell;
-    _stockMap = new Map(d.items.map(r => [r.product_id, { quantity: r.quantity, unit: r.unit }]));
+    // `min_threshold` QO'SHILDI — kartadagi qoldiq yorlig'ining rangi shunga
+    // qarab belgilanadi (`_stockBadge`). Endpoint uni allaqachon qaytaradi.
+    _stockMap = new Map(d.items.map(r => [r.product_id,
+      { quantity: r.quantity, unit: r.unit, min_threshold: r.min_threshold }]));
+    // Xarita POS ochilgandan KEYIN keladi (`await` qilinmaydi) — o'sha
+    // paytda kartalar allaqachon chizilgan va yorliqsiz. Shu sabab bir
+    // marta joyida yangilanadi. Sotuvdan keyin ham shu yo'l bilan yangi
+    // qoldiq ko'rinadi.
+    _repaintStockBadges();
   } catch { /* ogohlantirish ixtiyoriy — sotuvni to'xtatmaydi */ }
 }
 window.refreshStockMap = refreshStockMap;
+
+/**
+ * MAHSULOT KARTASIDAGI QOLDIQ yorlig'i — "12 dona", "4.5 kg".
+ *
+ * NEGA: kassir mijozga "bor/yo'q, qancha qoldi" deb ayta olishi uchun qoldiqni
+ * ko'rishi kerak edi; ilgari u faqat savatga qo'shilgandan KEYIN
+ * ogohlantirish bo'lib chiqardi (`_warnIfShort`).
+ *
+ * ⚠️ FAQAT EKRANDA. Chek `renderReceiptData` / `buildReceipt58` dan
+ * quriladi — ular savat yoki server qatorlarini o'qiydi, qoldiq esa
+ * `_stockMap` da (alohida). Ya'ni yorliq chekka TUSHMAYDI.
+ *
+ * ⚠️ QAYTA SO'ROV YO'Q. `_stockMap` POS ochilganda va har sotuvdan keyin
+ * bir marta to'ldiriladi (`refreshStockMap`). Bu funksiya FAQAT xotiradagi
+ * xaritadan o'qiydi — qidiruvda/`renderProducts` da tarmoqqa chiqmaydi.
+ * (v1.12.8 da admin ro'yxatida har harf bosilganda qoldiq qayta tortilardi;
+ * shu xato POS'da takrorlanmasin.)
+ *
+ * Xarita bo'sh bo'lsa (so'rov yiqildi / hali kelmadi) yorliq CHIQMAYDI —
+ * "0" ko'rsatish yolg'on bo'lardi.
+ */
+function _stockBadge(productId) {
+  const st = _stockMap.get(productId);
+  if (!st || st.quantity == null) return '';
+  const q = Number(st.quantity);
+  if (!isFinite(q)) return '';
+  const thr = Number(st.min_threshold);
+  const cls = q <= 0 ? ' zero'
+            : (isFinite(thr) && thr > 0 && q <= thr) ? ' low' : '';
+  const unit = st.unit ? ' ' + st.unit : '';
+  return `<div class="prod-stock${cls}">${_stockNum(q)}${unit}</div>`;
+}
+
+/**
+ * Ko'rinib turgan kartalardagi qoldiq yorliqlarini JOYIDA yangilaydi.
+ *
+ * NEGA QAYTA RENDER EMAS: `renderProducts(catId)` faol kategoriyani
+ * PARAMETR bilan oladi va u hech qayerda saqlanmaydi — faqat DOM'da
+ * (`.cat-btn.active`). Argumentsiz chaqirsak kassir tanlagan kategoriya
+ * JIMGINA "Barchasi" ga tushib ketardi. Shuning uchun faqat yorliq
+ * almashtiriladi: filtr, qidiruv va ko'rinish (grid/list) tegilmaydi.
+ *
+ * Tarmoqqa CHIQMAYDI — xotiradagi `_stockMap` dan o'qiydi.
+ */
+function _repaintStockBadges() {
+  document.querySelectorAll('#productsGrid .product-card').forEach(card => {
+    const body = card.querySelector('.prod-body');
+    if (!body) return;
+    body.querySelector('.prod-stock')?.remove();
+    const html = _stockBadge(+card.dataset.id);
+    if (html) body.insertAdjacentHTML('beforeend', html);
+  });
+}
+
 
 // Savat qatorining BAZA birligidagi miqdori (ombor shu birlikda yuritiladi)
 function _lineBaseQty(line, product) {

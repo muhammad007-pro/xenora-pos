@@ -75,3 +75,8 @@ jobs:
       # YAGONA MANBADAN (miqdor) o'qishi. Soxta DOM — brauzer kerak emas.
       - name: Qaytarish summa rejimi testi
         run: node frontend/tests/test_returns_sum_mode.mjs
+
+      # POS kartasida qoldiq: rang chegarasi, CHEKKA TUSHMASLIGI va qidiruvda
+      # QAYTA SO'ROV KETMASLIGI (v1.12.8 xatosi). Sidebar tartibi ham shu yerda.
+      - name: POS qoldiq ko'rinishi testi
+        run: node frontend/tests/test_pos_stock_display.mjs

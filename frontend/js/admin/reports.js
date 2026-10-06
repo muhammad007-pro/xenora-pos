@@ -188,3 +188,223 @@ async function loadPeakHours() {
   } catch(e) { console.error('peakHours error', e); }
 }
 
+// ── CHEK BO'YICHA FOYDA (receiptProfit) ──────────────────────────────────────
+// FAQAT KO'RSATISH: hech narsa yozmaydi. Barcha son `/profit/by-receipt` dan,
+// u esa `/profit/summary` ning O'Z funksiyasini ishlatadi — shu sabab
+// "Sof foyda" kartasi "Foyda tahlili" ekrani bilan AYNAN mos keladi.
+//
+// ⚠️ Chek qatori YALPI (sotuv) foydani ko'rsatadi, vozvrat esa ALOHIDA qator:
+// vozvrat sotuv sanasiga emas, QAYTARILGAN sanaga yoziladi (utils/revenue.py
+// QOIDA 1), ya'ni davrdagi vozvrat boshqa davrda sotilgan chekka tegishli
+// bo'lishi mumkin. Shuning uchun uni chek qatorlariga tarqatib YUBORMAYMIZ.
+let rpPage = 1;
+let _rpInit = false;
+
+const _rpMarginBadge = (m) => m >= 30 ? 'badge-green' : m >= 10 ? 'badge-amber' : 'badge-red';
+
+function _rpInitFilters() {
+  if (_rpInit) return;
+  ['rpPeriod','rpFrom','rpTo','rpSort','rpOrder'].forEach(id =>
+    document.getElementById(id)?.addEventListener('change', () => { rpPage = 1; loadReceiptProfit(); }));
+  document.getElementById('rpClearBtn')?.addEventListener('click', () => {
+    ['rpFrom','rpTo'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const p = document.getElementById('rpPeriod'); if (p) p.value = 'week';
+    rpPage = 1; loadReceiptProfit();
+  });
+  _rpInit = true;
+}
+
+async function loadReceiptProfit() {
+  _rpInitFilters();
+  const params = new URLSearchParams({
+    period:    document.getElementById('rpPeriod')?.value || 'week',
+    sort:      document.getElementById('rpSort')?.value   || 'date',
+    order:     document.getElementById('rpOrder')?.value  || 'desc',
+    page:      rpPage,
+    page_size: 50,
+  });
+  // Sana oralig'i berilsa — backend'da u `period` dan USTUN turadi
+  // (core/timeutils.period_dates). Faqat bittasi berilsa ham ishlaydi.
+  const from = document.getElementById('rpFrom')?.value;
+  const to   = document.getElementById('rpTo')?.value;
+  if (from) params.set('date_from', from);
+  if (to)   params.set('date_to',   to);
+
+  const body = document.getElementById('rpBody');
+  const foot = document.getElementById('rpFoot');
+  try {
+    const d = await apiFetch('/profit/by-receipt?' + params);
+    const t = d.totals || {};
+
+    document.getElementById('rpSalesProfit').textContent   = fmtMoney(t.sales_profit || 0);
+    document.getElementById('rpReturnsProfit').textContent = t.returns_profit ? '−' + fmtMoney(t.returns_profit) : '0';
+    document.getElementById('rpNetProfit').textContent     = fmtMoney(t.net_profit || 0);
+    document.getElementById('rpNetMargin').textContent     = (t.net_margin_pct || 0) + '%';
+    document.getElementById('rpElapsed').textContent       = `${d.elapsed_ms} ms · ${d.period?.from} — ${d.period?.to}`;
+
+    // Xizmat asosli bizneslarda (salon/fitnes/mehmonxona) "Foyda tahlili"
+    // uchrashuv/bron asosida hisoblanadi — bu panel esa faqat chek sotuvi.
+    // Farqni do'konchi XATO deb o'ylamasligi uchun backend izoh yuboradi.
+    const noteEl = document.getElementById('rpNote');
+    if (noteEl) {
+      noteEl.textContent   = d.note || '';
+      noteEl.style.display = d.note ? '' : 'none';
+    }
+
+    const items = d.items || [];
+    if (!items.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Bu davrda sotuv topilmadi</td></tr>';
+      foot.innerHTML = '';
+      document.getElementById('rpPaginInfo').textContent = '0 ta';
+      document.getElementById('rpPagination').innerHTML = '';
+      return;
+    }
+
+    body.innerHTML = items.map(it => `
+      <tr style="cursor:pointer" onclick="openReceiptProfit(${it.order_id})">
+        <td class="td-sub">${fmtDate(it.created_at)}</td>
+        <td class="td-bold">${it.daily_number != null ? '#' + it.daily_number : escH(it.order_number || '—')}</td>
+        <td class="td-sub">${it.lines}</td>
+        <td class="td-sub">${it.discount_amount ? '−' + fmtMoney(it.discount_amount) : '—'}</td>
+        <td>${fmtMoney(it.revenue)}</td>
+        <td class="td-sub">${fmtMoney(it.cost)}</td>
+        <td style="color:var(--success);font-weight:700">${fmtMoney(it.profit)}</td>
+        <td><span class="badge ${_rpMarginBadge(it.margin_pct)}">${it.margin_pct}%</span></td>
+      </tr>`).join('');
+
+    // JAMI qatori — DAVR bo'yicha (sahifa bo'yicha EMAS). Vozvrat alohida
+    // qatorda, chunki u qaytarilgan sana bo'yicha ayriladi.
+    const retRow = t.returns_count ? `
+      <tr style="color:var(--danger)">
+        <td colspan="4" style="text-align:right;padding-top:.5rem">Vozvrat (${t.returns_count} ta, qaytarilgan sana bo'yicha)</td>
+        <td>−${fmtMoney(t.returns_revenue)}</td>
+        <td>−${fmtMoney(t.returns_cost)}</td>
+        <td style="font-weight:700">−${fmtMoney(t.returns_profit)}</td>
+        <td></td>
+      </tr>` : '';
+    foot.innerHTML = `
+      <tr style="border-top:1px solid var(--border)">
+        <td colspan="4" style="text-align:right;color:var(--text3);padding-top:.5rem">Sotuv jami (${t.receipts_count} chek)</td>
+        <td>${fmtMoney(t.sales_revenue)}</td>
+        <td class="td-sub">${fmtMoney(t.sales_cost)}</td>
+        <td style="font-weight:700">${fmtMoney(t.sales_profit)}</td>
+        <td><span class="badge ${_rpMarginBadge(t.sales_margin_pct)}">${t.sales_margin_pct}%</span></td>
+      </tr>
+      ${retRow}
+      <tr style="border-top:1px solid var(--border);font-weight:800">
+        <td colspan="4" style="text-align:right">SOF FOYDA (davr)</td>
+        <td>${fmtMoney(t.net_revenue)}</td>
+        <td>${fmtMoney(t.net_cost)}</td>
+        <td class="td-gold">${fmtMoney(t.net_profit)}</td>
+        <td><span class="badge ${_rpMarginBadge(t.net_margin_pct)}">${t.net_margin_pct}%</span></td>
+      </tr>`;
+
+    document.getElementById('rpPaginInfo').textContent = `${items.length} / ${d.total} ta chek`;
+    let pg = '';
+    if ((d.total_pages || 1) > 1) {
+      pg += `<button class="pager-btn" ${rpPage<=1?'disabled':''} onclick="rpPage--;loadReceiptProfit()">‹</button>`;
+      pg += `<span style="padding:0 .5rem">${rpPage} / ${d.total_pages}</span>`;
+      pg += `<button class="pager-btn" ${rpPage>=d.total_pages?'disabled':''} onclick="rpPage++;loadReceiptProfit()">›</button>`;
+    }
+    document.getElementById('rpPagination').innerHTML = pg;
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function openReceiptProfit(orderId) {
+  openModal('receiptProfitModal');
+  const el = document.getElementById('rpdBody');
+  el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</div>';
+  try {
+    const d = await apiFetch('/profit/by-receipt/' + orderId);
+    document.getElementById('rpdTitle').textContent =
+      'Chek foydasi ' + (d.daily_number != null ? '#' + d.daily_number : (d.order_number || ''));
+
+    const rows = (d.items || []).map(i => `
+      <tr>
+        <td class="td-bold">${escH(i.product_name || '#' + i.product_id)}</td>
+        <td style="text-align:center">${i.quantity}${i.unit_sold ? ' ' + escH(i.unit_sold) : ''}</td>
+        <td style="text-align:right">${fmtMoney(i.unit_price)}</td>
+        <td style="text-align:right;color:var(--danger)">${i.discount_share ? '−' + fmtMoney(i.discount_share) : '—'}</td>
+        <td style="text-align:right">${fmtMoney(i.revenue)}</td>
+        <td style="text-align:right" class="td-sub">${fmtMoney(i.cost)}</td>
+        <td style="text-align:right;color:var(--success);font-weight:700">${fmtMoney(i.profit)}</td>
+        <td style="text-align:right"><span class="badge ${_rpMarginBadge(i.margin_pct)}">${i.margin_pct}%</span></td>
+      </tr>`).join('');
+
+    const dc = d.discount || {};
+    // Chegirma qanday taqsimlangani: koef = 1 − chegirma/subtotal, har qator
+    // shunga ko'paytiriladi. Σ(ulush) = buyurtma chegirmasi (kafolat).
+    const _qoldiq = Math.abs((dc.allocated_total || 0) - (dc.order_discount || 0)) > 1;
+    const discBlock = dc.order_discount > 0 ? `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin:.75rem 0;font-size:.8rem;line-height:1.6">
+        <b>Chegirma taqsimi:</b> ${fmtMoney(dc.order_discount)} — proporsional
+        (koeffitsiyent <b>${dc.factor}</b>, ya'ni har qator
+        <b>${(dc.factor * 100).toFixed(2)}%</b> qiymatida hisoblanadi).
+        <br>Qatorlarga tarqatilgani: <b>${fmtMoney(dc.allocated_total)}</b>
+        ${_qoldiq ? '<span style="color:var(--warning)"> ⚠️ qoldiq bor</span>'
+                  : '<span style="color:var(--success)"> ✓ to&rsquo;liq</span>'}
+      </div>` : '';
+
+    const rt = d.returns_totals || {};
+    const tt = d.totals || {};
+    const retBlock = (d.returns || []).length ? `
+      <div class="dt-head" style="margin-top:1rem;padding:0"><h3 class="dt-title" style="color:var(--danger)">Qaytarish — foydadan ayriladi</h3></div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="color:var(--text3);text-align:left"><th style="padding:.3rem 0">Hujjat</th><th>Mahsulot</th><th style="text-align:center">Soni</th><th style="text-align:right">Summa</th><th style="text-align:right">Tan narx</th><th style="text-align:right">Foyda</th><th>Ayrilgan sana</th></tr></thead>
+        <tbody>${d.returns.map(r => `
+          <tr style="color:var(--danger)">
+            <td>${escH(r.return_number || '—')}</td>
+            <td>${escH(r.product_name || '—')}</td>
+            <td style="text-align:center">${r.quantity}</td>
+            <td style="text-align:right">−${fmtMoney(r.revenue)}</td>
+            <td style="text-align:right">−${fmtMoney(r.cost)}</td>
+            <td style="text-align:right;font-weight:700">−${fmtMoney(r.profit)}</td>
+            <td class="td-sub">${fmtDate(r.counted_at)}</td>
+          </tr>`).join('')}</tbody>
+      </table>
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.4rem;line-height:1.5">
+        ⚠️ Vozvrat <b>qaytarilgan sana</b> davriga yoziladi — yuqoridagi chek foydasi
+        (<b>${fmtMoney(tt.profit)}</b>) o&rsquo;zgarmaydi, ayirish o&rsquo;sha davr
+        jamisida ko&rsquo;rinadi. Jami ayrilgan: <b>−${fmtMoney(rt.profit || 0)}</b>.
+      </div>` : '';
+
+    const line = (lbl, val, bold, color) =>
+      `<div style="display:flex;justify-content:space-between;padding:.3rem 0;${bold ? 'font-weight:800;border-top:1px solid var(--border);margin-top:.3rem;padding-top:.5rem' : ''}"><span style="color:var(--text3)">${lbl}</span><span${color ? ` style="color:${color}"` : ''}>${fmtMoney(val)}</span></div>`;
+
+    // Hisobotlar FAQAT `completed` ni sanaydi (`_sales_query`). Ro'yxatdan
+    // bosilganda bu holat yuzaga kelmaydi, lekin to'g'ridan ochilsa raqamlar
+    // "hisobotga kirmaydi" degan ogohlantirish bilan ko'rsatiladi.
+    const statusWarn = d.status && d.status !== 'completed' ? `
+      <div style="background:rgba(245,158,11,.1);border:1px solid var(--warning);border-radius:8px;padding:.5rem .7rem;margin-bottom:.75rem;font-size:.78rem;line-height:1.5">
+        ⚠️ Chek holati — <b>${escH(d.status)}</b>. Yakunlanmagan chek foyda
+        hisobotlariga <b>kirmaydi</b>; pastdagi raqamlar faqat ma'lumot uchun.
+      </div>` : '';
+
+    el.innerHTML = `
+      ${statusWarn}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .75rem;font-size:.84rem;margin-bottom:.75rem">
+        <div><span style="color:var(--text3)">Chek №:</span> <b>${d.daily_number != null ? '#' + d.daily_number : '—'}</b></div>
+        <div><span style="color:var(--text3)">Sana:</span> ${fmtDate(d.created_at)}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead><tr style="color:var(--text3);text-align:left"><th style="padding:.3rem 0">Mahsulot</th><th style="text-align:center">Soni</th><th style="text-align:right">Narx</th><th style="text-align:right">Chegirma</th><th style="text-align:right">Tushum</th><th style="text-align:right">Tan narx</th><th style="text-align:right">Foyda</th><th style="text-align:right">Marja</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:1rem">Qator yo&rsquo;q</td></tr>'}</tbody>
+      </table>
+      ${discBlock}
+      <div style="margin-top:.5rem">
+        ${line('Tushum (chegirma ayirilgan)', tt.revenue)}
+        ${line('Tan narx (sotuvdagi snapshot)', tt.cost)}
+        ${line('FOYDA', tt.profit, true, 'var(--gold)')}
+        <div style="display:flex;justify-content:space-between;padding:.3rem 0"><span style="color:var(--text3)">Marja</span><span><span class="badge ${_rpMarginBadge(tt.margin_pct)}">${tt.margin_pct}%</span></span></div>
+      </div>
+      ${(tt.tax_amount > 0 || tt.service_charge > 0) ? `
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.5rem;line-height:1.5">
+        Chekda soliq ${fmtMoney(tt.tax_amount)} va xizmat haqi ${fmtMoney(tt.service_charge)} bor
+        (yakuniy summa ${fmtMoney(tt.final_amount)}). Bular <b>mahsulot daromadi emas</b> —
+        foyda hisobiga kirmaydi.
+      </div>` : ''}
+      ${retBlock}`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--red);padding:1rem">Xatolik: ${escH(err.message)}</div>`;
+  }
+}

@@ -252,6 +252,9 @@ td{padding:.75rem 1rem;font-size:.875rem;vertical-align:middle}
 .ms-green{background:rgba(16,185,129,.12)}
 .ms-amber{background:rgba(245,158,11,.12)}
 .ms-blue {background:rgba(59,130,246,.12)}
+/* `ms-red` markupda ALLAQACHON ishlatilardi (Magazin Dashboard: kam qoldiq,
+   firma qarzlari), lekin CSS'da yo'q edi — ikonka fonsiz turardi. */
+.ms-red  {background:rgba(239,68,68,.12)}
 .ms-val{font-size:1.25rem;font-weight:800}
 .ms-lbl{font-size:.75rem;color:var(--text2)}
 

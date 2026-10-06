@@ -347,14 +347,28 @@ export function giftRow(name, qty) {
  *
  *   kg, g, l, litr  →  "Qop (20 kg)"        ⚖️  ulgurji og'irlik/suyuqlik
  *   ml, dl, cl      →  "Butun (150 ml)"     🧴  atir/flakon (#20)
+ *   m, sm           →  "O'ram (100 m)"      📏  kabel/mato o'rami
  *   qolgani         →  "Pachka (10 dona)"   📦  do'kon (dona)
  *
  * ⚠️ GOLDEN: `ml` va `dona` chiqishi AVVALGIDEK — mavjud mahsulotlar
- * (ml 185, pcs 83, m 3) uchun matn BIT-BITIGA o'zgarmaydi. Testlar bilan
+ * (ml 185, pcs 83) uchun matn BIT-BITIGA o'zgarmaydi. Testlar bilan
  * qulflangan (`frontend/tests/test_weight_pack_price.mjs`).
+ *
+ * `m` ATAYIN o'zgartirildi (egasi qarori, 2026-10-07): ilgari 150 m kabel
+ * o'rami "Pachka (150 dona)" deb chiqardi — birlik YOLG'ON edi. Oqibat:
+ * mavjud metr-pachka sotuvlarining REPRINTI ham "O'ram (150 m)" bo'ladi
+ * (order_items yorliqni saqlamaydi, `sale_unit` dan hisoblanadi).
  */
 const _PACK_WEIGHT_UNITS = ['kg', 'g', 'l', 'litr'];
 const _PACK_VOL_UNITS    = ['ml', 'dl', 'cl'];
+const _PACK_LENGTH_UNITS = ['m', 'sm'];
+
+// "… bo'yicha" tugmasidagi TO'LIQ nom. `unitWord` qisqa qoladi (chek/hint:
+// "20 kg", "100 m"), bu esa tanlov tugmasi uchun: "Metr bo'yicha".
+// `kg` → "Kg" — avvalgi yorliq ("⚖️ Kg bo'yicha") bit-bitiga saqlanadi.
+const _UNIT_NAMES = {
+  kg: 'Kg', g: 'Gramm', l: 'Litr', litr: 'Litr', m: 'Metr', sm: 'Santimetr',
+};
 
 /**
  * Miqdorni 3 xonagacha yaxlitlab, ortiqcha nollarsiz matn qiladi.
@@ -371,16 +385,41 @@ export function fmtPackQty(n) {
   return String(Math.round((Number(n) || 0) * 1000) / 1000);
 }
 
-/** `sale_unit` uchun pachka turi: nomi, ikonkasi, birlik so'zi. */
+/** `sale_unit` uchun pachka turi: nomi, ikonkasi, birlik so'zi.
+ *
+ * `kind` — 'weight' | 'volume' | 'length' | 'piece'. Qaytarishdagi summa
+ * rejimi uzunlikni ATAYIN chetlab o'tadi (returns.html `_sumModeAvailable`). */
 export function packKind(saleUnit) {
   const u = String(saleUnit || '').toLowerCase();
   if (_PACK_WEIGHT_UNITS.includes(u)) {
-    return { pack: 'Qop',    packIcon: '📦', unitWord: u,      unitIcon: '⚖️', perUnit: true };
+    return { pack: 'Qop',    packIcon: '📦', unitWord: u,      unitIcon: '⚖️', perUnit: true,  kind: 'weight' };
   }
   if (_PACK_VOL_UNITS.includes(u)) {
-    return { pack: 'Butun',  packIcon: '🧴', unitWord: u,      unitIcon: '',   perUnit: true };
+    return { pack: 'Butun',  packIcon: '🧴', unitWord: u,      unitIcon: '',   perUnit: true,  kind: 'volume' };
   }
-  return   { pack: 'Pachka', packIcon: '📦', unitWord: 'Dona', unitIcon: '',   perUnit: false };
+  if (_PACK_LENGTH_UNITS.includes(u)) {
+    return { pack: "O'ram",  packIcon: '🧵', unitWord: u,      unitIcon: '📏', perUnit: true,  kind: 'length' };
+  }
+  return   { pack: 'Pachka', packIcon: '📦', unitWord: 'Dona', unitIcon: '',   perUnit: false, kind: 'piece' };
+}
+
+/** Pachka tanlov oynasidagi BIRLIK tugmasi yorlig'i.
+ *
+ *   kg → "⚖️ Kg bo'yicha"   g → "⚖️ Gramm bo'yicha"   l/litr → "⚖️ Litr bo'yicha"
+ *   m  → "📏 Metr bo'yicha" sm → "📏 Santimetr bo'yicha"
+ *   ml → "ml"  (avvalgidek)        dona/pcs → "Dona"  (avvalgidek)
+ *
+ * Ilgari POS modalida inline yasalardi va metr uchun " Dona bo'yicha"
+ * chiqardi (`packKind('m')` dona qaytarardi, `isFractionalUnit('m')` esa true). */
+export function unitChoiceLabel(saleUnit) {
+  const u = String(saleUnit || '').toLowerCase();
+  const name = _UNIT_NAMES[u];
+  if (name) {
+    const k = packKind(u);
+    return `${k.unitIcon ? k.unitIcon + ' ' : ''}${name} bo'yicha`;
+  }
+  const k = packKind(u);
+  return k.perUnit ? k.unitWord : 'Dona';
 }
 
 /** "Qop (20 kg)" | "Butun (150 ml)" | "Pachka (10 dona)" */

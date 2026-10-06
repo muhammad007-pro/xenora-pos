@@ -810,9 +810,15 @@ function qtyFromSum(sum, unitPrice, maxQty) {
  *
  * `packKind(u).perUnit` — kg/g/l/litr va ml/dl/cl uchun true, dona/pcs uchun
  * false. Ya'ni DONA mahsulotda rejim tugmasi UMUMAN ko'rinmaydi (yarim dona
- * qaytarish ma'nosiz). Ro'yxat bu yerda takrorlanmaydi. */
+ * qaytarish ma'nosiz). Ro'yxat bu yerda takrorlanmaydi.
+ *
+ * UZUNLIK (m/sm) ATAYIN chetda: `packKind` metrni 2026-10-07 dan `perUnit`
+ * deb biladi (yorliq "100 m" bo'lishi uchun), lekin qaytarishda summa rejimi
+ * metr uchun hech qachon bo'lmagan — yoqish alohida qaror. */
 function _sumModeAvailable(saleUnit) {
-  return !!(saleUnit && packKind(saleUnit).perUnit);
+  if (!saleUnit) return false;
+  const k = packKind(saleUnit);
+  return !!(k.perUnit && k.kind !== 'length');
 }
 
 /** Qatorda ko'rsatiladigan birlik so'zi: qop bilan sotilgan bo'lsa "qop". */

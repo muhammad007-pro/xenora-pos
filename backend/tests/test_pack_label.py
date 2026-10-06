@@ -33,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 
 from services.unit_converter import (
+    PACK_LENGTH_UNITS,
     PACK_VOL_UNITS,
     PACK_WEIGHT_UNITS,
     fmt_pack_qty,
@@ -63,7 +64,10 @@ ORDER_PY = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
     # ⚠️ GOLDEN: mavjud cheklar BIT-BITIGA o'zgarmaydi
     ("pcs",  10,  "pachka, 10 dona"),
     ("dona", 12,  "pachka, 12 dona"),
-    ("m",    100, "pachka, 100 dona"),
+    # Uzunlik (kabel/mato) → "o'ram" (2026-10-07: ilgari "pachka, 100 dona" — yolg'on birlik)
+    ("m",    100, "o'ram, 100 m"),
+    ("sm",   50,  "o'ram, 50 sm"),
+    ("M",    150, "o'ram, 150 m"),
     (None,   6,   "pachka, 6 dona"),
     ("",     6,   "pachka, 6 dona"),
     ("quti", 4,   "pachka, 4 dona"),
@@ -75,6 +79,7 @@ def test_yorliq_sale_unit_boyicha(unit, per, kutilgan):
 def test_pack_word_juftligi():
     assert pack_word("kg") == ("qop", "kg")
     assert pack_word("ml") == ("butun", "ml")
+    assert pack_word("m") == ("o'ram", "m")
     assert pack_word("pcs") == ("pachka", "dona")
 
 
@@ -128,6 +133,7 @@ def test_birlik_royxatlari_frontend_bilan_bir_xil():
 
     assert js_list("_PACK_WEIGHT_UNITS") == PACK_WEIGHT_UNITS
     assert js_list("_PACK_VOL_UNITS") == PACK_VOL_UNITS
+    assert js_list("_PACK_LENGTH_UNITS") == PACK_LENGTH_UNITS
 
 
 def test_frontend_yaxlitlash_formulasi_ozgarmagan():
@@ -156,6 +162,7 @@ def test_matn_frontend_bilan_AYNAN_bir_xil():
     for pat, nom in [
         (r"const _PACK_WEIGHT_UNITS = \[[^\]]*\];", "_PACK_WEIGHT_UNITS"),
         (r"const _PACK_VOL_UNITS\s*= \[[^\]]*\];", "_PACK_VOL_UNITS"),
+        (r"const _PACK_LENGTH_UNITS\s*= \[[^\]]*\];", "_PACK_LENGTH_UNITS"),
         (r"export function fmtPackQty\(n\)[\s\S]*?\n}\n", "fmtPackQty"),
         (r"export function packKind\(saleUnit\)[\s\S]*?\n}\n", "packKind"),
         (r"export function packSizeLabel\(saleUnit, per\)[\s\S]*?\n}\n", "packSizeLabel"),
@@ -167,7 +174,7 @@ def test_matn_frontend_bilan_AYNAN_bir_xil():
     holatlar = [
         ("kg", 20), ("g", 500), ("l", 5), ("litr", 5),
         ("ml", 150), ("dl", 5),
-        ("pcs", 10), ("dona", 12), ("m", 100), ("quti", 4),
+        ("pcs", 10), ("dona", 12), ("m", 100), ("sm", 50), ("quti", 4),
         ("kg", 0.5), ("kg", 0.7405882), ("kg", 1000000), ("pcs", 19.9999),
     ]
     script = "\n".join(parts) + f"""

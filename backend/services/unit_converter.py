@@ -65,6 +65,9 @@ def inventory_unit(sale_unit: str | None) -> str:
 PACK_WEIGHT_UNITS = ("kg", "g", "l", "litr")
 #: Hajm (atir/flakon) — "butun" (frontend `_PACK_VOL_UNITS`)
 PACK_VOL_UNITS = ("ml", "dl", "cl")
+#: Uzunlik (kabel/mato) — "o'ram" (frontend `_PACK_LENGTH_UNITS`).
+#: Ilgari "pachka, 150 dona" chiqardi — birlik yolg'on edi (2026-10-07).
+PACK_LENGTH_UNITS = ("m", "sm")
 
 
 def fmt_pack_qty(value: float | None) -> str:
@@ -112,6 +115,8 @@ def pack_word(sale_unit: str | None) -> tuple[str, str]:
     ('qop', 'kg')
     >>> pack_word("ml")
     ('butun', 'ml')
+    >>> pack_word("m")
+    ("o'ram", 'm')
     >>> pack_word("pcs")
     ('pachka', 'dona')
     """
@@ -120,6 +125,8 @@ def pack_word(sale_unit: str | None) -> tuple[str, str]:
         return "qop", u
     if u in PACK_VOL_UNITS:
         return "butun", u
+    if u in PACK_LENGTH_UNITS:
+        return "o'ram", u
     return "pachka", "dona"
 
 

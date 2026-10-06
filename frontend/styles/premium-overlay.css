@@ -11,8 +11,13 @@
 body{background:radial-gradient(ellipse 120% 80% at 55% -12%,#0d1c33 0%,#0a1628 52%,#070f1e 100%)}
 [data-theme="light"] body{background:radial-gradient(ellipse 120% 80% at 55% -12%,#ffffff 0%,#eef2f9 55%,#f4f6fb 100%)}
 
-/* content atmosfera ustида (atmos z-index:0, qolgani 1). Modallar (yuqori z-index) tegmaydi. */
-body > *:not(.xa-atmos){position:relative;z-index:1}
+/* content atmosfera ustида (atmos z-index:0, qolgani 1).
+   ⚠️ `:where()` — spetsifiklik (0,0,1), ya'ni sahifaning O'Z pozitsiyasi YUTADI.
+   Ilgari `body > *:not(.xa-atmos)` (0,1,1) edi va `.modal-overlay{position:fixed}`
+   (0,1,0) ni BOSIB KETARDI: 30+ sahifada barcha modallar `relative` bo'lib
+   sahifa OXIRIGA tushardi (returns.html: pastki yarmi qora fon), sticky
+   sarlavhalar ham yopishmasdi. Pozitsiyasiz bloklar uchun xulq AYNI. */
+body > :where(:not(.xa-atmos)){position:relative;z-index:1}
 
 /* ── Atmosfera qatlami (bitta bo'sh div, mandala+nur CSS) ── */
 .xa-atmos{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}

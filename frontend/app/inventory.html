@@ -491,13 +491,17 @@ function render() {
     const cat = categories.find(c=>c.id===p?.category_id);
     const st  = itemStatus(i);
     const qty = Number(i.quantity||0);
+    // ZAXIRA MANBA: ilgari `p?.unit` yozilgan edi, lekin ProductInDB da bunday
+    // maydon YO'Q (u `sale_unit` deb ataladi) — ya'ni zaxira hech qachon
+    // ishlamasdi. Endi haqiqatan ishlaydi.
+    // ⚠️ Bu izoh ilgari quyidagi SHABLON ICHIDA <!-- --> bo'lib turardi va
+    // undagi backtick shablonni yopib, BUTUN skriptni sintaksis xatosiga
+    // tushirardi (v1.12.10 → v1.13.0: sahifa abadiy skeleton). Shablon ichiga
+    // backtickli izoh yozmang.
     return `<tr>
       <td><div style="font-weight:600">${p?.name||'—'}</div>${p?.sale_unit?`<div style="font-size:.75rem;color:var(--text3)">${p.sale_unit}</div>`:''}</td>
       <td>${cat?.name||'—'}</td>
       <td>
-        <!-- ZAXIRA MANBA: ilgari `p?.unit` yozilgan edi, lekin ProductInDB da
-             bunday maydon YO'Q (u `sale_unit` deb ataladi) — ya'ni zaxira hech
-             qachon ishlamasdi. Endi haqiqatan ishlaydi. -->
         <div>${qty%1?qty.toFixed(2):qty} ${i.unit||p?.sale_unit||''}</div>
         <div class="stk-bar"><div class="stk-fill ${st.fill}" style="width:${st.pct}%"></div></div>
       </td>

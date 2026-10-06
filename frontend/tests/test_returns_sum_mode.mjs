@@ -77,6 +77,7 @@ function makeDom(els) {
 const src = [
   grab(RCPT, /const _PACK_WEIGHT_UNITS = \[[^\]]*\];/,            '_PACK_WEIGHT_UNITS'),
   grab(RCPT, /const _PACK_VOL_UNITS\s*= \[[^\]]*\];/,             '_PACK_VOL_UNITS'),
+  grab(RCPT, /const _PACK_LENGTH_UNITS = \[[^\]]*\];/,            '_PACK_LENGTH_UNITS'),
   grab(RCPT, /export function packKind\(saleUnit\)[\s\S]*?\n}\n/, 'packKind'),
   grab(HTML, /function _fmtQ\(x\) \{[\s\S]*?\n}/,                 '_fmtQ'),
   grab(HTML, /function qtyFromSum\(sum, unitPrice, maxQty\) \{[\s\S]*?\n}/, 'qtyFromSum'),

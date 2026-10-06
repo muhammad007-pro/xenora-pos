@@ -6,7 +6,7 @@
  * "20 kg qop" ni sotish FRONTENDDA ikki joyda to'silgan edi (backend esa
  * buni allaqachon qo'llardi — `backend/tests/test_weight_pack_price.py`):
  *
- *   1. `pos.js` — pachka tanlov modali sharti `!isWeightUnit(p.sale_unit)`
+ *   1. `pos.js` — pachka tanlov modali sharti `!isFractionalUnit(p.sale_unit)`
  *      bilan kg ni ATAYLAB chetlab o'tardi.
  *   2. `admin/core.js` — `togglePack` kg uchun pachka blokini YASHIRARDI va
  *      maydonlarni tozalardi, ya'ni qop narxini kiritishning yo'li yo'q edi.
@@ -25,6 +25,10 @@
  * Kod fayllardan AJRATIB olinadi (nusxa ko'chirilmaydi) — `test_pos_price_edit.js`
  * dagi naqsh. Shunda funksiya o'zgarsa test ham u bilan o'zgaradi va shart
  * yo'qolsa test "topilmadi" deb YIQILADI, jimgina o'tib ketmaydi.
+ *
+ * ⚠️ 2026-10-06: `isWeightUnit` → `isFractionalUnit` deb NOMI O'ZGARDI
+ * (metr qo'shilgach "og'irlik" nomi shartni yashirardi — qarang
+ * `test_meter_sales.mjs`). Xulq AYNI; bu yerda faqat nom yangilandi.
  *
  * Ishga tushirish:  node frontend/tests/test_weight_pack_price.mjs
  */
@@ -64,11 +68,14 @@ vm.runInContext([
   grab(RCPT, /export function fmtPackQty\(n\)[\s\S]*?\n}\n/,      'fmtPackQty'),
   grab(RCPT, /export function packKind\(saleUnit\)[\s\S]*?\n}\n/, 'packKind'),
   grab(RCPT, /export function packSizeLabel\(saleUnit, per\)[\s\S]*?\n}\n/, 'packSizeLabel'),
-  grab(POS,  /function isWeightUnit\(u\) \{[^}]*\}/,              'isWeightUnit'),
+  // ⚠️ `FRACTIONAL_UNITS` ro'yxati HAM ajratilishi shart: funksiya unga
+  // tayanadi (metr qo'shilgach ro'yxat alohida const'ga chiqarildi).
+  grab(POS,  /const FRACTIONAL_UNITS = \[[\s\S]*?\];/,              'FRACTIONAL_UNITS'),
+  grab(POS,  /function isFractionalUnit\(u\) \{[^}]*\}/,              'isFractionalUnit'),
   grab(POS,  /function isPackProduct\(p\) \{[\s\S]*?\n}/,         'isPackProduct'),
 ].join('\n').replace(/^export /gm, ''), sandbox);
 
-const { fmtPackQty, packKind, packSizeLabel, isWeightUnit, isPackProduct } = sandbox;
+const { fmtPackQty, packKind, packSizeLabel, isFractionalUnit, isPackProduct } = sandbox;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 1) YORLIQLAR — sale_unit ga qarab ("dona" qotib qolmasin)
@@ -121,11 +128,11 @@ const packGuardSrc = grab(POS,
   /if \(unitMode == null && presetWeight == null && isPackProduct\(p\)\) \{/,
   'pachka tanlov sharti');
 const weightGuardSrc = grab(POS,
-  /if \(isWeightUnit\(p\.sale_unit\) && unitMode !== 'pachka'\) \{/,
+  /if \(isFractionalUnit\(p\.sale_unit\) && unitMode !== 'pachka'\) \{/,
   "og'irlik modali sharti");
 
-// To'siq OLINGANINI tasdiqlaymiz: eski `!isWeightUnit(...)` qaytib kelmasin
-check('3_eski_tosiq_olindi', /!isWeightUnit/.test(packGuardSrc), false);
+// To'siq OLINGANINI tasdiqlaymiz: eski `!isFractionalUnit(...)` qaytib kelmasin
+check('3_eski_tosiq_olindi', /!isFractionalUnit/.test(packGuardSrc), false);
 // ⚠️ GOLDEN sharti SAQLANGANINI tasdiqlaymiz
 check('3_presetWeight_sharti_bor', /presetWeight == null/.test(packGuardSrc), true);
 check('3_unitMode_pachka_istisnosi', /unitMode !== 'pachka'/.test(weightGuardSrc), true);
@@ -173,9 +180,9 @@ check('3d_ml_ogirlikka_tushmaydi',  ogirlikModaliga(null, null, ML_PK),  false);
 
 // e) "Birlik bo'yicha" tugmasi kg ni og'irlik oynasiga yuboradi
 const donaBtnSrc = grab(POS,
-  /if \(p\.sale_unit === 'ml' \|\| isWeightUnit\(p\.sale_unit\)\) showWeightModal\(p\);/,
+  /if \(p\.sale_unit === 'ml' \|\| isFractionalUnit\(p\.sale_unit\)\) showWeightModal\(p\);/,
   "birlik tugmasi yo'naltirishi");
-check('3e_kg_tugmasi_ogirlik_oynasi', /isWeightUnit\(p\.sale_unit\)/.test(donaBtnSrc), true);
+check('3e_kg_tugmasi_ogirlik_oynasi', /isFractionalUnit\(p\.sale_unit\)/.test(donaBtnSrc), true);
 check('3e_ml_avvalgidek', /p\.sale_unit === 'ml'/.test(donaBtnSrc), true);
 
 // ══════════════════════════════════════════════════════════════════════════════

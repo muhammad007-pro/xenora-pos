@@ -195,8 +195,28 @@ function fmtUnit(u) {
   return `/ ${u}`;
 }
 
-// O'lchov birligi kg/g/l ekanligini tekshiradi (tarozida tortiluvchi mahsulot)
-function isWeightUnit(u) { return ['kg', 'g', 'l', 'litr'].includes(u); }
+// ── KASRLI MIQDORDA SOTILADIGAN BIRLIKLAR ──────────────────────────
+// MUAMMO (jonli, XOZMAG): `m` (metr) ro'yxatda YO'Q edi — mato/kabel/plyonka
+// 3.5 m sotib bo'lmasdi. Og'irlik oynasi ochilmas, mahsulot "dona" sifatida
+// butun songa majburlanardi.
+//
+// ⚠️ NOM O'ZGARTIRILDI (`isFractionalUnit` → `isFractionalUnit`): metr OG'IRLIK
+// emas, lekin xulq AYNI — kasrli miqdor + "necha?" oynasi. Eski nom pul
+// yo'lidagi shartni yashirardi ("nega matoga og'irlik tekshiruvi?").
+//
+// `ml` ATAYIN YO'Q: u alohida yo'ldan ketadi (#20 atir — "Butun/ml" tanlovi),
+// `doAddToCart` da `|| sale_unit === 'ml'` bilan qo'shiladi.
+// `pcs`/`box`/`pack`/`portion` BUTUN qoladi — yarim quti sotilmaydi.
+const FRACTIONAL_UNITS = [
+  'kg', 'g',          // og'irlik (tarozi)
+  'l', 'litr',        // suyuqlik
+  'm', 'sm',          // UZUNLIK — mato, kabel, plyonka, lenta (YANGI)
+];
+function isFractionalUnit(u) { return FRACTIONAL_UNITS.includes(String(u || '').toLowerCase()); }
+
+// Uzunlik birliklari — oyna sarlavhasi/yorliqlari uchun ("Og'irlik" emas, "Uzunlik")
+const LENGTH_UNITS = ['m', 'sm'];
+function isLengthUnit(u) { return LENGTH_UNITS.includes(String(u || '').toLowerCase()); }
 
 // Xizmat davomiyligini formatlash: 45 → "45 min", 90 → "1s 30m"
 function fmtDuration(min) {
@@ -389,6 +409,11 @@ function computeTotals() {
 // aks holda 2-mahsulotda getElementById(null).style xatosi chiqadi.
 const _cartEmptyNode = document.getElementById('cartEmpty');
 
+// Savatni pastga tushirish belgisi — FAQAT mahsulot QO'SHILGANDA qo'yiladi.
+// `renderCart()` o'chirish/miqdor o'zgarishida ham chaqiriladi; u paytda
+// kassirning scroll holatini o'zgartirish — qo'lidan tortib olish bo'ladi.
+let _cartScrollToEnd = false;
+
 function renderCart() {
   const list  = document.getElementById('cartItems');
   const empty = _cartEmptyNode;
@@ -471,6 +496,24 @@ function renderCart() {
   document.getElementById('holdBtn').disabled     = false;
   renderTotals();
   persistCart();
+
+  // ── OXIRGI QATORGA TUSHISH ───────────────────────────────────
+  // MUAMMO: savat uzun bo'lsa (`.cart-items{overflow-y:auto}`) yangi qo'shilgan
+  // mahsulot ko'rinmas joyda qolardi — kassir "qo'shildimi?" deb ikkinchi marta
+  // bosardi. QAROR: kassir yuqoriga ko'tarilgan bo'lsa HAM tushadi, chunki
+  // aynan hozir yangi qator qo'shilgan va u ko'rinishi kerak.
+  if (_cartScrollToEnd) {
+    _cartScrollToEnd = false;
+    // `requestAnimationFrame` — `innerHTML` dan keyin `scrollHeight` haqiqiy
+    // bo'lishi uchun (bir freym kutmasa eski balandlikka scroll qilardi).
+    requestAnimationFrame(() => {
+      try {
+        list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+      } catch {
+        list.scrollTop = list.scrollHeight;   // eski webview — silliqsiz
+      }
+    });
+  }
 }
 
 function renderTotals() {
@@ -597,7 +640,7 @@ function showPackChoiceModal(product) {
     `${fmtPackQty(product.pack_size)} ${k.perUnit ? k.unitWord : 'dona'}`;
   // Birlik tomoni: og'irlikda "⚖️ Kg bo'yicha" (bosilsa og'irlik oynasi ochiladi)
   document.getElementById('packChoiceDonaLbl').textContent   =
-    isWeightUnit(product.sale_unit)
+    isFractionalUnit(product.sale_unit)
       ? `${k.unitIcon} ${k.unitWord.charAt(0).toUpperCase()}${k.unitWord.slice(1)} bo'yicha`
       : (k.perUnit ? k.unitWord : 'Dona');
   document.getElementById('packChoiceDonaPrice').textContent =
@@ -615,7 +658,7 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
   // oqim (rx-tasdiq, modifikator) bir marta. Pachkasiz mahsulot — tanlovsiz, avvalgidek.
   //
   // KG/QOP: og'irlik birliklari ham pachkali bo'lishi MUMKIN (20 kg qop + kg
-  // bo'yicha). Ilgari bu yerda `&& !isWeightUnit(p.sale_unit)` turardi va
+  // bo'yicha). Ilgari bu yerda `&& !isFractionalUnit(p.sale_unit)` turardi va
   // kg mahsulotda tanlov modali umuman ochilmasdi.
   //
   // ⚠️ `presetWeight == null` sharti SAQLANADI — u OG'IRLIK ALLAQACHON
@@ -660,7 +703,7 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
   // tekshiruv unitMode'ni ko'rmasa kg mahsulot BU YERDA og'irlik modaliga
   // tushib ketardi va qop oqimi hech qachon savatga yetmasdi.
   // "⚖️ Kg bo'yicha" esa bu yerga `unitMode == null` bilan keladi → modal.
-  if (isWeightUnit(p.sale_unit) && unitMode !== 'pachka') {
+  if (isFractionalUnit(p.sale_unit) && unitMode !== 'pachka') {
     if (presetWeight != null) {
       doAddToCart(p, [], presetWeight);
     } else {
@@ -727,6 +770,13 @@ function _setWeightMode(mode) {
 
 function showWeightModal(product) {
   _weightProduct = product;
+  // Sarlavha/yorliq birlikka moslanadi: metrda "Og'irlik kiriting" deb turish
+  // kassirni chalg'itadi (mato tortilmaydi, o'lchanadi).
+  const _len = isLengthUnit(product.sale_unit);
+  const _ttl = document.querySelector('#weightModal .modal-header h3');
+  if (_ttl) _ttl.textContent = _len ? "Uzunlik kiriting" : "Og'irlik kiriting";
+  const _qtyBtn = document.getElementById('wModeQty');
+  if (_qtyBtn) _qtyBtn.textContent = _len ? 'Uzunlik' : "Og'irlik";
   document.getElementById('weightProdName').textContent = product.name;
   document.getElementById('weightPriceHint').textContent = `${fmtNum(product.price)} UZS / ${product.sale_unit}`;
   document.getElementById('weightUnitLbl').textContent   = product.sale_unit;
@@ -734,10 +784,16 @@ function showWeightModal(product) {
   document.getElementById('weightTotalAmt').textContent  = '0 UZS';
   _setWeightMode('qty');   // har ochilishda og'irlik rejimi (mavjud xulq)
 
-  // Preset tugmalari: ml (atir #20) / gram / kg uchun boshqacha
-  const presets = product.sale_unit === 'ml'
+  // Preset tugmalari birlikka qarab: ml (atir #20) / m / sm / g / kg
+  const _su = String(product.sale_unit || '').toLowerCase();
+  const presets = _su === 'ml'
     ? [['10','10 ml'],['20','20 ml'],['30','30 ml'],['50','50 ml'],['100','100 ml'],['150','150 ml']]
-    : product.sale_unit === 'g'
+    : _su === 'm'
+    // Mato/kabel: eng ko'p so'raladigan uzunliklar (XOZMAG amaliyoti)
+    ? [['0.5','0.5 m'],['1','1 m'],['2','2 m'],['3','3 m'],['5','5 m'],['10','10 m']]
+    : _su === 'sm'
+    ? [['10','10 sm'],['20','20 sm'],['50','50 sm'],['100','1 m'],['150','150 sm'],['200','2 m']]
+    : _su === 'g'
     ? [['100','100g'],['200','200g'],['300','300g'],['500','500g'],['750','750g'],['1000','1 kg']]
     : [['0.1','100g'],['0.25','250g'],['0.5','500g'],['1','1 kg'],['1.5','1.5 kg'],['2','2 kg']];
   const container = document.getElementById('weightPresets');
@@ -781,7 +837,9 @@ document.getElementById('wModeSum')?.addEventListener('click', () => _setWeightM
 document.getElementById('confirmWeightBtn')?.addEventListener('click', () => {
   const w = _currentWeight();
   if (!w || w <= 0) {
-    toast(_weightMode === 'sum' ? 'Summani kiriting' : 'Og\'irlikni kiriting', 'warning');
+    toast(_weightMode === 'sum' ? 'Summani kiriting'
+          : (isLengthUnit(_weightProduct?.sale_unit) ? 'Uzunlikni kiriting' : 'Og\'irlikni kiriting'),
+          'warning');
     return;
   }
   closeModal('weightModal');
@@ -1000,7 +1058,7 @@ function doAddToCart(product, modifiers, weight = null, unitMode = null) {
   const modDelta = modifiers.reduce((s, m) => s + (m.price_delta || 0), 0);
   // #20 atir: ml ham hajm (necha ml) — weight branch (narx = 1ml × ml). Flakon esa
   // weight=null bo'lgani uchun bu branch'ga kirmaydi → pack branch (pastda).
-  const isWeight = isWeightUnit(product.sale_unit) || product.sale_unit === 'ml';
+  const isWeight = isFractionalUnit(product.sale_unit) || product.sale_unit === 'ml';
   const isPack   = unitMode === 'pachka' && isPackProduct(product);
 
   _warnIfShort(product, isWeight ? weight : null, isPack);
@@ -1094,6 +1152,7 @@ function doAddToCart(product, modifiers, weight = null, unitMode = null) {
   }
   if (_membershipDates) _membershipDates = null;
   beep('add');
+  _cartScrollToEnd = true;   // yangi qator qo'shildi -> oxirigacha tushamiz
   renderCart();
 }
 
@@ -1125,7 +1184,10 @@ document.getElementById('packChoiceDonaBtn')?.addEventListener('click', () => {
   //   kg/g/l/litr (QOP)  → "necha kg?" (AYNAN o'sha og'irlik modali — qop
   //                        tanlanmaganda kg mahsulot odatdagi tarozi oqimida)
   //   dona (avvalgidek)  → to'g'ridan savatga 'dona' rejimida
-  if (p.sale_unit === 'ml' || isWeightUnit(p.sale_unit)) showWeightModal(p);
+  //   m/sm (o'ram)      -> "necha metr?" (ayni oyna, sarlavha "Uzunlik" ga moslanadi)
+  //                        ⚠️ Pachka YORLIG'I o'zgarmaydi ("Pachka (100 dona)") —
+  //                        u test_weight_pack_price.mjs:92 da GOLDEN qulfda.
+  if (p.sale_unit === 'ml' || isFractionalUnit(p.sale_unit)) showWeightModal(p);
   else addToCart(p.id, null, 'dona');
 });
 
@@ -3073,7 +3135,7 @@ async function handleBarcodeScan(code) {
         found = bcRes;
         weightKg  = bcRes.weight_kg  || null;
         calcPrice = bcRes.calculated_price || null;
-        // lookup `unit` qaytaradi; addToCart/isWeightUnit `sale_unit` ni o'qiydi → moslab qo'yamiz
+        // lookup `unit` qaytaradi; addToCart/isFractionalUnit `sale_unit` ni o'qiydi → moslab qo'yamiz
         if (bcRes.sale_unit == null && bcRes.unit != null) bcRes.sale_unit = bcRes.unit;
         if (!state.products.find(p => p.id === bcRes.id)) state.products.push(bcRes);
       }

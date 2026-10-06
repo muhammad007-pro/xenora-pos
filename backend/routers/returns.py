@@ -25,7 +25,11 @@ from models import (
 from services.payment_service import PaymentService
 from schemas import ReturnCreate, ReturnInDB, ReturnReport, MessageResponse
 from deps import get_current_active_user, apply_tenant_filter, has_permission
-from core.audit import log_audit  # xodim harakatlarini yozish (audit)
+from core.audit import log_audit
+# Mijoz qarzi — FIFO/qoldiq hisobining YAGONA manbasi (ikki nusxa birlashtirildi)
+from services.customer_debt import (
+    add_advance, apply_payment_to_debts, pick_debts_fifo, recalc_customer_debt,
+)  # xodim harakatlarini yozish (audit)
 # Davr ta'rifi YAGONA manbadan — routers/report.py bilan bir xil qoida
 # (tenant mahalliy zonasi, tugash kuni to'liq qamraladi).
 from core.timeutils import report_bounds
@@ -706,53 +710,33 @@ def _refund_money(db: Session, ret: Return, current_user) -> dict:
         return out
 
     # ── NASIYA (balansga) ───────────────────────────────────────────────────
+    # ⚠️ MANTIQ KO'CHIRILDI: FIFO tartibi, dopusk va avans naqshi endi
+    # `services/customer_debt.py` da — mijoz qarzini to'lash yo'li (FIFO)
+    # AYNAN shu funksiyalarni ishlatadi. Bu yerdagi xulq BIT-BITIGA o'sha:
+    # `pick_debts_fifo` + `apply_payment_to_debts` o'sha kodning o'zi.
+    # ⚠️ Vozvratda `DebtPayment` YOZILMAYDI — pul KELMAGAN, aksincha qarz
+    # kechiriladi. `DebtPayment` yozilsa kassaga kelmagan pul qo'shilardi
+    # (utils/cashflow.py). Qarz TO'LOVIDA esa u majburiy.
     if method == "credit":
         if not ret.customer_id:
             return out
-        qoldiq = amount
+        debts = pick_debts_fifo(db, ret.customer_id, prefer_order_id=ret.order_id)
+        allocations, qoldiq = apply_payment_to_debts(debts, amount)
+        for a in allocations:
+            out["debt_reduced"] = round(out["debt_reduced"] + a["amount"], 2)
 
-        # 1) shu buyurtmaning qarzi — aniq bog'lanish, taxmin qilmaymiz
-        q = db.query(CustomerDebt).filter(
-            CustomerDebt.customer_id == ret.customer_id,
-            CustomerDebt.status.in_(["open", "partial"]),
-        )
-        debts = []
-        if ret.order_id:
-            debts = q.filter(CustomerDebt.order_id == ret.order_id).all()
-        # 2) qolgani — eng eski ochiq qarzlardan (FIFO)
-        debts += [d for d in q.order_by(CustomerDebt.created_at, CustomerDebt.id).all()
-                  if d not in debts]
-
-        for d in debts:
-            if qoldiq <= 0.009:
-                break
-            ulush = min(qoldiq, float(d.remaining or 0))
-            if ulush <= 0:
-                continue
-            d.remaining = round(float(d.remaining) - ulush, 2)
-            d.paid_amount = round(float(d.paid_amount or 0) + ulush, 2)
-            if d.remaining < 0.01:
-                d.remaining = 0.0
-                d.status = "paid"
-            elif d.paid_amount > 0:
-                d.status = "partial"
-            qoldiq -= ulush
-            out["debt_reduced"] = round(out["debt_reduced"] + ulush, 2)
-
-        # 3) qarzdan OSHGANI — avans (manfiy qoldiqli yozuv). Naqd qaytarilmaydi.
+        # qarzdan OSHGANI — avans (manfiy qoldiqli yozuv). Naqd qaytarilmaydi.
         if qoldiq > 0.009:
-            db.add(CustomerDebt(
+            add_advance(
+                db,
                 tenant_id=ret.tenant_id,
                 branch_id=ret.branch_id,
                 customer_id=ret.customer_id,
                 order_id=ret.order_id,
-                amount=-qoldiq,
-                paid_amount=0.0,
-                remaining=-qoldiq,      # manfiy qoldiq = AVANS (total_debt kamayadi)
-                status="open",
+                amount=qoldiq,
                 notes=f"Vozvrat avansi ({ret.return_number}) — qarzdan oshgan summa",
                 user_id=current_user.id,
-            ))
+            )
             out["advance"] = round(qoldiq, 2)
 
         db.flush()
@@ -760,18 +744,10 @@ def _refund_money(db: Session, ret: Return, current_user) -> dict:
     return out
 
 
-def _recalc_customer_debt(db: Session, customer_id: int) -> None:
-    """`customers.total_debt` ni ochiq qarzlardan qayta hisoblaydi.
-    (routers/debt.py dagi bilan bir xil qoida — manfiy qoldiq avansni bildiradi.)"""
-    total = (
-        db.query(func.coalesce(func.sum(CustomerDebt.remaining), 0.0))
-        .filter(
-            CustomerDebt.customer_id == customer_id,
-            CustomerDebt.status.in_(["open", "partial"]),
-        )
-        .scalar()
-    )
-    db.query(Customer).filter(Customer.id == customer_id).update({"total_debt": total})
+# Eski nom SAQLANADI (bu modulni import qilgan kod/testlar sinmasin), lekin
+# tanasi YO'Q — `services/customer_debt.recalc_customer_debt` ga yo'naltirilgan.
+# Ikki nusxa aynan shu tarzda bittaga keltirildi.
+_recalc_customer_debt = recalc_customer_debt
 
 
 @router.post("/{return_id}/approve", response_model=ReturnInDB)

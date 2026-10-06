@@ -1239,6 +1239,32 @@ class DebtPaymentCreate(BaseModel):
             )
         return m
 
+# ── UMUMIY QARZ TO'LOVI (FIFO) ───────────────────────────────────────────────
+# Mijoz bitta summa beradi, eng eski qarzdan boshlab yopiladi. Usul ro'yxati
+# `DebtPaymentCreate` bilan AYNI (`DEBT_PAYMENT_METHODS`) — ikki yo'l bir xil
+# tenderni qabul qilsin, aks holda hisobotlarda ikki xil qiymat paydo bo'lardi.
+class CustomerDebtPayRequest(BaseModel):
+    amount: float = Field(gt=0)
+    payment_method: str = "cash"
+    notes: Optional[str] = None
+
+    @field_validator("payment_method")
+    @classmethod
+    def _check_payment_method(cls, v: str) -> str:
+        m = (v or "").strip().lower()
+        if m == "credit":
+            raise ValueError(
+                "Nasiya qarzini yana nasiyaga yozib bo'lmaydi — qarz kamayardi, "
+                "lekin kassaga pul kelmasdi."
+            )
+        if m not in DEBT_PAYMENT_METHODS:
+            raise ValueError(
+                f"Noma'lum to'lov usuli: {v!r}. "
+                f"Ruxsat: {', '.join(DEBT_PAYMENT_METHODS)}"
+            )
+        return m
+
+
 class DebtPaymentInDB(BaseModel):
     id: int
     debt_id: int

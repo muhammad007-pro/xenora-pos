@@ -3,6 +3,42 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.0] — 2026-10-07 — Fiskal xavfsizlik, to'lov tuzatish, nasiya FIFO, metr/qop sotuv
+
+**Backend + frontend + electron.** **MIGRATSIYA YO'Q** (alembic head
+o'zgarmaydi: `c9f2a71d3e84`; `models.py` tegilmagan). Yagona konfiguratsiya
+o'zgarishi: `backend/config/fiscal.json`.
+
+⚠️ Mijoz `.exe`'lari frontendni o'zi olib yuradi — POS/chek o'zgarishlari
+ularga faqat **yangi .exe** bilan yetadi.
+
+### 🛑 Fiskal: soxta QR/raqam chekka chiqmaydi
+* `config/fiscal.json`: `enabled: false`, test INN/kassa tozalandi
+* yagona qo'riqchi `ofd_service.is_fiscal_live(cfg)` (`enabled AND mode=="live"`)
+  — `/receipt` va ESC/POS yo'li ikkalasi ham shuni chaqiradi
+* `/orders/{id}/receipt` → `fiscal_mode`, `fiscal_configured`, `fiscal_suppressed`
+* chek kengligi admin reprint'ga ham uzatiladi; zaxira 58mm (`console.warn` bilan)
+* bazadagi eski soxta raqamlarga tegilmagan. Batafsil: `docs/FISCAL.md`
+
+### 💳 To'lov
+* Click/Payme (shlyuz ulanmagan) standart **o'chiq**; `/settings/payment-methods`
+  POS tugmalariga ta'sir qiladi
+* **convert-payment** — to'lov usulini keyin tuzatish (audit bilan)
+* mijoz qarzini umumiy to'lash — **FIFO** (`/customers/{id}/pay-debt`), qarz
+  hisobi yagona manbada
+
+### 📊 Hisobot / admin
+* chek bo'yicha foyda paneli (`/profit/by-receipt`)
+* admin 401 tsikli to'xtatildi (token jonli getter) + keraksiz polling kesildi
+
+### 🛒 POS / ombor / vozvrat
+* metr (m/sm) kasrli sotuv + savat avto-scroll
+* kg mahsulotlarda qop (pachka) narxi; termal chek pachka yorlig'i `sale_unit` bo'yicha
+* kartada qoldiq; o'chirilgan (soft-delete) mahsulot ombor va avto-zakazdan chiqdi
+* vozvrat: pul bo'yicha qaytarish (summa rejimi) + ro'yxat limiti
+
+---
+
 ## [1.12.18] — 2026-10-04 — Service worker: scope, kesh strategiyasi, versiya
 
 Faqat **frontend** (+ skript/CI/hujjat). **Backend TEGILMAGAN**,

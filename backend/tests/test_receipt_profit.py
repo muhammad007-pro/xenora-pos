@@ -30,7 +30,7 @@ from sqlalchemy.pool import StaticPool
 
 import database
 from core.security import get_password_hash
-from core.timeutils import utc_now
+from core.timeutils import tenant_now
 from database import Base, get_db
 from main import app
 from models import (
@@ -41,7 +41,32 @@ from models import (
 ADMIN_PW,  ADMIN_PHONE  = "AdminFoyda7", "+998900000071"
 KASSIR_PW, KASSIR_PHONE = "KassirYuz7",  "+998900000072"
 
-NOW = utc_now()
+# ⚠️⚠️ SEED VAQTI — TENANT (MAHALLIY) ZONADA, `utc_now()` EMAS.
+#
+# NEGA (2026-10-07, yarim tundan keyin topilgan): foyda endpointlari davr
+# chegarasini `_dt_bounds` → `core.timeutils.day_bounds` bilan quradi, u esa
+# MAHALLIY (Toshkent) devor vaqtini beradi: `2026-10-07 00:00+05:00`.
+# SQLite esa `created_at` ni yozganda ZONANI TASHLAYDI va aware qiymatning
+# UTC devor vaqtini saqlaydi.
+#
+# Natijada `utc_now()` bilan seed qilinsa, Toshkentda 00:00–05:00 orasida
+# yugurganda:
+#     saqlangan: '2026-10-06 19:49'   (UTC devor vaqti)
+#     chegara  : '2026-10-07 00:00'   (mahalliy devor vaqti)
+# → yozuv "kecha"ga tushadi va so'rov 0 qator qaytaradi. Aynan shu sabab
+# 14 test yarim tundan keyin yiqildi (kunduzi o'tardi — 05:00 dan keyin UTC
+# devor vaqti bilan mahalliy kalendar kun mos keladi).
+#
+# ⚠️ PRODDA BU MUAMMO YO'Q: ustun `timestamptz`, PostgreSQL haqiqiy
+# instantni solishtiradi. Bu FAQAT SQLite test artefakti — shu sabab
+# `routers/profit.py` / `utils/revenue.py` ga TEGILMADI.
+#
+# `tenant_now()` — mahalliy aware vaqt: devor vaqti chegara bilan bir xil
+# zonada bo'ladi va HAR QANDAY soatda "bugun" ichida qoladi (kelajakka ham
+# chiqmaydi). Taqqoslash: `test_debt_payment_cashflow.py` ATAYLAB `utc_now()`
+# ishlatadi — u `close_shift` oynasini sinaydi, u esa `utc_now()` bilan
+# quriladi. Ya'ni seed zonasi SINALAYOTGAN ENDPOINT asosiga mos bo'lishi kerak.
+NOW = tenant_now()
 
 
 # ══════════════════════════════════════════════════════════════════════════════

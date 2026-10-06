@@ -30,6 +30,8 @@ from core.subscription import is_within_order_limit, get_plan_limits
 from core.tenant_config import get_tenant_config  # BOSQICH 40 (3b): printer tenant-scoped
 from core.feature_flags import Feature, is_feature_enabled  # kitchen_display gate
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
+# Chekda fiskal element ko'rsatish qo'riqchisi — YAGONA manba (mock chiqmaydi)
+from services.ofd_service import is_fiscal_live
 
 router = APIRouter()
 
@@ -648,11 +650,19 @@ async def get_order_receipt(
     paid_payments = [p for p in order.payments if p.status == "paid"]
     total_paid = sum(p.amount for p in paid_payments)
 
-    # Chek QR/fiskal blok — faqat tenant "qr_enabled" (soliq/kassa integratsiyasi)
-    # YOQIQ bo'lsa chekda ko'rinadi. Default O'CHIQ (ko'p do'kon ulanmagan) → QR/fiskal yo'q.
+    # Chek QR/fiskal blok — IKKI shart birga:
+    #   1) tenant `qr_enabled` (do'kon chekda QR ko'rsatishni tanlagan)
+    #   2) fiskal rejim HAQIQATAN `live` (`is_fiscal_live`) — ya'ni chek OFD
+    #      operatoriga yuborilgan. `mock` rejim SOXTA raqam/QR yasaydi va u
+    #      chekka CHIQMASLIGI kerak (huquqiy xavf — ofd_service.py izohi).
+    #
+    # ⚠️ Bazadagi `order.fiscal_number` TEGILMAYDI — faqat KO'RSATISH to'siladi.
+    # Eski buyurtmalarda soxta raqam qolgan (3323 ta), lekin u endi chiqmaydi.
     tid = order.tenant_id or resolve_tenant_id(db, current_user)
     rs = db.query(ReceiptSettings).filter(ReceiptSettings.tenant_id == tid).first()
-    qr_on = bool(rs and rs.qr_enabled)
+    _fiscal_cfg = get_tenant_config(db, tid, "fiscal") or {}
+    _fiscal_live = is_fiscal_live(_fiscal_cfg)
+    qr_on = bool(rs and rs.qr_enabled) and _fiscal_live
 
     # ── Sodiqlik (loyalty) bloki — FAQAT mijoz tanlangan + shu order'da ball harakati bo'lsa.
     # Manba: LoyaltyTransaction (reprint'да ham to'g'ri). Walk-in / ballsiz → None (chekda chiqmaydi).
@@ -712,6 +722,12 @@ async def get_order_receipt(
         "fiscal_qr_url":   order.fiscal_qr_url if qr_on else None,
         "fiscal_sent_at":  order.fiscal_sent_at.isoformat() if order.fiscal_sent_at else None,
         "qr_enabled":      qr_on,
+        # DIAGNOSTIKA (chekda chop etilmaydi — admin/texnik tekshiruv uchun):
+        # nega fiskal blok yo'q ekanini AYTIB turadi, jim qolmaydi.
+        "fiscal_mode":       str(_fiscal_cfg.get("mode") or "mock").strip().lower(),
+        "fiscal_configured": bool(_fiscal_cfg.get("enabled")),
+        # `True` → raqam bazada BOR, lekin rejim `live` emasligi uchun to'sildi
+        "fiscal_suppressed": bool(order.fiscal_number) and not _fiscal_live,
         # pos.js renderReceiptData uchun
         "order_id":        order.id,
         "order_number":    order.order_number,
@@ -750,7 +766,12 @@ async def print_order_receipt(
     tid = order.tenant_id or resolve_tenant_id(db, current_user)
     rs = db.query(ReceiptSettings).filter(ReceiptSettings.tenant_id == tid).first()
     fiscal_cfg = get_tenant_config(db, tid, "fiscal") or {}
-    fiscal_on = bool(fiscal_cfg.get("enabled"))
+    # ⚠️ ILGARI shu yerda FAQAT `enabled` tekshirilardi — `/receipt` yo'li esa
+    # `qr_enabled` ni. Aynan shu AJRALISH xatoni yashirgan: prod konfiguratsiyasi
+    # (`enabled:true, mode:mock`) bilan bu yo'l BESHTA do'konda ham soxta
+    # fiskal raqam va TEST INN (`123456789`) ni chekka bosib chiqarardi,
+    # `qr_enabled` o'chiq bo'lsa ham. Endi yagona qo'riqchi.
+    fiscal_on = is_fiscal_live(fiscal_cfg)
 
     store_name = (rs.store_name if rs and rs.store_name else (cafe.name if cafe else None)) or "Do'kon"
     store_address = (rs.address if rs and rs.address else (getattr(cafe, "address", None) if cafe else None))

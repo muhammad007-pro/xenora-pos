@@ -2409,7 +2409,12 @@ let _lastReceiptOrderId = null;
 let _receiptCfg = {
   font_size: 'normal', print_type: 'usb', printer_ip: null, printer_port: null,
   store_name: null, address: null, phone: null, tax_id: null, header_text: null, footer_text: null,
-  paper_width: 80,
+  // ⚠️ ILGARI bu yerda `80` turardi — butun loyihada YAGONA chetga chiqqan
+  // zaxira (receipt-print.js: 58, electron/main.js: 58 × 2). Sozlama yuklanmay
+  // qolsa (tarmoq uzilishi) 57mm rolikda 80mm kontent bosilib, NARX USTUNI
+  // KESILARDI. `null` → zaxira yagona joyda (receipt-print.js: paperSpec) hal
+  // qiladi va u ogohlantirish ham yozadi.
+  paper_width: null,
 };
 
 async function loadPrinterStatus() {

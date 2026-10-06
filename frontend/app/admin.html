@@ -3804,7 +3804,11 @@ import { printReceiptHTML, buildReceipt58 } from '../js/core/receipt-print.js';
 
 let _deviceName = '';   // Windows printer nomi (bo'sh = OS default)
 // Chek sozlamalari (B1/B3) — markaziy print servisga uzatiladi.
-let _rcptCfg = { print_type: 'usb', printer_ip: null, printer_port: null, font_size: 'normal' };
+// ⚠️ `paper_width` QO'SHILDI: ilgari o'qilmasdi va reprint har safar
+// `receipt-print.js` dagi 58mm zaxirasiga tushardi — 80mm sozlagan do'konda
+// (1001 BARAKA, NICE, FAZZA) chek tor chiqardi, narx ustuni siqilardi.
+let _rcptCfg = { print_type: 'usb', printer_ip: null, printer_port: null,
+                 font_size: 'normal', paper_width: null };
 (async () => {
   try {
     const s = await window.apiFetch('/settings/printer/status');
@@ -3817,6 +3821,7 @@ let _rcptCfg = { print_type: 'usb', printer_ip: null, printer_port: null, font_s
       _rcptCfg.printer_ip   = r.printer_ip   || null;
       _rcptCfg.printer_port = r.printer_port || null;
       _rcptCfg.font_size    = r.font_size    || 'normal';
+      _rcptCfg.paper_width  = r.paper_width  || null;   // null → receipt-print.js zaxirasi
     }
   } catch { /* sozlama olinmasa — usb + normal */ }
 })();
@@ -3830,6 +3835,7 @@ window.printReceiptDoc = (innerHTML, opts = {}) => printReceiptHTML(innerHTML, O
   printType:   _rcptCfg.print_type,
   printerIp:   _rcptCfg.printer_ip,
   printerPort: _rcptCfg.printer_port,
+  paperWidth:  _rcptCfg.paper_width,
 }, opts));
 
 async function reprintOrder(id) {
@@ -3837,7 +3843,12 @@ async function reprintOrder(id) {
   try {
     const rec = await window.apiFetch('/orders/' + id + '/receipt');
     const html = buildReceipt58(rec);
-    const res = await printReceiptHTML(html, { deviceName: _deviceName, title: 'Chek #' + (rec.order_number || id) });
+    // ⚠️ ILGARI bu yerda xom `printReceiptHTML(html, {deviceName, title})`
+    // turardi — ya'ni paperWidth, fontSize, printType, printerIp/Port
+    // HECH BIRI uzatilmasdi. Natijada reprint har doim 58mm + usb + normal
+    // shrift bilan chiqardi, do'kon sozlamasidan qat'i nazar.
+    // `printReceiptDoc` — shu sozlamalarning yagona o'rami (POS `_printOpts` ga mos).
+    const res = await window.printReceiptDoc(html, { title: 'Chek #' + (rec.order_number || id) });
     if (res && res.ok) {
       if (!res.browser) window.toast && window.toast('Chek chiqarildi', 'success');
     } else {

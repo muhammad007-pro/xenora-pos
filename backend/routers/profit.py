@@ -26,11 +26,13 @@ from sqlalchemy.dialects.postgresql import TIMESTAMP as PG_TIMESTAMP
 from typing import Annotated, Optional
 from datetime import date, timedelta
 import calendar
+import time   # chek-foyda paneli javob vaqtini o'lchaydi (elapsed_ms)
 
 from database import get_db
 from models import (
     Order, OrderItem, Product, Category, Expense, User, Cafe,
     Appointment, Service, RoomBooking, Room, Membership,
+    Return, ReturnItem,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 from core.audit import log_audit
@@ -38,7 +40,13 @@ from core.timeutils import period_dates, tenant_now
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak. Avval
 # OrderItem.total_price (katalog summasi) olinardi → foyda chegirma summasiga
 # teng miqdorda oshiq chiqardi. Formula/taqsimlash izohi: utils/revenue.py
-from utils.revenue import net_revenue_expr, order_subtotal_subq, returns_totals
+from utils.revenue import (
+    net_revenue_expr, order_subtotal_subq, returns_totals,
+    # Chek TAFSILOTI uchun: chegirma koeffitsiyenti + vozvrat tan narx/sana.
+    # Ikkinchi nusxa YOZILMAYDI — `returns_totals` ham aynan shularni ishlatadi.
+    discount_factor_expr, return_cost_expr, return_date_expr,
+    RETURN_COUNTED_STATUSES,
+)
 
 # `Annotated` + oddiy `= None`: bu endpointlar testlarda TO'G'RIDAN chaqiriladi,
 # u holda `Query(None)` standart qiymati `Query` OBYEKTI bo'lib kelardi (analytics.py
@@ -847,6 +855,342 @@ async def get_profit_by_category(
             "margin_pct":  round(profit / revenue * 100, 1) if revenue > 0 else 0,
         })
     return {"days": days, "business_type": biz_type, "items": items}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHEK BO'YICHA FOYDA  —  GET /profit/by-receipt  va  /by-receipt/{order_id}
+# ══════════════════════════════════════════════════════════════════════════════
+# FAQAT KO'RSATISH: bu panel hech narsa yozmaydi va YANGI FORMULA KIRITMAYDI.
+# Barcha son mavjud yagona manbalardan keladi:
+#   • qator sof tushumi  → `_REVENUE_EXPR` (= utils.revenue.net_revenue_expr)
+#   • tan narx           → `_COST_EXPR`    (sotuvdagi `unit_cost` SNAPSHOT,
+#                          zaxira `Product.cost_price`)
+#   • davr filtri/status → `_sales_query`  (completed + Toshkent kun chegarasi)
+#   • davr JAMISI        → `_product_summary` — AYNAN `/profit/summary` ishlatadigan
+#                          funksiya. Shu sabab jami raqam ikki ekranda ajralishi
+#                          MUMKIN EMAS (nusxa formula yo'q).
+#
+# ⚠️ CHEK QATORI "YALPI" (sotuv), JAMI qatori esa VOZVRAT AYIRILGAN:
+#   Vozvrat SOTUV sanasiga emas, QAYTARILGAN sanaga yoziladi (utils/revenue.py,
+#   QOIDA 1 — aks holda yopilgan davr hisoboti orqaga o'zgarardi). Ya'ni shu
+#   davrdagi vozvrat BOSHQA davrda sotilgan chekka tegishli bo'lishi mumkin.
+#   Shuning uchun vozvratni chek qatorlariga tarqatib YUBORMAYMIZ — u jamida
+#   ALOHIDA qator bo'lib turadi:
+#       Σ(chek qatorlari foydasi) − vozvrat foydasi = /profit/summary yalpi foyda
+#   Chek TAFSILOTIDA esa o'sha chekning o'z vozvrati ko'rsatiladi (qaysi sanada
+#   foydadan ayrilgani bilan) — lekin chek qatori raqamini o'zgartirmaydi.
+_RECEIPT_SORTS = ("date", "profit", "margin", "revenue")
+
+
+def _receipt_margin_expr(rev, cst):
+    """Marja % = foyda / sof tushum × 100. Tushum 0 bo'lsa 0 (nolga bo'lish yo'q).
+
+    SARALASH uchun SQL ifodasi — sahifalash to'g'ri ishlashi uchun saralash
+    bazada bo'lishi SHART (sahifadagi 50 qatorni Python'da saralash butun
+    davr bo'yicha "eng foydali chek" ni bermaydi).
+    """
+    return (rev - cst) / func.nullif(rev, 0.0) * 100.0
+
+
+@router.get("/by-receipt")
+async def get_profit_by_receipt(
+    period: str = Query("today", description="today | week (7 kun) | month (30 kun)"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
+    sort:  str = Query("date", description="date | profit | margin | revenue"),
+    order: str = Query("desc", description="desc | asc"),
+    page:  int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    # view_finance — tan narx KO'RINADI. Kassirda bu ruxsat yo'q (database.py
+    # rol urug'i), ya'ni u chek foydasini umuman ko'rmaydi.
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """Chek bo'yicha foyda — har chek uchun tushum, tan narx, foyda, marja."""
+    t0 = time.perf_counter()
+    start, end = _period_range(period, None, None, date_from, date_to)
+
+    if sort not in _RECEIPT_SORTS:
+        raise HTTPException(400, f"Noma'lum saralash: {sort!r}. Ruxsat: {', '.join(_RECEIPT_SORTS)}")
+    desc = (order or "desc").lower() != "asc"
+
+    rev = func.coalesce(func.sum(_REVENUE_EXPR), 0.0)
+    cst = func.coalesce(func.sum(_COST_EXPR * OrderItem.quantity), 0.0)
+
+    # ── Chek qatorlari — BITTA guruhlangan so'rov ───────────────────────────
+    # N+1 YO'Q: chek nomeri/sanasi ham shu so'rovda keladi, qator soni esa
+    # `count()` bilan. Hech bir Order/Product obyekti lazy yuklanmaydi.
+    q = (
+        _sales_query(db, current_user, start, end)
+        .with_entities(
+            OrderItem.order_id.label("order_id"),
+            Order.daily_number.label("daily_number"),
+            Order.order_number.label("order_number"),
+            Order.created_at.label("created_at"),
+            Order.discount_amount.label("discount_amount"),
+            rev.label("revenue"),
+            cst.label("cost"),
+            (rev - cst).label("profit"),
+            func.count(OrderItem.id).label("lines"),
+        )
+        # Order ustunlari GROUP BY da ATAYIN sanab o'tilgan: PostgreSQL'da
+        # PK orqali funksional bog'liqlik ishlasa ham, aniq ro'yxat ikkala
+        # dialektda (prod PG / test SQLite) bir xil kompilyatsiya beradi.
+        .group_by(
+            OrderItem.order_id, Order.id, Order.daily_number,
+            Order.order_number, Order.created_at, Order.discount_amount,
+        )
+    )
+
+    _sort_expr = {
+        "date":    Order.created_at,
+        "profit":  rev - cst,
+        "margin":  _receipt_margin_expr(rev, cst),
+        "revenue": rev,
+    }[sort]
+    # Ikkinchi mezon (`order_id`) ATAYIN: teng foyda/marjali cheklarda tartib
+    # BARQAROR bo'lsin, aks holda sahifalar orasida bitta chek ikki marta
+    # chiqishi yoki umuman tushib qolishi mumkin (LIMIT/OFFSET tuzog'i).
+    q = q.order_by(
+        _sort_expr.desc() if desc else _sort_expr.asc(),
+        OrderItem.order_id.desc(),
+    )
+
+    # Cheklar soni — sahifalash uchun (qator emas, CHEK soni).
+    total = (
+        _sales_query(db, current_user, start, end)
+        .with_entities(func.count(func.distinct(OrderItem.order_id)))
+        .scalar()
+    ) or 0
+
+    rows = q.offset((page - 1) * page_size).limit(page_size).all()
+
+    items = []
+    for r in rows:
+        _rev = float(r.revenue or 0)
+        _cst = float(r.cost or 0)
+        items.append({
+            "order_id":        r.order_id,
+            "daily_number":    r.daily_number,
+            "order_number":    r.order_number,
+            "created_at":      r.created_at.isoformat() if r.created_at else None,
+            "discount_amount": round(float(r.discount_amount or 0), 0),
+            "revenue":         round(_rev, 0),
+            "cost":            round(_cst, 0),
+            "profit":          round(_rev - _cst, 0),
+            "margin_pct":      round((_rev - _cst) / _rev * 100, 1) if _rev > 0 else 0,
+            "lines":           int(r.lines or 0),
+        })
+
+    # ── JAMI — `/profit/summary` ning O'Z funksiyasidan ─────────────────────
+    # `_product_summary` vozvratni allaqachon AYIRIB beradi (`revenue`/`cost`),
+    # va vozvratning o'zini ham alohida qaytaradi. Shu sabab:
+    #     sotuv_tushumi = net + returns_revenue
+    # Bu yerda hech qanday formula qayta yozilmaydi.
+    d = _product_summary(db, current_user, start, end)
+    # ⚠️ XIZMAT ASOSLI BIZNES (salon, fitnes, maktab, mehmonxona): `/profit/summary`
+    # daromadni `Appointment`/`RoomBooking` dan oladi, bu panel esa CHEK (Order)
+    # bo'yicha ishlaydi. Ya'ni u yerda jami raqam MOS KELMASLIGI normal — panel
+    # faqat MAHSULOT sotuvini ko'rsatadi (salonda shampun savdosi kabi).
+    # Mahsulot asosli turlarda (store/supermarket/restoran/kafe/dorixona) esa
+    # `net_*` `/profit/summary` bilan AYNAN bir xil, chunki manba bitta funksiya.
+    biz_type = _get_biz_type(db, current_user)
+    _note = None if biz_type in _PRODUCT_TYPES else (
+        "Bu biznes turida foyda xulosasi uchrashuv/bron asosida hisoblanadi. "
+        "Bu panel faqat CHEK (mahsulot) sotuvini ko'rsatadi — «Foyda tahlili» "
+        "jamisi bilan farq qilishi normal."
+    )
+    sales_revenue = d["revenue"] + d["returns_revenue"]
+    sales_cost    = d["cost"]    + d["returns_cost"]
+    sales_profit  = sales_revenue - sales_cost
+    ret_profit    = d["returns_revenue"] - d["returns_cost"]
+    net_profit    = d["revenue"] - d["cost"]
+
+    return {
+        "period":    {"from": start.isoformat(), "to": end.isoformat()},
+        "business_type": biz_type,
+        # Faqat xizmat asosli turlarda to'ldiriladi (yuqoridagi izoh) — UI shu
+        # matnni ko'rsatadi, aks holda do'konchi farqni XATO deb o'ylaydi.
+        "note":      _note,
+        "sort":      sort,
+        "order":     "desc" if desc else "asc",
+        "page":      page,
+        "page_size": page_size,
+        "total":     int(total),
+        "total_pages": (int(total) + page_size - 1) // page_size if total else 1,
+        "items":     items,
+        "totals": {
+            # SOTUV (chek qatorlarining yig'indisi — vozvratsiz)
+            "receipts_count":  int(total),
+            "sales_revenue":   round(sales_revenue, 0),
+            "sales_cost":      round(sales_cost, 0),
+            "sales_profit":    round(sales_profit, 0),
+            "sales_margin_pct": round(sales_profit / sales_revenue * 100, 1) if sales_revenue > 0 else 0,
+            # VOZVRAT (QAYTARILGAN sana bo'yicha — alohida qator)
+            "returns_count":   d["returns_count"],
+            "returns_revenue": round(d["returns_revenue"], 0),
+            "returns_cost":    round(d["returns_cost"], 0),
+            "returns_profit":  round(ret_profit, 0),
+            # SOF — `/profit/summary` dagi revenue/cost/gross_profit bilan AYNI
+            "net_revenue":     round(d["revenue"], 0),
+            "net_cost":        round(d["cost"], 0),
+            "net_profit":      round(net_profit, 0),
+            "net_margin_pct":  round(net_profit / d["revenue"] * 100, 1) if d["revenue"] > 0 else 0,
+        },
+        "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
+    }
+
+
+@router.get("/by-receipt/{order_id}")
+async def get_profit_receipt_detail(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """Bitta chek tafsiloti — har mahsulot bo'yicha foyda + chegirma taqsimi."""
+    t0 = time.perf_counter()
+
+    order = (
+        apply_tenant_filter(db.query(Order), Order, current_user)
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(404, "Chek topilmadi")
+
+    # ── Qatorlar — BITTA so'rov, ORM lazy yuklash YO'Q (N+1 yo'q) ──────────
+    # Mahsulot nomi ham shu so'rovda keladi. `join(Product)` — `_sales_query`
+    # bilan AYNI shakl, aks holda o'chirilgan mahsulotli chek ikki ekranda
+    # boshqa-boshqa summa berardi.
+    factor = discount_factor_expr(_SUB_SQ)
+    rows = (
+        db.query(
+            OrderItem.id.label("item_id"),
+            OrderItem.product_id.label("product_id"),
+            OrderItem.quantity.label("quantity"),
+            OrderItem.unit_price.label("unit_price"),
+            OrderItem.total_price.label("total_price"),
+            OrderItem.unit_sold.label("unit_sold"),
+            Product.name.label("product_name"),
+            _REVENUE_EXPR.label("net_revenue"),
+            (_COST_EXPR * OrderItem.quantity).label("cost"),
+            _COST_EXPR.label("unit_cost"),
+            factor.label("factor"),
+        )
+        .select_from(OrderItem)
+        .join(Order, Order.id == OrderItem.order_id)
+        .join(Product, Product.id == OrderItem.product_id)
+        .join(_SUB_SQ, _SUB_SQ.c.order_id == OrderItem.order_id)
+        .filter(OrderItem.order_id == order.id)
+        .all()
+    )
+
+    items, rev_sum, cost_sum, disc_sum = [], 0.0, 0.0, 0.0
+    for r in rows:
+        _gross = float(r.total_price or 0)      # chegirmagacha (katalog summasi)
+        _net   = float(r.net_revenue or 0)      # chegirma ULUSHI ayirilgan
+        _cost  = float(r.cost or 0)
+        _disc  = _gross - _net
+        rev_sum  += _net
+        cost_sum += _cost
+        disc_sum += _disc
+        items.append({
+            "item_id":        r.item_id,
+            "product_id":     r.product_id,
+            "product_name":   r.product_name,
+            "quantity":       float(r.quantity or 0),
+            "unit_sold":      r.unit_sold,
+            "unit_price":     round(float(r.unit_price or 0), 0),
+            "gross_total":    round(_gross, 0),
+            # Chegirma SHU qatorga tushgan ulushi (proporsional taqsimlash)
+            "discount_share": round(_disc, 0),
+            "revenue":        round(_net, 0),
+            "unit_cost":      round(float(r.unit_cost or 0), 2),
+            "cost":           round(_cost, 0),
+            "profit":         round(_net - _cost, 0),
+            "margin_pct":     round((_net - _cost) / _net * 100, 1) if _net > 0 else 0,
+        })
+
+    # Chegirma koeffitsiyenti — "qanday taqsimlangani" ni ko'rsatish uchun.
+    # Σ discount_share = Order.discount_amount (utils/revenue.py kafolati).
+    _factor = float(rows[0].factor) if rows else 1.0
+
+    # ── Shu chekning VOZVRATLARI ───────────────────────────────────────────
+    # Tan narx/sana `utils/revenue.py` ning AYNI ifodalari bilan (pachka birligi
+    # tuzog'i shu yerda hal qilingan — P0-2). Tenant himoyasi `order` orqali.
+    ret_rows = (
+        db.query(
+            Return.return_number.label("return_number"),
+            Return.status.label("status"),
+            return_date_expr().label("counted_at"),
+            ReturnItem.quantity.label("quantity"),
+            ReturnItem.total.label("revenue"),
+            Product.name.label("product_name"),
+            return_cost_expr().label("cost"),
+        )
+        .select_from(ReturnItem)
+        .join(Return, Return.id == ReturnItem.return_id)
+        .outerjoin(OrderItem, OrderItem.id == ReturnItem.order_item_id)
+        .outerjoin(Product, Product.id == ReturnItem.product_id)
+        .filter(Return.order_id == order.id,
+                Return.status.in_(RETURN_COUNTED_STATUSES))
+        .all()
+    )
+    returns, ret_rev, ret_cost = [], 0.0, 0.0
+    for r in ret_rows:
+        _rv, _ct = float(r.revenue or 0), float(r.cost or 0)
+        ret_rev  += _rv
+        ret_cost += _ct
+        returns.append({
+            "return_number": r.return_number,
+            "status":        r.status,
+            # ⚠️ Vozvrat SHU sanada foydadan ayriladi — chek sotilgan sanada emas.
+            "counted_at":    r.counted_at.isoformat() if r.counted_at else None,
+            "product_name":  r.product_name,
+            "quantity":      float(r.quantity or 0),
+            "revenue":       round(_rv, 0),
+            "cost":          round(_ct, 0),
+            "profit":        round(_rv - _ct, 0),
+        })
+
+    profit = rev_sum - cost_sum
+    return {
+        "order_id":     order.id,
+        "daily_number": order.daily_number,
+        "order_number": order.order_number,
+        "created_at":   order.created_at.isoformat() if order.created_at else None,
+        "status":       str(getattr(order.status, "value", order.status)),
+        "items":        items,
+        "discount": {
+            "order_discount":   round(float(order.discount_amount or 0), 0),
+            # Σ(items.discount_share) — kafolat: AYNAN order_discount ga teng
+            # (butunlay bepul chek yoki eski import yozuvdan boshqa holatda).
+            "allocated_total":  round(disc_sum, 0),
+            # koef = 1 − chegirma / subtotal; har qator shunga ko'paytiriladi
+            "factor":           round(_factor, 6),
+            "method":           "proporsional (utils/revenue.py: net_revenue_expr)",
+        },
+        "totals": {
+            "revenue":    round(rev_sum, 0),
+            "cost":       round(cost_sum, 0),
+            "profit":     round(profit, 0),
+            "margin_pct": round(profit / rev_sum * 100, 1) if rev_sum > 0 else 0,
+            # Soliq/xizmat haqi — MAHSULOT DAROMADI EMAS, faqat ma'lumot uchun
+            # (utils/revenue.py: `final_amount` tuzog'i).
+            "tax_amount":     round(float(order.tax_amount or 0), 0),
+            "service_charge": round(float(order.service_charge or 0), 0),
+            "final_amount":   round(float(order.final_amount or 0), 0),
+        },
+        "returns": returns,
+        "returns_totals": {
+            "count":   len(returns),
+            "revenue": round(ret_rev, 0),
+            "cost":    round(ret_cost, 0),
+            # Chek foydasidan SHU miqdor ayriladi — lekin QAYTARILGAN sana davrida
+            "profit":  round(ret_rev - ret_cost, 0),
+        },
+        "elapsed_ms": round((time.perf_counter() - t0) * 1000, 1),
+    }
 
 
 # ─── Mahsulot tan narxi (barcha tizimlar uchun) ───────────────────────────────

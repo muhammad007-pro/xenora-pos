@@ -114,7 +114,7 @@ const FORM_CONFIGS = {
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _prodTitle = (FORM_CONFIGS[bizType] || FORM_CONFIGS.cafe).title;
 const pageTitles = { dashboard:'Dashboard', orders:'Buyurtmalar', products:'Mahsulotlar', categories:'Kategoriyalar', specials:'Kunlik maxsus', waiters:'Ofitsiantlar reytingi', reservCalendar:'Bron Kalendar', loyaltyTiers:'Sodiqlik darajalari', topDishes:'Top taomlar', waiterShift:'Smena hisoboti', kitchenStats:'Oshxona vaqti statistikasi', stopList:'Stop-list', staffMeal:'Xodimlar ovqati', modifiers:'Modifikatorlar', stations:'Stansiyalar', storeTop:'Top mahsulotlar', storeMargin:'Foyda marjasi', storeCats:'Kategoriya tahlili', storeCashier:'Kassir hisoboti', storePriceList:"Narx ro'yxati", storeDiscounts:'Chegirmalar', debtList:'Nasiya / Qarz Daftar', promotionsList:'Aksiyalar', quickSellList:'Tez Sotuv Paneli', registersList:'Kassalar', cashRegisterList:'Kassa Smena', receiptSettingsPage:'Chek Sozlamalari', departmentsList:"Bo'limlar (Seksiyalar)", pharmStats:'Retsept statistika', pharmPatients:'Bemorlar', pharmTopMeds:'Top dorilar', pharmExpiry:'Yaroqlilik muddati', pharmCats:'Kategoriya tahlili', pharmCashier:'Kassir hisoboti', prescriptions:'Retseptlar jurnali', memberships:'Abonementlar', masters:'Ustalar reytingi', salonSchedule:'Usta ish grafigi', salonServices:'Xizmat tahlili', salonPeakHours:'Band soatlar', salonExpiring:'Tugayotgan abonementlar', salonClients:'Mijoz tahlili', salonMasterReport:'Usta daromad hisoboti', serviceOrders:'Xizmat buyurtmalari', autoStats:'Auto statistika', autoReady:'Tayyor buyurtmalar', autoDebt:'Qarzlar', autoDuration:'Xizmat vaqti', autoBrands:'Avtomobil markalari', autoClients:'Mijoz tarixi', students:"O'quvchilar jurnali", groups:'Guruhlar statistikasi', schoolStats:'Daromad statistikasi', schoolTopStudents:"O'quvchi reytingi", schoolGroupDetail:'Guruh tafsiloti', schoolPayments:"To'lov tahlili", schoolMonthly:'Oylik hisobot', schoolTopCourses:'Top kurslar', cleaning:'Kimyoviy tozalash jurnali', dryStats:'Statistika', dryReady:'Tayyor buyurtmalar', dryServices:'Xizmat tahlili', dryClients:'Mijoz tarixi', dryWorkload:'Kunlik ish yuki', dryPayments:"To'lov tahlili", hotelRooms:'Xonalar holati', hotelBookings:'Bronlar', hotelStats:'Statistika', hotelOccupancy:'Xona dolzarbligi', hotelGuests:'Mehmon tarixi', hotelDebt:'Qarzlar', hotelArrivals:'Bugungi kelish/ketish', hotelRoomRevenue:'Xona tushumi', customers:'Mijozlar', shifts:'Smenalar', inventory:'Ombor', suppliers:'Firmalar', staff:'Xodimlar', settings:'Sozlamalar', stockIn:'Kirim tarixi', stockOut:"Chiqim / Hisobdan o'chirish", invCount:'Inventarizatsiya', invReport:'Ombor hisoboti',
-  storeDashboard:'Magazin Dashboard', abcAnalysis:'ABC Tahlil', reorderAlerts:'Avto-Zakaz / Kam Qoldiq', turnoverAnalysis:'Oborot Tahlili', peakHours:'Peak Soatlar va Kunlar', salesHistory:'Sotuvlar tarixi', reportsHub:'Hisobotlar', auditLog:'Xodimlar faoliyati' };
+  storeDashboard:'Magazin Dashboard', abcAnalysis:'ABC Tahlil', reorderAlerts:'Avto-Zakaz / Kam Qoldiq', turnoverAnalysis:'Oborot Tahlili', peakHours:'Peak Soatlar va Kunlar', salesHistory:'Sotuvlar tarixi', reportsHub:'Hisobotlar', receiptProfit:"Chek bo'yicha foyda", auditLog:'Xodimlar faoliyati' };
 const addLabels  = { products:_prodTitle, categories:"Kategoriya qo'shish", specials:"Maxsus taom qo'shish", inventory:"Kirim qilish", customers:"Mijoz qo'shish", staff:"Xodim qo'shish", stations:"Stansiya qo'shish", stockOut:"Hisobdan o'chirish" };
 
 // JWT dan features ro'yxatini olish
@@ -179,6 +179,19 @@ if (_salonTypes.includes(bizType))       showNavGroup('.nav-salon');
 // feature yoniq bo'lsa ko'rinadi (asosiy kartalar — feature klasssiz — har doim).
 // Sidebar bilan AYNI mexanizm. Yashirin kartada grid auto-fit tekis qoladi.
 showNavGroup('.report-hub-card');
+
+// `view_finance` — RBAC RUXSATI (admin + menejer, database.py rol urug'i), feature
+// flag EMAS. Shuning uchun `nav-feature-*` mexanizmi bu kartaga yaramaydi va alohida
+// tekshiriladi. ⚠️ Bu — QULAYLIK, himoya emas: `/profit/by-receipt` baribir
+// `has_permission("view_finance")` bilan qo'riqlanadi (kassirga 403).
+// `showNavGroup` dan KEYIN turishi SHART — u feature-klasssiz kartani ochib qo'yadi.
+(function(){
+  const _finRoles = ['admin', 'menejer', 'manager'];
+  const ok = user.is_superuser
+    || _finRoles.includes(String(user.role?.name || user.role || '').toLowerCase());
+  if (!ok) document.querySelectorAll('[data-need-finance]')
+    .forEach(el => el.style.setProperty('display', 'none'));
+})();
 
 // "Buyurtmalar" (orders) — aktiv buyurtma oqimi FAQAT ovqatlanish (food) oilasida
 // mantiqli. Food bo'lmasa (magazin, dorixona, salon, fitnes, auto, maktab, mehmonxona,
@@ -1540,6 +1553,7 @@ function loadPageData(page) {
   if (page==='modifiers')      loadModifiers();
   if (page==='storeTop')       loadStoreTop();
   if (page==='storeMargin')    loadStoreMargin();
+  if (page==='receiptProfit')  loadReceiptProfit();
   if (page==='storeCats')      loadStoreCats();
   if (page==='storeCashier')   loadStoreCashier();
   if (page==='storePriceList') loadStorePriceList();

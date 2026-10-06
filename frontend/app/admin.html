@@ -1250,6 +1250,11 @@
             <div class="report-hub-title">ABC tahlili</div>
             <div class="report-hub-desc">Mahsulotlar ABC klassifikatsiyasi</div>
           </a>
+          <a class="report-hub-card" data-page="receiptProfit" data-need-finance="1">
+            <div class="report-hub-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 2h12v19l-3-2-3 2-3-2-3 2V2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><line x1="9" y1="7" x2="15" y2="7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9" y1="11" x2="15" y2="11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9 15h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+            <div class="report-hub-title">Chek bo'yicha foyda</div>
+            <div class="report-hub-desc">Har chek: tushum, tan narx, foyda, marja</div>
+          </a>
         </div>
         <!-- Restoran oilasi (restaurant/cafe/fast_food) hisobotlari -->
         <div class="reports-hub-grid" data-hub-group="restaurant" style="display:none">
@@ -1277,6 +1282,11 @@
             <div class="report-hub-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
             <div class="report-hub-title">Sodiqlik darajalari</div>
             <div class="report-hub-desc">Mijoz sodiqlik darajalari</div>
+          </a>
+          <a class="report-hub-card" data-page="receiptProfit" data-need-finance="1">
+            <div class="report-hub-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M6 2h12v19l-3-2-3 2-3-2-3 2V2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><line x1="9" y1="7" x2="15" y2="7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="9" y1="11" x2="15" y2="11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9 15h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+            <div class="report-hub-title">Chek bo'yicha foyda</div>
+            <div class="report-hub-desc">Har chek: tushum, tan narx, foyda, marja</div>
           </a>
         </div>
       </div>
@@ -1332,6 +1342,79 @@
             <thead><tr><th>Mahsulot</th><th>Sotish narxi</th><th>Xarid narxi</th><th>Sotilgan</th><th>Foyda</th><th>Marja %</th></tr></thead>
             <tbody id="smBody"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ── Chek bo'yicha foyda (receiptProfit) ─────────────────────────────
+           FAQAT KO'RSATISH. Barcha son `/profit/by-receipt` dan — u esa
+           `/profit/summary` ning O'Z funksiyasini (`_product_summary`)
+           ishlatadi, shuning uchun jami raqam ikki ekranda ajralmaydi.
+           ⚠️ Tan narx ko'rinadi → `view_finance` (kassir bu sahifani
+           ko'rmaydi: backend 403, hub kartasi ham yashirin). -->
+      <div class="admin-page" id="pageReceiptProfit">
+        <button class="report-back-btn" onclick="switchPage('reportsHub')">← Hisobotlar</button>
+        <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+          <select id="rpPeriod" class="form-control" style="width:130px">
+            <option value="today">Bugun</option>
+            <option value="week" selected>7 kun</option>
+            <option value="month">30 kun</option>
+          </select>
+          <input type="date" id="rpFrom" class="form-control" style="width:150px" title="Sanadan">
+          <input type="date" id="rpTo"   class="form-control" style="width:150px" title="Sanagacha">
+          <select id="rpSort" class="form-control" style="width:160px">
+            <option value="date" selected>Sana bo'yicha</option>
+            <option value="profit">Foyda bo'yicha</option>
+            <option value="margin">Marja bo'yicha</option>
+            <option value="revenue">Tushum bo'yicha</option>
+          </select>
+          <select id="rpOrder" class="form-control" style="width:120px">
+            <option value="desc" selected>Kamayish</option>
+            <option value="asc">O'sish</option>
+          </select>
+          <button class="tb-btn" onclick="rpPage=1;loadReceiptProfit()">Yangilash</button>
+          <button class="tb-btn" id="rpClearBtn">Tozalash</button>
+          <span id="rpElapsed" style="margin-left:auto;font-size:.72rem;color:var(--text3)"></span>
+        </div>
+        <!-- Xizmat asosli bizneslarda jami farq qilishi NORMAL — backend izohi -->
+        <div id="rpNote" style="display:none;background:rgba(245,158,11,.1);border:1px solid var(--warning);border-radius:8px;padding:.5rem .7rem;margin-bottom:1rem;font-size:.78rem;line-height:1.5"></div>
+        <div class="mini-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">
+          <div class="mini-stat"><div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="rpSalesProfit">—</div><div class="ms-lbl">Sotuv foydasi</div></div></div>
+          <div class="mini-stat"><div class="ms-icon ms-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 12h18M3 12l6-6M3 12l6 6" stroke="var(--danger)" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="rpReturnsProfit" style="color:var(--danger)">—</div><div class="ms-lbl">Vozvrat (ayriladi)</div></div></div>
+          <div class="mini-stat"><div class="ms-icon ms-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16 7 22 7 22 13" stroke="#22c55e" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="rpNetProfit" style="color:var(--success)">—</div><div class="ms-lbl">Sof foyda (davr)</div></div></div>
+          <div class="mini-stat"><div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#f59e0b" stroke-width="1.8"/><path d="M12 8v4l3 3" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="rpNetMargin" style="color:var(--gold)">—</div><div class="ms-lbl">Umumiy marja %</div></div></div>
+        </div>
+        <div class="data-table-wrap">
+          <div class="dt-head">
+            <h3 class="dt-title">Chek bo'yicha foyda</h3>
+            <span id="rpPaginInfo" style="margin-left:auto;font-size:.78rem;color:var(--text3)"></span>
+          </div>
+          <table>
+            <thead><tr><th>Sana</th><th>Chek №</th><th>Qator</th><th>Chegirma</th><th>Tushum</th><th>Tan narx</th><th>Foyda</th><th>Marja %</th></tr></thead>
+            <tbody id="rpBody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
+            <tfoot id="rpFoot"></tfoot>
+          </table>
+          <div id="rpPagination" style="display:flex;gap:.4rem;align-items:center;justify-content:center;padding:.75rem"></div>
+          <!-- ⚠️ Vozvrat SOTUV sanasiga emas, QAYTARILGAN sanaga yoziladi
+               (utils/revenue.py QOIDA 1). Shuning uchun chek qatorlari YALPI
+               turadi, vozvrat esa jamida alohida qator bo'ladi. -->
+          <div style="padding:0 .9rem .9rem;font-size:.75rem;color:var(--text3);line-height:1.5">
+            Chek qatorlari — sotuv paytidagi foyda (tan narx <b>snapshot</b>, bugungi xarid narxi emas).
+            Vozvrat <b>qaytarilgan sana</b> bo'yicha ayriladi, shu sabab alohida qatorda —
+            «Sof foyda» esa <b>Foyda tahlili</b> hisoboti bilan aynan bir xil.
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Chek foydasi tafsiloti (modal) ── -->
+      <div class="modal-overlay" id="receiptProfitModal" onclick="if(event.target===this)closeModal('receiptProfitModal')">
+        <div class="modal-card" style="max-width:720px">
+          <div class="modal-header"><span class="modal-title" id="rpdTitle">Chek foydasi</span><button class="modal-close" onclick="closeModal('receiptProfitModal')">✕</button></div>
+          <div class="modal-body" id="rpdBody">
+            <div style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('receiptProfitModal')">Yopish</button>
+          </div>
         </div>
       </div>
 

@@ -3591,8 +3591,21 @@
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
+import { API }             from '../js/core/api.js';
 AuthGuard.check();
 initErrorHandler();
+// ⚠️ TOKEN REFRESH — admin paneli uchun. `js/admin/core.js` CLASSIC skript,
+// `api.js` esa ES modul: import qila olmaydi, shuning uchun refresh mexanizmi
+// shu yerda `window.__xenoraApi` ga qo'yiladi. Admin'ning `authedFetch` i 401
+// kelganda AYNAN shuni chaqiradi — single-flight (parallel 401 lar bitta
+// refresh kutadi) va yiqilsa tokenlarni tozalab login'ga yo'naltirish UNDA bor.
+// Ikkinchi refresh nusxasi YOZILMAYDI: ikki mexanizm bo'lsa biri tuzatilib
+// ikkinchisi unutiladi (bu loyihada allaqachon bo'lgan xato sinfi).
+//
+// ⚠️ TARTIB: modul skriptlar `defer` — classic `admin/core.js` dan KEYIN,
+// lekin `DOMContentLoaded` dan OLDIN bajariladi. Pollerlar DCL ichida
+// boshlanadi, ya'ni bu qator ulgurib qo'yiladi.
+window.__xenoraApi = new API();
 </script>
 <!-- Qidiruvli select — CLASSIC skript, js/admin/* dan OLDIN yuklanishi shart -->
 <script src="../js/ui/searchable-select.js"></script>

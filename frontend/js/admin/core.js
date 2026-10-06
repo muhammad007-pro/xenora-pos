@@ -1,8 +1,28 @@
 const _lport = window.location.port;
 const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localhost','127.0.0.1'].includes(window.location.hostname);
 const API_BASE = _isDev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
-let token    = localStorage.getItem('access_token');
 let currentPage = 'dashboard';
+
+// ── TOKEN: JONLI O'QILADI (xotiradagi nusxa EMAS) ────────────────────────────
+// ILGARI: `let token = localStorage.getItem('access_token')` — sahifa
+// yuklanganda BIR MARTA. POS yoki boshqa oyna tokenni yangilaganda
+// (`js/core/api.js` refresh localStorage'ga yozadi) admin sahifasi
+// XOTIRADAGI ESKI nusxani abadiy ishlatardi -> har so'rov 401.
+// Jonli dalil (nginx logi, tenant 28): bir soatda 268 ta 401 va AYNI
+// IP'dan 265 ta 200 — yonma-yon ishlayotgan sog'lom va eski mijoz.
+//
+// NEGA GLOBAL XOSSA (getter), oddiy funksiya emas: `token` nomi shu fayldan
+// tashqari 9 ta admin modulida, jami 46 joyda `'Bearer ' + token` ko'rinishida
+// ishlatiladi. Getter bilan ularning HAMMASI qayta yozilmasdan yangi tokenni
+// oladi — 46 ta chaqiruv joyini qo'lda tahrirlash xavfi yo'q.
+Object.defineProperty(window, 'token', {
+  get() { return localStorage.getItem('access_token'); },
+  set(v) {
+    if (v) localStorage.setItem('access_token', v);
+    else   localStorage.removeItem('access_token');
+  },
+  configurable: true,
+});
 
 if (!token) location.href = '../shared/login.html';
 
@@ -269,8 +289,115 @@ document.addEventListener('keydown', e => {
 })();
 
 // ── API helper ────────────────────────────────────────────────────────────────
+// ══ AUTH: 401 → REFRESH → QAYTA URINISH ════════════════════════════
+// MUAMMO: admin sahifasida 401 bilan ishlash UMUMAN yo'q edi. Natijada:
+//   1) `AuthGuard.check()` tokenning faqat BORLIGINI tekshiradi (yaroqliligini
+//      emas) -> sahifa eskirgan token bilan to'liq yuklanadi
+//   2) badge pollerlari `catch {}` bilan o'ralgan -> `unhandledrejection`
+//      chiqmaydi -> `error-handler.js` dagi "401 -> login" ishlamaydi
+//   3) `setInterval` ning to'xtash sharti yo'q -> ABADIY tsikl
+// Jonli natija: bitta do'konda kunda 697 ta 401 (nginx logi).
+//
+// REFRESH MANTIG'I BU YERDA TAKRORLANMAYDI. U `js/core/api.js` da:
+// single-flight (`_refreshInFlight`) + muvaffaqiyatsizlikda tokenlarni
+// tozalab login'ga yo'naltirish. Admin classic script, api.js esa ES modul —
+// shuning uchun `admin.html` modul blokida `window.__xenoraApi` ga qo'yiladi.
+// Ikki xil refresh mexanizmi bo'lsa biri tuzatilib ikkinchisi unutiladi.
+let _authDead = false;
+const _pollers = [];
+
+/** `setInterval` id sini ro'yxatga oladi — qaytarilmas 401 da to'xtatish uchun. */
+function registerPoller(id) { _pollers.push(id); return id; }
+
+/** Qaytarilmas 401: pollerlarni to'xtatadi va BIR MARTA ogohlantiradi. */
+function stopPollersOnAuthLoss(reason) {
+  if (_authDead) return;
+  _authDead = true;
+  _pollers.forEach(clearInterval);
+  _pollers.length = 0;
+  // Test va diagnostika uchun ko'rinadigan belgi (konsolda ham tekshirsa bo'ladi).
+  window.__pollersStopped = true;
+  // `catch {}` ilgari hamma narsani yutib yuborardi: badge'lar ESKI raqamda
+  // muzlab qolardi va do'konchi sessiya tirik deb o'ylardi.
+  console.warn('[auth] 401 — pollerlar to\'xtatildi:', reason);
+  toast("Sessiya tugadi. Sahifani yangilang yoki qayta kiring.", 'error', 15000);
+}
+
+/**
+ * `window.__xenoraApi` tayyor bo'lishini kutadi (cheklangan muddat bilan).
+ *
+ * ⚠️ NEGA KUTISH KERAK — TUZOQ: admin'ning CLASSIC skriptlari sahifa
+ * tahlili paytida ishlaydi va ba'zilari DARHOL so'rov yuboradi (`/branches/`,
+ * `/cafes/my/subscription`, `/analytics/summary`...). Modul skriptlar esa
+ * `defer` — ular KEYIN bajariladi. Ya'ni eng birinchi 401 kelganda refresh
+ * mexanizmi HALI MAVJUD BO'LMASLIGI mumkin.
+ *
+ * Kutmasdan `null` qaytarilsa — birinchi 401 "qaytarilmas" deb hisoblanib
+ * `_authDead` abadiy qulflanadi: refresh ishlay oladigan holatda ham butun
+ * sahifa o'lik sessiya deb belgilanardi. (Bu test paytida aniqlandi.)
+ */
+function _apiReady(timeoutMs = 5000) {
+  if (window.__xenoraApi) return Promise.resolve(window.__xenoraApi);
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      if (window.__xenoraApi || Date.now() - t0 > timeoutMs) {
+        clearInterval(iv);
+        resolve(window.__xenoraApi || null);
+      }
+    }, 50);
+  });
+}
+
+/** Umumiy refresh (single-flight api.js dan). Yangi token yoki null. */
+async function _refreshOnce() {
+  // Refresh token umuman yo'q — qaytish yo'li yo'q, kutishning ma'nosi yo'q.
+  if (!localStorage.getItem('refresh_token')) return null;
+  const api = await _apiReady();
+  if (!api || typeof api.refreshAccessToken !== 'function') return null;
+  // `true` -> refresh yiqilsa api.js tokenlarni tozalab login'ga yuboradi.
+  return api.refreshAccessToken(true);
+}
+
+/** Refresh ham ishlamadi: sessiya o'lik. */
+function _onAuthLost() {
+  if (!localStorage.getItem('refresh_token')) {
+    // Qaytish yo'li YO'Q: tozalab login'ga (api.js refresh yiqilganda aynan
+    // shunday qiladi — lekin refresh token bo'lmasa u yergacha bormaydi).
+    try {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    } catch { /* private rejim — o'qib/yozib bo'lmasa ham davom etamiz */ }
+    stopPollersOnAuthLoss("refresh token yo'q");
+    location.href = '../shared/login.html';
+    return;
+  }
+  // Refresh urinib ko'rilgan va yiqilgan — api.js allaqachon login'ga yubordi.
+  stopPollersOnAuthLoss('refresh yiqildi');
+}
+
+/**
+ * Tokenli fetch. 401 kelsa BIR MARTA refresh qilib qayta uradi.
+ * `_retried` — ikkinchi 401 da to'xtaydi (cheksiz rekursiya bo'lmasin).
+ */
+async function authedFetch(path, init = {}, _retried = false) {
+  const res = await fetch(API_BASE + path, {
+    ...init,
+    headers: { ...(init.headers || {}), 'Authorization': 'Bearer ' + token },
+  });
+  if (res.status !== 401 || _retried || _authDead) return res;
+
+  let fresh = null;
+  try { fresh = await _refreshOnce(); } catch { fresh = null; }
+  if (!fresh) { _onAuthLost(); return res; }
+  return authedFetch(path, init, true);
+}
+
+// ⚠️ SHARTNOMA O'ZGARMADI: xom JSON qaytaradi, xatoda `throw` qiladi.
+// (`api.js` ning `{success,data,error}` o'ramiga O'TKAZILMADI — admin'da 100+
+// chaqiruv joyi bor, hammasini qayta yozish jonli 5 do'kon uchun asossiz xavf.)
 async function apiFetch(path) {
-  const res = await fetch(API_BASE + path, { headers:{'Authorization':'Bearer '+token} });
+  const res = await authedFetch(path);
   if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.detail||res.statusText); }
   return res.json();
 }
@@ -1510,7 +1637,10 @@ async function updatePendingBadge() {
     const cnt  = (data.pending||[]).length + (data.preparing||[]).length;
     document.getElementById('pendingOrdersBadge').textContent = cnt;
     document.getElementById('pendingOrdersBadge').style.display = cnt > 0 ? '' : 'none';
-  } catch {}
+  } catch (e) {
+    // Jim yutilmaydi: aks holda badge eski raqamda muzlab qoladi.
+    console.warn('[badge] kitchen/orders yuklanmadi:', e?.message || e);
+  }
 }
 
 // ── Low stock badge ───────────────────────────────────────────────────────────
@@ -1522,7 +1652,10 @@ async function updateLowStockBadge() {
     if (badge) { badge.textContent = cnt; badge.style.display = cnt > 0 ? '' : 'none'; }
     const el = document.getElementById('invLow');
     if (el && currentPage === 'inventory') el.textContent = cnt;
-  } catch {}
+  } catch (e) {
+    // Jim yutilmaydi: aks holda badge eski raqamda muzlab qoladi.
+    console.warn('[badge] inventory/low-stock yuklanmadi:', e?.message || e);
+  }
 }
 
 // ── Chart period ──────────────────────────────────────────────────────────────
@@ -2380,11 +2513,36 @@ document.getElementById('addBtn').addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('addBtn').style.display = 'none';
 switchPage('dashboard');
-setInterval(updatePendingBadge, 15000);
-updatePendingBadge();
+// ══ BADGE POLLERLARI ═════════════════════════════════════
+// ⚠️ O'LCHOV (nginx logi, tenant 28 — store): bitta do'kon bir kunda
+// 4 274 ta badge so'rovi yuborgan — serverning BUTUN kunlik trafigining 29%i
+// (14 921 dan). Shundan 2 515 tasi `/kitchen/orders` — OSHXONASI YO'Q do'konda.
+//
+// Ikki qoida:
+//   1) biznes turiga tegishli bo'lmagan endpoint UMUMAN pollanmaydi
+//   2) badge — ESLATMA, real vaqt tablosi emas: interval sekundlarda emas,
+//      daqiqalarda o'lchanadi. Sahifaga kirganda bir marta darhol yuklanadi,
+//      shuning uchun oshirilgan interval ko'rinishga ta'sir qilmaydi.
+//
+// Barcha `setInterval` `registerPoller()` orqali — qaytarilmas 401 da
+// `stopPollersOnAuthLoss()` hammasini to'xtatadi (abadiy tsikl yo'q).
+const POLL = {
+  kitchen:  30000,   // 15s → 30s. Oshxona navbati — yagona haqiqatan tez badge.
+  stock:   300000,   // 60s → 5min. Kam qoldiq daqiqada o'zgarmaydi.
+  slow:    600000,   // 120s → 10min. Nasiya/avto-zakaz/muddat/qarz eslatmalari.
+  medium:  300000,   // 60s → 5min. Xizmat/tayyor buyurtma/tozalash/mehmonxona.
+};
+
+// ⛔ `/kitchen/orders` — FAQAT oshxonasi bor turlarda (restoran/kafe/fast food).
+// Ilgari BARCHA turlar uchun shartsiz, 15 sekundda bir marta chaqirilardi:
+// magazinda bu kuniga ~2 500 ta mutlaqo keraksiz so'rov edi.
+if (_restTypes.includes(bizType)) {
+  updatePendingBadge();
+  registerPoller(setInterval(updatePendingBadge, POLL.kitchen));
+}
 if (_storeTypes.includes(bizType)) {
   updateLowStockBadge();
-  setInterval(updateLowStockBadge, 60000);
+  registerPoller(setInterval(updateLowStockBadge, POLL.stock));
   // BOSQICH 27: reorder badge
   async function updateReorderBadge() {
     try {
@@ -2392,32 +2550,35 @@ if (_storeTypes.includes(bizType)) {
       const cnt = d.total || 0;
       const el = document.getElementById('reorderBadge');
       if (el) { el.textContent = cnt; el.style.display = cnt > 0 ? '' : 'none'; }
-    } catch {}
+    } catch (e) {
+      // `catch {}` EMAS: jim yutilsa badge eski raqamda muzlab qolardi.
+      console.warn('[badge] reorder-alerts yuklanmadi:', e?.message || e);
+    }
   }
   updateReorderBadge();
-  setInterval(updateReorderBadge, 120000);
+  registerPoller(setInterval(updateReorderBadge, POLL.slow));
 }
 if (_restTypes.includes(bizType)) {
   updateStopListBadge();
-  setInterval(updateStopListBadge, 60000);
+  registerPoller(setInterval(updateStopListBadge, POLL.medium));
 }
 if (_storeTypes.includes(bizType)) {
   updateActiveDiscountsBadge();
   updateDebtBadge();
-  setInterval(updateDebtBadge, 120000);
+  registerPoller(setInterval(updateDebtBadge, POLL.slow));
 }
 if (_salonTypes.includes(bizType)) {
   updateExpiringBadge();
-  setInterval(updateExpiringBadge, 120000);
+  registerPoller(setInterval(updateExpiringBadge, POLL.slow));
   updateSalonExpiryBadge();
-  setInterval(updateSalonExpiryBadge, 120000);
+  registerPoller(setInterval(updateSalonExpiryBadge, POLL.slow));
 }
 if (_autoTypes.includes(bizType)) {
   updateServiceBadge();
-  setInterval(updateServiceBadge, 60000);
+  registerPoller(setInterval(updateServiceBadge, POLL.medium));
   updateAutoReadyBadge();
   updateAutoDebtBadge();
-  setInterval(updateAutoReadyBadge, 60000);
+  registerPoller(setInterval(updateAutoReadyBadge, POLL.medium));
 }
 if (_schoolTypes.includes(bizType)) {
   apiFetch('/orders/?has_student=true&page_size=1').then(d => {
@@ -2428,7 +2589,7 @@ if (_schoolTypes.includes(bizType)) {
 }
 if (_dryTypes.includes(bizType)) {
   updateCleaningBadge();
-  setInterval(updateCleaningBadge, 60000);
+  registerPoller(setInterval(updateCleaningBadge, POLL.medium));
   apiFetch('/orders/?has_cleaning=true&status=ready&page_size=1').then(d => {
     const cnt = d.total || 0;
     const badge = document.getElementById('dryReadyBadge');
@@ -2437,13 +2598,13 @@ if (_dryTypes.includes(bizType)) {
 }
 if (_hotelBizTypes.includes(bizType)) {
   updateHotelBadge();
-  setInterval(updateHotelBadge, 60000);
+  registerPoller(setInterval(updateHotelBadge, POLL.medium));
   updateHotelDebtBadge();
-  setInterval(updateHotelDebtBadge, 120000);
+  registerPoller(setInterval(updateHotelDebtBadge, POLL.slow));
 }
 if (bizType === 'pharmacy') {
   updateExpiryBadge();
-  setInterval(updateExpiryBadge, 120000);
+  registerPoller(setInterval(updateExpiryBadge, POLL.slow));
 }
 });  // ── Init tugadi (DOMContentLoaded) ──
 
@@ -2695,8 +2856,9 @@ async function resetStaffPin(id, name) {
 }
 
 async function apiFetchPost(path, body, method='POST') {
-  const res = await fetch(API_BASE + path, {
-    method, headers:{ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' },
+  // `authedFetch` orqali — 401 da refresh + qayta urinish (GET bilan bir xil).
+  const res = await authedFetch(path, {
+    method, headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify(body)
   });
   if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e.detail||res.statusText); }

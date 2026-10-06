@@ -460,7 +460,11 @@ async function updateDebtBadge() {
     const badge = document.getElementById('debtBadge');
     const n = (data.open_count || 0) + (data.partial_count || 0);
     if (badge) { badge.textContent = n; badge.style.display = n > 0 ? '' : 'none'; }
-  } catch {}
+  } catch (e) {
+    // Jim yutilmaydi: aks holda badge eski raqamda muzlab qoladi
+    // va do'konchi sessiya tirik deb o'ylaydi (401 shovqini tahlili).
+    console.warn('[badge] debts/summary (badge) yuklanmadi:', e?.message || e);
+  }
 }
 
 async function loadDebtSummary() {
@@ -470,7 +474,11 @@ async function loadDebtSummary() {
     document.getElementById('dTotalDebt').textContent = fmtMoney(d.total_debt||0) + ' UZS';
     document.getElementById('dOverdue').textContent = fmtMoney(d.total_overdue||0) + ' UZS';
     document.getElementById('dPartial').textContent = d.partial_count || 0;
-  } catch {}
+  } catch (e) {
+    // Jim yutilmaydi: aks holda badge eski raqamda muzlab qoladi
+    // va do'konchi sessiya tirik deb o'ylaydi (401 shovqini tahlili).
+    console.warn('[badge] debts/summary (xulosa) yuklanmadi:', e?.message || e);
+  }
 }
 
 async function loadDebts() {

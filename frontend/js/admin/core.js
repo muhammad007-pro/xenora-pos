@@ -2074,10 +2074,13 @@ function buildProductModal(product) {
 
     // Pack × Weight ziddiyati: OG'IRLIK (kg/g/l) birlikда pack blok yashiriladi + tozalanadi.
     // #20 atir: "ml" HAJM birligi — pack (Butun flakon) BILAN birga bo'ladi, shuning uchun
-    // ml BLOKLANMAYDI (POS ham isWeightUnit'da ml YO'Q, "Butun/ml" tanlovi uchun).
+    // ml BLOKLANMAYDI (POS ham FRACTIONAL_UNITS da ml YO'Q, "Butun/ml" tanlovi uchun).
     const _saleUnitEl2 = document.getElementById('pmf_sale_unit');
     if (_saleUnitEl2) {
-      const _wUnits = ['kg', 'g', 'l', 'litr'];
+      // m/sm QO'SHILDI: uzunlik ham kasrli sotiladi (mato/kabel/plyonka).
+      // POS `FRACTIONAL_UNITS` bilan AYNI ro'yxat bo'lishi shart — admin
+      // formasi bloklasa, POS'da kasr kiritib bo'lmaydi va teskarisi.
+      const _wUnits = ['kg', 'g', 'l', 'litr', 'm', 'sm'];
       // HAJM/OG'IRLIK birliklari (atir/suyuqlik) — yorliqlar "Flakon" ko'rinishida.
       const _volUnits = ['ml', 'l', 'litr', 'g', 'kg', 'dl', 'cl'];
       // #20b (KOSMETIK): pack yorliqlari sale_unit ga qarab DINAMIK — FAQAT matn,

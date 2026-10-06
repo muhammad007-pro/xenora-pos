@@ -23,21 +23,17 @@ from schemas import (
     MessageResponse,
 )
 from deps import get_current_active_user, apply_tenant_filter, apply_branch_filter, has_permission
+# Qarz qoldig'i hisobi — yagona manba (services/customer_debt.py)
+from services.customer_debt import recalc_customer_debt
 
 router = APIRouter()
 
 
-def _recalc_customer_debt(db: Session, customer_id: int):
-    """Mijozning total_debt ni barcha ochiq qarzlardan qayta hisoblaydi"""
-    total = (
-        db.query(func.coalesce(func.sum(CustomerDebt.remaining), 0.0))
-        .filter(
-            CustomerDebt.customer_id == customer_id,
-            CustomerDebt.status.in_(["open", "partial"]),
-        )
-        .scalar()
-    )
-    db.query(Customer).filter(Customer.id == customer_id).update({"total_debt": total})
+# `_recalc_customer_debt` IKKI NUSXADA edi (bu fayl va `routers/returns.py`).
+# Birini tuzatib ikkinchisini unutish — bu loyihada allaqachon bo'lgan xato
+# sinfi, shuning uchun yagona manbaga keltirildi. Eski nom SAQLANADI: bu
+# modulni import qilgan kod va testlar sinmasin.
+_recalc_customer_debt = recalc_customer_debt
 
 
 # ── POST /debts/ ─────────────────────────────────────────────────────────────

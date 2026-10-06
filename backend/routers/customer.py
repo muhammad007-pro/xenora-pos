@@ -3,9 +3,19 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from database import get_db
-from models import Customer, User, Order
-from schemas import CustomerCreate, CustomerUpdate, CustomerInDB, PaginatedResponse, MessageResponse
+from models import Customer, CustomerDebt, DebtPayment, User, Order
+from schemas import (
+    CustomerCreate, CustomerUpdate, CustomerInDB, PaginatedResponse,
+    MessageResponse, CustomerDebtPayRequest,
+)
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
+from core.audit import log_audit
+# Mijoz qarzi — FIFO/qoldiq/avans hisobining YAGONA manbasi. Vozvrat yo'li
+# (`routers/returns.py`) ham AYNAN shu funksiyalarni ishlatadi.
+from services.customer_debt import (
+    add_advance, apply_payment_to_debts, pick_debts_fifo,
+    preview_allocation, recalc_customer_debt, record_debt_payment,
+)
 
 router = APIRouter()
 
@@ -510,4 +520,170 @@ async def get_customer_debt_card(
         "debts":    debt_list,
         "payments": payments,
         "ledger":   ledger,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# UMUMIY QARZ TO'LOVI (FIFO)  —  /customers/{id}/debt-preview va /pay-debt
+# ══════════════════════════════════════════════════════════════════════════════
+# MUAMMO (jonli, XOZMAG'da 31 ta nasiya): mijoz 500 000 keltirsa va 3 ta qarzi
+# bo'lsa, kassir `POST /debts/{id}/pay` ni UCH MARTA, summalarni O'ZI bo'lib
+# chaqirishga majbur edi. Firmalarda FIFO bor, mijozlarda yo'q edi.
+#
+# MANTIQ MANBASI: `services/customer_debt.py` — u vozvrat yo'lidagi
+# (`routers/returns.py:_refund_money`) prodda sinalgan FIFO kodining O'ZI.
+# Yangi formula yozilmadi.
+#
+# ⚠️ KASSA BILAN BOG'LANISH: har yopilgan qarz uchun `DebtPayment` yoziladi,
+# ORTIQCHA (avans) qism uchun ham. `utils/cashflow.debt_payments_totals`
+# aynan `DebtPayment` dan o'qiydi va `routers/shift.py` `expected_cash` ni
+# shundan to'ldiradi. Ya'ni QOIDA: qabul qilingan summa = Σ(DebtPayment.amount).
+# Avans qismiga yozuv qo'yilmasa, yashikdagi haqiqiy naqd "ortiqcha" bo'lib
+# ko'rinardi va kassir asossiz ayblanardi (2026-08-19 xatosining aynan o'zi).
+
+
+@router.get("/{customer_id}/debt-preview")
+async def preview_customer_debt_payment(
+    customer_id: int,
+    amount: float = Query(..., gt=0, description="Mijoz bergan summa"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("process_payments")),
+):
+    """Summa qanday taqsimlanishini HECH NARSA YOZMASDAN ko'rsatadi.
+
+    UI shu javobni "500 000 → #5 ga 240 000, #7 ga 260 000" ko'rinishida
+    chiqaradi. Hisob frontendda TAKRORLANMAYDI — aks holda ekranda bir xil,
+    bazada boshqa taqsimot bo'lib qolardi.
+    """
+    customer = (
+        apply_tenant_filter(db.query(Customer), Customer, current_user)
+        .filter(Customer.id == customer_id)
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Mijoz topilmadi")
+
+    out = preview_allocation(db, customer_id, amount)
+    return {
+        "customer_id":   customer.id,
+        "customer_name": customer.name,
+        "total_debt":    round(float(customer.total_debt or 0), 2),
+        "amount":        round(float(amount), 2),
+        **out,
+    }
+
+
+@router.post("/{customer_id}/pay-debt")
+async def pay_customer_debt(
+    customer_id: int,
+    data: CustomerDebtPayRequest,
+    db: Session = Depends(get_db),
+    # `process_payments` — KASSIR ham qabul qila olishi kerak (pul olish uning
+    # ishi). Taqqoslash: `POST /debts/{id}/pay` `view_finance` talab qiladi va
+    # shu sabab kassirga yaramaydi — yangi yo'l aynan shu teshikni yopadi.
+    current_user: User = Depends(has_permission("process_payments")),
+):
+    """Mijozning bir necha qarzini BITTA summa bilan yopadi (eng eskidan, FIFO)."""
+    customer = (
+        apply_tenant_filter(db.query(Customer), Customer, current_user)
+        .filter(Customer.id == customer_id)
+        .first()
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Mijoz topilmadi")
+
+    amount = round(float(data.amount), 2)
+    debts  = pick_debts_fifo(db, customer_id)
+    # Ochiq qarz BO'LMASA — jimgina avans yaratmaymiz. Kassir adashib boshqa
+    # mijozni tanlagan bo'lishi mumkin, pul esa yashikka tushib ketardi.
+    if not any(float(d.remaining or 0) > 0 for d in debts):
+        raise HTTPException(
+            status_code=400,
+            detail=f"«{customer.name}» da yopiladigan ochiq qarz yo'q "
+                   f"(joriy qoldiq: {float(customer.total_debt or 0):,.0f}). "
+                   f"Avans kiritish uchun boshqa yo'ldan foydalaning.",
+        )
+
+    allocations, qoldiq = apply_payment_to_debts(debts, amount)
+
+    # ── DebtPayment yozuvlari — KASSA IZI (yuqoridagi izohga qara) ──────────
+    for a in allocations:
+        record_debt_payment(
+            db,
+            debt_id=a["debt_id"],
+            amount=a["amount"],
+            payment_method=data.payment_method,
+            notes=data.notes,
+            user_id=current_user.id,
+        )
+
+    # ── ORTIQCHA — avans (manfiy qoldiqli qator) ────────────────────────────
+    advance_debt_id = None
+    advance = 0.0
+    if qoldiq > 0.009:
+        advance = round(qoldiq, 2)
+        adv = add_advance(
+            db,
+            tenant_id=customer.tenant_id,
+            branch_id=getattr(current_user, "_active_branch_id", None),
+            customer_id=customer_id,
+            order_id=None,
+            amount=advance,
+            notes=f"Ortiqcha to'lov avansi — qarzdan oshgan summa"
+                  + (f" ({data.notes})" if data.notes else ""),
+            user_id=current_user.id,
+        )
+        db.flush()
+        advance_debt_id = adv.id
+        # ⚠️ Avans qismi ham KASSAGA TUSHGAN: busiz `expected_cash` kam
+        # chiqardi. Qator holati (`remaining = -advance`) TEGILMAYDI — bu
+        # yozuv faqat pul izi.
+        record_debt_payment(
+            db,
+            debt_id=adv.id,
+            amount=advance,
+            payment_method=data.payment_method,
+            notes="Ortiqcha to'lov (avans) — kassa izi",
+            user_id=current_user.id,
+        )
+
+    total_debt = recalc_customer_debt(db, customer_id)
+    db.commit()
+
+    # Pul yo'li — kim, qancha, qaysi qarzlarga
+    log_audit(
+        current_user, "customer_debts", "UPDATE", customer_id,
+        tenant_id=customer.tenant_id,
+        detail={
+            "action":          "pay_debt_fifo",
+            "customer_name":   customer.name,
+            "amount":          amount,
+            "payment_method":  data.payment_method,
+            "notes":           data.notes,
+            "debts_closed":    [a["debt_id"] for a in allocations if a["status"] == "paid"],
+            "debts_partial":   [a["debt_id"] for a in allocations if a["status"] == "partial"],
+            "allocations":     allocations,
+            "advance":         advance,
+            "total_debt_after": total_debt,
+        },
+    )
+
+    _closed = sum(1 for a in allocations if a["status"] == "paid")
+    return {
+        "customer_id":      customer.id,
+        "customer_name":    customer.name,
+        "amount":           amount,
+        "payment_method":   data.payment_method,
+        "applied":          round(amount - qoldiq, 2),
+        "advance":          advance,
+        "advance_debt_id":  advance_debt_id,
+        "allocations":      allocations,
+        "debts_closed":     _closed,
+        "debts_touched":    len(allocations),
+        "total_debt_after": round(total_debt, 2),
+        "message": (
+            f"{amount:,.0f} so'm qabul qilindi — {len(allocations)} ta qarzga "
+            f"taqsimlandi ({_closed} ta to'liq yopildi)"
+            + (f", {advance:,.0f} so'm avans" if advance else "")
+        ),
     }

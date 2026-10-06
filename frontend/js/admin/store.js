@@ -721,6 +721,9 @@ async function openDebtCard(customerId, customerName) {
   document.getElementById('dcSummary').textContent = 'Yuklanmoqda...';
   body.innerHTML = '';
   _dcItems = {};
+  // Footer'dagi "Qarzni to'lash" (FIFO) tugmasi uchun mijozni bog'laymiz
+  const _pb = document.getElementById('dcPayAllBtn');
+  if (_pb) { _pb.dataset.cust = String(customerId); _pb.dataset.name = customerName || ''; }
   openModal('debtCardModal');
 
   let data;
@@ -992,3 +995,155 @@ document.addEventListener('DOMContentLoaded', () => {
   if (hrrPer) hrrPer.addEventListener('change', loadHotelRoomRevenue);
 });
 
+// ══ UMUMIY QARZ TO'LOVI (FIFO) ════════════════════════════════════════════════
+// MUAMMO: mijoz 500 000 keltirsa va 3 ta qarzi bo'lsa, kassir uchtasiga ALOHIDA
+// to'lashga majbur edi (summalarni o'zi bo'lib). Firmalarda FIFO bor edi.
+//
+// ⚠️ TAQSIMOT SERVERDA: `/customers/{id}/debt-preview` — ekranda ko'rinadigan
+// "500 000 → #5 ga 240 000, #7 ga 260 000" yozuvi haqiqatan bazada sodir
+// bo'ladigan narsa. Bu yerda FIFO hisobi TAKRORLANMAYDI, aks holda ekran bir
+// xil, baza boshqa narsa ko'rsatishi mumkin edi.
+let _paCustomer = null;      // {id, name}
+let _paTimer = null;
+
+function openPayAllDebt(customerId, customerName) {
+  _paCustomer = { id: customerId, name: customerName || ('Mijoz #' + customerId) };
+  document.getElementById('paTitle').textContent = "Qarzni to'lash — " + _paCustomer.name;
+  document.getElementById('paInfo').innerHTML =
+    '<span style="color:var(--text3)">Qarzlar yuklanmoqda...</span>';
+  document.getElementById('paAmount').value = '';
+  document.getElementById('paNotes').value = '';
+  document.getElementById('paPreview').style.display = 'none';
+  openModal('payAllDebtModal');
+
+  // Joriy qoldiqni ko'rsatib, summa maydonini TO'LIQ qarz bilan to'ldiramiz —
+  // eng ko'p uchraydigan holat "hammasini to'ladi".
+  apiFetch(`/customers/${customerId}/debt-card`).then(d => {
+    const q = (d.summary || {}).total_debt || 0;
+    document.getElementById('paInfo').innerHTML = q > 0
+      ? `<b>Joriy qarz:</b> <span style="color:var(--red)">${fmtMoney(q)} UZS</span>
+         <span style="color:var(--text3)">· ${(d.summary||{}).open_count||0} ochiq, ${(d.summary||{}).partial_count||0} qisman</span>`
+      : (q < 0
+          ? `<b style="color:var(--success)">Avans: ${fmtMoney(-q)} UZS</b> — yopiladigan qarz yo'q`
+          : '<b>Qarz yo\'q</b>');
+    if (q > 0) {
+      document.getElementById('paAmount').value = q;
+      _paPreview();
+    }
+  }).catch(() => {
+    document.getElementById('paInfo').innerHTML =
+      '<span style="color:var(--warning)">Qoldiq yuklanmadi — summani qo\'lda kiriting</span>';
+  });
+}
+
+// Nasiya ro'yxatidan: mijozni tanlash kerak (ro'yxat QARZLAR kesimida).
+async function openPayAllPicker() {
+  try {
+    const d = await apiFetch('/debts/?page_size=200&status=open');
+    const list = Array.isArray(d) ? d : [];
+    const d2 = await apiFetch('/debts/?page_size=200&status=partial');
+    const all = list.concat(Array.isArray(d2) ? d2 : []);
+    // Mijoz bo'yicha yig'amiz — bitta mijozning bir necha qarzi bitta qatorda
+    const by = new Map();
+    all.forEach(x => {
+      if (!x.customer_id) return;
+      const e = by.get(x.customer_id) || { id: x.customer_id, name: x.customer?.name || ('#' + x.customer_id), qarz: 0, soni: 0 };
+      e.qarz += (x.remaining || 0);
+      e.soni += 1;
+      by.set(x.customer_id, e);
+    });
+    const rows = [...by.values()].filter(e => e.qarz > 0).sort((a, b) => b.qarz - a.qarz);
+    if (!rows.length) { toast('Ochiq qarzi bor mijoz yo\'q', 'info'); return; }
+
+    const sel = rows.map(e =>
+      `<button class="tb-btn" style="width:100%;justify-content:space-between;display:flex;margin-bottom:.35rem"
+               onclick="closeModal('payAllDebtModal');openPayAllDebt(${e.id},'${escJs(e.name)}')">
+         <span>${escH(e.name)}</span>
+         <span style="color:var(--red)">${fmtMoney(e.qarz)} · ${e.soni} ta</span>
+       </button>`).join('');
+    document.getElementById('paTitle').textContent = 'Mijozni tanlang';
+    document.getElementById('paInfo').innerHTML =
+      `<span style="color:var(--text3)">Ochiq qarzi bor ${rows.length} mijoz</span>`;
+    document.getElementById('paPreview').style.display = 'none';
+    document.getElementById('paAmount').value = '';
+    openModal('payAllDebtModal');
+    // Tanlov ro'yxati summa maydonlari O'RNIGA ko'rsatiladi
+    document.getElementById('paPreview').innerHTML = sel;
+    document.getElementById('paPreview').style.display = '';
+    _paCustomer = null;
+  } catch (e) { toast(e.message || 'Xato', 'error'); }
+}
+
+async function _paPreview() {
+  if (!_paCustomer) return;
+  const box = document.getElementById('paPreview');
+  const amount = parseFloat(document.getElementById('paAmount').value);
+  if (!amount || amount <= 0) { box.style.display = 'none'; return; }
+  try {
+    const d = await apiFetch(`/customers/${_paCustomer.id}/debt-preview?amount=${amount}`);
+    const rows = d.allocations || [];
+    if (!rows.length) {
+      box.innerHTML = '<span style="color:var(--warning)">Yopiladigan ochiq qarz yo\'q</span>';
+      box.style.display = '';
+      return;
+    }
+    const parts = rows.map(a =>
+      `<div style="display:flex;justify-content:space-between">
+         <span>Qarz #${a.debt_id}${a.order_id ? ' (chek)' : " (qo'lda)"}</span>
+         <span><b>${fmtMoney(a.amount)}</b> ${a.closes
+            ? '<span style="color:var(--success)">✓ yopiladi</span>'
+            : `<span style="color:var(--warning)">qoldiq ${fmtMoney(a.remaining_after)}</span>`}</span>
+       </div>`).join('');
+    box.innerHTML = `<div style="color:var(--text3);margin-bottom:.3rem">Shunday taqsimlanadi:</div>${parts}`
+      + (d.advance > 0
+          ? `<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:.35rem;padding-top:.35rem;color:var(--success)">
+               <span>Ortiqcha (avans)</span><span><b>${fmtMoney(d.advance)}</b></span></div>`
+          : '');
+    box.style.display = '';
+  } catch (e) {
+    box.innerHTML = `<span style="color:var(--red)">${escH(e.message || 'Taqsimot hisoblanmadi')}</span>`;
+    box.style.display = '';
+  }
+}
+
+document.getElementById('paAmount')?.addEventListener('input', () => {
+  clearTimeout(_paTimer);
+  _paTimer = setTimeout(_paPreview, 300);   // har bosishda so'rov yubormaymiz
+});
+
+document.getElementById('dcPayAllBtn')?.addEventListener('click', () => {
+  const b = document.getElementById('dcPayAllBtn');
+  const id = parseInt(b.dataset.cust || '0', 10);
+  if (!id) return;
+  closeModal('debtCardModal');
+  openPayAllDebt(id, b.dataset.name || '');
+});
+
+document.getElementById('paSaveBtn')?.addEventListener('click', async () => {
+  if (!_paCustomer) { toast('Mijoz tanlanmagan', 'warning'); return; }
+  const amount = parseFloat(document.getElementById('paAmount').value);
+  if (!amount || amount <= 0) { toast('Summa kiriting', 'error'); return; }
+
+  // TASDIQ: pul yo'lidagi amal — tasodifiy bosilmasin.
+  if (!confirm(`${_paCustomer.name}: ${fmtMoney(amount)} so'm qabul qilinadi.\n`
+             + `Eng eski qarzdan boshlab yopiladi. Davom etasizmi?`)) return;
+
+  const btn = document.getElementById('paSaveBtn');
+  btn.disabled = true;
+  try {
+    const r = await apiFetchPost(`/customers/${_paCustomer.id}/pay-debt`, {
+      amount,
+      payment_method: document.getElementById('paMethod').value,
+      notes: document.getElementById('paNotes').value || null,
+    }, 'POST');
+    closeModal('payAllDebtModal');
+    toast(r.message || "To'lov qabul qilindi", 'success', 6000);
+    if (typeof loadDebtSummary === 'function') loadDebtSummary();
+    if (typeof loadDebts === 'function') loadDebts();
+    if (typeof updateDebtBadge === 'function') updateDebtBadge();
+  } catch (e) {
+    toast(e.message || 'Xato', 'error', 7000);
+  } finally {
+    btn.disabled = false;
+  }
+});

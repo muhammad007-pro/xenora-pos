@@ -1725,7 +1725,10 @@
           <input class="form-control" id="dSearch" style="width:220px" placeholder="Ism yoki telefon..."
                  oninput="debtSearchInput()" onkeydown="if(event.key==='Enter')loadDebts()">
           <button class="tb-btn" onclick="loadDebts()">Yangilash</button>
-          <button class="tb-btn" style="margin-left:auto" onclick="openDebtModal()">+ Qarz yozish</button>
+          <!-- UMUMIY TO'LOV (FIFO): mijoz bitta summa beradi, eng eski qarzdan
+               boshlab yopiladi. Mijoz tanlanadi, chunki ro'yxat QARZLAR kesimida. -->
+          <button class="tb-btn" style="margin-left:auto" onclick="openPayAllPicker()">Umumiy to'lov (FIFO)</button>
+          <button class="tb-btn" onclick="openDebtModal()">+ Qarz yozish</button>
         </div>
 
         <div class="data-table-wrap">
@@ -1808,6 +1811,39 @@
         </div>
       </div>
 
+      <!-- ══ UMUMIY QARZ TO'LOVI (FIFO) ══════════════════════════════════
+           Mijoz bitta summa beradi — eng eski qarzdan boshlab yopiladi.
+           ⚠️ Taqsimot SERVERDA hisoblanadi (`/customers/{id}/debt-preview`):
+           ekranda bir xil, bazada boshqa narsa bo'lib qolmasin. -->
+      <div class="modal-overlay" id="payAllDebtModal" onclick="if(event.target===this)closeModal('payAllDebtModal')">
+        <div class="modal-card" style="max-width:480px">
+          <div class="modal-header"><span class="modal-title" id="paTitle">Qarzni to'lash</span><button class="modal-close" onclick="closeModal('payAllDebtModal')">✕</button></div>
+          <div class="modal-body">
+            <div id="paInfo" style="background:var(--bg3);border-radius:var(--r);padding:.75rem;margin-bottom:.875rem;font-size:.8125rem"></div>
+            <div class="form-group"><label>Mijoz bergan summa (so'm) *</label>
+              <input class="form-control" type="number" id="paAmount" placeholder="0" inputmode="numeric">
+            </div>
+            <div class="form-group"><label>To'lov usuli</label>
+              <select class="form-control" id="paMethod">
+                <option value="cash">Naqd pul</option>
+                <option value="card">Karta</option>
+                <option value="click">Click</option>
+                <option value="payme">Payme</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Izoh</label>
+              <input class="form-control" type="text" id="paNotes" placeholder="Ixtiyoriy...">
+            </div>
+            <!-- OLDINDAN KO'RSATISH: "500 000 → #5 ga 240 000, #7 ga 260 000" -->
+            <div id="paPreview" style="display:none;font-size:.8125rem;border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;line-height:1.6"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('payAllDebtModal')">Bekor</button>
+            <button class="tb-btn tb-btn-primary" id="paSaveBtn">To'lovni qabul qilish</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ══ QARZ KARTOCHKASI — mijoz oborot varag'i ══
            Naqsh: suppliers.html `ledgerModal` (firma oboroti) bilan bir xil.
            FAQAT KO'RSATISH — bu modalda hech narsa saqlanmaydi. -->
@@ -1832,6 +1868,9 @@
             </div>
           </div>
           <div class="modal-footer">
+            <!-- Kartochkada turgan mijozning BARCHA qarzini bitta summa bilan
+                 yopish. `data-cust` ni `openDebtCard` to'ldiradi. -->
+            <button class="tb-btn tb-btn-primary" id="dcPayAllBtn" data-cust="" data-name="">Qarzni to'lash</button>
             <button class="tb-btn" onclick="closeModal('debtCardModal')">Yopish</button>
           </div>
         </div>

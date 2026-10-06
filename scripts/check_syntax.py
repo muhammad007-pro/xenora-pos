@@ -31,10 +31,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_TARGET = os.path.join(ROOT, "frontend")
 SKIP_DIRS = {"node_modules", "dist", "dist_artifacts", "__pycache__", ".git"}
 
-# HTML izohlari: ichida "oddiy <script>" kabi matn uchraydi va uni kod deb
-# o'qib bo'lmaydi. Qator raqami saqlanishi uchun bo'shliqqa almashtiramiz.
-_COMMENT = re.compile(r"<!--.*?-->", re.S)
-_SCRIPT = re.compile(r"<script([^>]*)>(.*?)</script>", re.S | re.I)
+# HTML izohi YOKI skript bloki — chapdan o'ngga, qaysi biri OLDIN kelsa.
+# Skriptdan TASHQARIDAGI izoh butunlay yutiladi (ichida "oddiy <script>" kabi
+# matn bo'lishi mumkin), skript ICHIDAGI `<!--` esa kodning bir qismi bo'lib
+# qoladi va TEKSHIRILADI.
+#
+# ⚠️ Ilgari izohlar butun fayldan skriptlarni ajratishdan OLDIN o'chirilardi —
+# shu jumladan JS shablon (`...`) ICHIDAGI `<!-- -->` lar ham. inventory.html
+# da aynan shunday izoh ichidagi backtick shablonni yopib BUTUN skriptni
+# buzgan (v1.12.10 → v1.13.0), lekin bu tekshiruv "OK" degan: buzuq qismni
+# o'zi o'chirib, toza kodni tekshirgan edi.
+_COMMENT_OR_SCRIPT = re.compile(r"<!--.*?-->|<script([^>]*)>(.*?)</script>", re.S | re.I)
 
 
 def _node_check(code: str, as_module: bool, tmpdir: str) -> str | None:
@@ -53,7 +60,10 @@ def _node_check(code: str, as_module: bool, tmpdir: str) -> str | None:
 def check_file(path: str, tmpdir: str) -> list[tuple[str, str]]:
     """[(joy, xato)] ro'yxati."""
     src = io.open(path, encoding="utf-8", errors="replace").read()
-    rel = os.path.relpath(path, ROOT).replace("\\", "/")
+    try:
+        rel = os.path.relpath(path, ROOT).replace("\\", "/")
+    except ValueError:      # Windows: boshqa disk (masalan C:\Temp) — mutlaq yo'l
+        rel = path.replace("\\", "/")
     out: list[tuple[str, str]] = []
 
     if path.endswith((".js", ".mjs")):
@@ -67,12 +77,13 @@ def check_file(path: str, tmpdir: str) -> list[tuple[str, str]]:
     if not path.endswith(".html"):
         return out
 
-    stripped = _COMMENT.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), src)
-    for m in _SCRIPT.finditer(stripped):
+    for m in _COMMENT_OR_SCRIPT.finditer(src):
+        if m.group(0).startswith("<!--"):
+            continue            # skriptdan tashqaridagi HTML izohi
         attrs, code = m.group(1), m.group(2)
         if "src=" in attrs or not code.strip():
             continue
-        line = stripped[: m.start()].count("\n") + 1
+        line = src[: m.start()].count("\n") + 1
         err = _node_check(code, "module" in attrs, tmpdir)
         if err:
             out.append((f"{rel}:{line} (<script>)", err))

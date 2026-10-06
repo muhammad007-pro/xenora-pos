@@ -18,8 +18,8 @@
  *   · OG'IRLIK OQIMI (425 qator jonli sotuv): kg mahsulot kg bo'yicha
  *     sotilishi avvalgidek. Tarozi/skanerdan kelgan og'irlik (`presetWeight`)
  *     pachka modalini OCHMAYDI — ochsa kassir o'lchangan og'irlikni yo'qotadi.
- *   · MAVJUD PACHKALI MAHSULOTLAR (ml 185, pcs 83, m 3): yorliq matni
- *     BIT-BITIGA o'zgarmaydi.
+ *   · MAVJUD PACHKALI MAHSULOTLAR (ml 185, pcs 83): yorliq matni
+ *     BIT-BITIGA o'zgarmaydi. (m — 2026-10-07 dan "O'ram (100 m)", atayin.)
  *
  * ═══ USLUB ═══
  * Kod fayllardan AJRATIB olinadi (nusxa ko'chirilmaydi) — `test_pos_price_edit.js`
@@ -65,6 +65,7 @@ vm.createContext(sandbox);
 vm.runInContext([
   grab(RCPT, /const _PACK_WEIGHT_UNITS = \[[^\]]*\];/,            '_PACK_WEIGHT_UNITS'),
   grab(RCPT, /const _PACK_VOL_UNITS\s*= \[[^\]]*\];/,             '_PACK_VOL_UNITS'),
+  grab(RCPT, /const _PACK_LENGTH_UNITS = \[[^\]]*\];/,            '_PACK_LENGTH_UNITS'),
   grab(RCPT, /export function fmtPackQty\(n\)[\s\S]*?\n}\n/,      'fmtPackQty'),
   grab(RCPT, /export function packKind\(saleUnit\)[\s\S]*?\n}\n/, 'packKind'),
   grab(RCPT, /export function packSizeLabel\(saleUnit, per\)[\s\S]*?\n}\n/, 'packSizeLabel'),
@@ -96,7 +97,10 @@ check('1_GOLDEN_ml_nomi',  packKind('ml').pack,        'Butun');
 check('1_GOLDEN_ml_ikonka', packKind('ml').packIcon,   '🧴');
 check('1_GOLDEN_pcs_83',   packSizeLabel('pcs', 10),   'Pachka (10 dona)');
 check('1_GOLDEN_dona',     packSizeLabel('dona', 12),  'Pachka (12 dona)');
-check('1_GOLDEN_m_3',      packSizeLabel('m', 100),    'Pachka (100 dona)');
+// ⚠️ 2026-10-07: metr GOLDEN'dan ATAYIN chiqarildi (egasi qarori) — ilgari
+// "Pachka (100 dona)" edi, ya'ni kabel o'ramida birlik yolg'on ko'rinardi.
+// Batafsil: test_meter_label.mjs
+check('1_m_oram',          packSizeLabel('m', 100),    "O'ram (100 m)");
 check('1_GOLDEN_bosh_birlik', packSizeLabel(null, 6),  'Pachka (6 dona)');
 check('1_GOLDEN_notogri_birlik', packSizeLabel('qop', 4), 'Pachka (4 dona)');
 

@@ -9,7 +9,7 @@ import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
 import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow,
          qtyPriceLabel, unitPriceOf,
-         packKind, packSizeLabel, fmtPackQty } from '../core/receipt-print.js';
+         packKind, packSizeLabel, fmtPackQty, unitChoiceLabel } from '../core/receipt-print.js';
 import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
 
 const api = new API();
@@ -628,21 +628,20 @@ let _packChoiceProduct = null;
 
 function showPackChoiceModal(product) {
   _packChoiceProduct = product;
-  // Yorliqlar `sale_unit` ga qarab — yagona manba `packKind()` (receipt-print.js):
-  //   kg   → "📦 Qop"    / hint "20 kg"  · "⚖️ Kg bo'yicha"  / "3 000 UZS / kg"
-  //   ml   → "🧴 Butun"  / hint "150 ml" · "ml"              / "... / ml"   (avvalgidek)
-  //   dona → "📦 Pachka" / hint "10 dona" · "Dona"                          (avvalgidek)
+  // Yorliqlar `sale_unit` ga qarab — yagona manba receipt-print.js
+  // (`packKind()` + `unitChoiceLabel()`):
+  //   kg   → "📦 Qop"    / hint "20 kg"  · "⚖️ Kg bo'yicha"   / "3 000 UZS / kg"
+  //   m    → "🧵 O'ram"  / hint "100 m"  · "📏 Metr bo'yicha" / "... / m"
+  //   ml   → "🧴 Butun"  / hint "150 ml" · "ml"               / "... / ml"   (avvalgidek)
+  //   dona → "📦 Pachka" / hint "10 dona" · "Dona"                           (avvalgidek)
   const k = packKind(product.sale_unit);
   document.getElementById('packChoiceName').textContent = product.name;
   document.getElementById('packChoicePackLbl').textContent   = `${k.packIcon} ${k.pack}`;
   document.getElementById('packChoicePackPrice').textContent = fmtNum(product.pack_price) + ' UZS';
   document.getElementById('packChoicePackHint').textContent  =
     `${fmtPackQty(product.pack_size)} ${k.perUnit ? k.unitWord : 'dona'}`;
-  // Birlik tomoni: og'irlikda "⚖️ Kg bo'yicha" (bosilsa og'irlik oynasi ochiladi)
-  document.getElementById('packChoiceDonaLbl').textContent   =
-    isFractionalUnit(product.sale_unit)
-      ? `${k.unitIcon} ${k.unitWord.charAt(0).toUpperCase()}${k.unitWord.slice(1)} bo'yicha`
-      : (k.perUnit ? k.unitWord : 'Dona');
+  // Birlik tomoni (bosilsa kasrli birlikda og'irlik/uzunlik oynasi ochiladi)
+  document.getElementById('packChoiceDonaLbl').textContent   = unitChoiceLabel(product.sale_unit);
   document.getElementById('packChoiceDonaPrice').textContent =
     fmtNum(product.price) + ' UZS' + (k.perUnit ? ' / ' + k.unitWord : '');
   openModal('packChoiceModal');

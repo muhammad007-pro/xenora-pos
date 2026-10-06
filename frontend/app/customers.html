@@ -469,6 +469,10 @@ function render() {
 
   tbody.innerHTML = slice.map(c => {
     const t = tier(c.points||0);
+    // QARZ: `customers.total_debt` — nasiya moduli yozgan qiymat (bu yerda
+    // QAYTA HISOBLANMAYDI). Manfiy = avans (vozvratdan oshgan).
+    // ⚠️ Bu izoh ilgari shablon ICHIDA <!-- --> edi; undagi backtick shablonni
+    // yopib BUTUN skriptni buzardi (v1.12.14 → v1.13.0: sahifa ishlamasdi).
     return `<tr>
       <td><div class="cust-cell">
         <div class="avatar">${(c.name||'?')[0].toUpperCase()}</div>
@@ -480,8 +484,6 @@ function render() {
       <td>${esc(c.phone||'—')}</td>
       <td>${c.total_visits||0}</td>
       <td>${fmtN(c.total_spent||0)} so'm</td>
-      <!-- QARZ: `customers.total_debt` — nasiya moduli yozgan qiymat
-           (bu yerda QAYTA HISOBLANMAYDI). Manfiy = avans (vozvratdan oshgan). -->
       <td>${(c.total_debt||0) > 0
             ? `<span style="color:#ef4444;font-weight:600">${fmtN(c.total_debt)} so'm</span>`
             : ((c.total_debt||0) < 0

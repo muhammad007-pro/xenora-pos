@@ -13,10 +13,9 @@
  * ⚠️ GOLDEN — buzilmasligi SHART:
  *   · kg/g/l oqimi avvalgidek (425 qator jonli sotuv);
  *   · `pcs` mahsulot BUTUN son qoladi (og'irlik oynasi ochilmaydi);
- *   · pachka YORLIG'I o'zgarmaydi — `packSizeLabel('m',100)` = "Pachka (100 dona)"
- *     (`test_weight_pack_price.mjs:92` GOLDEN qulfi). Metr uchun "Bobina"
- *     yorlig'i ATAYLAB QILINMADI: u 2 ta mavjud sotuvning reprintini
- *     o'zgartirardi va o'sha qulfni buzardi — qaror egasiga qoldirildi.
+ *   · (2026-10-07 yangilandi) metr pachkasi yorlig'i egasi qarori bilan
+ *     "O'ram (100 m)" bo'ldi — avval "Pachka (100 dona)" edi. Qarang
+ *     `test_meter_label.mjs`.
  *
  * ═══ USLUB ═══
  * Kod fayldan AJRATIB olinadi (nusxa ko'chirilmaydi) — `test_weight_pack_price.mjs`

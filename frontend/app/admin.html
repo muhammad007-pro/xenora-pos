@@ -678,7 +678,53 @@
           </div>
           <div class="modal-footer">
             <button class="tb-btn" id="sdReprintBtn" data-reprint="">🖨 Chekni chop etish</button>
+            <!-- To'lov usulini tuzatish — FAQAT admin/menejerda ko'rinadi (core.js).
+                 Backend ham `manage_shifts` talab qiladi: yashirish — qulaylik,
+                 himoya emas. -->
+            <button class="tb-btn" id="sdConvertBtn" data-order="" style="display:none">💳 To'lov usulini o'zgartirish</button>
             <button class="tb-btn" onclick="closeModal('saleDetailModal')">Yopish</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── To'lov usulini o'zgartirish (convert-payment) ──────────────────
+           Kassir nasiyani naqd qilib yopsa yoki karta o'rniga naqd ursa — bu
+           yerdan tuzatiladi. Omborga TEGMAYDI, faqat tender (pul yo'li). -->
+      <div class="modal-overlay" id="convertPayModal">
+        <div class="modal-card" style="max-width:440px">
+          <div class="modal-header"><span class="modal-title">To'lov usulini o'zgartirish</span><button class="modal-close" onclick="closeModal('convertPayModal')">✕</button></div>
+          <div class="modal-body">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin-bottom:.9rem;font-size:.85rem">
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Chek:</span><b id="cpOrderLbl">—</b></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Summa:</span><b class="td-gold" id="cpAmountLbl">—</b></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Hozirgi usul:</span><b id="cpOldLbl">—</b></div>
+            </div>
+            <div class="form-group">
+              <label>Yangi to'lov usuli *</label>
+              <select class="form-control" id="cpNewMethod">
+                <option value="">Tanlang...</option>
+                <option value="cash">Naqd</option>
+                <option value="card">Karta / Terminal</option>
+                <option value="credit">Nasiya (qarzga)</option>
+              </select>
+            </div>
+            <div class="form-group" id="cpCustomerWrap" style="display:none">
+              <label>Mijoz * <span style="color:var(--text3);font-weight:400">(qarz kimga yozilsin)</span></label>
+              <select class="form-control" id="cpCustomer"><option value="">Yuklanmoqda...</option></select>
+            </div>
+            <div class="form-group">
+              <label>Izoh (sabab) *</label>
+              <textarea class="form-control" id="cpReason" rows="2" placeholder="Nega tuzatilmoqda? Masalan: kassir nasiyani naqd qilib yopgan"></textarea>
+            </div>
+            <div style="font-size:.8rem;color:var(--text3);line-height:1.5">
+              ⚠️ Ombor va sotuv summasi <b>o'zgarmaydi</b> — faqat pul qaysi yo'l bilan
+              kelgani tuzatiladi. O'zgarish ochiq smena hisobiga (kutilgan naqd)
+              ta'sir qiladi va audit jurnaliga yoziladi.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('convertPayModal')">Bekor</button>
+            <button class="tb-btn tb-btn-primary" id="cpSaveBtn">O'zgartirish</button>
           </div>
         </div>
       </div>

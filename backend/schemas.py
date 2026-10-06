@@ -478,6 +478,44 @@ class OrderUpdate(BaseModel):
     notes: Optional[str] = None
     discount_amount: Optional[float] = None
 
+
+# ── To'lov usulini KEYIN tuzatish (convert-payment) ──────────────────────────
+# Kassir nasiyani naqd qilib yopsa yoki karta o'rniga naqd ursa — ilgari yo'l
+# faqat SQL edi (Shuhrat aka holati, v1.12.14). Bu sxema shu tuzatishning
+# kirishi. Ruxsat etilgan YANGI usullar ATAYIN uchta: naqd/karta/nasiya.
+# `click`/`payme` YO'Q — shlyuz umuman yo'q (stub), "to'langan" deb belgilash
+# yolg'on bo'lardi. `room_charge` ham YO'Q — u mehmonxona xona hisobiga
+# yoziladi, uni bu yerdan uzish folio hisobini yetim qoldiradi.
+CONVERT_PAYMENT_METHODS = ("cash", "card", "credit")
+
+
+class ConvertPaymentRequest(BaseModel):
+    new_method: str
+    # Izoh MAJBURIY: bu pul yo'lidagi qo'lbola tuzatish — auditda "nega" qolmasa
+    # keyin hech kim farqni tushuntirib bera olmaydi.
+    reason: str = Field(min_length=3, max_length=500)
+    # Nasiyaga o'tkazilsa mijoz SHART (qarz kimga yozilishi kerak).
+    customer_id: Optional[int] = None
+
+    @field_validator("new_method")
+    @classmethod
+    def _check_new_method(cls, v: str) -> str:
+        m = (v or "").strip().lower()
+        if m not in CONVERT_PAYMENT_METHODS:
+            raise ValueError(
+                f"Noma'lum to'lov usuli: {v!r}. "
+                f"Ruxsat: {', '.join(CONVERT_PAYMENT_METHODS)}"
+            )
+        return m
+
+    @field_validator("reason")
+    @classmethod
+    def _check_reason(cls, v: str) -> str:
+        r = (v or "").strip()
+        if len(r) < 3:
+            raise ValueError("Izoh majburiy (kamida 3 belgi) — nega tuzatilayotgani yozilsin")
+        return r
+
 class OrderInDB(BaseModel):
     id: int
     order_number: str
@@ -490,6 +528,10 @@ class OrderInDB(BaseModel):
     payment_method: Optional[str] = None  # to'lov usuli (Payment orqali)
     customer_id: Optional[int] = None
     customer_name: Optional[str] = None
+    # Chek qaysi smenada yozilgani. Frontend buni "To'lov usulini o'zgartirish"
+    # tugmasini ko'rsatish/yashirish uchun o'qiydi (smenasiz eski chekni
+    # backend baribir rad etadi — tugma behuda ko'rinmasin).
+    shift_id: Optional[int] = None
     status: str
     total_amount: float
     discount_amount: float

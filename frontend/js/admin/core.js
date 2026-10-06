@@ -885,6 +885,7 @@ async function openSaleDetail(id) {
     document.getElementById('sdTitle').textContent = 'Chek ' + (o.daily_number != null ? '#'+o.daily_number : (o.order_number||''));
     const _rb = document.getElementById('sdReprintBtn'); if (_rb) _rb.dataset.reprint = id;
     const pay = o.payment_method ? (_payLabel[o.payment_method]||o.payment_method) : '—';
+    _sdConvertBtn(o);
     const rows = (o.items||[]).map(it => `
       <tr>
         <td>${escH(it.product_name||'#'+it.product_id)}</td>
@@ -914,6 +915,118 @@ async function openSaleDetail(id) {
       </div>`;
   } catch (err) { bodyEl.innerHTML = `<div style="color:var(--red);padding:1rem">Xatolik: ${escH(err.message)}</div>`; }
 }
+
+// ── To'lov usulini o'zgartirish (convert-payment) ─────────────────────────────
+// MUAMMO: kassir nasiyani naqd qilib yopsa yoki karta o'rniga naqd ursa, tuzatish
+// yo'li yo'q edi — har safar prod bazasiga SQL kerak bo'lardi (v1.12.14).
+//
+// ⚠️ Bu yerdagi yashirish — QULAYLIK, himoya EMAS. Backend `manage_shifts`
+// talab qiladi (`POST /orders/{id}/convert-payment`), ya'ni kassir tugmani
+// DevTools bilan ko'rsatsa ham 403 oladi.
+const _CP_ROLES = ['admin', 'menejer', 'manager'];
+function _cpAllowed() {
+  if (user.is_superuser) return true;
+  return _CP_ROLES.includes(String(user.role?.name || user.role || '').toLowerCase());
+}
+
+// Faqat TUZATISH MUMKIN bo'lgan chekda tugma ko'rinadi — aks holda admin
+// bosadi va serverdan 400 oladi (sabab ko'rinmaydi). Shartlar backend bilan
+// bir xil: yakunlangan + tenderi naqd/karta/nasiya + smenaga bog'langan.
+const _CP_METHODS = ['cash', 'card', 'credit'];
+let _cpOrder = null;   // {id, label, amount, method}
+
+function _sdConvertBtn(o) {
+  const btn = document.getElementById('sdConvertBtn');
+  if (!btn) return;
+  const ok = _cpAllowed()
+    && o.status === 'completed'
+    && _CP_METHODS.includes(o.payment_method)
+    && o.shift_id != null;
+  btn.style.display = ok ? '' : 'none';
+  if (!ok) { _cpOrder = null; return; }
+  _cpOrder = {
+    id:     o.id,
+    label:  (o.daily_number != null ? '#' + o.daily_number : (o.order_number || '#' + o.id)),
+    amount: o.final_amount,
+    method: o.payment_method,
+  };
+  btn.dataset.order = o.id;
+}
+
+// Mijozlar ro'yxati bir marta tortiladi (nasiya tanlanganda kerak bo'ladi).
+let _cpCustomersLoaded = false;
+async function _cpLoadCustomers() {
+  if (_cpCustomersLoaded) return;
+  const sel = document.getElementById('cpCustomer');
+  try {
+    const data = await apiFetch('/customers/?page_size=500');
+    const list = data.items || data || [];
+    sel.innerHTML = '<option value="">Tanlang...</option>' + list.map(c =>
+      `<option value="${c.id}">${escH(c.name)}${c.phone ? ' · ' + escH(c.phone) : ''}</option>`
+    ).join('');
+    _cpCustomersLoaded = true;
+  } catch (err) {
+    sel.innerHTML = '<option value="">Mijozlar yuklanmadi</option>';
+    toast('Mijozlar ro\'yxati yuklanmadi: ' + err.message, 'error');
+  }
+}
+
+document.getElementById('sdConvertBtn')?.addEventListener('click', async () => {
+  if (!_cpOrder) return;
+  document.getElementById('cpOrderLbl').textContent  = _cpOrder.label;
+  document.getElementById('cpAmountLbl').textContent = fmtMoney(_cpOrder.amount);
+  document.getElementById('cpOldLbl').textContent    = _payLabel[_cpOrder.method] || _cpOrder.method;
+  // Hozirgi usul tanlovda ko'rinmasin — "o'zgarish yo'q" 400 ini oldini oladi
+  const sel = document.getElementById('cpNewMethod');
+  sel.value = '';
+  [...sel.options].forEach(op => {
+    op.hidden = (op.value !== '' && op.value === _cpOrder.method);
+  });
+  document.getElementById('cpReason').value = '';
+  document.getElementById('cpCustomer').value = '';
+  document.getElementById('cpCustomerWrap').style.display = 'none';
+  openModal('convertPayModal');
+});
+
+document.getElementById('cpNewMethod')?.addEventListener('change', async (e) => {
+  const credit = e.target.value === 'credit';
+  document.getElementById('cpCustomerWrap').style.display = credit ? '' : 'none';
+  if (credit) await _cpLoadCustomers();
+});
+
+document.getElementById('cpSaveBtn')?.addEventListener('click', async () => {
+  if (!_cpOrder) return;
+  const newMethod = document.getElementById('cpNewMethod').value;
+  const reason    = document.getElementById('cpReason').value.trim();
+  const custId    = document.getElementById('cpCustomer').value;
+
+  if (!newMethod) { toast('Yangi to\'lov usulini tanlang', 'warning'); return; }
+  if (reason.length < 3) { toast('Izoh majburiy (kamida 3 belgi) — nega tuzatilmoqda?', 'warning'); return; }
+  if (newMethod === 'credit' && !custId) { toast('Nasiya uchun mijoz tanlanishi shart', 'warning'); return; }
+
+  // TASDIQ: pul yo'lidagi o'zgarish — tasodifiy bosilmasin.
+  const oldLbl = _payLabel[_cpOrder.method] || _cpOrder.method;
+  const newLbl = _payLabel[newMethod] || newMethod;
+  if (!confirm(`${_cpOrder.label} cheki: to'lov usuli «${oldLbl}» → «${newLbl}» ga o'zgartiriladi.\n`
+             + `Summa: ${fmtMoney(_cpOrder.amount)}\n\n`
+             + `Ombor o'zgarmaydi, lekin ochiq smena hisobi (kutilgan naqd) o'zgaradi. Davom etasizmi?`)) return;
+
+  const btn = document.getElementById('cpSaveBtn');
+  btn.disabled = true;
+  try {
+    const body = { new_method: newMethod, reason };
+    if (newMethod === 'credit') body.customer_id = Number(custId);
+    const res = await apiFetchPost(`/orders/${_cpOrder.id}/convert-payment`, body);
+    toast(res.message || 'To\'lov usuli o\'zgartirildi', 'success');
+    closeModal('convertPayModal');
+    closeModal('saleDetailModal');
+    loadSalesHistory();
+  } catch (err) {
+    toast(err.message, 'error', 7000);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 // ── Products page ─────────────────────────────────────────────────────────────
 // Extra column config per bizType

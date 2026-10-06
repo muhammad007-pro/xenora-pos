@@ -18,6 +18,48 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
+# ── CHEKDA FISKAL ELEMENT KO'RSATISH QO'RIQCHISI — YAGONA MANBA ──────────────
+#
+# ⚠️ NEGA BU FUNKSIYA BOR (huquqiy xavf, 2026-10-06 da topilgan):
+# prod `config/fiscal.json` da `enabled: true` + `mode: "mock"` edi. `mock`
+# OFD ga HECH NARSA YUBORMAYDI — `_send_mock()` vaqtdan olingan psevdo-raqam
+# (`int(time.time()*1000) % 10_000_000`) va soxta `sign` yasaydi. Natijada:
+#   · chekda "№ 7114357" ko'rinishidagi SOXTA fiskal raqam,
+#   · `consumer.invoice.uz/check?...&fn=TEST001&i=<soxta>&fp=<soxta>` QR —
+#     mijoz yoki tekshiruvchi skanerlasa haqiqiy chek CHIQMAYDI,
+#   · `tax_id` sifatida test INN `123456789` (do'konning haqiqiy INN'i emas).
+# Bazada 3323 ta buyurtma shunday raqam bilan yozilgan (beshta do'konda).
+#
+# IKKI CHEK YO'LI IKKI XIL TEKSHIRARDI va aynan shu ajralish xatoni yashirgan:
+#   · `/orders/{id}/receipt` → `ReceiptSettings.qr_enabled`
+#   · ESC/POS yo'li          → faqat `fiscal_cfg["enabled"]`
+# Endi IKKALASI ham SHU funksiyani chaqiradi.
+FISCAL_LIVE_MODE = "live"
+
+
+def is_fiscal_live(fiscal_config: dict | None) -> bool:
+    """Chekda fiskal raqam/QR ko'rsatish MUMKINMI.
+
+    `True` faqat `enabled=true` VA `mode="live"` bo'lganda — ya'ni chek
+    haqiqatan OFD operatoriga yuborilganda. `mock` (yoki noma'lum rejim)
+    chekka CHIQMAYDI: soxta QR yo'qligi — uning "TEST" deb belgilanishidan
+    xavfsizroq (pastdagi `docs/FISCAL.md` dagi qarorga qara).
+
+    >>> is_fiscal_live({"enabled": True, "mode": "live"})
+    True
+    >>> is_fiscal_live({"enabled": True, "mode": "mock"})
+    False
+    >>> is_fiscal_live({"enabled": True})
+    False
+    >>> is_fiscal_live(None)
+    False
+    """
+    if not fiscal_config or not fiscal_config.get("enabled"):
+        return False
+    mode = str(fiscal_config.get("mode") or "mock").strip().lower()
+    return mode == FISCAL_LIVE_MODE
+
+
 # ── OFD javob modeli ──────────────────────────────────────────────────────────
 
 class OFDResult:

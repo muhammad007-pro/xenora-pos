@@ -63,11 +63,36 @@ const PAPER_SPECS = {
   58: { page: 58, content: 48 },
   80: { page: 80, content: 72 },
 };
-const PAPER_DEFAULT = PAPER_SPECS[58];
+// ── ZAXIRA KENGLIK — YAGONA E'LON ─────────────────────────────────
+// ⚠️ NEGA 58, 80 EMAS (2026-10-06 qarori):
+// `electron/main.js` PDF SAHIFA o'lchamini AYNI shunday hisoblaydi va u yerda
+// ham zaxira 58 (ikki joyda: usbTransport va lanTransport). Agar bu yerdagi
+// KONTENT zaxirasi 80 (=72mm) qilinsa-yu sahifa 58 qolsa — kontent sahifadan
+// keng bo'lib, o'ngdagi NARX ustuni kesiladi ("505,000" → "505").
+// Bundan tashqari 57mm rolikda ishlayotgan jonli do'konlar bor
+// (eco aroma, MANHATTAN) — ular uchun 80mm kontent buzadi, 58mm kontent esa
+// 80mm rolikda shunchaki tor ko'rinadi, lekin TO'LIQ o'qiladi.
+// Ya'ni 58 — "zarar yetkazmaydigan" yo'nalish.
+export const PAPER_FALLBACK_WIDTH = 58;
+const PAPER_DEFAULT = PAPER_SPECS[PAPER_FALLBACK_WIDTH];
 
-/** paperWidth → {page, content} (mm). Noma'lum qiymat → 58mm zaxira. */
-export function paperSpec(paperWidth) {
-  return PAPER_SPECS[Number(paperWidth)] || PAPER_DEFAULT;
+/**
+ * paperWidth → {page, content} (mm). Noma'lum/bo'sh qiymat → 58mm zaxira.
+ *
+ * ⚠️ Zaxiraga tushish JIM QOLMAYDI: aynan shu jimlik admin reprintda
+ * sozlama uzatilmaganini (80mm do'konda 58mm chek) uzoq vaqt yashirgan.
+ * `where` — chaqiruv joyi nomi (log'da ko'rinadi).
+ */
+export function paperSpec(paperWidth, where) {
+  const spec = PAPER_SPECS[Number(paperWidth)];
+  if (spec) return spec;
+  console.warn(
+    `[chek] qog'oz kengligi noma'lum (${JSON.stringify(paperWidth)}) — `
+    + `${PAPER_FALLBACK_WIDTH}mm zaxira ishlatiladi`
+    + (where ? ` [${where}]` : '')
+    + ". Sozlama o’qilmagan bo’lishi mumkin: /receipt-settings/ → paper_width."
+  );
+  return PAPER_DEFAULT;
 }
 
 function buildCss(fontPx, contentMm) {
@@ -142,7 +167,7 @@ function buildCss(fontPx, contentMm) {
 /** Chek HTML hujjatini yasaydi (CSS + kenglik). Eksport — testdan o'lchash uchun. */
 export function wrapDoc(innerHTML, title, opts) {
   const o = opts || {};
-  const css = buildCss(_fontPx(o.fontSize), paperSpec(o.paperWidth).content);
+  const css = buildCss(_fontPx(o.fontSize), paperSpec(o.paperWidth, 'buildDoc').content);
   return `<!DOCTYPE html><html lang="uz"><head><meta charset="UTF-8">`
     + `<title>${title || 'Chek'}</title><style>${css}</style></head>`
     + `<body><div class="r58">${innerHTML}</div></body></html>`;

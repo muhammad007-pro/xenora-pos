@@ -1218,7 +1218,22 @@ async def get_reorder_alerts(
         ).first()
         current_qty = inv.quantity if inv else 0.0
         if current_qty < rs.min_qty:
-            prod = db.query(Product).filter(Product.id == rs.product_id).first()
+            # O'CHIRILGAN mahsulot avto-zakaz ogohlantirishida QOLMASIN.
+            #
+            # `delete_product` soft-delete qiladi (`is_active = False`) va
+            # `product_reorder_settings` qatori tegilmaydi — ya'ni o'chirilgan
+            # tovar uchun "zakaz bering" deb turardi.
+            #
+            # ⚠️ `isnot(False)` ataylab, `is_(True)` EMAS — `is_active` NULL
+            # bo'lsa FAOL deb qaraladi. `routers/inventory.py` dagi
+            # `_faqat_faol()` bilan AYNAN bir xil qoida (5 joy + bu yer).
+            prod = (
+                db.query(Product)
+                .filter(Product.id == rs.product_id, Product.is_active.isnot(False))
+                .first()
+            )
+            if prod is None:
+                continue
             sup  = db.query(Supplier).filter(Supplier.id == rs.preferred_supplier_id).first() if rs.preferred_supplier_id else None
             alerts.append({
                 "product_id":     rs.product_id,

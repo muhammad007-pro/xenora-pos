@@ -62,3 +62,27 @@ jobs:
       # Brauzer talab qilmaydi — SW `node:vm` sandbox'ida ishga tushadi.
       - name: Service worker testi
         run: node frontend/tests/test_service_worker.mjs
+
+      # Kg mahsulotda qop (pachka) narxi: oqim shartlari + yorliqlar.
+      # Brauzer talab qilmaydi — funksiyalar fayllardan ajratib olinadi.
+      # GOLDEN: tarozi/skanerdan kelgan og'irlik pachka modalini ochmasligi va
+      # mavjud ml/pcs/m yorliqlari bit-bitiga o'zgarmasligi shu yerda qulflangan.
+      - name: Qop narxi testi (kg)
+        run: node frontend/tests/test_weight_pack_price.mjs
+
+      # Qaytarishda "SUMMA" rejimi: bo'luvchi SOTUVDAGI narx bo'lishi (joriy
+      # narx emas), chegara, dona mahsulotda rejim ko'rinmasligi va savatning
+      # YAGONA MANBADAN (miqdor) o'qishi. Soxta DOM — brauzer kerak emas.
+      - name: Qaytarish summa rejimi testi
+        run: node frontend/tests/test_returns_sum_mode.mjs
+
+      # POS kartasida qoldiq: rang chegarasi, CHEKKA TUSHMASLIGI va qidiruvda
+      # QAYTA SO'ROV KETMASLIGI (v1.12.8 xatosi). Sidebar tartibi ham shu yerda.
+      - name: POS qoldiq ko'rinishi testi
+        run: node frontend/tests/test_pos_stock_display.mjs
+
+      # To'lov usullari: Click/Payme standart O'CHIQ (shlyuz yo'q), sozlama
+      # POS'ga ta'sir qilishi, aralash to'lov qatorlari ham yopilishi va
+      # nasiya/xonaga mantig'i TEGILMAGANI.
+      - name: To'lov usullari testi
+        run: node frontend/tests/test_payment_methods.mjs

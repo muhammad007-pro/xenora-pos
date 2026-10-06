@@ -493,6 +493,13 @@ def lookup_order(
             "returned_qty":  round(allaqachon, 3),
             "returnable_qty": qoldi,
             "unit_price":    float(oi.unit_price or 0),
+            # SUMMA BO'YICHA QAYTARISH uchun: kassir "9500 so'mlik qaytaraman"
+            # deydi va tizim miqdorni SOTUVDAGI narxga bo'lib topadi. Frontend
+            # bu rejimni FAQAT og'irlik birliklarida (kg/g/l/litr) ko'rsatadi,
+            # shuning uchun birlik kerak. `unit_sold == "pachka"` bo'lsa
+            # `unit_price` — QOP narxi, ya'ni bo'linma qop sonini beradi
+            # (`quantity` shu qatorda aynan qop soni).
+            "sale_unit":     (getattr(oi.product, "sale_unit", None) or None),
         })
 
     # To'lov usuli — kassirga TAKLIF qilish uchun (nasiya sotuvga naqd tanlansa

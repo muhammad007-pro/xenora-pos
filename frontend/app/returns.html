@@ -65,6 +65,11 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .items-header span{font-size:.8125rem;font-weight:600;color:var(--text2)}
 .item-row{display:grid;grid-template-columns:2fr .9fr 1fr auto auto;gap:.5rem;align-items:center;padding:.375rem 0;border-bottom:1px solid var(--border)}
 .item-row .brak-cell{display:flex;justify-content:center;align-items:center}
+/* SUMMA/MIQDOR rejim tanlovi (faqat bo'linadigan birlikli qatorlarda) */
+.ret-mode{display:inline-flex;gap:0;margin-top:.25rem;border:1px solid var(--border);border-radius:.3rem;overflow:hidden}
+.ret-mode button{background:none;border:none;color:var(--text3);font-size:.65rem;padding:.15rem .4rem;cursor:pointer;line-height:1.4}
+.ret-mode button.on{background:var(--gold,#c9a44c);color:#1a1205;font-weight:700}
+.ret-hint{font-size:.7rem;color:var(--text3);margin-top:.15rem;min-height:.9rem}
 .item-row .brak-cell input{width:18px;height:18px;cursor:pointer;accent-color:var(--danger,#ef4444)}
 .oi-name{font-size:.8125rem;font-weight:600;line-height:1.25}
 .oi-meta{font-size:.7rem;color:var(--text3)}
@@ -258,12 +263,14 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <input class="form-control" type="text" id="opSearch" style="flex:1;min-width:180px"
              placeholder="Chek raqami, summa yoki mijoz ismi..."
              oninput="opSearchInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();loadPickerOrders()}">
-      <input class="form-control" type="date" id="opFrom" style="width:150px" onchange="loadPickerOrders()">
-      <input class="form-control" type="date" id="opTo" style="width:150px" onchange="loadPickerOrders()">
+      <input class="form-control" type="date" id="opFrom" style="width:150px" onchange="opDateChange()">
+      <input class="form-control" type="date" id="opTo" style="width:150px" onchange="opDateChange()">
       <button class="btn btn-out btn-sm" type="button" onclick="opReset()">Tozalash</button>
     </div>
     <div style="font-size:.75rem;color:var(--text3);margin-bottom:.5rem">
-      Standart: oxirgi 30 kun, 50 ta sotuv. Qatorga bosing.
+      Standart: oxirgi <b>30 kun</b>, <b>50</b> ta sotuv — qatorga bosing.
+      Eskiroq sotuv kerak bo'lsa <b>sana filtrini</b> kiriting (davr shunda
+      kengayadi), ro'yxat to'lib qolsa <b>"Ko'proq yuklash"</b>.
     </div>
     <div class="tbl-wrap" style="max-height:52vh;overflow:auto">
       <table class="tbl">
@@ -276,6 +283,13 @@ tr:hover td{background:rgba(255,255,255,.02)}
         </tr></thead>
         <tbody id="opBody"></tbody>
       </table>
+    </div>
+    <!-- Ro'yxat limitga TO'LGANDA ko'rinadi (demak yana bo'lishi mumkin).
+         Server chegarasi 200 (`Query(50, ge=1, le=200)`). -->
+    <div id="opMore" style="display:none;text-align:center;padding:.5rem 0">
+      <button class="btn btn-out btn-sm" type="button" onclick="opLoadMore()">
+        Ko'proq yuklash</button>
+      <span id="opMoreInfo" style="font-size:.7rem;color:var(--text3);margin-left:.5rem"></span>
     </div>
     <div class="modal-footer">
       <button class="btn btn-out" onclick="closeModal('orderPickerModal')">Yopish</button>
@@ -306,6 +320,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <script type="module">
 import { API_BASE } from '../js/core/config.js';
 import { initErrorHandler, showToast } from '../js/core/error-handler.js';
+// Birlik turkumi (bo'linadigan/bo'linmaydigan) — YAGONA MANBA. Ro'yxatni
+// bu yerda takrorlamaymiz: `packKind` POS va cheklar bilan bir xil
+// (`frontend/js/core/receipt-print.js`).
+import { packKind } from '../js/core/receipt-print.js';
 initErrorHandler();
 
 // ⚠️ TUZATISH (labels.html bilan bir xil xato): auth.js `getToken` ni
@@ -537,25 +555,67 @@ window.openCreateModal = function() {
 // `cOrderSearch` ga yoziladi va AYNAN `lookupOrder()` chaqiriladi — qatorlar,
 // readonly narx, nasiya/to'lov usuli mantig'i o'zgarmaydi.
 let _opTimer = null;
+// Ro'yxat limiti. Server standarti 50, chegarasi 200. Yangi qidiruv/sana
+// har doim 50 dan boshlanadi — aks holda bitta "ko'proq" bosilgandan keyin
+// hamma keyingi qidiruv 200 ta qator tortib, picker sekinlashardi.
+const _OP_LIMIT_BOSHLANGICH = 50;
+const _OP_LIMIT_MAX = 200;
+let _opLimit = _OP_LIMIT_BOSHLANGICH;
 
 window.openOrderPicker = function() {
   document.getElementById('orderPickerModal').classList.add('open');
+  _opLimit = _OP_LIMIT_BOSHLANGICH;
   loadPickerOrders();
 };
 
 window.opSearchInput = function() {
   clearTimeout(_opTimer);
-  _opTimer = setTimeout(loadPickerOrders, 350);
+  _opTimer = setTimeout(() => { _opLimit = _OP_LIMIT_BOSHLANGICH; loadPickerOrders(); }, 350);
+};
+
+/** "Ko'proq yuklash" tugmasi holati.
+ *
+ * Ro'yxat LIMITGA TO'LGAN bo'lsa yana qator bo'lishi mumkin — tugma
+ * ko'rinadi. Chegaraga (200) yetilganda tugma o'rniga eslatma: bundan
+ * keyin sana filtri kerak. */
+function _opMoreUpdate(n) {
+  const box  = document.getElementById('opMore');
+  const info = document.getElementById('opMoreInfo');
+  if (!box) return;
+  const tola = n >= _opLimit;
+  box.style.display = tola ? '' : 'none';
+  const btn = box.querySelector('button');
+  if (btn) btn.style.display = _opLimit < _OP_LIMIT_MAX ? '' : 'none';
+  if (info) {
+    info.textContent = !tola ? ''
+      : (_opLimit < _OP_LIMIT_MAX
+          ? `${n} ta ko'rsatildi`
+          : `${n} ta ko'rsatildi — chegara. Eskiroq sotuv uchun sana filtrini kiriting.`);
+  }
+}
+
+/** Sana filtri o'zgardi — limit boshlang'ichga qaytadi. */
+window.opDateChange = function() {
+  _opLimit = _OP_LIMIT_BOSHLANGICH;
+  loadPickerOrders();
+};
+
+/** "Ko'proq yuklash" — limitni ikkilantiradi (50 → 100 → 200). */
+window.opLoadMore = function() {
+  _opLimit = Math.min(_opLimit * 2, _OP_LIMIT_MAX);
+  loadPickerOrders();
 };
 
 window.opReset = function() {
   ['opSearch', 'opFrom', 'opTo'].forEach(id => { document.getElementById(id).value = ''; });
+  _opLimit = _OP_LIMIT_BOSHLANGICH;
   loadPickerOrders();
 };
 
 window.loadPickerOrders = async function() {
   const body = document.getElementById('opBody');
   body.innerHTML = '<tr><td colspan="5" class="empty">Yuklanmoqda...</td></tr>';
+  _opMoreUpdate(0);
 
   const p = new URLSearchParams();
   const s = document.getElementById('opSearch').value.trim();
@@ -564,6 +624,7 @@ window.loadPickerOrders = async function() {
   if (s) p.set('search', s);
   if (f) p.set('date_from', f);
   if (t) p.set('date_to', t);
+  p.set('limit', String(_opLimit));
 
   let list;
   try {
@@ -575,6 +636,7 @@ window.loadPickerOrders = async function() {
     list = await r.json();
   } catch (e) {
     body.innerHTML = `<tr><td colspan="5" class="empty" style="color:var(--danger,#ef4444)">${escHtml(e.message)}</td></tr>`;
+    _opMoreUpdate(0);
     return;
   }
 
@@ -582,6 +644,7 @@ window.loadPickerOrders = async function() {
     body.innerHTML = `<tr><td colspan="5" class="empty">${
       s ? `"${escHtml(s)}" bo'yicha sotuv topilmadi` : 'Bu davrda sotuv yo\'q'
     }</td></tr>`;
+    _opMoreUpdate(0);
     return;
   }
 
@@ -607,6 +670,7 @@ window.loadPickerOrders = async function() {
       <td style="font-size:.75rem;color:var(--text3)">${escHtml(usul)}</td>
     </tr>`;
   }).join('');
+  _opMoreUpdate(list.length);
 };
 
 // Qator tanlandi → MAVJUD lookup oqimiga topshiramiz (yangi mantiq yo'q).
@@ -710,6 +774,102 @@ function _renderOrderInfo(o) {
   info.style.display = '';
 }
 
+/* ═══ SUMMA BO'YICHA QAYTARISH ════════════════════════════════════
+ *
+ * NEGA: kg mahsulotda mijoz "9500 so'mlik qaytaraman" deydi, tarozidagi
+ * miqdorni emas. Kassir 9500 / narx ni QO'LDA hisoblab yozardi — kalkulyator
+ * xatosi to'g'ridan pulga tegadi.
+ *
+ * ⚠️ BO'LUVCHI — SOTUVDAGI narx (`ipr{idx}`, `readonly`, lookup'dan keladi),
+ * mahsulotning JORIY narxi EMAS. Narx sotuvdan keyin o'zgargan bo'lsa joriy
+ * narxga bo'lish boshqa miqdor berardi va mijozga noto'g'ri pul qaytardi.
+ *
+ * ⚠️ QOP (pachka) bilan sotilgan qatorda `unit_price` — QOP narxi, ya'ni
+ * bo'linma QOP SONINI beradi. Bu to'g'ri: shu qatorda `quantity` ham aynan
+ * qop soni (server `base_qty = pack_size × quantity` ni o'zi hisoblaydi).
+ *
+ * Yaxlitlash 3 xona — `_fmtQ` va butun tizim bilan bir xil konvensiya
+ * (`floor(x*1000+0.5)/1000` = JS `Math.round` ning 3 xonali ekvivalenti).
+ *
+ * @returns {{qty:number, clamped:boolean}} clamped=true — chegaraga tushirildi
+ */
+function qtyFromSum(sum, unitPrice, maxQty) {
+  const s = parseFloat(sum);
+  const p = parseFloat(unitPrice);
+  if (!isFinite(s) || s <= 0 || !isFinite(p) || p <= 0) return { qty: 0, clamped: false };
+  let q = Math.floor((s / p) * 1000 + 0.5) / 1000;
+  const m = parseFloat(maxQty);
+  // Hisoblangan miqdor qaytarish mumkin bo'lganidan OSHMASIN. Server ham
+  // 400 beradi (`_validate_return_items`), lekin kassir buni DARHOL ko'rsin.
+  const clamped = isFinite(m) && m > 0 && q > m;
+  if (clamped) q = m;
+  return { qty: q, clamped };
+}
+
+/** Qator SUMMA rejimini qo'llab-quvvatlaydimi — birlik BO'LINADIGAN bo'lsa.
+ *
+ * `packKind(u).perUnit` — kg/g/l/litr va ml/dl/cl uchun true, dona/pcs uchun
+ * false. Ya'ni DONA mahsulotda rejim tugmasi UMUMAN ko'rinmaydi (yarim dona
+ * qaytarish ma'nosiz). Ro'yxat bu yerda takrorlanmaydi. */
+function _sumModeAvailable(saleUnit) {
+  return !!(saleUnit && packKind(saleUnit).perUnit);
+}
+
+/** Qatorda ko'rsatiladigan birlik so'zi: qop bilan sotilgan bo'lsa "qop". */
+function _rowUnitWord(it) {
+  const k = packKind(it.sale_unit);
+  return it.unit_sold === 'pachka' ? k.pack.toLowerCase() : (k.perUnit ? k.unitWord : 'dona');
+}
+
+/** Rejimni almashtirish: ko'rinadigan maydon o'zgaradi, SAVAT MANBASI emas. */
+window.setRowMode = function(idx, mode) {
+  const box = document.getElementById(`imode${idx}`);
+  if (box) {
+    box.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', b.dataset.m === mode);
+    });
+  }
+  const qEl   = document.getElementById(`iq${idx}`);
+  const sumEl = document.getElementById(`isum${idx}`);
+  const hint  = document.getElementById(`ihint${idx}`);
+  if (!qEl || !sumEl) return;
+  const sum = mode === 'sum';
+  qEl.hidden   = sum;
+  sumEl.hidden = !sum;
+  // Rejim almashganda ikkala maydon ham tozalanadi — yarim kiritilgan
+  // qiymat yangi rejimda boshqa ma'no beradi (9500 miqdor emas, summa).
+  qEl.value = '';
+  sumEl.value = '';
+  if (hint) hint.textContent = '';
+  (sum ? sumEl : qEl).focus();
+  calcTotal();
+};
+
+/** Summa kiritildi → MIQDORNI hisoblab `iq{idx}` ga yozamiz.
+ *
+ * ⚠️ YAGONA MANBA: savat/`submitReturn` faqat `iq{idx}` ni o'qiydi. Summa
+ * maydoni hech qayerga yuborilmaydi — u faqat kiritish qulayligi. Shu sabab
+ * `calcTotal()` ham, server ham avvalgidek miqdor bilan ishlaydi. */
+window.sumModeInput = function(idx) {
+  const oiEl = document.getElementById(`ioi${idx}`);
+  const r = qtyFromSum(
+    document.getElementById(`isum${idx}`)?.value,
+    document.getElementById(`ipr${idx}`)?.value,
+    oiEl?.dataset.max);
+  const qEl = document.getElementById(`iq${idx}`);
+  if (qEl) qEl.value = r.qty > 0 ? String(r.qty) : '';
+  const hint = document.getElementById(`ihint${idx}`);
+  if (hint) {
+    const unit = oiEl?.dataset.unit || '';
+    hint.textContent = r.qty > 0
+      ? `≈ ${_fmtQ(r.qty)} ${unit}`.trim()
+        + (r.clamped ? " — ko'pi bilan shuncha qaytarish mumkin" : '')
+      : '';
+    hint.style.color = r.clamped ? 'var(--warning,#f59e0b)' : 'var(--text3)';
+  }
+  calcTotal();
+};
+
 function _renderOrderRows(o) {
   const box = document.getElementById('cItems');
   box.innerHTML = '';
@@ -733,6 +893,16 @@ function _renderOrderRows(o) {
     row.id = `irow${idx}`;
     const qaytarilgan = it.returned_qty > 0
       ? ` · <span style="color:var(--danger,#ef4444)">${_fmtQ(it.returned_qty)} qaytarilgan</span>` : '';
+    // SUMMA rejimi FAQAT bo'linadigan birlikda (kg/g/l/litr, ml/dl/cl).
+    // Dona mahsulotda tugma umuman chiqmaydi.
+    const sumOk = _sumModeAvailable(it.sale_unit);
+    const unitW = _rowUnitWord(it);
+    const modeUI = sumOk ? `
+        <div class="ret-mode" id="imode${idx}">
+          <button type="button" class="on" data-m="qty" onclick="setRowMode(${idx},'qty')">Miqdor</button>
+          <button type="button" data-m="sum" onclick="setRowMode(${idx},'sum')">Summa</button>
+        </div>
+        <div class="ret-hint" id="ihint${idx}"></div>` : '';
     row.innerHTML = `
       <div>
         <div class="oi-name">${escHtml(it.product_name)}</div>
@@ -740,10 +910,15 @@ function _renderOrderRows(o) {
           · qaytarish mumkin: <b>${_fmtQ(it.returnable_qty)}</b></div>
         <input type="hidden" id="ioi${idx}" value="${it.order_item_id}"
                data-product-id="${it.product_id}" data-max="${it.returnable_qty}"
-               data-name="${escHtml(it.product_name)}">
+               data-unit="${escHtml(unitW)}"
+               data-name="${escHtml(it.product_name)}">${modeUI}
       </div>
-      <input class="form-control" type="number" id="iq${idx}" value="" placeholder="0"
-             min="0" max="${it.returnable_qty}" step="any" oninput="calcTotal()">
+      <div>
+        <input class="form-control" type="number" id="iq${idx}" value="" placeholder="0"
+               min="0" max="${it.returnable_qty}" step="any" oninput="calcTotal()">
+        <input class="form-control" type="number" id="isum${idx}" value="" placeholder="so'm"
+               min="0" step="any" hidden oninput="sumModeInput(${idx})">
+      </div>
       <input class="form-control" type="number" id="ipr${idx}" value="${it.unit_price}" readonly
              title="Narx sotuvdan olinadi — o'zgartirilmaydi">
       <div class="brak-cell"><input type="checkbox" id="ibrak${idx}" title="Omborga qaytarilmasin (brak)"></div>

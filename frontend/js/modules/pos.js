@@ -8,7 +8,8 @@ import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
 import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow,
-         qtyPriceLabel, unitPriceOf } from '../core/receipt-print.js';
+         qtyPriceLabel, unitPriceOf,
+         packKind, packSizeLabel, fmtPackQty } from '../core/receipt-print.js';
 import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
 
 const api = new API();
@@ -563,6 +564,7 @@ function renderProducts(catId = null) {
         <div class="prod-name">${p.name}</div>
         ${dosageLbl}${expiryDate}${durationBadge}${periodBadge}${sessionsBadge}${lessonsBadge}${partBadge}
         <div class="prod-price">${fmtNum(p.price)} <span class="prod-unit">UZS${unitLbl ? ' '+unitLbl : ''}</span></div>
+        ${_stockBadge(p.id)}
       </div>
     </div>`;
   }).join('');
@@ -583,15 +585,23 @@ let _packChoiceProduct = null;
 
 function showPackChoiceModal(product) {
   _packChoiceProduct = product;
-  // #20 atir (hajm): sale_unit "ml" → "Butun (150 ml)" / "ml"; oddiy → "Pachka (N dona)" / "Dona"
-  const isVol = product.sale_unit === 'ml';
-  const unit  = product.sale_unit || 'dona';
+  // Yorliqlar `sale_unit` ga qarab — yagona manba `packKind()` (receipt-print.js):
+  //   kg   → "📦 Qop"    / hint "20 kg"  · "⚖️ Kg bo'yicha"  / "3 000 UZS / kg"
+  //   ml   → "🧴 Butun"  / hint "150 ml" · "ml"              / "... / ml"   (avvalgidek)
+  //   dona → "📦 Pachka" / hint "10 dona" · "Dona"                          (avvalgidek)
+  const k = packKind(product.sale_unit);
   document.getElementById('packChoiceName').textContent = product.name;
-  document.getElementById('packChoicePackLbl').textContent   = isVol ? '🧴 Butun' : '📦 Pachka';
+  document.getElementById('packChoicePackLbl').textContent   = `${k.packIcon} ${k.pack}`;
   document.getElementById('packChoicePackPrice').textContent = fmtNum(product.pack_price) + ' UZS';
-  document.getElementById('packChoicePackHint').textContent  = product.pack_size + (isVol ? ' ' + unit : ' dona');
-  document.getElementById('packChoiceDonaLbl').textContent   = isVol ? unit : 'Dona';
-  document.getElementById('packChoiceDonaPrice').textContent = fmtNum(product.price) + ' UZS' + (isVol ? ' / ' + unit : '');
+  document.getElementById('packChoicePackHint').textContent  =
+    `${fmtPackQty(product.pack_size)} ${k.perUnit ? k.unitWord : 'dona'}`;
+  // Birlik tomoni: og'irlikda "⚖️ Kg bo'yicha" (bosilsa og'irlik oynasi ochiladi)
+  document.getElementById('packChoiceDonaLbl').textContent   =
+    isWeightUnit(product.sale_unit)
+      ? `${k.unitIcon} ${k.unitWord.charAt(0).toUpperCase()}${k.unitWord.slice(1)} bo'yicha`
+      : (k.perUnit ? k.unitWord : 'Dona');
+  document.getElementById('packChoiceDonaPrice').textContent =
+    fmtNum(product.price) + ' UZS' + (k.perUnit ? ' / ' + k.unitWord : '');
   openModal('packChoiceModal');
 }
 
@@ -603,8 +613,17 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
 
   // BOSQICH B4: Pachkali mahsulot — AVVAL birlik tanlash (pachka/dona), keyin qolgan
   // oqim (rx-tasdiq, modifikator) bir marta. Pachkasiz mahsulot — tanlovsiz, avvalgidek.
-  // Weight (tarozi) mahsulot pachkali bo'lmaydi (B2 bloklaydi) — himoya uchun tekshiramiz.
-  if (unitMode == null && presetWeight == null && isPackProduct(p) && !isWeightUnit(p.sale_unit)) {
+  //
+  // KG/QOP: og'irlik birliklari ham pachkali bo'lishi MUMKIN (20 kg qop + kg
+  // bo'yicha). Ilgari bu yerda `&& !isWeightUnit(p.sale_unit)` turardi va
+  // kg mahsulotda tanlov modali umuman ochilmasdi.
+  //
+  // ⚠️ `presetWeight == null` sharti SAQLANADI — u OG'IRLIK ALLAQACHON
+  // MA'LUM bo'lgan yo'l: tarozi/skaner EAN-13 dan kelgan og'irlik
+  // (`addToCart(id, weight)`). U holda savol berish mantiqsiz va zararli:
+  // modal ochilsa kassir o'lchangan og'irlikni yo'qotadi. Shu sabab
+  // presetWeight bilan kelgan chaqiruv TO'G'RIDAN savatga tushadi.
+  if (unitMode == null && presetWeight == null && isPackProduct(p)) {
     showPackChoiceModal(p);
     return;
   }
@@ -634,8 +653,14 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
     return;
   }
 
-  // Tarozi mahsulotlar uchun og'irlik modali
-  if (isWeightUnit(p.sale_unit)) {
+  // Tarozi mahsulotlar uchun og'irlik modali.
+  //
+  // ⚠️ `unitMode !== 'pachka'` — KG/QOP uchun SHART. Kassir tanlov modalida
+  // "📦 Qop" ni bosganda `addToCart(id, null, 'pachka')` qaytib keladi; bu
+  // tekshiruv unitMode'ni ko'rmasa kg mahsulot BU YERDA og'irlik modaliga
+  // tushib ketardi va qop oqimi hech qachon savatga yetmasdi.
+  // "⚖️ Kg bo'yicha" esa bu yerga `unitMode == null` bilan keladi → modal.
+  if (isWeightUnit(p.sale_unit) && unitMode !== 'pachka') {
     if (presetWeight != null) {
       doAddToCart(p, [], presetWeight);
     } else {
@@ -872,7 +897,7 @@ function collectModifiers() {
 // ogohlantirish: kassir savatni to'ldirib bo'lgach 400 olishdan ko'ra, darhol
 // bilgani yaxshi. Xarita eskirishi mumkin (boshqa kassa sotgan bo'lishi), shuning
 // uchun BLOKLAMAYDI — server so'nggi so'zni aytadi.
-let _stockMap  = new Map();   // product_id -> { quantity, unit }
+let _stockMap  = new Map();   // product_id -> { quantity, unit, min_threshold }
 let _guardOn   = false;
 
 async function refreshStockMap() {
@@ -881,10 +906,72 @@ async function refreshStockMap() {
     const d = res?.data ?? res;
     if (!d || !Array.isArray(d.items)) return;
     _guardOn = !!d.block_oversell;
-    _stockMap = new Map(d.items.map(r => [r.product_id, { quantity: r.quantity, unit: r.unit }]));
+    // `min_threshold` QO'SHILDI — kartadagi qoldiq yorlig'ining rangi shunga
+    // qarab belgilanadi (`_stockBadge`). Endpoint uni allaqachon qaytaradi.
+    _stockMap = new Map(d.items.map(r => [r.product_id,
+      { quantity: r.quantity, unit: r.unit, min_threshold: r.min_threshold }]));
+    // Xarita POS ochilgandan KEYIN keladi (`await` qilinmaydi) — o'sha
+    // paytda kartalar allaqachon chizilgan va yorliqsiz. Shu sabab bir
+    // marta joyida yangilanadi. Sotuvdan keyin ham shu yo'l bilan yangi
+    // qoldiq ko'rinadi.
+    _repaintStockBadges();
   } catch { /* ogohlantirish ixtiyoriy — sotuvni to'xtatmaydi */ }
 }
 window.refreshStockMap = refreshStockMap;
+
+/**
+ * MAHSULOT KARTASIDAGI QOLDIQ yorlig'i — "12 dona", "4.5 kg".
+ *
+ * NEGA: kassir mijozga "bor/yo'q, qancha qoldi" deb ayta olishi uchun qoldiqni
+ * ko'rishi kerak edi; ilgari u faqat savatga qo'shilgandan KEYIN
+ * ogohlantirish bo'lib chiqardi (`_warnIfShort`).
+ *
+ * ⚠️ FAQAT EKRANDA. Chek `renderReceiptData` / `buildReceipt58` dan
+ * quriladi — ular savat yoki server qatorlarini o'qiydi, qoldiq esa
+ * `_stockMap` da (alohida). Ya'ni yorliq chekka TUSHMAYDI.
+ *
+ * ⚠️ QAYTA SO'ROV YO'Q. `_stockMap` POS ochilganda va har sotuvdan keyin
+ * bir marta to'ldiriladi (`refreshStockMap`). Bu funksiya FAQAT xotiradagi
+ * xaritadan o'qiydi — qidiruvda/`renderProducts` da tarmoqqa chiqmaydi.
+ * (v1.12.8 da admin ro'yxatida har harf bosilganda qoldiq qayta tortilardi;
+ * shu xato POS'da takrorlanmasin.)
+ *
+ * Xarita bo'sh bo'lsa (so'rov yiqildi / hali kelmadi) yorliq CHIQMAYDI —
+ * "0" ko'rsatish yolg'on bo'lardi.
+ */
+function _stockBadge(productId) {
+  const st = _stockMap.get(productId);
+  if (!st || st.quantity == null) return '';
+  const q = Number(st.quantity);
+  if (!isFinite(q)) return '';
+  const thr = Number(st.min_threshold);
+  const cls = q <= 0 ? ' zero'
+            : (isFinite(thr) && thr > 0 && q <= thr) ? ' low' : '';
+  const unit = st.unit ? ' ' + st.unit : '';
+  return `<div class="prod-stock${cls}">${_stockNum(q)}${unit}</div>`;
+}
+
+/**
+ * Ko'rinib turgan kartalardagi qoldiq yorliqlarini JOYIDA yangilaydi.
+ *
+ * NEGA QAYTA RENDER EMAS: `renderProducts(catId)` faol kategoriyani
+ * PARAMETR bilan oladi va u hech qayerda saqlanmaydi — faqat DOM'da
+ * (`.cat-btn.active`). Argumentsiz chaqirsak kassir tanlagan kategoriya
+ * JIMGINA "Barchasi" ga tushib ketardi. Shuning uchun faqat yorliq
+ * almashtiriladi: filtr, qidiruv va ko'rinish (grid/list) tegilmaydi.
+ *
+ * Tarmoqqa CHIQMAYDI — xotiradagi `_stockMap` dan o'qiydi.
+ */
+function _repaintStockBadges() {
+  document.querySelectorAll('#productsGrid .product-card').forEach(card => {
+    const body = card.querySelector('.prod-body');
+    if (!body) return;
+    body.querySelector('.prod-stock')?.remove();
+    const html = _stockBadge(+card.dataset.id);
+    if (html) body.insertAdjacentHTML('beforeend', html);
+  });
+}
+
 
 // Savat qatorining BAZA birligidagi miqdori (ombor shu birlikda yuritiladi)
 function _lineBaseQty(line, product) {
@@ -958,9 +1045,8 @@ function doAddToCart(product, modifiers, weight = null, unitMode = null) {
         id: product.id, name: product.name, price: priceP, qty: 1,
         _modKey: pkKey, modifiers, modLabel: modLabelP || null,
         _unitSold : 'pachka',
-        _packLabel: product.sale_unit === 'ml'
-          ? `Butun (${product.pack_size} ml)`      // #20 atir: butun flakon
-          : `Pachka (${product.pack_size} dona)`,
+        // "Qop (20 kg)" | "Butun (150 ml)" | "Pachka (10 dona)" — yagona manba
+        _packLabel: packSizeLabel(product.sale_unit, product.pack_size),
         _batch    : product.batch_number || null,
         _master   : state.staffMember ? { ...state.staffMember } : null,
       });
@@ -1034,8 +1120,12 @@ document.getElementById('packChoicePackBtn')?.addEventListener('click', () => {
 document.getElementById('packChoiceDonaBtn')?.addEventListener('click', () => {
   const p = _packChoiceProduct; closeModal('packChoiceModal');
   if (!p) return;
-  // #20 atir: "ml" tanlansa "necha ml?" (weight modal); oddiy pachka: 'dona' (avvalgidek)
-  if (p.sale_unit === 'ml') showWeightModal(p);
+  // Birlik tomoni bosildi:
+  //   ml (#20 atir)      → "necha ml?" (og'irlik/hajm modali)
+  //   kg/g/l/litr (QOP)  → "necha kg?" (AYNAN o'sha og'irlik modali — qop
+  //                        tanlanmaganda kg mahsulot odatdagi tarozi oqimida)
+  //   dona (avvalgidek)  → to'g'ridan savatga 'dona' rejimida
+  if (p.sale_unit === 'ml' || isWeightUnit(p.sale_unit)) showWeightModal(p);
   else addToCart(p.id, null, 'dona');
 });
 
@@ -1687,6 +1777,84 @@ document.querySelectorAll('.cash-preset').forEach(btn => {
   });
 });
 
+/* ═══ YOQILGAN TO'LOV USULLARI ═══════════════════════════════════════════════
+ *
+ * MUAMMO: Click/Payme tugmalari HAR DOIM ko'rinardi, lekin shlyuz
+ * integratsiyasi YO'Q (`payment_service._process_online_payment` — TODO
+ * stub). Kassir bossa to'lov MANGU `pending` qolardi va sotuv o'tmasdi.
+ * Prodda 24 ta pending CLICK bor va HAMMASI bekor qilingan buyurtmada.
+ *
+ * Ustiga: sozlamalar sahifasida toggle'lar bor va saqlanardi, lekin POS
+ * ularni UMUMAN O'QIMASDI — ya'ni sozlama hech narsaga ta'sir qilmasdi.
+ *
+ * ENDI: POS `/settings/payment-methods` ni o'qiydi (kassir ham o'qiydi,
+ * MAXFIY KALITLARSIZ — ular admin-only `/settings/payment` da qoladi).
+ * Standart: naqd + karta. Click/Payme sozlama bilan yoqiladi.
+ *
+ * ⚠️ `credit` (nasiya) va `room_charge` BU RO'YXATGA KIRMAYDI — ular
+ * biznes turi bo'yicha ko'rinadi (store/supermarket, hotel) va bu mantiq
+ * TEGILMAYDI (GOLDEN: nasiya oqimi o'zgarmaydi).
+ */
+const _PM_SOZLAMA_USULLAR = ['cash', 'card', 'click', 'payme', 'qr'];
+// Standart — so'rov yiqilsa yoki offline bo'lsa SHU ishlatiladi.
+let _enabledPayMethods = ['cash', 'card'];
+
+/**
+ * Tugmalar va split qatorlarini yoqilgan usullar bo'yicha ko'rsatadi.
+ *
+ * ⚠️ IKKI KIRISH NUQTASI: yagona usul tugmalari VA aralash to'lov
+ * (`splitRow_click`/`splitRow_payme`). Faqat tugmani yashirish yetmaydi —
+ * split orqali baribir pending Click yaratish mumkin bo'lardi.
+ *
+ * ⚠️ Grid ustunlari QO'LDA sanaladi: `.pay-methods` CSS'da `repeat(4,1fr)`
+ * (yoki `has-credit` da 5). Tugma `display:none` bo'lsa BO'SH USTUN qolardi
+ * va qolgan tugmalar qiyshayib ketardi.
+ */
+function applyPayMethods() {
+  const ruxsat = new Set(_enabledPayMethods);
+  _PM_SOZLAMA_USULLAR.forEach(m => {
+    const btn = document.querySelector(`.pay-method[data-method="${m}"]`);
+    if (btn) btn.style.display = ruxsat.has(m) ? '' : 'none';
+    const row = document.getElementById(`splitRow_${m}`);
+    if (row) row.style.display = ruxsat.has(m) ? '' : 'none';
+    // Yashiringan split maydoni bo'sh qolsin — aks holda eski qiymat
+    // `buildSplitPayments()` ga qo'shilib ketardi.
+    if (!ruxsat.has(m)) { const el = document.getElementById(`split_${m}`); if (el) el.value = ''; }
+  });
+
+  // Faol tugma yashirilgan bo'lsa — naqdga qaytamiz (tender tanlanmagan
+  // holatda qolib ketmasin).
+  const faol = document.querySelector('.pay-method.active');
+  if (!faol || faol.style.display === 'none') {
+    document.querySelectorAll('.pay-method').forEach(b =>
+      b.classList.toggle('active', b.dataset.method === 'cash'));
+    payMethod = 'cash';
+    const cs = document.getElementById('cashSection');
+    if (cs) cs.style.display = '';
+  }
+
+  // Ko'rinadigan tugmalar soniga qarab ustunlar
+  const pm = document.querySelector('.pay-methods');
+  if (pm) {
+    const n = [...pm.querySelectorAll('.pay-method')]
+      .filter(b => b.style.display !== 'none').length;
+    if (n > 0) pm.style.gridTemplateColumns = `repeat(${n},1fr)`;
+  }
+}
+
+/** Sozlamani serverdan oladi. Yiqilsa standart qoladi (POS to'xtamaydi). */
+async function loadPayMethods() {
+  try {
+    const res = await api.get('/settings/payment-methods');
+    const d = res?.data ?? res;
+    if (d && Array.isArray(d.methods) && d.methods.length) {
+      _enabledPayMethods = d.methods.filter(m => _PM_SOZLAMA_USULLAR.includes(m));
+      if (!_enabledPayMethods.includes('cash')) _enabledPayMethods.unshift('cash');
+    }
+  } catch { /* offline/403 — standart (naqd+karta) qoladi */ }
+  applyPayMethods();
+}
+
 // ─── #32: Aralash to'lov (split) — bir necha usul, order jamiga teng ─────────────
 // Backend allaqachon ko'p Payment'ni sum qiladi (migratsiya yo'q). FAQAT ONLINE.
 // Karta/Click/Payme = ANIQ ulush (ortiqcha bo'lmaydi); Naqd qolganini qoplaydi
@@ -2325,9 +2493,10 @@ function _rcptPackLabel(i) {
   if (i._packLabel) return i._packLabel;
   const q = i.quantity || i.qty;
   if (i.unit_sold === 'pachka' && i.base_qty && q) {
-    const per = Math.round(i.base_qty / q);
-    // #20 atir (sale_unit "ml") → "Butun (150 ml)"; oddiy pachka → "Pachka (N dona)"
-    return i.sale_unit === 'ml' ? `Butun (${per} ml)` : `Pachka (${per} dona)`;
+    // Yorliq `sale_unit` ga qarab (kg → "Qop (20 kg)", ml → "Butun (150 ml)",
+    // qolgani → "Pachka (N dona)"). Yaxlitlash 3 xona: `base_qty` va
+    // `quantity` ikkisi ham Float, `Math.round` kasrni jimgina yo'qotardi.
+    return packSizeLabel(i.sale_unit, i.base_qty / q);
   }
   return '';
 }
@@ -3693,6 +3862,15 @@ async function init() {
 
     await loadData();
     applyBusinessMode();
+    // ⚠️ `applyBusinessMode()` DAN KEYIN: u nasiya/xonaga tugmalarini
+    // ko'rsatadi, `applyPayMethods()` esa ko'rinadigan tugmalarni sanab grid
+    // ustunlarini qo'yadi. Avval chaqirilsa ustun soni xato bo'lardi.
+    //
+    // Darhol bir marta (Click/Payme standart o'chiq — ko'rinib ketmasin),
+    // keyin server javobi bilan qayta. `await` QILINMAYDI: sekin javob POS
+    // ochilishini kechiktirmasin (`refreshStockMap` bilan bir xil naqsh).
+    applyPayMethods();
+    loadPayMethods();
     renderCategories(state.categories);
     renderProducts();
     renderCart();

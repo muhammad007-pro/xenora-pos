@@ -413,24 +413,25 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
         <div class="setting-card-title">To'lov usullari</div>
         <div style="margin-bottom:1rem">
           <div class="toggle-row">
-            <div><div class="toggle-label">💵 Naqd pul</div></div>
-            <label class="toggle-switch"><input type="checkbox" id="paymentCash" checked><span class="toggle-slider"></span></label>
+            <div><div class="toggle-label">💵 Naqd pul</div>
+                 <div class="toggle-hint">O'chirilmaydi — kassada hamisha kerak</div></div>
+            <label class="toggle-switch"><input type="checkbox" id="paymentCash" checked disabled
+                   title="Naqd har doim yoqilgan"><span class="toggle-slider"></span></label>
           </div>
           <div class="toggle-row">
-            <div><div class="toggle-label">💳 Karta (POS-terminal)</div></div>
+            <div><div class="toggle-label">💳 Karta / Terminal</div>
+                 <div class="toggle-hint">Bank kartasi va karta terminali — bitta usul</div></div>
             <label class="toggle-switch"><input type="checkbox" id="paymentCard" checked><span class="toggle-slider"></span></label>
           </div>
           <div class="toggle-row">
-            <div><div class="toggle-label">📱 Payme</div></div>
+            <div><div class="toggle-label">📱 Payme</div>
+                 <div class="toggle-hint">Shlyuz ULANMAGAN — yoqilsa to'lov "kutilmoqda" holatida qoladi</div></div>
             <label class="toggle-switch"><input type="checkbox" id="paymentPayme"><span class="toggle-slider"></span></label>
           </div>
           <div class="toggle-row">
-            <div><div class="toggle-label">📱 Click</div></div>
+            <div><div class="toggle-label">📱 Click</div>
+                 <div class="toggle-hint">Shlyuz ULANMAGAN — yoqilsa to'lov "kutilmoqda" holatida qoladi</div></div>
             <label class="toggle-switch"><input type="checkbox" id="paymentClick"><span class="toggle-slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <div><div class="toggle-label">🏦 Pul o'tkazma</div></div>
-            <label class="toggle-switch"><input type="checkbox" id="paymentTransfer"><span class="toggle-slider"></span></label>
           </div>
         </div>
         <div class="save-row">
@@ -1171,12 +1172,16 @@ async function loadPaymentSettings() {
     document.getElementById('paymentCard').checked     = r.methods.includes('card');
     document.getElementById('paymentPayme').checked    = r.methods.includes('payme');
     document.getElementById('paymentClick').checked    = r.methods.includes('click');
-    document.getElementById('paymentTransfer').checked = r.methods.includes('transfer');
   }
 }
 
 document.getElementById('savePaymentBtn').onclick = async () => {
-  const methods = ['cash','card','payme','click','transfer'].filter(m =>
+  // ⚠️ `transfer` OLIB TASHLANDI: u `PaymentMethod` enum'ida YO'Q edi.
+  // POS endi shu ro'yxatni o'qiydi (`/settings/payment-methods`), ya'ni
+  // `transfer` qolsa kassir uni tanlab, server `invalid input value for enum`
+  // bilan 500 berib BUTUN sotuvni rollback qilardi (v1.9.1 da `credit`
+  // bilan aynan shunday bo'lgan). Kerak bo'lsa avval enum + migratsiya.
+  const methods = ['cash','card','payme','click'].filter(m =>
     document.getElementById('payment'+m[0].toUpperCase()+m.slice(1)).checked
   );
   const res = await api.patch('/settings/payment', { methods });

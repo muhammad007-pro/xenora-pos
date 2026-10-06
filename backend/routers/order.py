@@ -8,13 +8,23 @@ from datetime import datetime
 from core.timeutils import to_local, utc_now
 
 from database import get_db
-from models import Order, OrderItem, Product, Table, User, Cafe, ReceiptSettings
-from schemas import OrderCreate, OrderUpdate, OrderInDB, PaginatedResponse, MessageResponse
-from deps import resolve_tenant_id, get_current_user, get_current_active_user, apply_tenant_filter
+from models import (
+    Order, OrderItem, Product, Table, User, Cafe, ReceiptSettings,
+    Payment, Customer, CustomerDebt, DebtPayment, Return, Shift,
+)
+from schemas import (
+    OrderCreate, OrderUpdate, OrderInDB, PaginatedResponse, MessageResponse,
+    ConvertPaymentRequest,
+)
+from deps import (
+    resolve_tenant_id, get_current_user, get_current_active_user,
+    apply_tenant_filter, has_permission,
+)
 from services.stock_guard import InsufficientStock
 from services.order_service import OrderService
 from services.kitchen_service import KitchenService
 from services.printer_service import PrinterService, print_receipt as escpos_print_receipt
+from services.unit_converter import pack_size_label   # chek pachka yorlig'i (sale_unit bo'yicha)
 from websocket.manager import manager
 from core.subscription import is_within_order_limit, get_plan_limits
 from core.tenant_config import get_tenant_config  # BOSQICH 40 (3b): printer tenant-scoped
@@ -336,6 +346,294 @@ async def cancel_order(
     })
     return MessageResponse(message="Buyurtma bekor qilindi")
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TO'LOV USULINI KEYIN TUZATISH  —  POST /orders/{id}/convert-payment
+# ══════════════════════════════════════════════════════════════════════════════
+# MUAMMO (jonli): kassir nasiyani naqd qilib yopadi yoki karta o'rniga naqd
+# uradi. Chek chiqib ketgan, tovar ketgan — lekin kassa hisobi va qarz daftari
+# yolg'on. Shu paytgacha tuzatish yo'li FAQAT qo'lda SQL edi (v1.12.14).
+#
+# NIMAGA TEGMAYDI:
+#   • OMBOR — tovar allaqachon ketgan, miqdor o'zgarmaydi. Faqat TENDER
+#     (pul qaysi yo'l bilan keldi/kelmadi) tuzatiladi.
+#   • SOTUV SUMMASI — `order.final_amount` va `payment.amount` o'zgarmaydi.
+#   • YOPILGAN SMENA — Z-hisoboti bosilib, kassa topshirilgan. Ichidagi
+#     tenderni keyin o'zgartirish bosilgan hisobotni yolg'onga chiqaradi.
+#
+# Z-HISOBOTGA TA'SIRI (kutilgan va KERAKLI):
+#   `routers/shift.py` da `cash_sales` faqat `method=="cash" and status=="paid"`
+#   dan yig'iladi, `expected_cash` esa undan hisoblanadi. Ya'ni
+#   naqd→nasiya → `cash_sales` tushadi → `expected_cash` KAMAYADI (kassada
+#   o'sha pul yo'q, chunki haqiqatda qarzga berilgan). Teskarisi — oshadi.
+@router.post("/{order_id}/convert-payment")
+async def convert_order_payment(
+    order_id: int,
+    data: ConvertPaymentRequest,
+    db: Session = Depends(get_db),
+    # Kassir O'ZI xatosini tuzatmaydi — aks holda nazorat yo'qoladi
+    # (vozvrat "ikkinchi ko'zi" bilan bir xil qoida, routers/returns.py).
+    current_user: User = Depends(has_permission("manage_shifts")),
+):
+    """To'lov usulini tuzatadi: naqd ↔ karta ↔ nasiya. Omborga tegmaydi."""
+    # Aylanma import bo'lmasin: `routers/debt.py` qarz hisobining yagona egasi.
+    from routers.debt import _recalc_customer_debt
+
+    # ROW-LOCK: ikki admin bir vaqtda bossa, ikkisi ham "usul naqd" deb o'qib
+    # IKKI qarz qatori yaratib qo'yardi. Qulf chek qatorida — qolgan hamma
+    # tekshiruv va yozuv shu qulf ostida ketadi (atomic-sale naqshi).
+    # SQLite'da (testlar) SQLAlchemy FOR UPDATE ni jimgina tashlab ketadi.
+    order = (
+        apply_tenant_filter(db.query(Order), Order, current_user)
+        .filter(Order.id == order_id)
+        .with_for_update()
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+
+    # ── 1) Faqat YAKUNLANGAN sotuv ──────────────────────────────────────────
+    _ost = str(getattr(order.status, "value", order.status))
+    if _ost != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Faqat yakunlangan sotuv to'lovini tuzatish mumkin "
+                   f"(joriy holat: {_ost}).",
+        )
+
+    # ── 2) Qaytarish hujjati bo'lsa — TEGMAYMIZ ─────────────────────────────
+    # Pul va ombor o'sha hujjat orqali yuriydi (routers/payment.py naqshi).
+    # Tenderni ostidan o'zgartirish vozvrat summasini boshqa yo'lga burardi.
+    _ret = (
+        db.query(Return)
+        .filter(Return.order_id == order.id,
+                Return.status.in_(["pending", "approved"]))
+        .first()
+    )
+    if _ret:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Bu chekda qaytarish hujjati bor ({_ret.return_number}, "
+                   f"holat: {_ret.status}). To'lov usulini o'zgartirish mumkin emas — "
+                   f"avval qaytarish masalasi hal qilinsin.",
+        )
+
+    # ── 3) To'lov yozuvi AYNAN BITTA bo'lsin ────────────────────────────────
+    # ⚠️ `apply_tenant_filter` ATAYIN ISHLATILMAYDI: `Payment.tenant_id`
+    # nullable va eski yozuvlarda NULL bo'lishi mumkin. Filtr NULL qatorni
+    # YASHIRARDI va aralash to'lovli chek "bitta tender" bo'lib ko'rinardi.
+    # Tenant himoyasi yuqorida — `order` allaqachon tenant bo'yicha olingan.
+    payments = db.query(Payment).filter(Payment.order_id == order.id).all()
+
+    _refunded = [p for p in payments
+                 if str(getattr(p.status, "value", p.status)) == "refunded"]
+    if _refunded:
+        raise HTTPException(
+            status_code=400,
+            detail="Bu chek bo'yicha pul qaytarilgan — to'lov usulini "
+                   "o'zgartirish mumkin emas.",
+        )
+
+    live = [p for p in payments
+            if str(getattr(p.status, "value", p.status)) in ("paid", "pending")]
+    if not live:
+        raise HTTPException(
+            status_code=400,
+            detail="Bu chekda to'lov yozuvi yo'q — tuzatish uchun hech narsa yo'q.",
+        )
+    if len(live) > 1:
+        _lbl = ", ".join(sorted({str(getattr(p.method, "value", p.method)) for p in live}))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Aralash to'lov (split) qo'llab-quvvatlanmaydi: bu chekda "
+                   f"{len(live)} ta tender bor ({_lbl}). Har bir qismni alohida "
+                   f"tuzatish hozircha mumkin emas — qo'lda tuzatish uchun "
+                   f"administratorga murojaat qiling.",
+        )
+
+    payment = live[0]
+    old_method = str(getattr(payment.method, "value", payment.method))
+    new_method = data.new_method
+
+    # ── 4) O'zgarish bormi ──────────────────────────────────────────────────
+    if old_method == new_method:
+        raise HTTPException(
+            status_code=400,
+            detail=f"To'lov usuli allaqachon «{new_method}» — o'zgartirishga hojat yo'q.",
+        )
+    # Mehmonxona xona hisobi — folio bilan bog'langan, bu yerdan uzilmaydi.
+    if old_method == "room_charge":
+        raise HTTPException(
+            status_code=400,
+            detail="Xona hisobiga yozilgan to'lovni bu yerdan o'zgartirish mumkin emas "
+                   "(mehmonxona folio hisobi bilan bog'liq).",
+        )
+
+    # ── 5) Buyurtmaning O'Z smenasi OCHIQ bo'lsin ───────────────────────────
+    # ⚠️ "biror smena ochiq" emas — AYNAN shu chek yozilgan smena. Yopilgan
+    # smenaning Z-hisoboti bosilgan, kassa topshirilgan: ichidagi tenderni
+    # keyin o'zgartirish o'sha qog'ozni yolg'onga chiqaradi.
+    if not order.shift_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Bu chek smenaga bog'lanmagan (eski yozuv) — to'lov usulini "
+                   "o'zgartirish mumkin emas, chunki qaysi kassa hisobiga "
+                   "tegishi aniqlanmaydi.",
+        )
+    shift = (
+        apply_tenant_filter(db.query(Shift), Shift, current_user)
+        .filter(Shift.id == order.shift_id)
+        .first()
+    )
+    if not shift:
+        raise HTTPException(status_code=400, detail="Chekning smenasi topilmadi.")
+    if shift.end_time is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Bu chek YOPILGAN smenaga tegishli. Yopilgan smena hisobiga "
+                   "tegilmaydi — tuzatishni buxgalteriya orqali qiling.",
+        )
+
+    amount = float(payment.amount or 0)
+
+    # Shu chekka bog'langan qarz (bo'lsa). Tenant himoyasi — `order` orqali.
+    debt = (
+        db.query(CustomerDebt)
+        .filter(CustomerDebt.order_id == order.id)
+        .order_by(CustomerDebt.id.desc())
+        .first()
+    )
+
+    # ── 6) NASIYADAN CHIQISH: qarz yopiladi/o'chiriladi ─────────────────────
+    _closed_debt_id = None
+    if old_method == "credit" and debt:
+        _paid_cnt = db.query(DebtPayment).filter(DebtPayment.debt_id == debt.id).count()
+        # Yig'ilgan pulni JIMGINA yo'qotmaymiz: qarzga to'lov tushgan bo'lsa
+        # uni avval bekor qilish kerak, aks holda `debt_payments` kassaga
+        # pulni ikki marta qo'shib yuborardi (utils/cashflow.py).
+        if _paid_cnt or float(debt.paid_amount or 0) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Bu nasiya bo'yicha to'lov qabul qilingan "
+                       f"({float(debt.paid_amount or 0):,.0f} so'm, {_paid_cnt} ta to'lov). "
+                       f"Avval o'sha to'lov(lar)ni hal qiling — aks holda pul "
+                       f"ikki marta hisoblanadi.",
+            )
+        _closed_debt_id = debt.id
+        _debt_customer = debt.customer_id
+        db.delete(debt)
+        db.flush()
+        _recalc_customer_debt(db, _debt_customer)
+        debt = None
+
+    # ── 7) NASIYAGA O'TISH: qarz bog'lanadi yoki yaratiladi ─────────────────
+    _new_debt_id = None
+    if new_method == "credit":
+        if not data.customer_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Nasiyaga o'tkazish uchun MIJOZ tanlanishi shart — "
+                       "qarz kimga yozilishi kerak?",
+            )
+        customer = (
+            apply_tenant_filter(db.query(Customer), Customer, current_user)
+            .filter(Customer.id == data.customer_id)
+            .first()
+        )
+        if not customer:
+            raise HTTPException(status_code=404, detail="Mijoz topilmadi")
+
+        # Mavjud qarz qatori (shu chek bo'yicha) — to'lov tushgan bo'lsa tegmaymiz.
+        if debt and (float(debt.paid_amount or 0) > 0 or debt.status == "paid"):
+            raise HTTPException(
+                status_code=400,
+                detail="Bu chekda to'langan qarz qatori bor — avtomatik "
+                       "qayta bog'lash mumkin emas.",
+            )
+
+        # QARZ LIMITI — `routers/debt.py:create_debt` bilan AYNI tekshiruv.
+        # Busiz konvertatsiya limitni chetlab o'tadigan yo'l bo'lib qolardi.
+        if customer.credit_limit is not None:
+            _already = float(debt.remaining or 0) if (debt and debt.customer_id == customer.id) else 0.0
+            new_total = float(customer.total_debt or 0) - _already + amount
+            if new_total > customer.credit_limit:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Qarz limiti ({customer.credit_limit:,.0f}) oshib ketdi. "
+                           f"Joriy qarz: {float(customer.total_debt or 0):,.0f}",
+                )
+
+        if debt:
+            debt.customer_id = customer.id
+            debt.amount      = amount
+            debt.paid_amount = 0.0
+            debt.remaining   = amount
+            debt.status      = "open"
+        else:
+            debt = CustomerDebt(
+                tenant_id=order.tenant_id,
+                branch_id=order.branch_id,
+                customer_id=customer.id,
+                order_id=order.id,
+                amount=amount,
+                paid_amount=0.0,
+                remaining=amount,
+                status="open",
+                notes=f"To'lov usuli tuzatildi ({old_method} → nasiya): {data.reason}",
+                user_id=current_user.id,
+            )
+            db.add(debt)
+        db.flush()
+        _new_debt_id = debt.id
+
+        # Vozvrat pulni MIJOZ bo'yicha topadi (returns-validation) — chek
+        # mijozsiz qolsa nasiya qaytarilganda qarz topilmasdi.
+        order.customer_id = customer.id
+        _recalc_customer_debt(db, customer.id)
+
+    # ── 8) TENDERNI YOZISH ──────────────────────────────────────────────────
+    # Nasiya — pul KELMAGAN: `pending` (services/payment_service.py bilan bir
+    # xil qoida). Naqd/karta — pul keldi: `paid`.
+    payment.method = new_method
+    payment.status = "pending" if new_method == "credit" else "paid"
+
+    # BITTA commit — tender + qarz bir vaqtda o'zgaradi yoki ikkisi ham yo'q.
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    # ── 9) AUDIT ────────────────────────────────────────────────────────────
+    log_audit(
+        current_user, "orders", "UPDATE", order.id,
+        tenant_id=order.tenant_id,
+        detail={
+            "action":        "convert_payment",
+            "order_number":  order.order_number,
+            "daily_number":  order.daily_number,
+            "old_method":    old_method,
+            "new_method":    new_method,
+            "amount":        amount,
+            "reason":        data.reason,
+            "shift_id":      order.shift_id,
+            "customer_id":   data.customer_id,
+            "debt_created":  _new_debt_id,
+            "debt_closed":   _closed_debt_id,
+        },
+    )
+
+    return {
+        "order_id":     order.id,
+        "old_method":   old_method,
+        "new_method":   new_method,
+        "amount":       amount,
+        "debt_id":      _new_debt_id,
+        "debt_closed":  _closed_debt_id,
+        "message":      f"To'lov usuli o'zgartirildi: {old_method} → {new_method}",
+    }
+
+
 @router.get("/{order_id}/receipt")
 async def get_order_receipt(
     order_id: int,
@@ -469,9 +767,20 @@ async def print_order_receipt(
         "receipt_number": order.order_number,
         "items": [
             {
-                # BOSQICH B6: pachka sotilsa nomga yorliq (termal chek) — 1 pachka = N dona
+                # BOSQICH B6: pachka sotilsa nomga yorliq (termal chek).
+                #
+                # Yorliq `sale_unit` ga qarab: kg → "(qop, 20 kg)",
+                # ml → "(butun, 150 ml)", qolgani → "(pachka, 10 dona)"
+                # (avvalgidek). Ilgari bu yerda "dona" QOTIB yozilgan va
+                # `int()` kasrni kesib tashlagan edi — 20 kg qop chekda
+                # "(pachka, 20 dona)" bo'lib chiqardi.
+                #
+                # Matn frontend bilan BIR XIL manbada emas (backend JS faylini
+                # o'qiy olmaydi) — qoida `services/unit_converter.py` da,
+                # ikkisining mos kelishi `tests/test_pack_label.py` da
+                # qulflangan.
                 "name": ((it.product.name if it.product else "")
-                         + (f" (pachka, {int(it.base_qty / it.quantity)} dona)"
+                         + (f" ({pack_size_label(getattr(it.product, 'sale_unit', None), it.base_qty / it.quantity)})"
                             if it.unit_sold == "pachka" and it.base_qty and it.quantity else "")),
                 "quantity": it.quantity,
                 "unit_price": it.unit_price,

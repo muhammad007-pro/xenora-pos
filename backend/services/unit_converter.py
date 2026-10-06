@@ -7,6 +7,8 @@ magazinda "1 quti", dorixonada "1 dona" va h.k. Bu servis:
   2) miqdorni foydalanuvchi tiliga (uz/ru/en) mos qilib chiroyli formatlaydi
 """
 
+import math
+
 from core.constants import (
     BASE_UNIT_BY_CATEGORY,
     DEFAULT_LANGUAGE,
@@ -39,6 +41,103 @@ def inventory_unit(sale_unit: str | None) -> str:
     """
     u = (sale_unit or "dona").strip() or "dona"
     return "dona" if u == "pcs" else u
+
+
+# ---------------------------------------------------------------------------
+# PACHKA/QOP YORLIG'I — frontend bilan BIR XIL matn
+#
+# Chek yorlig'i `sale_unit` ga qarab o'zgaradi. Frontendda bu yagona manbada
+# turadi: `frontend/js/core/receipt-print.js` → `packKind()` / `packSizeLabel()`
+# / `fmtPackQty()`. Backend termal chek yo'li (`routers/order.py`
+# → `escpos_print_receipt`) esa "dona" ni QOTIB yozardi:
+#
+#     f" (pachka, {int(base_qty / quantity)} dona)"
+#
+# Natijada 20 kg qop chekda "(pachka, 20 dona)" bo'lib chiqardi, `int()` esa
+# kasrni kesib tashlardi (0.5 → 0).
+#
+# ⚠️ IKKI MANBA — ATAYLAB: backend frontend faylini o'qiy olmaydi. Shuning
+# uchun qoida shu yerda TAKRORLANADI va `tests/test_pack_label.py` ikkisining
+# mos kelishini qulflaydi. Birini o'zgartirsang ikkinchisini ham o'zgartir.
+# ---------------------------------------------------------------------------
+
+#: Og'irlik/suyuqlik — ulgurji "qop" (frontend `_PACK_WEIGHT_UNITS`)
+PACK_WEIGHT_UNITS = ("kg", "g", "l", "litr")
+#: Hajm (atir/flakon) — "butun" (frontend `_PACK_VOL_UNITS`)
+PACK_VOL_UNITS = ("ml", "dl", "cl")
+
+
+def fmt_pack_qty(value: float | None) -> str:
+    """Miqdorni 3 xonagacha yaxlitlab, ortiqcha nollarsiz matn qiladi.
+
+    Frontend `fmtPackQty()` bilan AYNAN bir xil natija berishi shart:
+    `String(Math.round(n * 1000) / 1000)`.
+
+    Shu sabab `round()` ISHLATILMAYDI — Python `round()` bankir yaxlitlashini
+    qiladi (yarmi juftga: `round(0.0005, 3) == 0.0`), JS `Math.round` esa
+    yarmini YUQORIGA. `floor(x * 1000 + 0.5)` ikkalasida bir xil.
+
+    Shuningdek `f"{v:g}"` ham ishlatilmaydi: u katta sonni ilmiy ko'rinishga
+    o'tkazadi (1000000 → "1e+06"), JS `String()` esa "1000000" beradi.
+
+    >>> fmt_pack_qty(20)
+    '20'
+    >>> fmt_pack_qty(0.5)
+    '0.5'
+    >>> fmt_pack_qty(0.7405882)
+    '0.741'
+    >>> fmt_pack_qty(None)
+    '0'
+    """
+    try:
+        n = float(value or 0)
+    except (TypeError, ValueError):
+        return "0"
+    if n != n or n in (float("inf"), float("-inf")):   # NaN / cheksizlik
+        return "0"
+    v = math.floor(n * 1000 + 0.5) / 1000
+    if v == int(v):
+        return str(int(v))
+    return f"{v:.3f}".rstrip("0").rstrip(".")
+
+
+def pack_word(sale_unit: str | None) -> tuple[str, str]:
+    """(pachka_so'zi, birlik_so'zi) — frontend `packKind()` bilan bir xil.
+
+    Frontend yorliqni gap boshida ishlatadi ("Qop (20 kg)"), bu yerda esa u
+    mahsulot nomidan keyin qavs ichida turadi ("SHAKAR (qop, 20 kg)") —
+    shuning uchun KICHIK harf. So'z TANLOVI bir xil.
+
+    >>> pack_word("kg")
+    ('qop', 'kg')
+    >>> pack_word("ml")
+    ('butun', 'ml')
+    >>> pack_word("pcs")
+    ('pachka', 'dona')
+    """
+    u = (sale_unit or "").strip().lower()
+    if u in PACK_WEIGHT_UNITS:
+        return "qop", u
+    if u in PACK_VOL_UNITS:
+        return "butun", u
+    return "pachka", "dona"
+
+
+def pack_size_label(sale_unit: str | None, per: float | None) -> str:
+    """Chek yorlig'i: "qop, 20 kg" | "butun, 150 ml" | "pachka, 10 dona".
+
+    `per` — bitta pachkadagi miqdor (`base_qty / quantity`).
+
+    ⚠️ `pcs`/`dona` uchun chiqish AVVALGIDEK ("pachka, 10 dona") — mavjud
+    cheklar bit-bitiga o'zgarmaydi.
+
+    >>> pack_size_label("kg", 20)
+    'qop, 20 kg'
+    >>> pack_size_label("pcs", 10)
+    'pachka, 10 dona'
+    """
+    word, unit = pack_word(sale_unit)
+    return f"{word}, {fmt_pack_qty(per)} {unit}"
 
 
 def can_convert(from_unit: str, to_unit: str) -> bool:

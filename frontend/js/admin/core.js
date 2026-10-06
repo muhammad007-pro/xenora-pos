@@ -885,6 +885,7 @@ async function openSaleDetail(id) {
     document.getElementById('sdTitle').textContent = 'Chek ' + (o.daily_number != null ? '#'+o.daily_number : (o.order_number||''));
     const _rb = document.getElementById('sdReprintBtn'); if (_rb) _rb.dataset.reprint = id;
     const pay = o.payment_method ? (_payLabel[o.payment_method]||o.payment_method) : '—';
+    _sdConvertBtn(o);
     const rows = (o.items||[]).map(it => `
       <tr>
         <td>${escH(it.product_name||'#'+it.product_id)}</td>
@@ -914,6 +915,118 @@ async function openSaleDetail(id) {
       </div>`;
   } catch (err) { bodyEl.innerHTML = `<div style="color:var(--red);padding:1rem">Xatolik: ${escH(err.message)}</div>`; }
 }
+
+// ── To'lov usulini o'zgartirish (convert-payment) ─────────────────────────────
+// MUAMMO: kassir nasiyani naqd qilib yopsa yoki karta o'rniga naqd ursa, tuzatish
+// yo'li yo'q edi — har safar prod bazasiga SQL kerak bo'lardi (v1.12.14).
+//
+// ⚠️ Bu yerdagi yashirish — QULAYLIK, himoya EMAS. Backend `manage_shifts`
+// talab qiladi (`POST /orders/{id}/convert-payment`), ya'ni kassir tugmani
+// DevTools bilan ko'rsatsa ham 403 oladi.
+const _CP_ROLES = ['admin', 'menejer', 'manager'];
+function _cpAllowed() {
+  if (user.is_superuser) return true;
+  return _CP_ROLES.includes(String(user.role?.name || user.role || '').toLowerCase());
+}
+
+// Faqat TUZATISH MUMKIN bo'lgan chekda tugma ko'rinadi — aks holda admin
+// bosadi va serverdan 400 oladi (sabab ko'rinmaydi). Shartlar backend bilan
+// bir xil: yakunlangan + tenderi naqd/karta/nasiya + smenaga bog'langan.
+const _CP_METHODS = ['cash', 'card', 'credit'];
+let _cpOrder = null;   // {id, label, amount, method}
+
+function _sdConvertBtn(o) {
+  const btn = document.getElementById('sdConvertBtn');
+  if (!btn) return;
+  const ok = _cpAllowed()
+    && o.status === 'completed'
+    && _CP_METHODS.includes(o.payment_method)
+    && o.shift_id != null;
+  btn.style.display = ok ? '' : 'none';
+  if (!ok) { _cpOrder = null; return; }
+  _cpOrder = {
+    id:     o.id,
+    label:  (o.daily_number != null ? '#' + o.daily_number : (o.order_number || '#' + o.id)),
+    amount: o.final_amount,
+    method: o.payment_method,
+  };
+  btn.dataset.order = o.id;
+}
+
+// Mijozlar ro'yxati bir marta tortiladi (nasiya tanlanganda kerak bo'ladi).
+let _cpCustomersLoaded = false;
+async function _cpLoadCustomers() {
+  if (_cpCustomersLoaded) return;
+  const sel = document.getElementById('cpCustomer');
+  try {
+    const data = await apiFetch('/customers/?page_size=500');
+    const list = data.items || data || [];
+    sel.innerHTML = '<option value="">Tanlang...</option>' + list.map(c =>
+      `<option value="${c.id}">${escH(c.name)}${c.phone ? ' · ' + escH(c.phone) : ''}</option>`
+    ).join('');
+    _cpCustomersLoaded = true;
+  } catch (err) {
+    sel.innerHTML = '<option value="">Mijozlar yuklanmadi</option>';
+    toast('Mijozlar ro\'yxati yuklanmadi: ' + err.message, 'error');
+  }
+}
+
+document.getElementById('sdConvertBtn')?.addEventListener('click', async () => {
+  if (!_cpOrder) return;
+  document.getElementById('cpOrderLbl').textContent  = _cpOrder.label;
+  document.getElementById('cpAmountLbl').textContent = fmtMoney(_cpOrder.amount);
+  document.getElementById('cpOldLbl').textContent    = _payLabel[_cpOrder.method] || _cpOrder.method;
+  // Hozirgi usul tanlovda ko'rinmasin — "o'zgarish yo'q" 400 ini oldini oladi
+  const sel = document.getElementById('cpNewMethod');
+  sel.value = '';
+  [...sel.options].forEach(op => {
+    op.hidden = (op.value !== '' && op.value === _cpOrder.method);
+  });
+  document.getElementById('cpReason').value = '';
+  document.getElementById('cpCustomer').value = '';
+  document.getElementById('cpCustomerWrap').style.display = 'none';
+  openModal('convertPayModal');
+});
+
+document.getElementById('cpNewMethod')?.addEventListener('change', async (e) => {
+  const credit = e.target.value === 'credit';
+  document.getElementById('cpCustomerWrap').style.display = credit ? '' : 'none';
+  if (credit) await _cpLoadCustomers();
+});
+
+document.getElementById('cpSaveBtn')?.addEventListener('click', async () => {
+  if (!_cpOrder) return;
+  const newMethod = document.getElementById('cpNewMethod').value;
+  const reason    = document.getElementById('cpReason').value.trim();
+  const custId    = document.getElementById('cpCustomer').value;
+
+  if (!newMethod) { toast('Yangi to\'lov usulini tanlang', 'warning'); return; }
+  if (reason.length < 3) { toast('Izoh majburiy (kamida 3 belgi) — nega tuzatilmoqda?', 'warning'); return; }
+  if (newMethod === 'credit' && !custId) { toast('Nasiya uchun mijoz tanlanishi shart', 'warning'); return; }
+
+  // TASDIQ: pul yo'lidagi o'zgarish — tasodifiy bosilmasin.
+  const oldLbl = _payLabel[_cpOrder.method] || _cpOrder.method;
+  const newLbl = _payLabel[newMethod] || newMethod;
+  if (!confirm(`${_cpOrder.label} cheki: to'lov usuli «${oldLbl}» → «${newLbl}» ga o'zgartiriladi.\n`
+             + `Summa: ${fmtMoney(_cpOrder.amount)}\n\n`
+             + `Ombor o'zgarmaydi, lekin ochiq smena hisobi (kutilgan naqd) o'zgaradi. Davom etasizmi?`)) return;
+
+  const btn = document.getElementById('cpSaveBtn');
+  btn.disabled = true;
+  try {
+    const body = { new_method: newMethod, reason };
+    if (newMethod === 'credit') body.customer_id = Number(custId);
+    const res = await apiFetchPost(`/orders/${_cpOrder.id}/convert-payment`, body);
+    toast(res.message || 'To\'lov usuli o\'zgartirildi', 'success');
+    closeModal('convertPayModal');
+    closeModal('saleDetailModal');
+    loadSalesHistory();
+  } catch (err) {
+    toast(err.message, 'error', 7000);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 // ── Products page ─────────────────────────────────────────────────────────────
 // Extra column config per bizType
@@ -1831,7 +1944,20 @@ function buildProductModal(product) {
         const hint  = document.getElementById('pmPackHint');
         const pp = document.getElementById('pmf_pack_price');
         const ps = document.getElementById('pmf_pack_size');
-        if (_volUnits.includes(u)) {
+        if (_wUnits.includes(u)) {
+          // OG'IRLIK/SUYUQLIK (kg, g, l, litr) — "Qop" yorliqlari.
+          //
+          // NEGA ALOHIDA SHOX: bu birliklar `_volUnits` ro'yxatida ham bor va
+          // ilgari "Flakon" yorliqlarini olardi. Ahamiyatsiz edi, chunki
+          // `togglePack` pachka blokini kg uchun YASHIRARDI — matn ko'rinmasdi.
+          // Endi blok ko'rinadi, ya'ni 20 kg qop "Flakon hajmi (kg)" deb
+          // yozilib qolardi. Shart `_volUnits` DAN OLDIN turishi SHART.
+          if (title) title.textContent = 'Qop bilan sotish (ixtiyoriy)';
+          if (pp) pp.placeholder = 'Qop narxi (450000)';
+          if (ps) ps.placeholder = `Qopdagi ${u} (20)`;
+          if (hint) hint.innerHTML = `Kiritilsa — yuqoridagi <b>narx = 1 ${u} narxi</b> bo'ladi. Ikkalasi ham to'ldirilsin (qop narxi + qopdagi ${u}, ≥ 2).`;
+          if (_priceLabel) _priceLabel.textContent = `1 ${u} narxi (UZS) *`;
+        } else if (_volUnits.includes(u)) {
           // Atir/suyuqlik — "Flakon (butun)" yorliqlari
           if (title) title.textContent = 'Butun (flakon) bilan sotish (ixtiyoriy)';
           if (pp) pp.placeholder = 'Flakon narxi (250000)';
@@ -1847,13 +1973,18 @@ function buildProductModal(product) {
           if (_priceLabel) _priceLabel.textContent = _origPriceLabel;   // avvalgidek
         }
       };
+      // Pachka/qop bloki HAMMA birlik uchun ko'rinadi.
+      //
+      // ILGARI: `_wUnits` (kg, g, l, litr) uchun blok YASHIRILAR va maydonlar
+      // TOZALANARDI. Shu sabab "20 kg qop" ni kiritishning yo'li yo'q edi —
+      // garchi backend buni allaqachon qo'llab-quvvatlaydi (`pack_enabled`
+      // faqat `pack_size>=2 AND pack_price>0` ga qaraydi, `sale_unit` ga EMAS
+      // — `services/order_service.py`).
+      //
+      // ⚠️ Tozalash mantig'i ham OLIB TASHLANDI: u endi mavjud qop
+      // ma'lumotini yo'q qilardi (kassir birlikni kg ga o'zgartirsa).
       const togglePack = () => {
-        const isW = _wUnits.includes(_saleUnitEl2.value);
-        packBlock.style.display = isW ? 'none' : '';
-        if (isW) {
-          document.getElementById('pmf_pack_price').value = '';
-          document.getElementById('pmf_pack_size').value = '';
-        }
+        packBlock.style.display = '';
         updatePackLabels();   // yorliqlar birlikка mos yangilansin
       };
       _saleUnitEl2.addEventListener('change', togglePack);
@@ -1867,6 +1998,11 @@ function buildProductModal(product) {
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:.75rem;margin-top:.375rem';
     _cEl.parentElement.appendChild(hint);
+    // Pachka/qop marjasi uchun alohida qator (birlik marjasidan PASTDA).
+    const packHint = document.createElement('div');
+    packHint.style.cssText = 'font-size:.75rem;margin-top:.25rem';
+    _cEl.parentElement.appendChild(packHint);
+
     const updMargin = () => {
       const p = parseFloat(_pEl.value)||0, c = parseFloat(_cEl.value)||0;
       if (p > 0 && c > 0) {
@@ -1874,9 +2010,40 @@ function buildProductModal(product) {
         hint.textContent = `Foyda: ${fmtMoney(p - c)} UZS · marja ${m.toFixed(1)}%`;
         hint.style.color = m < 15 ? '#ef4444' : '#10b981';
       } else hint.textContent = '';
+
+      // ── PACHKA/QOP marjasi ────────────────────────────────────────────────
+      // Tan narx HAR DOIM bir birlik uchun (1 dona / 1 kg) — server ham
+      // shunday hisoblaydi: `unit_cost = dona_cost × pack_size`
+      // (`services/order_service.py`). Shuning uchun qop tannarxi = c × size.
+      //
+      // NEGA KERAK: 20 kg qopni 450 000 ga sotish 1 kg ni 25 000 ga sotishdan
+      // foydali ko'rinadi, lekin tannarx ham 20 barobar. Qop narxini
+      // kiritayotgan odam marjani KO'RMASA zararga sotishi mumkin.
+      // ⚠️ Birlik ro'yxatlari BU YERDA qayta e'lon qilinadi: yuqoridagi
+      // `_wUnits`/`_volUnits`/`_saleUnitEl2` boshqa blok ichida (`const`,
+      // blok doirasi) va bu yerdan KO'RINMAYDI. ESLint `no-undef` aynan
+      // shuni ushlagan.
+      const _mW = ['kg', 'g', 'l', 'litr'];
+      const _mV = ['ml', 'dl', 'cl'];
+      const pp = parseFloat(document.getElementById('pmf_pack_price')?.value) || 0;
+      const ps = parseFloat(document.getElementById('pmf_pack_size')?.value) || 0;
+      const u  = (document.getElementById('pmf_sale_unit')?.value || '').toLowerCase();
+      const word = _mW.includes(u) ? 'Qop' : (_mV.includes(u) ? 'Butun' : 'Pachka');
+      const perWord = (_mW.includes(u) || _mV.includes(u)) ? u : 'dona';
+      if (pp > 0 && ps >= 2 && c > 0) {
+        const packCost = c * ps;
+        const pm = (pp - packCost) / pp * 100;
+        packHint.textContent =
+          `${word} (${ps} ${perWord}): tannarx ${fmtMoney(packCost)}`
+          + ` · foyda ${fmtMoney(pp - packCost)} UZS · marja ${pm.toFixed(1)}%`;
+        packHint.style.color = pm < 0 ? '#ef4444' : (pm < 15 ? '#f59e0b' : '#10b981');
+      } else packHint.textContent = '';
     };
     _pEl.addEventListener('input', updMargin);
     _cEl.addEventListener('input', updMargin);
+    document.getElementById('pmf_pack_price')?.addEventListener('input', updMargin);
+    document.getElementById('pmf_pack_size')?.addEventListener('input', updMargin);
+    document.getElementById('pmf_sale_unit')?.addEventListener('change', updMargin);
     updMargin();
   }
 

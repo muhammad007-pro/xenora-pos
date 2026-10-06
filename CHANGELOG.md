@@ -3,6 +3,33 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.1] — 2026-10-07 — Buzuq sahifalar, modal oynalar, metr yorlig'i
+
+Frontend + backend yorliq. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+⚠️ POS/chek o'zgarishlari mijoz `.exe`'lariga faqat **yangi .exe** bilan yetadi.
+
+### ⛔ Ishlamay turgan sahifalar
+* **Ombor** (`inventory.html`, v1.12.10 dan) va **Mijozlar** (`customers.html`,
+  v1.12.14 dan) — JS shablon ichidagi `<!-- -->` izohdagi backtick butun
+  skriptni buzgan edi (abadiy skeleton / bo'sh ro'yxat)
+* `scripts/check_syntax.py` buni ushlamasdi (izohlarni skriptdan OLDIN
+  o'chirardi) — tuzatildi
+
+### 🪟 Modal oynalar (30+ sahifa)
+* `premium-overlay.css` qoidasi sahifaning `position:fixed` modallarini va
+  sticky sarlavhalarini bosib ketardi → modal sahifa oxiriga tushardi
+  (qaytarish: pastki yarmi qora fon). `:where()` bilan tuzatildi
+
+### 📏 Metr pachkasi
+* tanlov oynasi: "📏 Metr bo'yicha" / "🧵 O'ram · 100 m" (ilgari "Dona bo'yicha" /
+  "100 dona"); Gramm/Litr/Santimetr ham to'liq nom bilan; kg va dona avvalgidek
+* chek: "O'ram (150 m)" (ESC/POS: "o'ram, 150 m")
+
+### 🧭 POS
+* sidebar'dan "Ombor" bandi olib tashlandi (qoldiq kartada + "Qoldiq" modali)
+
+---
+
 ## [1.13.0] — 2026-10-07 — Fiskal xavfsizlik, to'lov tuzatish, nasiya FIFO, metr/qop sotuv
 
 **Backend + frontend + electron.** **MIGRATSIYA YO'Q** (alembic head

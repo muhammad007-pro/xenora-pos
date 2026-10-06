@@ -93,7 +93,17 @@ const SHARED_GLOBALS = {
 
 // `js/admin/*.js` + money.js + searchable-select.js — admin.html da birga
 // yuklanadigan classic to'plam (yuqoridagi izohga qara).
-const CLASSIC_GLOBALS = { ...SHARED_GLOBALS, ...classicBundleGlobals() };
+const CLASSIC_GLOBALS = {
+  ...SHARED_GLOBALS,
+  ...classicBundleGlobals(),
+  // `token` — `js/admin/core.js` da ATAYLAB `Object.defineProperty(window, ...)`
+  // bilan JONLI getter qilib berilgan (localStorage'dan har o'qishda yangi
+  // qiymat). Avvalgi `let token = ...` eskirgan nusxani ushlab turardi va 401
+  // tsikliga olib kelardi. Avtomatik yig'uvchi `defineProperty` naqshini
+  // ko'rmaydi (u faqat `const/let/var` va `window.X =` ni biladi), shuning
+  // uchun bu yerda aniq e'lon qilinadi. 10 ta admin modulida ishlatiladi.
+  token: 'readonly',
+};
 
 export default [
   {

@@ -403,6 +403,8 @@ let orderId     = null;
 let orderNum    = null;
 
 function fmt(n){ return new Intl.NumberFormat('uz-UZ').format(n) + ' so\'m'; }
+// 200px thumbnail (backend core/product_images.thumb_url konvensiyasi); eski .jpg → o'zi
+function pmThumb(u){ return /^\/uploads\/products\/(tenant_\d+|platform)\/[A-Za-z0-9_]+\.webp$/.test(u||'') ? u.replace(/\.webp$/,'_thumb.webp') : u; }
 
 // ─── Load menu ────────────────────────────────────────────────────────────────
 async function loadMenu() {
@@ -474,7 +476,7 @@ function renderProducts(catId) {
     const qty    = inCart ? inCart.qty : 0;
     return `<div class="pm-card" style="animation-delay:${i*0.04}s">
       <div class="pm-img">${p.image_url
-        ? `<img src="${p.image_url}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='🍽️'">`
+        ? `<img src="${pmThumb(p.image_url)}" data-full="${p.image_url}" alt="${p.name}" loading="lazy" onerror="if(this.src.indexOf('_thumb.webp')>-1){this.src=this.dataset.full}else{this.parentElement.innerHTML='🍽️'}">`
         : '🍽️'}</div>
       <div class="pm-body">
         <div class="pm-name">${p.name}</div>

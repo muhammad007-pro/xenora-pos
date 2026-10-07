@@ -5,7 +5,6 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 import logging
 import os
-import uuid
 
 from database import get_db
 from models import (
@@ -21,6 +20,7 @@ from core.barcode import gen_internal_barcode  # ichki EAN-13 (AI-Ombor bilan AY
 from services.unit_converter import inventory_unit  # sotuv birligi → ombor birligi (pcs→dona)
 from core.catalog import record_candidate, is_shareable_barcode  # umumiy katalog
 from core.rate_limit import WindowLimiter
+from core import product_images
 
 logger = logging.getLogger(__name__)
 
@@ -545,30 +545,44 @@ async def upload_product_image(
     if not product:
         raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
     
-    # Fayl kengaytmasini tekshirish
-    allowed_extensions = ['.jpg', '.jpeg', '.png', '.webp']
-    file_ext = os.path.splitext(file.filename)[1].lower()
-    
-    if file_ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail="Faqat rasm fayllari yuklash mumkin")
-    
-    # Fayl nomini yaratish
-    filename = f"product_{product_id}_{uuid.uuid4().hex[:8]}{file_ext}"
-    file_path = os.path.join(settings.UPLOAD_DIR, "products", filename)
-    
-    # Papkani yaratish
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    
-    # Faylni saqlash
-    content = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(content)
-    
-    # URL ni saqlash
-    product.image_url = f"/uploads/products/{filename}"
-    db.commit()
-    
-    return {"message": "Rasm yuklandi", "image_url": product.image_url}
+    # Kengaytma — birinchi elak; haqiqiy tekshiruv baytlarda (product_images.process_image)
+    file_ext = os.path.splitext(file.filename or "")[1].lower()
+    if file_ext not in product_images.ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Faqat rasm fayllari yuklash mumkin: JPG, PNG, WEBP")
+
+    # Chegaradan bitta bayt ko'p o'qiymiz — katta faylni butunlay xotiraga olmaslik uchun
+    limit = settings.MAX_UPLOAD_SIZE
+    content = await file.read(limit + 1)
+    if len(content) > limit:
+        raise HTTPException(status_code=400, detail=f"Rasm hajmi juda katta (ko'pi bilan {limit // (1024 * 1024)} MB)")
+
+    # Papka tenant'i — mahsulot qatoridan (tenant filtri bilan olingan), so'rovdan EMAS
+    try:
+        new_url = product_images.write_product_image(product.tenant_id, product.id, content)
+    except product_images.ProductImageError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    old_url = product.image_url
+    product.image_url = new_url
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        product_images.delete_image_files(new_url)
+        raise
+
+    # Eski fayl commit'dan KEYIN o'chiriladi — boshqa mahsulot ham shu faylni
+    # ko'rsatayotgan bo'lsa (nusxalangan mahsulot) tegilmaydi.
+    if old_url and old_url != new_url:
+        shared = db.query(Product.id).filter(Product.image_url == old_url).first()
+        if not shared:
+            product_images.delete_image_files(old_url)
+
+    return {
+        "message": "Rasm yuklandi",
+        "image_url": product.image_url,
+        "thumb_url": product_images.thumb_url(product.image_url),
+    }
 
 @router.get("/lookup/{barcode}", response_model=BarcodeLookupResponse)
 async def lookup_barcode(

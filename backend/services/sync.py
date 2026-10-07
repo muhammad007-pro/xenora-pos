@@ -180,6 +180,7 @@ class SyncService:
                     from services.cost_service import get_product_cost
                     item = OrderItem(
                         order_id=order.id,
+                        tenant_id=order.tenant_id,   # (bu funksiya hozir chaqirilmaydi)
                         product_id=item_data["product_id"],
                         quantity=item_data["quantity"],
                         unit_price=item_data["unit_price"],

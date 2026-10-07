@@ -168,6 +168,20 @@ def apply_tenant_filter(query, model, current_user: User):
     return query.filter(model.tenant_id == current_user.tenant_id)
 
 
+def scoped_order_items(db: Session, current_user: User):
+    """`OrderItem` so'rovi — tenant izolyatsiyasi BUYURTMA (`Order.tenant_id`) orqali.
+
+    ⛔ `apply_tenant_filter(db.query(OrderItem), OrderItem, ...)` ISHLATMANG:
+    `order_items.tenant_id` 2026-10-07 gacha HECH QACHON yozilmagan (prodda
+    hamma qatorda NULL). Natijada do'kon xodimi uchun bunday filtr HAR DOIM
+    bo'sh qaytarardi — vozvrat "Sotuv qatori topilmadi" (4 do'konda) va
+    `/order-items/{id}` 404. Haqiqat manbai — qator tegishli BUYURTMA.
+    """
+    from models import Order, OrderItem
+    q = db.query(OrderItem).join(Order, Order.id == OrderItem.order_id)
+    return apply_tenant_filter(q, Order, current_user)
+
+
 def apply_branch_filter(query, model, current_user: User):
     """
     So'rovni joriy foydalanuvchi aktiv filiali bo'yicha cheklaydi.

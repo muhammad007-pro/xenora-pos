@@ -164,6 +164,7 @@ async def place_public_order(
         total     += line_total
         from services.cost_service import get_product_cost
         order_items.append(OrderItem(
+            tenant_id   = cafe.id,             # buyurtma bilan bir xil (pastda Order.tenant_id)
             product_id  = product.id,
             quantity    = qty,
             unit_price  = product.price,

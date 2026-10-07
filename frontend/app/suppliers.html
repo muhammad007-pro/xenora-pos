@@ -568,7 +568,12 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
     </div>
     <div class="form-row">
       <label class="form-label">Rasm (ixtiyoriy)</label>
-      <input type="file" class="inp" id="npImage" accept="image/*">
+      <div class="xp-picker" style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-secondary" id="npImageCamBtn" onclick="document.getElementById('npImageCam').click()">📷 Rasmga olish</button>
+        <button type="button" class="btn btn-secondary" id="npImageBtn" onclick="document.getElementById('npImage').click()">📁 Fayldan tanlash</button>
+      </div>
+      <input type="file" id="npImage" accept="image/*" style="display:none">
+      <input type="file" id="npImageCam" accept="image/*" capture="environment" style="display:none">
       <img id="npImagePreview" alt="" style="display:none;margin-top:.5rem;max-height:96px;border-radius:.5rem;border:1px solid var(--border)">
     </div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
@@ -692,6 +697,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
 
 <!-- Qidiruvli select (classic — window.searchableSelect; modul bloki undan keyin ishlaydi) -->
 <script src="../js/ui/searchable-select.js"></script>
+<script src="../js/core/product-photo.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API } from '../js/core/api.js';
@@ -1106,7 +1112,7 @@ function recOpenNewProduct(barcode) {
   document.getElementById('npBarcode').value = barcode || '';
   ['npName','npPrice','npCost','npNewCat'].forEach(id => document.getElementById(id).value='');
   document.getElementById('npNewCatRow').style.display = 'none';
-  npImageFile = null; document.getElementById('npImage').value = '';
+  npImageFile = null; document.getElementById('npImage').value = ''; document.getElementById('npImageCam').value = '';
   const pv = document.getElementById('npImagePreview'); pv.style.display='none'; pv.src='';
   const sel = document.getElementById('npCat');
   sel.innerHTML = '<option value="">— tanlang —</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('') + '<option value="__new__">➕ Yangi kategoriya...</option>';
@@ -1117,15 +1123,25 @@ document.getElementById('npCat').addEventListener('change', function () {
   document.getElementById('npNewCatRow').style.display = this.value === '__new__' ? '' : 'none';
   if (this.value === '__new__') setTimeout(() => document.getElementById('npNewCat').focus(), 60);
 });
-document.getElementById('npImage').addEventListener('change', function () {
+// Rasm: fayl yoki kamera — bitta ishlovchi
+function onNpImage() {
   const f = this.files && this.files[0]; npImageFile = f || null;
   const pv = document.getElementById('npImagePreview');
   if (f) { pv.src = URL.createObjectURL(f); pv.style.display = ''; } else { pv.style.display='none'; pv.src=''; }
-});
+}
+document.getElementById('npImage').addEventListener('change', onNpImage);
+document.getElementById('npImageCam').addEventListener('change', onNpImage);
+// Telefon rasmi klientda kichraytiriladi (product-photo.js); xato → { error }
 async function uploadProductImage(productId, file) {
-  const fd = new FormData(); fd.append('file', file);
-  const r = await fetch(`${UPLOAD_BASE}/products/${productId}/image`, { method:'POST', headers:{ Authorization:'Bearer '+localStorage.getItem('access_token') }, body: fd });
-  return r.ok ? r.json() : null;
+  const XP = window.XenoraPhoto;
+  const fd = new FormData(); fd.append('file', XP ? await XP.shrink(file) : file);
+  try {
+    const r = await fetch(`${UPLOAD_BASE}/products/${productId}/image`, { method:'POST', headers:{ Authorization:'Bearer '+localStorage.getItem('access_token') }, body: fd });
+    if (r.ok) return r.json();
+    return { error: XP ? await XP.uploadError(r) : "Mahsulot saqlandi, lekin rasm yuklanmadi" };
+  } catch {
+    return { error: "Mahsulot saqlandi, lekin rasm yuklanmadi (tarmoq xatosi)" };
+  }
 }
 window.recSaveNewProduct = async () => {
   const name  = document.getElementById('npName').value.trim();
@@ -1149,8 +1165,9 @@ window.recSaveNewProduct = async () => {
     const prodRes = await api.post('/products/', payload);
     const prod = apiData(prodRes);
     if (!apiOk(prodRes) || !prod?.id) throw new Error(apiErr(prodRes, 'Mahsulot yaratilmadi'));
-    if (npImageFile) { const img = await uploadProductImage(prod.id, npImageFile); if (img && img.image_url) prod.image_url = img.image_url; }
-    showToast('Tovar qo\'shildi', 'success');
+    let imgErr = null;
+    if (npImageFile) { const img = await uploadProductImage(prod.id, npImageFile); if (img && img.image_url) prod.image_url = img.image_url; else if (img && img.error) imgErr = img.error; }
+    if (imgErr) showToast(imgErr, 'error'); else showToast('Tovar qo\'shildi', 'success');
     document.getElementById('npModal').classList.remove('active');
     recAddScanned(prod);
   } catch (e) { showToast(e.message || 'Xatolik', 'error'); }

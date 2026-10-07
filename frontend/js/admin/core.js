@@ -1997,15 +1997,23 @@ function buildProductModal(product) {
   imgBlock.style.cssText = 'margin-top:.25rem';
   imgBlock.innerHTML = `
     <label style="display:block;font-size:.8125rem;color:var(--text2);margin-bottom:.375rem;font-weight:500">Rasm</label>
-    <input type="file" id="pmf_image" accept="image/*" style="width:100%;font-size:.8125rem;color:var(--text2)">
+    <div class="xp-picker" style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button type="button" class="btn btn-secondary" id="pmf_image_cam_btn" onclick="document.getElementById('pmf_image_cam').click()">📷 Rasmga olish</button>
+      <button type="button" class="btn btn-secondary" id="pmf_image_btn" onclick="document.getElementById('pmf_image').click()">📁 Fayldan tanlash</button>
+    </div>
+    <input type="file" id="pmf_image" accept="image/*" style="display:none">
+    <input type="file" id="pmf_image_cam" accept="image/*" capture="environment" style="display:none">
     <img id="pmImgPrev" alt="" style="${curImg?'':'display:none;'}margin-top:.5rem;max-height:96px;border-radius:.5rem;border:1px solid var(--border2)" src="${curImg}">`;
   document.getElementById('pmBody').appendChild(imgBlock);
-  document.getElementById('pmf_image').addEventListener('change', function () {
+  // Kamera va fayl tanlash — bitta ishlovchi (oxirgi tanlangan rasm olinadi)
+  const _onPmImage = function () {
     const f = this.files && this.files[0];
     pmImageFile = f || null;
     const pv = document.getElementById('pmImgPrev');
     if (f) { pv.src = URL.createObjectURL(f); pv.style.display = ''; }
-  });
+  };
+  document.getElementById('pmf_image').addEventListener('change', _onPmImage);
+  document.getElementById('pmf_image_cam').addEventListener('change', _onPmImage);
 
   // ── Boshlang'ich qoldiq (faqat YANGI mahsulot + inventory flagi) ────────────
   if (!editingProductId && typeof hasFeature === 'function' && hasFeature('inventory')) {
@@ -2517,11 +2525,19 @@ async function saveProduct() {
 
     // Rasm tanlangan bo'lsa — mahsulot id si bilan yuklaymiz
     const prodId = editingProductId || saved.id;
+    // Telefon rasmi (3-12 MB) klientda 1600px gacha kichraytiriladi (product-photo.js).
+    // Xato JIM YUTILMAYDI: mahsulot saqlangan, lekin rasm yo'qligini kassir bilsin.
     if (pmImageFile && prodId) {
-      const fd = new FormData(); fd.append('file', pmImageFile);
-      await fetch(`${API_BASE}/products/${prodId}/image`, {
-        method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd,
-      }).catch(()=>{});
+      const imgFile = window.XenoraPhoto ? await window.XenoraPhoto.shrink(pmImageFile) : pmImageFile;
+      const fd = new FormData(); fd.append('file', imgFile);
+      try {
+        const ir = await fetch(`${API_BASE}/products/${prodId}/image`, {
+          method:'POST', headers:{'Authorization':'Bearer '+token}, body: fd,
+        });
+        if (!ir.ok) toast(window.XenoraPhoto ? await window.XenoraPhoto.uploadError(ir) : 'Mahsulot saqlandi, lekin rasm yuklanmadi', 'warning', 8000);
+      } catch {
+        toast("Mahsulot saqlandi, lekin rasm yuklanmadi (tarmoq xatosi)", 'warning', 8000);
+      }
     }
 
     // Boshlang'ich qoldiq — faqat yangi mahsulotda, kiritilgan bo'lsa omborga kirim.

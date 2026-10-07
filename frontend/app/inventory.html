@@ -357,7 +357,12 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0d1c33 0%,#0a1628 
       <div class="fg" id="npNewCatRow" style="display:none"><label>Yangi kategoriya nomi *</label><input type="text" id="npNewCat" placeholder="Masalan: Ichimliklar"></div>
       <div class="fg">
         <label>Rasm (ixtiyoriy)</label>
-        <input type="file" id="npImage" accept="image/*">
+        <div class="xp-picker" style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn-out" id="npImageCamBtn" onclick="document.getElementById('npImageCam').click()">📷 Rasmga olish</button>
+          <button type="button" class="btn btn-out" id="npImageBtn" onclick="document.getElementById('npImage').click()">📁 Fayldan tanlash</button>
+        </div>
+        <input type="file" id="npImage" accept="image/*" style="display:none">
+        <input type="file" id="npImageCam" accept="image/*" capture="environment" style="display:none">
         <img id="npImagePreview" alt="" style="display:none;margin-top:.5rem;max-height:96px;border-radius:.5rem;border:1px solid var(--border)">
       </div>
       <div class="fg">
@@ -376,6 +381,7 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0d1c33 0%,#0a1628 
 <script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
 <!-- Umumiy pul formati (vergulli) — window.fmtMoney/parseMoney/attachMoneyInput. -->
 <script src="../js/core/money.js"></script>
+<script src="../js/core/product-photo.js"></script>
 <!-- Qidiruvli select (classic — window.searchableSelect) -->
 <script src="../js/ui/searchable-select.js"></script>
 <script type="module">
@@ -657,6 +663,7 @@ function openNewProduct(barcode) {
   document.getElementById('npNewCatRow').style.display = 'none';
   npImageFile = null;
   document.getElementById('npImage').value = '';
+  document.getElementById('npImageCam').value = '';
   document.getElementById('npStock').value = '';
   const pv = document.getElementById('npImagePreview'); pv.style.display='none'; pv.src='';
   // Kategoriya dropdown (mavjud + "yangi yaratish")
@@ -673,22 +680,32 @@ document.getElementById('npCat').addEventListener('change', function () {
   if (this.value === '__new__') setTimeout(() => document.getElementById('npNewCat').focus(), 60);
 });
 
-// Rasm tanlash → preview (yuklash mahsulot yaratilgach amalga oshadi)
-document.getElementById('npImage').addEventListener('change', function () {
+// Rasm tanlash (fayl yoki kamera) → preview (yuklash mahsulot yaratilgach amalga oshadi)
+function onNpImage() {
   const f = this.files && this.files[0];
   npImageFile = f || null;
   const pv = document.getElementById('npImagePreview');
   if (f) { pv.src = URL.createObjectURL(f); pv.style.display = ''; }
   else   { pv.style.display = 'none'; pv.src = ''; }
-});
+}
+document.getElementById('npImage').addEventListener('change', onNpImage);
+document.getElementById('npImageCam').addEventListener('change', onNpImage);
 
-// Mahsulot rasmini yuklash (mahsulot allaqachon yaratilgan bo'lishi kerak)
+// Mahsulot rasmini yuklash (mahsulot allaqachon yaratilgan bo'lishi kerak).
+// Telefon rasmi klientda kichraytiriladi (product-photo.js). Xato bo'lsa
+// { error } qaytadi — chaqiruvchi uni muvaffaqiyat xabari O'RNIGA ko'rsatadi.
 async function uploadProductImage(productId, file) {
-  const fd = new FormData(); fd.append('file', file);
-  const r = await fetch(`${BASE}/products/${productId}/image`, {
-    method: 'POST', headers: { Authorization: 'Bearer ' + tok() }, body: fd,
-  });
-  return r.ok ? r.json() : null;
+  const XP = window.XenoraPhoto;
+  const fd = new FormData(); fd.append('file', XP ? await XP.shrink(file) : file);
+  try {
+    const r = await fetch(`${BASE}/products/${productId}/image`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + tok() }, body: fd,
+    });
+    if (r.ok) return r.json();
+    return { error: XP ? await XP.uploadError(r) : "Mahsulot saqlandi, lekin rasm yuklanmadi" };
+  } catch {
+    return { error: "Mahsulot saqlandi, lekin rasm yuklanmadi (tarmoq xatosi)" };
+  }
 }
 
 async function saveNewProduct() {
@@ -722,9 +739,11 @@ async function saveNewProduct() {
     if (!prod || !prod.id) throw new Error(prod?.detail || 'Mahsulot yaratilmadi');
 
     // Rasm tanlangan bo'lsa — mahsulot yaratilgach yuklaymiz
+    let imgErr = null;
     if (npImageFile) {
       const img = await uploadProductImage(prod.id, npImageFile);
       if (img && img.image_url) prod.image_url = img.image_url;
+      else if (img && img.error) imgErr = img.error;
     }
 
     // Boshlang'ich qoldiq — kiritilsa omborga kirim sifatida yoziladi
@@ -735,7 +754,8 @@ async function saveNewProduct() {
 
     products.push(prod);
     closeModal('npModal');
-    showT(startStock > 0 ? `Tovar qo'shildi (+${startStock} qoldiq)` : 'Tovar qo\'shildi', 'success');
+    if (imgErr) showT(imgErr, 'warning');
+    else showT(startStock > 0 ? `Tovar qo'shildi (+${startStock} qoldiq)` : 'Tovar qo\'shildi', 'success');
     await load();   // ro'yxat va statistikani yangilaymiz
   } catch (e) {
     showT(e.message || 'Xatolik', 'error');

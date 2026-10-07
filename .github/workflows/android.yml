@@ -28,6 +28,11 @@ jobs:
 
       - name: Android SDK sozlash (litsenziyalar)
         uses: android-actions/setup-android@v3
+        with:
+          # Standart qiymat "tools platform-tools". Eskirgan "tools" paketi
+          # cmdline-tools 16.0 da yo'q → "Failed to find package 'tools'" (2026-10-07).
+          # Platforma/build-tools'ni gradle o'zi yuklab oladi.
+          packages: 'platform-tools'
 
       - name: Capacitor bog'liqliklarini o'rnatish
         working-directory: android

@@ -3,6 +3,25 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.2] — 2026-10-07 — Mahsulot rasmi: siqish, thumbnail, xavfsizlik
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+⚠️ POS thumbnail mijoz `.exe`'lariga faqat **yangi .exe** bilan yetadi (eskisi to'liq rasmni ko'rsatadi).
+
+### 🖼️ Siqish
+* yuklangan rasm → 800px WebP (sifat 80) + 200px `_thumb.webp`; original saqlanmaydi
+  (2560×1600 JPEG 1.1 MB → 51 KB)
+* POS kartasi va QR menyu thumbnail ishlatadi; topilmasa asosiy rasmga qaytadi
+
+### ⛔ Xavfsizlik
+* `POST /products/{id}/image` endi baytlar bo'yicha haqiqiy rasm tekshiradi (JPG/PNG/WEBP),
+  kodda 5 MB va 40 MP chegara (ilgari faqat kengaytma va nginx 10 MB)
+
+### 🗂️ Tartib
+* papka: `uploads/products/tenant_<id>/`; almashtirilganda eski fayl o'chiriladi;
+  mahsulot o'chirilganda (soft-delete) rasm qoladi
+* eski rasmlar uchun `backend/scripts/migrate_product_images.py` (preview default, BAJARILMAGAN)
+
 ## [1.13.1] — 2026-10-07 — Buzuq sahifalar, modal oynalar, metr yorlig'i
 
 Frontend + backend yorliq. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

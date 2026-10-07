@@ -3,6 +3,26 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.3] — 2026-10-07 — Mahsulot rasmini kameradan olish
+
+Frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+⚠️ Mijoz `.exe`/APK'lariga faqat **yangi build** bilan yetadi.
+
+### 📷 Kamera
+* mahsulot formasi, Ombor, Firmalar, Kirim: "📷 Rasmga olish" (telefonda kamera
+  to'g'ridan ochiladi) + "📁 Fayldan tanlash"
+* telefon rasmi yuklashdan oldin 1600px gacha kichraytiriladi (11.6 MB → ~0.8 MB) —
+  server 5 MB chegarasiga urilmaydi
+* rasm yuklanmasa endi xabar chiqadi (ilgari jim yutilardi, mahsulot rasmsiz qolardi)
+
+### 🤖 Android / build
+* APK qayta quriladi: `setup-android` eskirgan `tools` paketi va `build.gradle` BOM
+  (v1.10.6 dan beri) tuzatildi; `bump_version.py --check` BOM'ni ushlaydi
+
+### ⚠️ Ma'lum muammo
+* Kirim (`purchase_receipts.html`) sahifasi API javobini xom o'qiydi — ro'yxatlar
+  bo'sh, "Yangi tovar" xato ko'rsatadi. Tuzatilmagan (alohida vazifa)
+
 ## [1.13.2] — 2026-10-07 — Mahsulot rasmi: siqish, thumbnail, xavfsizlik
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

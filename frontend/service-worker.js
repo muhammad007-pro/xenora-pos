@@ -51,7 +51,7 @@
 //      Versiya boshqa faylda bo'lsa bu fayl o'zgarmaydi va yangilanish
 //      aniqlanishi brauzer tafsilotiga (import'larni revalidatsiya qilishiga)
 //      bog'lanib qoladi. Literal qiymat — kafolat.
-const APP_VERSION   = '1.13.2';
+const APP_VERSION   = '1.13.3';
 const STATIC_CACHE  = `xenora-static-${APP_VERSION}`;
 const API_CACHE     = `xenora-api-${APP_VERSION}`;
 const API_BASE      = '/api';

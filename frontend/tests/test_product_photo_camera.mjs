@@ -160,6 +160,7 @@ const browser = await chromium.launch({ headless: true });
       return new File([b], 'IMG_2026.' + (type === 'image/png' ? 'png' : 'jpg'), { type });
     };
     const dims = async (f) => { const bm = await createImageBitmap(f); return [bm.width, bm.height]; };
+    const XenoraPhoto = window.XenoraPhoto;   // sahifa globali (ESLint: test fayli node+browser)
     const out = {};
     const big = await mk(4000, 3000, 'image/jpeg', 0.95);
     const s1 = await XenoraPhoto.shrink(big);

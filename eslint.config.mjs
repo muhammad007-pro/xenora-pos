@@ -48,6 +48,7 @@ function classicBundleGlobals() {
   const dir = path.join(HERE, 'frontend', 'js');
   const files = [
     path.join(dir, 'core', 'money.js'),
+    path.join(dir, 'core', 'product-photo.js'),
     path.join(dir, 'ui', 'searchable-select.js'),
     ...fs.readdirSync(path.join(dir, 'admin'))
          .filter(f => f.endsWith('.js'))

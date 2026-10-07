@@ -21,6 +21,12 @@ function imgSrc(u) {
   if (!u) return '';
   return /^(https?:|data:|blob:)/i.test(u) ? u : (_uplBase + u);
 }
+// 200px thumbnail — backend core/product_images.thumb_url bilan bir xil konvensiya.
+// Eski (.jpg) rasmlarda thumbnail yo'q → asosiy rasm qaytadi.
+function thumbOf(u) {
+  return /^\/uploads\/products\/(tenant_\d+|platform)\/[A-Za-z0-9_]+\.webp$/.test(u || '')
+    ? u.replace(/\.webp$/, '_thumb.webp') : u;
+}
 
 const WS_URL = `${WS_BASE}/ws/pos`;
 
@@ -600,7 +606,7 @@ function renderProducts(catId = null) {
     <div class="product-card${p.is_available === false ? ' unavail' : ''}${expSt==='expired' ? ' unavail' : ''}" data-id="${p.id}" data-unit="${p.sale_unit||'pcs'}">
       ${expBadge}${rxBadge}
       ${p.image_url
-        ? `<img class="prod-img" src="${imgSrc(p.image_url)}" alt="${p.name}" loading="lazy" onerror="this.style.display='none'">`
+        ? `<img class="prod-img" src="${imgSrc(thumbOf(p.image_url))}" data-full="${imgSrc(p.image_url)}" alt="${p.name}" loading="lazy" onerror="if(!this.dataset.f){this.dataset.f=1;this.src=this.dataset.full}else{this.style.display='none'}">`
         : `<div class="prod-img" style="display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:var(--text3)">${icon}</div>`
       }
       <div class="prod-body">

@@ -36,19 +36,28 @@ VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 class Target:
     """Bitta fayldagi bitta versiya o'rni."""
 
-    def __init__(self, path: str, pattern: str, template: str, label: str):
+    def __init__(self, path: str, pattern: str, template: str, label: str,
+                 no_bom: bool = False):
         self.path = path
         self.pattern = re.compile(pattern, re.MULTILINE)
         self.template = template          # {v} bilan
         self.label = label
+        # True — fayl BOM bilan BUZILADI (electron-builder JSON, Groovy/gradle).
+        # Yozishda BOM olib tashlanadi, --check esa BOM topsa xato beradi.
+        self.no_bom = no_bom
+
+    def has_bom(self) -> bool:
+        with open(os.path.join(ROOT, self.path), "rb") as f:
+            return f.read(3) == b"\xef\xbb\xbf"
 
     def read(self) -> tuple[str, str]:
-        """(mazmun, kodlash) — BOM bor/yo'qligini SAQLAYDI."""
+        """(mazmun, kodlash) — BOM bor/yo'qligini SAQLAYDI (no_bom fayldan tashqari)."""
         full = os.path.join(ROOT, self.path)
         with open(full, "rb") as f:
             raw = f.read()
         enc = "utf-8-sig" if raw.startswith(b"\xef\xbb\xbf") else "utf-8"
-        return raw.decode(enc), enc
+        text = raw.decode(enc)
+        return text, ("utf-8" if self.no_bom else enc)
 
     def current(self) -> str | None:
         text, _ = self.read()
@@ -62,7 +71,7 @@ class Target:
         if not m:
             raise SystemExit(f"XATO: {self.path} — versiya namunasi topilmadi")
         new_line = self.template.format(v=version)
-        if m.group(0) == new_line:
+        if m.group(0) == new_line and not (self.no_bom and self.has_bom()):
             return False
         text = text[: m.start()] + new_line + text[m.end():]
         full = os.path.join(ROOT, self.path)
@@ -97,12 +106,16 @@ TARGETS = [
         r'^  "version": "(?P<v>\d+\.\d+\.\d+)",',
         '  "version": "{v}",',
         "electron package.json",
+        no_bom=True,
     ),
+    # Groovy BOM'ni o'qiy olmaydi: "Unexpected character: '﻿' @ line 1" —
+    # v1.10.6..v1.13.2 da APK shu sabab qurilmadi (2026-10-07 aniqlandi).
     Target(
         "android/android/app/build.gradle",
         r'^        versionName "(?P<v>\d+\.\d+\.\d+)"',
         '        versionName "{v}"',
         "android versionName",
+        no_bom=True,
     ),
     # Login sahifasidagi yorliq — runtime'da version.js bosadi, lekin
     # version.js yuklanmasa KO'RINADIGAN qiymat shu (fallback).
@@ -119,6 +132,7 @@ VERSION_CODE = Target(
     r"^        versionCode (?P<v>\d+)",
     "        versionCode {v}",
     "android versionCode",
+    no_bom=True,
 )
 
 
@@ -131,6 +145,12 @@ def cmd_check() -> int:
     width = max(len(k) for k in found)
     for label, ver in found.items():
         print(f"  {label:<{width}} : {ver}")
+
+    bom_bad = sorted({t.path for t in TARGETS + [VERSION_CODE] if t.no_bom and t.has_bom()})
+    if bom_bad:
+        print(f"\nXATO: BOM bo'lmasligi kerak (build yiqiladi): {', '.join(bom_bad)}")
+        print("Tuzatish: py scripts/bump_version.py <joriy versiya>  (BOM olib tashlanadi)")
+        return 1
 
     values = set(found.values())
     if None in values:

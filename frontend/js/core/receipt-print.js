@@ -458,6 +458,20 @@ function barcodeBlock(rec) {
        + ` style="text-align:center;margin:3px 0 1px">${svg}</div>`;
 }
 
+// To'lov qatorlari. ARALASH to'lovda (2+ usul) har usul o'z SUMMASI bilan
+// alohida qator: "Naqd: 170 000" / "Nasiya: 130 000" — POS jonli cheki
+// (pos.js renderReceiptData) bilan bir xil ko'rinish. Bitta usulda —
+// avvalgidek bitta "To'lov: Naqd" qatori (GOLDEN). Kenglik CSS'dan
+// (58/80mm), shuning uchun bitta builder ikkalasini qoplaydi.
+export function payRowsHtml(pays, payTxt) {
+  if ((pays || []).length > 1) {
+    return pays.map(p =>
+      `<div class="rt-row"><span>${_esc(_PAY[p.method] || p.method)}:</span><span>${_money(p.amount)}</span></div>`
+    ).join('');
+  }
+  return `<div class="rt-row"><span>To'lov:</span><span>${_esc(payTxt)}</span></div>`;
+}
+
 export function buildReceipt58(rec) {
   rec = rec || {};
   const items = rec.items || [];
@@ -510,7 +524,7 @@ export function buildReceipt58(rec) {
       ${(tax > 0) ? `<div class="rt-row"><span>Soliq (12%):</span><span>${_money(tax)}</span></div>` : ''}
       ${(service > 0) ? `<div class="rt-row"><span>Xizmat (10%):</span><span>${_money(service)}</span></div>` : ''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${_money(total)} UZS</span></div>
-      <div class="rt-row"><span>To'lov:</span><span>${_esc(payTxt)}</span></div>
+      ${payRowsHtml(pays, payTxt)}
       ${loyaltyRows(rec)}
     </div>
     ${barcodeBlock(rec)}

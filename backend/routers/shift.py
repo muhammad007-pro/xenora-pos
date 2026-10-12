@@ -23,7 +23,7 @@ from core.timeutils import to_local, to_utc, utc_now
 # Kassaga tushgan pul — YAGONA manba. Nasiya qarzi to'lovlari `Payment` yozuvi
 # yaratmaydi, shuning uchun ular shu yerdan olinadi (tenant izolyatsiyasi
 # CustomerDebt join'i orqali ta'minlanadi).
-from utils.cashflow import debt_payments_totals, expected_cash as _expected_cash
+from utils.cashflow import debt_payments_totals, expected_cash as _expected_cash, cash_refund_amount as _cash_refund_amount
 
 router = APIRouter()
 
@@ -284,7 +284,7 @@ async def close_shift(
     # Filtr `_returns_in_range()` da — foyda hisoboti bilan BIR XIL qoida.
     returns = _returns_in_range(db, current_user, start, now)
     returns_total = sum(r.total_amount or 0 for r in returns)
-    cash_refunds  = sum((r.total_amount or 0) for r in returns if r.refund_method == "cash")
+    cash_refunds  = sum(_cash_refund_amount(r) for r in returns)   # aralash chek: qarz qismi chiqmaydi
 
     # ── NASIYA QARZI TO'LOVLARI ─────────────────────────────────────────────
     # Mijoz eski qarzini to'lasa pul KASSAGA tushadi, lekin `Payment` yozuvi
@@ -579,7 +579,7 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
 
     returns = _returns_in_range(db, current_user, start, end)
     returns_total = sum(r.total_amount or 0 for r in returns)
-    cash_refunds  = sum((r.total_amount or 0) for r in returns if r.refund_method == "cash")
+    cash_refunds  = sum(_cash_refund_amount(r) for r in returns)   # aralash chek: qarz qismi chiqmaydi
 
     # Nasiya qarzi to'lovlari — yopish (close_shift) bilan AYNAN bir xil hisob,
     # aks holda Z-hisobotni qayta ochganda boshqa `expected_cash` chiqardi.

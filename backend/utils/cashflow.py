@@ -78,6 +78,20 @@ def debt_payments_totals(db, current_user, start, end) -> dict:
     }
 
 
+def cash_refund_amount(ret) -> float:
+    """Vozvratda KASSADAN HAQIQATAN chiqqan naqd (faqat `refund_method == "cash"`).
+
+    Aralash chekda (naqd + nasiya) avval shu chekning qarzi kamayadi
+    (`Return.debt_offset`) — u qism yashikdan chiqmaydi. Ilgari Z-hisobot
+    `total_amount` ni to'liq ayirardi: 170k naqd + 130k nasiya chek qaytsa
+    `expected_cash` 300k ga tushardi, yashikdan esa 170k chiqqan.
+    `debt_offset` NULL (eski yozuv, qarzsiz chek) → avvalgidek `total_amount`.
+    """
+    if ret.refund_method != "cash":       # avvalgi filtr bilan bit-bitiga bir xil
+        return 0.0
+    return max(0.0, float(ret.total_amount or 0) - float(getattr(ret, "debt_offset", None) or 0))
+
+
 def expected_cash(starting_cash, cash_sales, cash_refunds, debt_cash) -> float:
     """Smena oxirida kassa yashigida BO'LISHI KERAK bo'lgan naqd.
 

@@ -832,9 +832,14 @@ async def get_order_receipt(
         "total": order.final_amount,
         "paid": total_paid,
         "change": round(max(0.0, total_paid - order.final_amount), 2),
+        # Tenderlar: to'langanlar + NASIYA ulushi (pending, pul kelmagan, lekin
+        # chekning bir qismi). Ilgari nasiya tashlab ketilardi: yagona nasiya
+        # chekida "To'lov: —", aralash chekda faqat naqd qismi ko'rinardi.
+        # `paid`/`change` AVVALGIDEK faqat to'langandan.
         "payment_methods": [
             {"method": p.method, "amount": p.amount}
-            for p in paid_payments
+            for p in order.payments
+            if p.status == "paid" or (p.method == "credit" and p.status == "pending")
         ],
         "status":          order.status,
         "notes":           order.notes,

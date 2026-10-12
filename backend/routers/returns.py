@@ -690,7 +690,7 @@ def _refund_money(db: Session, ret: Return, current_user) -> dict:
                    Qarzdan oshgani AVANS bo'lib qoladi (naqd qaytarilmaydi) —
                    firma qarzidagi avans naqshiga izchil.
     """
-    out = {"refund_payments": [], "debt_reduced": 0.0, "advance": 0.0}
+    out = {"refund_payments": [], "debt_reduced": 0.0, "advance": 0.0, "debt_offset": 0.0}
     amount = float(ret.total_amount or 0)
     if amount <= 0:
         return out
@@ -703,6 +703,32 @@ def _refund_money(db: Session, ret: Return, current_user) -> dict:
             return out          # buyurtmasiz vozvrat — qaytariladigan to'lov yo'q
         svc = PaymentService(db)
         qoldiq = amount
+
+        # ── ARALASH CHEK (naqd + nasiya): avval SHU chekning qarzi ───────────
+        # 170 000 naqd + 130 000 nasiya chek qaytsa, mijozga 300 000 naqd
+        # berilmaydi: avval 130 000 qarz yopiladi, qolgan 170 000 naqd qaytadi.
+        # Faqat SHU chekka bog'langan qarz (`pick_debts_fifo(prefer_order_id)`
+        # dan keyin `order_id` bo'yicha kesiladi) — mijozning boshqa eski
+        # qarzlariga naqd vozvrat yo'li TEGMAYDI (u "balansga" usulining ishi).
+        # Sof naqd/karta chekda bunday qarz yo'q → blok ishlamaydi (GOLDEN).
+        # Qisman to'langan qarzda faqat QOLGAN qismi yopiladi — to'langani naqd
+        # qaytadi (mijoz u pulni allaqachon bergan).
+        _own = (
+            db.query(CustomerDebt)
+            .filter(CustomerDebt.order_id == ret.order_id,
+                    CustomerDebt.status.in_(("open", "partial")),
+                    CustomerDebt.remaining > 0)
+            .first()
+        )
+        if _own:
+            debts = [d for d in pick_debts_fifo(db, _own.customer_id, prefer_order_id=ret.order_id)
+                     if d.order_id == ret.order_id]
+            allocations, qoldiq = apply_payment_to_debts(debts, amount)
+            offset = round(amount - qoldiq, 2)
+            out["debt_offset"]  = offset
+            out["debt_reduced"] = offset
+            _recalc_customer_debt(db, _own.customer_id)
+
         paids = (
             db.query(Payment)
             .filter(Payment.order_id == ret.order_id, Payment.status == "paid")
@@ -827,6 +853,9 @@ def approve_return(
 
     # ── PUL HARAKATI (ilgari UMUMAN yo'q edi) ───────────────────────────────
     money = _refund_money(db, ret, current_user)
+    # Aralash chek: qarzdan yopilgan qism — Z-hisobot naqdni shusiz ayiradi.
+    # Qarzsiz chekda NULL qoladi (eski yozuvlar bilan bir xil ko'rinish).
+    ret.debt_offset = money["debt_offset"] or None
 
     ret.status = "approved"
     ret.approved_by = current_user.id
@@ -852,6 +881,7 @@ def approve_return(
         "refund_method": ret.refund_method,
         "refund_payments": money["refund_payments"],
         "debt_reduced": money["debt_reduced"],
+        "debt_offset": money["debt_offset"],
         "advance": money["advance"],
         "created_by": ret.user_id,
         "created_by_name": (ret.user.full_name if ret.user else None),

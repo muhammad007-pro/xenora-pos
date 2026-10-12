@@ -6,7 +6,11 @@ from datetime import datetime
 import logging
 
 from database import get_db
-from models import Payment, Order, User, Table, Cafe, Shift, PaymentMethod, PaymentStatus
+from models import (
+    Payment, Order, User, Table, Cafe, Shift, PaymentMethod, PaymentStatus,
+    Customer, CustomerDebt,
+)
+from services.customer_debt import recalc_customer_debt
 from schemas import PaymentCreate, PaymentInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
 from core.feature_flags import Feature, is_feature_enabled
@@ -50,6 +54,51 @@ def _require_open_shift(db: Session, current_user: User) -> None:
             status_code=409,
             detail="Avval smena oching — savdo uchun ochiq smena kerak",
         )
+
+
+def _credit_customer(db: Session, order: Order, payment_data, current_user: User,
+                     offline_sync: bool):
+    """Nasiya ulushi uchun mijoz (+ qarz limiti). Yaroqsiz bo'lsa — 400/404.
+
+    Mijoz: `payment_data.customer_id`, bo'lmasa `order.customer_id`.
+    Limit: `routers/debt.py:create_debt` bilan AYNI qoida (total_debt + summa).
+
+    OFFLINE REPLAY (`offline_sync`): sotuv do'konda ALLAQACHON bo'lgan, tovar
+    ketgan. Rad etsak `sync.js` xatoni yutadi va sotuv butunlay yo'qoladi —
+    shuning uchun limit tekshirilmaydi (log qilinadi), mijoz topilmasa esa
+    qarzsiz yoziladi (avvalgi xulq).
+    """
+    cid = payment_data.customer_id or order.customer_id
+    customer = None
+    if cid:
+        customer = (
+            apply_tenant_filter(db.query(Customer), Customer, current_user)
+            .filter(Customer.id == cid)
+            .first()
+        )
+    if customer is None:
+        if offline_sync:
+            log.warning("[CREDIT] order=%s offline nasiya — mijoz yo'q (cid=%s), qarzsiz yozildi",
+                        order.id, cid)
+            return None
+        if cid:
+            raise HTTPException(status_code=404, detail="Mijoz topilmadi")
+        raise HTTPException(status_code=400,
+                            detail="Nasiya uchun mijoz tanlanishi shart — qarz kimga yoziladi?")
+
+    if customer.credit_limit is not None:
+        new_total = float(customer.total_debt or 0) + float(payment_data.amount)
+        if new_total > customer.credit_limit:
+            if offline_sync:
+                log.warning("[CREDIT] order=%s offline nasiya limitdan oshdi (%.0f > %.0f) — yozildi",
+                            order.id, new_total, customer.credit_limit)
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Qarz limiti ({customer.credit_limit:,.0f}) oshib ketdi. "
+                           f"Joriy qarz: {float(customer.total_debt or 0):,.0f}",
+                )
+    return customer
 
 
 @router.get("/", response_model=PaginatedResponse)
@@ -135,6 +184,13 @@ async def create_payment(
     # HAMMASI BITTA TRANZAKSIYA, BITTA commit. Xato bo'lsa BUTUN sotuv rollback
     # (to'lov ham yozilmaydi) → yarim holat / ombor drifti bo'lmaydi.
     try:
+        # ── NASIYA: mijoz + limit — HECH NARSA YOZILMASDAN OLDIN ─────────────
+        # Split'da nasiya ulushi BIRINCHI yuboriladi: limit rad etsa naqd/karta
+        # ulushi hali yozilmagan bo'ladi (chala to'langan chek qolmaydi).
+        _debt_customer = None
+        if str(payment_data.method).lower() == "credit":
+            _debt_customer = _credit_customer(db, order, payment_data, current_user, offline_sync)
+
         payment = payment_service.process_payment(
             order=order,
             amount=payment_data.amount,
@@ -146,6 +202,28 @@ async def create_payment(
         # BOSQICH 1.5: to'lov yaratuvchi tenant'iga biriktiriladi
         payment.tenant_id = tenant_id
         db.flush()                              # payment INSERT → total_paid so'rovi ko'radi
+
+        # ── NASIYA QARZI — SHU TRANZAKSIYADA ─────────────────────────────────
+        # Ilgari POS sotuvdan KEYIN alohida `POST /debts/` qilardi: u yiqilsa
+        # (limit, tarmoq) tovar ketib, qarz hech qayerda qolmasdi. Endi sotuv
+        # va qarz birga commit bo'ladi yoki birga rollback.
+        # Qarz = SHU nasiya ulushi (split'da 130 000, butun chek emas).
+        if _debt_customer is not None:
+            if not order.customer_id:
+                order.customer_id = _debt_customer.id
+            db.add(CustomerDebt(
+                tenant_id=tenant_id,
+                branch_id=getattr(current_user, "_active_branch_id", None),
+                customer_id=_debt_customer.id,
+                order_id=order.id,
+                amount=float(payment.amount),
+                paid_amount=0.0,
+                remaining=float(payment.amount),
+                status="open",
+                notes="POS dan nasiya",
+                user_id=current_user.id,
+            ))
+            recalc_customer_debt(db, _debt_customer.id)
 
         # To'liq to'langanmi? (flush qilingan joriy to'lovni ham hisoblaydi — order.payments
         # relationship keshiga bog'liq emas, DB'dan aniq sum).

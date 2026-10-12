@@ -3,6 +3,25 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.8] — 2026-10-13 — Dashboard'da sof foyda + xarajat tuzatishlari
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+Brauzer/`app.xenora.uz` da darhol; kassa `.exe`/APK'lariga yangi build bilan.
+
+### 📈 Dashboard
+* "Yalpi foyda" kartasi o'rniga **"Bugungi foyda"** bloki: savdo − tan narx = yalpi foyda −
+  xarajat ulushi = **sof foyda** (faqat moliyaviy ruxsatli foydalanuvchiga)
+* raqamlar "Foyda tahlili" bilan aynan bir xil; kunlarga taqsimlangan xarajatning faqat
+  bugungi ulushi ayriladi ("jami X dan" izohi bilan); xarajat bo'lmasa — 0
+* zarar kunida sof foyda qizil, animatsiyada ham minus belgisi yo'qolmaydi
+
+### 💸 Xarajatlar
+* takroriy (oylik) xarajat kunlarga taqsimlangan bo'lsa, **har oylik nusxasi ham** o'sha oy
+  kunlariga taqsimlanadi (ilgari keyingi oylarda butun summa bitta kunga tushardi)
+* xarajat sanasi Toshkent kuni bo'yicha — yarim tundan keyin kiritilgan xarajat kechaga tushmaydi
+* oylik nusxa dashboard ochilganda ham yaratiladi; ikki qurilmada bir vaqtda ochilsa ham ikki
+  marta yozilmaydi
+
 ## [1.13.7] — 2026-10-13 — Sotuvlar tarixi: sana oralig'i va kunlar
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

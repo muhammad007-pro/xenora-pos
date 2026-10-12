@@ -6,6 +6,7 @@ from typing import Optional
 from database import get_db
 from models import Salary, Employee, Attendance, Expense, User
 from schemas import MessageResponse
+from core.timeutils import tenant_now
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
 
 router = APIRouter()
@@ -197,7 +198,9 @@ async def mark_as_paid(
             category     = "salary",
             name         = f"{emp_name} — {label} maoshi".strip(" —"),
             amount       = salary.total_salary or 0.0,
-            expense_date = paid_at.date(),
+            # Toshkent kuni (2026-10): `paid_at` server vaqti (UTC) — 00:00–05:00
+            # da to'langan maosh xarajati kechagi kunga tushardi.
+            expense_date = tenant_now().date(),
             notes        = "Maosh to'lovidan avtomatik yaratilgan (salary modulida boshqariladi)",
             created_by   = current_user.id,
             salary_id    = salary.id,

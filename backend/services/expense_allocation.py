@@ -223,6 +223,51 @@ def month_bounds(d: Date):
     return first, bucket_next(first, "month") - timedelta(days=1)
 
 
+def _add_months(d: Date, k: int) -> Date:
+    """`d` + k oy; oy oxiridan oshsa oxirgi kunga qisiladi (31-yan + 1 → 28/29-fev)."""
+    import calendar
+    m0 = d.month - 1 + k
+    y, m = d.year + m0 // 12, m0 % 12 + 1
+    return d.replace(year=y, month=m, day=min(d.day, calendar.monthrange(y, m)[1]))
+
+
+def recurring_copy_period(template, due: Date):
+    """Takroriy xarajat NUSXASI uchun taqsimlash davri — (from, to) yoki (None, None).
+
+    ═══ NUQSON (2026-10) ═══
+    `ensure_recurring_expenses` nusxa yaratganda `amortize_from/to` ni
+    ko'chirmasdi: shablon kunlarga taqsimlangan bo'lsa ham, keyingi oylarda
+    3 mln yana BITTA kunga tushardi — aynan shu fayl tuzatgan Fazza xatosi.
+
+    QOIDA:
+      • shablon taqsimlanmagan → nusxa ham (None, None) — ESKI xulq
+      • shablon O'Z kalendar oyining oxirigacha taqsimlangan (UI'dagi
+        "🗓 Kunlarga taqsimla" = `month_bounds`; boshi `clamp_from` bilan
+        do'kon ochilgan kunga qisilgan bo'lishi mumkin) → nusxa `due` tushgan
+        TO'LIQ kalendar oyiga: har oy o'z kunlariga, ustma-ust tushmaydi
+      • boshqa (qo'lda berilgan) davr → shablon sanasidan `due` gacha bo'lgan
+        siljish bilan suriladi: oylikda k oy, haftalikda kunlar farqi
+    """
+    per = period_of(template)
+    if per is None:
+        return None, None
+    p_from, p_to = per
+    t_date = template.expense_date
+    period = (getattr(template, "recurrence_period", None) or "monthly").lower()
+
+    if period == "weekly":
+        delta = due - t_date
+        return p_from + delta, p_to + delta
+
+    if p_to == month_bounds(t_date)[1] and p_from >= t_date.replace(day=1):
+        return month_bounds(due)
+
+    k = (due.year - t_date.year) * 12 + (due.month - t_date.month)
+    # Oxiri "keyingi kundan bir kun oldin" sifatida suriladi — oy oxiri oy
+    # oxiriga tushadi (31-yan → 28-fev emas, 31-yan oxiri → fevral oxiri).
+    return _add_months(p_from, k), _add_months(p_to + timedelta(days=1), k) - timedelta(days=1)
+
+
 def clamp_from(p_from: Date, tenant_start: Optional[Date]) -> Date:
     """`amortize_from` do'kon tizimga kirgan sanadan OLDINGA o'tmasin.
 

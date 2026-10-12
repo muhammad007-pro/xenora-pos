@@ -293,7 +293,10 @@ def ensure_recurring_expenses(db: Session, current_user: User) -> int:
     uchun qayta chaqirilsa ham ikki marta yaratilmaydi. summary/timeline/expenses
     so'rovlarining boshida chaqiriladi — sof foyda hamma joyda to'g'ri bo'lsin.
     """
-    today = date.today()
+    from services.expense_allocation import recurring_copy_period
+    # Toshkent kuni (2026-10): `date.today()` server UTC sanasini berardi —
+    # 00:00–05:00 da oyning yangi nusxasi bir kun kech yaratilardi.
+    today = tenant_now().date()
     templates = apply_tenant_filter(
         db.query(Expense).filter(Expense.is_recurring == True),  # noqa: E712
         Expense, current_user,
@@ -304,6 +307,10 @@ def ensure_recurring_expenses(db: Session, current_user: User) -> int:
         for due in _recurring_due_dates(t, today):
             if _recurring_instance_exists(db, t, due):
                 continue
+            # TUZATISH (2026-10): shablon kunlarga taqsimlangan bo'lsa NUSXA ham
+            # o'z davriga taqsimlanadi (ilgari ko'chirilmasdi → har oy 3 mln bitta
+            # kunga tushardi). Taqsimlanmagan shablon → (None, None), avvalgidek.
+            am_from, am_to = recurring_copy_period(t, due)
             db.add(Expense(
                 tenant_id            = t.tenant_id,
                 category             = t.category,
@@ -314,6 +321,8 @@ def ensure_recurring_expenses(db: Session, current_user: User) -> int:
                 created_by           = t.created_by,
                 is_recurring         = False,
                 recurrence_parent_id = t.id,
+                amortize_from        = am_from,
+                amortize_to          = am_to,
             ))
             created += 1
 
@@ -357,7 +366,7 @@ def _product_summary(db: Session, current_user: User, start: date, end: date) ->
 def _expired_loss(db: Session, current_user: User) -> float:
     """Pharmacy: muddati o'tgan va omborda qolgan dorilar zarari"""
     from models import Inventory
-    today = date.today()
+    today = tenant_now().date()   # Toshkent kuni (avval server UTC sanasi)
     q = (
         db.query(func.coalesce(func.sum(Product.cost_price * Inventory.quantity), 0))
         .join(Inventory, Inventory.product_id == Product.id)
@@ -1367,7 +1376,9 @@ async def create_expense(
 
     exp_date = expense_data.get("expense_date")
     try:
-        exp_date = date.fromisoformat(exp_date) if exp_date else date.today()
+        # Standart sana — Toshkent kuni (2026-10). `date.today()` server UTC
+        # sanasi edi: 00:00–05:00 da kiritilgan xarajat KECHAGI kunga tushardi.
+        exp_date = date.fromisoformat(exp_date) if exp_date else tenant_now().date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Sana formati noto'g'ri (YYYY-MM-DD)")
 

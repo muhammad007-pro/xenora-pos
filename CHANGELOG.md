@@ -3,6 +3,21 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.7] — 2026-10-13 — Sotuvlar tarixi: sana oralig'i va kunlar
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+Brauzer/`app.xenora.uz` da darhol; kassa `.exe`/APK'lariga yangi build bilan.
+
+### 🧾 Sotuvlar tarixi
+* POS va admin: **Bugun / Kecha / 7 kun / 30 kun** tugmalari va "dan — gacha" sanalari
+* cheklar **kunlarga bo'lingan**: har kun sarlavhasida o'sha kunning cheklar soni va jami;
+  tepada tanlangan davr jami (bekor qilinganlar jamiga kirmaydi)
+* kun chegarasi do'kon sozlamasiga mos (kalendar 00:00 yoki smena bo'yicha) —
+  dashboard va hisobotlar bilan bir xil
+* POS'da "Ko'proq yuklash"; chekni qayta chop etish avvalgidek
+* kassir faqat o'z sotuvlarini ko'radi (endi server ham tekshiradi)
+* admin'da sana tanlanmasa ro'yxat avvalgidek
+
 ## [1.13.6] — 2026-10-12 — Pachka tanlov oynasi xavfsizroq
 
 Frontend (POS). **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

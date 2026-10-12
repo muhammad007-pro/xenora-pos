@@ -193,6 +193,7 @@ async def get_dashboard_data(
     # cost_price yo'q mahsulot uchun coalesce(...,0) — 0 deb olinadi, xato bermaydi.
     net_profit = None
     profit_trend = None
+    profit_breakdown = None   # MAXFIY (view_finance) — sof foyda bloki
     # Oylik maqsad (dashboard ring) — ham MAXFIY (view_finance)
     monthly_goal_target = None
     monthly_actual = None
@@ -219,6 +220,34 @@ async def get_dashboard_data(
         net_profit = _net_profit(start_date, end_date)
         prev_profit = _net_profit(previous_start, previous_end)
         profit_trend = calc_trend(net_profit, prev_profit)
+
+        # ── SOF FOYDA bloki (2026-10): savdo − tannarx = yalpi − xarajat ulushi ──
+        # YANGI FORMULA YO'Q: `/profit/summary` endpoint funksiyasining O'ZI
+        # chaqiriladi (period="today") — raqamlar u bilan AYNAN mos bo'lishi
+        # kafolatlangan (biznes turi shoxlari, vozvrat, ish kuni, xarajat
+        # taqsimlash — hammasi o'sha joyda). Faqat bugungi dashboard uchun:
+        # boshqa `range` larda (week/month/year) bu yerdagi oyna suriluvchi va
+        # summary bilan solishtirib bo'lmaydi.
+        #
+        # TAKRORIY XARAJAT: summary boshida `ensure_recurring_expenses` chaqiriladi
+        # — dashboard ochilganda ham oyning nusxasi yaratiladi (scheduler shart
+        # emas: xarajatni o'qiydigan HAR yo'l avval nusxani yaratadi).
+        if range == "today":
+            from routers.profit import get_profit_summary
+            s = await get_profit_summary(period="today", start_date=None, end_date=None,
+                                         date_from=None, date_to=None,
+                                         db=db, current_user=current_user)
+            revenue = s.get("revenue", s.get("total_revenue", 0))
+            cost    = s.get("cost", s.get("total_cost", 0))
+            profit_breakdown = {
+                "revenue":      revenue,
+                "cost":         cost,
+                "gross_profit": s.get("gross_profit", 0),
+                "expenses":     s.get("expenses", 0),
+                "net_profit":   s.get("net_profit", 0),
+                "period":       s.get("period"),
+                "expense_info": s.get("expense_info"),
+            }
 
         # Oylik savdo maqsadi: shu oy boshidan hozirgacha savdo vs egasi belgilagan maqsad
         import calendar
@@ -271,6 +300,8 @@ async def get_dashboard_data(
         "profit_kind": "gross",
         "profit_label": "Yalpi foyda (xarajatsiz)",
         "profit_trend": profit_trend,
+        # Savdo − tannarx = yalpi − xarajat ulushi = SOF foyda (bugun; /profit/summary bilan aynan)
+        "profit_breakdown": profit_breakdown,
         "monthly_goal_target": monthly_goal_target,
         "monthly_actual": monthly_actual,
         "goal_pct": goal_pct,

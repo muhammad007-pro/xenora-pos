@@ -523,17 +523,18 @@
             <div class="kpi-value" id="kpiAvgOrder">—</div>
             <div class="kpi-sub">UZS <span class="kpi-trend" id="kpiAvgTrend"></span></div>
           </div>
-          <!-- YALPI foyda — MAXFIY: faqat view_finance ruxsatli user ko'radi (default yashirin).
-               ⚠️ Ilgari "Sof foyda" deb yozilgan edi va bu CHALG'ITARDI: bu yerda
-               operatsion xarajat (ijara/maosh) AYIRILMAGAN. Xarajat ayirilgan
-               haqiqiy sof foyda faqat "Foyda tahlili" sahifasida. -->
+          <!-- BUGUNGI FOYDA bloki — MAXFIY: faqat view_finance (default yashirin).
+               Savdo − tannarx = yalpi foyda − xarajat ulushi = SOF foyda.
+               Raqamlar `/analytics/dashboard` → `profit_breakdown` dan, u esa
+               `/profit/summary` (Foyda tahlili) ning O'ZI — ikki ekran aynan mos. -->
           <div class="kpi-card teal" id="kpiNetProfitCard" style="display:none">
             <div class="kpi-label">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 4 8-8M21 7v6M21 7h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Yalpi foyda
+              Bugungi foyda
             </div>
-            <div class="kpi-value" id="kpiNetProfit">—</div>
-            <div class="kpi-sub" title="Ijara, maosh kabi xarajatlar ayirilmagan. Sof foyda — «Foyda tahlili» sahifasida.">xarajatsiz <span class="kpi-trend" id="kpiProfitTrend"></span></div>
+            <div class="profit-rows" id="kpiProfitRows" style="font-size:.8125rem;line-height:1.7;margin-top:.25rem"></div>
+            <div class="kpi-value" id="kpiNetProfit" style="font-size:1.25rem">—</div>
+            <div class="kpi-sub"><span id="kpiNetProfitLabel">sof foyda</span> <span class="kpi-trend" id="kpiProfitTrend"></span></div>
           </div>
         </div>
 

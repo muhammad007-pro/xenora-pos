@@ -297,10 +297,15 @@ def ensure_recurring_expenses(db: Session, current_user: User) -> int:
     # Toshkent kuni (2026-10): `date.today()` server UTC sanasini berardi —
     # 00:00–05:00 da oyning yangi nusxasi bir kun kech yaratilardi.
     today = tenant_now().date()
+    # ROW-LOCK (2026-10): nusxa endi DASHBOARD ochilganda ham yaratiladi — ikki
+    # qurilma bir vaqtda ochsa, ikkalasi "nusxa yo'q" deb o'qib IKKI nusxa
+    # yozardi (oy xarajati 2 baravar). Shablon qatorlari qulflanadi: ikkinchi
+    # so'rov birinchisi commit qilguncha kutadi va keyin nusxani ko'radi.
+    # SQLite'da (testlar) FOR UPDATE jimgina tashlanadi.
     templates = apply_tenant_filter(
         db.query(Expense).filter(Expense.is_recurring == True),  # noqa: E712
         Expense, current_user,
-    ).all()
+    ).order_by(Expense.id).with_for_update().all()
 
     created = 0
     for t in templates:
@@ -326,8 +331,9 @@ def ensure_recurring_expenses(db: Session, current_user: User) -> int:
             ))
             created += 1
 
-    if created:
-        db.commit()
+    # Har doim commit — nusxa yaratilmasa ham: shablon qulfini DARHOL bo'shatadi
+    # (aks holda u so'rov oxirigacha turib, parallel dashboard'larni kuttirardi).
+    db.commit()
     return created
 
 

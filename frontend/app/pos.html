@@ -1220,17 +1220,26 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
     </div>
     <div class="modal-body">
       <div id="packChoiceName" style="text-align:center;font-weight:700;font-size:1.05rem;margin-bottom:1rem">Mahsulot</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-        <button class="btn btn-gold" id="packChoicePackBtn" style="flex-direction:column;height:auto;padding:1rem .5rem">
-          <span id="packChoicePackLbl" style="font-size:1rem;font-weight:700">📦 Pachka</span>
-          <span id="packChoicePackPrice" style="font-size:.9rem;margin-top:.35rem">—</span>
-          <span id="packChoicePackHint" style="font-size:.72rem;opacity:.85;margin-top:.15rem">—</span>
-        </button>
-        <button class="btn btn-outline" id="packChoiceDonaBtn" style="flex-direction:column;height:auto;padding:1rem .5rem">
+      <!-- XAVFSIZ TARTIB (fix/pack-choice-ui): birlik (dona/kg/metr) BIRINCHI, pachka
+           IKKINCHI; ikkalasi bir xil ko'rinish va o'lchamda, standart tanlov YO'Q.
+           Ilgari "📦 Pachka" birinchi va oltin rangda edi — kassir shoshilib bosardi
+           va ombordan pack_size marta ayrilardi (FAZZA, 3 talik tish cho'tkasi).
+           ID'lar va ulardagi matn o'zgarmagan (test_meter_label.mjs GOLDEN). -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;align-items:stretch">
+        <button type="button" class="btn btn-outline" id="packChoiceDonaBtn" style="flex-direction:column;height:auto;min-height:7.5rem;padding:1rem .5rem">
           <span id="packChoiceDonaLbl" style="font-size:1rem;font-weight:700">Dona</span>
           <span id="packChoiceDonaPrice" style="font-size:.9rem;margin-top:.35rem">—</span>
+          <span id="packChoiceDonaRule" style="font-size:.72rem;opacity:.85;margin-top:.15rem">—</span>
+        </button>
+        <button type="button" class="btn btn-outline" id="packChoicePackBtn" style="flex-direction:column;height:auto;min-height:7.5rem;padding:1rem .5rem">
+          <span id="packChoicePackLbl" style="font-size:1rem;font-weight:700">📦 Pachka</span>
+          <span id="packChoicePackPrice" style="font-size:.9rem;margin-top:.35rem">—</span>
+          <span style="font-size:.72rem;opacity:.85;margin-top:.15rem"><span id="packChoicePackRule">1 pachka =</span> <span id="packChoicePackHint">—</span></span>
+          <span id="packChoicePackDeduct" style="font-size:.72rem;font-weight:600;margin-top:.15rem">—</span>
         </button>
       </div>
+      <!-- Qoldiq pachkaga yetmasa — FAQAT ogohlantirish, sotuv to'silmaydi -->
+      <div id="packChoiceWarn" role="alert" style="display:none;margin-top:.75rem;padding:.5rem .75rem;border-radius:8px;border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.12);font-size:.85rem;text-align:center"></div>
     </div>
   </div>
 </div>

@@ -650,7 +650,54 @@ function showPackChoiceModal(product) {
   document.getElementById('packChoiceDonaLbl').textContent   = unitChoiceLabel(product.sale_unit);
   document.getElementById('packChoiceDonaPrice').textContent =
     fmtNum(product.price) + ' UZS' + (k.perUnit ? ' / ' + k.unitWord : '');
+  _renderPackChoiceInfo(product, k);
   openModal('packChoiceModal');
+}
+
+/**
+ * Pachka tanlov oynasidagi ANIQLIK qatorlari + qoldiq ogohlantirishi.
+ *
+ * NEGA (jonli, FAZZA): "3 talik" tish cho'tkasida kassir shoshilib "📦 Pachka"
+ * ni bosgan — 1 dona o'rniga ombordan 3 dona ayrilib, qoldiq tugagan. Endi
+ * tugmaning o'zida "1 pachka = 3 dona" va "Ombordan 3 dona ayriladi" yoziladi,
+ * qoldiq pachkaga yetmasa oyna ichida ogohlantirish chiqadi.
+ *
+ * Faqat KO'RSATISH: savat, narx va `base_qty` hisobi (server) tegilmaydi.
+ */
+function _renderPackChoiceInfo(product, k) {
+  const word = k.perUnit ? k.unitWord : 'dona';
+  const size = fmtPackQty(product.pack_size);
+  document.getElementById('packChoicePackRule').textContent   = `1 ${k.pack.toLowerCase()} =`;
+  document.getElementById('packChoicePackDeduct').textContent = `Ombordan ${size} ${word} ayriladi`;
+  document.getElementById('packChoiceDonaRule').textContent   =
+    k.perUnit ? `Miqdorni o'zingiz kiritasiz` : '1 dona';
+  const warn  = document.getElementById('packChoiceWarn');
+  const short = _packStockShort(product);
+  if (short) {
+    warn.textContent = `⚠️ Omborda ${_stockNum(short.free)} ${word}, 1 ${k.pack.toLowerCase()} = ${size} ${word}`;
+    warn.style.display = '';
+  } else {
+    warn.textContent = '';
+    warn.style.display = 'none';
+  }
+}
+
+/**
+ * Qoldiq 1 pachkaga yetmaydimi? Savatdagi shu mahsulot ham hisobga olinadi.
+ * `{free, need}` — yetmaydi; `null` — yetadi YOKI qoldiq noma'lum (ombor
+ * nazorati yo'q / xarita hali kelmagan — "0 bor" deb yolg'on aytmaslik uchun).
+ */
+function _packStockShort(product) {
+  const st = _stockMap.get(product.id);
+  if (!st || st.quantity == null) return null;
+  const have = Number(st.quantity);
+  const need = Number(product.pack_size) || 0;
+  if (!isFinite(have) || need <= 0) return null;
+  const inCart = state.cart
+    .filter(x => x.id === product.id)
+    .reduce((s, x) => s + _lineBaseQty(x, product), 0);
+  const free = have - inCart;
+  return free < need ? { free, need } : null;
 }
 
 async function addToCart(productId, presetWeight = null, unitMode = null) {
@@ -1179,7 +1226,16 @@ document.getElementById('modConfirmBtn').addEventListener('click', () => {
 // ─── BOSQICH B4: Pachka/Dona tanlov modali tugmalari ──────────────────────────
 document.getElementById('packChoicePackBtn')?.addEventListener('click', () => {
   const p = _packChoiceProduct; closeModal('packChoiceModal');
-  if (p) addToCart(p.id, null, 'pachka');
+  if (!p) return;
+  // Qoldiq pachkaga yetmasa — OGOHLANTIRISH, sotuv to'silmaydi. Ombor
+  // qo'riqchisi yoqiq bo'lsa `_warnIfShort` o'zi xabar beradi (ikki marta emas).
+  const short = _packStockShort(p);
+  if (short && !_guardOn) {
+    const k = packKind(p.sale_unit);
+    toast(`⚠️ "${p.name}": omborda ${_stockNum(short.free)} ${k.perUnit ? k.unitWord : 'dona'}, `
+        + `1 ${k.pack.toLowerCase()} = ${fmtPackQty(p.pack_size)} — pachka sotildi`, 'warning', 5000);
+  }
+  addToCart(p.id, null, 'pachka');
 });
 document.getElementById('packChoiceDonaBtn')?.addEventListener('click', () => {
   const p = _packChoiceProduct; closeModal('packChoiceModal');

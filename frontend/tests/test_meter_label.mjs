@@ -66,6 +66,9 @@ function modal(product) {
     packKind: sb.packKind, fmtPackQty: sb.fmtPackQty, unitChoiceLabel: sb.unitChoiceLabel,
     fmtNum: n => String(n),
     openModal: () => {},
+    // fix/pack-choice-ui: aniqlik qatorlari alohida funksiyada — bu test faqat
+    // yorliqlarni tekshiradi (ular test_pack_choice_ui.mjs da sinaladi).
+    _renderPackChoiceInfo: () => {},
     _packChoiceProduct: null,
     document: { getElementById: id => (nodes[id] ||= { textContent: '' }) },
   });

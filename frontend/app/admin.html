@@ -653,6 +653,11 @@
           <div class="dt-head" style="flex-wrap:wrap;gap:.5rem">
             <h3 class="dt-title">Sotuvlar tarixi</h3>
             <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-left:auto;align-items:center">
+              <!-- Tayyor davrlar — sanalarni to'ldiradi (sana tanlansa: kunlarga guruhlangan ko'rinish) -->
+              <button class="tb-btn" data-sh-preset="today">Bugun</button>
+              <button class="tb-btn" data-sh-preset="yesterday">Kecha</button>
+              <button class="tb-btn" data-sh-preset="week">7 kun</button>
+              <button class="tb-btn" data-sh-preset="month">30 kun</button>
               <input type="date" class="form-control" id="shFrom" style="width:150px" title="Sanadan">
               <input type="date" class="form-control" id="shTo" style="width:150px" title="Sanagacha">
               <select class="form-control" id="shCashier" style="width:150px"><option value="">Barcha kassirlar</option></select>
@@ -660,6 +665,7 @@
               <button class="tb-btn" id="shClearBtn">Tozalash</button>
             </div>
           </div>
+          <div id="shAdminSummary" style="display:none;padding:.5rem 1rem;font-size:.875rem;color:var(--text2)"></div>
           <table>
             <thead><tr><th>Chek №</th><th>Sana</th><th>Kassir</th><th>Kassa</th><th>To'lov</th><th>Summa</th><th>Status</th><th></th></tr></thead>
             <tbody id="salesBody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
@@ -3764,6 +3770,7 @@
 <script>/*XENORA versiya yorlig'i — yagona manba (version.js)*/(function(){var e=document.getElementById('appVersionSettings');if(e&&window.APP_VERSION)e.textContent='v'+window.APP_VERSION;})();</script>
 <script src="../js/core/money.js"></script>
 <script src="../js/core/product-photo.js"></script>
+<script src="../js/core/sales-history.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';

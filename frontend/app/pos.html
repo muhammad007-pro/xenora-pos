@@ -1253,11 +1253,27 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
       <button class="close-btn" data-close="salesHistoryModal">✕</button>
     </div>
     <div class="modal-body">
-      <div id="salesHistoryList" style="max-height:62vh;overflow-y:auto"></div>
+      <!-- Sana oralig'i (GET /orders/history) — kun chegarasi serverda (kalendar/smena) -->
+      <div id="shFilterBar" style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin-bottom:.5rem">
+        <button type="button" class="sh-preset" data-sh-preset="today">Bugun</button>
+        <button type="button" class="sh-preset" data-sh-preset="yesterday">Kecha</button>
+        <button type="button" class="sh-preset" data-sh-preset="week">7 kun</button>
+        <button type="button" class="sh-preset" data-sh-preset="month">30 kun</button>
+        <input type="date" id="shPosFrom" title="Sanadan" style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border2);border-radius:.4rem;padding:.3rem .4rem;color:var(--text);font-size:.8rem">
+        <input type="date" id="shPosTo" title="Sanagacha" style="flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border2);border-radius:.4rem;padding:.3rem .4rem;color:var(--text);font-size:.8rem">
+      </div>
+      <div id="shSummary" style="font-size:.8rem;color:var(--text2);margin-bottom:.4rem"></div>
+      <div id="salesHistoryList" style="max-height:58vh;overflow-y:auto"></div>
       <div id="salesHistoryDetail" style="display:none;max-height:62vh;overflow-y:auto"></div>
     </div>
   </div>
 </div>
+<style>
+  .sh-preset{background:var(--bg3);border:1px solid var(--border2);border-radius:.4rem;padding:.3rem .6rem;cursor:pointer;color:var(--text);font-size:.78rem}
+  .sh-preset.active{border-color:var(--gold);color:var(--gold);font-weight:700}
+  .sh-day{display:flex;justify-content:space-between;gap:.5rem;padding:.45rem .4rem;margin-top:.35rem;background:var(--bg3);border-radius:.4rem;font-size:.8rem;font-weight:700;position:sticky;top:0;z-index:1}
+  .sh-day span:last-child{color:var(--gold)}
+</style>
 
 <!-- #23: POS Ombor qoldig'i modali (narx + qoldiq; tannarx faqat admin) -->
 <div class="modal-wrap" id="posStockModal">
@@ -1585,6 +1601,8 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
 import { initErrorHandler } from '../js/core/error-handler.js';
 initErrorHandler();
 </script>
+<!-- Sotuvlar tarixi yordamchisi (classic, window.XenoraSalesHistory) — pos.js dan OLDIN -->
+<script src="../js/core/sales-history.js"></script>
 <script type="module" src="../js/modules/pos.js"></script>
 
 <!-- POS: umumiy summa o'zgarganda yengil highlight (vizual only, sotuvga tegmaydi) -->

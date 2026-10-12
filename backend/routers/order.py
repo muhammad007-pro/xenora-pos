@@ -102,6 +102,126 @@ async def get_orders(
         total_pages=(total + page_size - 1) // page_size
     )
 
+@router.get("/history")
+async def get_sales_history(
+    date_from: Optional[str] = Query(None, description="YYYY-MM-DD (standart: joriy ish kuni)"),
+    date_to:   Optional[str] = Query(None, description="YYYY-MM-DD (standart: date_from)"),
+    cashier_id: Optional[int] = None,
+    register_id: Optional[int] = None,
+    status: Optional[str] = Query(None, description="vergul bilan; berilmasa — barchasi"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Sotuvlar tarixi — sana ORALIG'I, ISH KUNI bo'yicha guruhlangan.
+
+    ═══ NEGA ALOHIDA ENDPOINT (`GET /orders/` emas) ═══
+    `/orders/` xom `datetime` oladi (brauzer zonasida yasalgan) va faqat bitta
+    sahifani qaytaradi — kunlik jami va davr jamini sahifalab yig'ib bo'lmaydi.
+    Bu yerda:
+      • davr — kalendar SANALARI, kun chegarasi `core/business_day.py` qoidasida
+        (kalendar 00:00 YOKI smena: tungi savdo smena ochilgan kunga) — dashboard
+        va hisobotlar bilan AYNAN bir xil;
+      • `days` / `summary` — BUTUN davr bo'yicha (sahifadan mustaqil), faqat
+        `completed` cheklar — hisobotlar bilan bir xil qoida;
+      • `items` — sahifa (yangisi birinchi), har birida `business_date`.
+
+    UNUMDORLIK: jamilar uchun bitta yengil so'rov (5 ustun, ORM obyekt yo'q),
+    sahifa uchun bitta so'rov + oldindan yuklash (items/payments/waiter/shift) —
+    N+1 yo'q.
+
+    RBAC: `view_analytics` bo'lmagan foydalanuvchi (kassir/ofitsiant) FAQAT o'z
+    sotuvlarini ko'radi — server majbur qiladi (ilgari faqat POS frontendi
+    `cashier_id` qo'yardi).
+    """
+    from sqlalchemy.orm import joinedload, selectinload
+    from core.business_day import BusinessDay
+    from datetime import timedelta
+    from core.timeutils import day_bounds, parse_date
+    from deps import user_has_permission
+
+    bd = BusinessDay(db, current_user)
+    today = bd.today()        # smena rejimida tunda — kechagi ish kuni
+    # Bittasi berilsa — bir kunlik davr; hech biri — joriy ish kuni.
+    d1 = parse_date(date_from, "date_from") or parse_date(date_to, "date_to") or today
+    d2 = parse_date(date_to, "date_to") or d1
+    if d2 < d1:
+        raise HTTPException(status_code=400, detail="date_to date_from dan oldin bo'lishi mumkin emas")
+    if (d2 - d1).days > 366:
+        raise HTTPException(status_code=400, detail="Davr 1 yildan uzun bo'lishi mumkin emas")
+    start, _ = day_bounds(d1)
+    _, nxt = day_bounds(d2)
+    end = nxt - timedelta(microseconds=1)
+
+    if not (current_user.is_superuser or user_has_permission(current_user, "view_analytics")):
+        cashier_id = current_user.id
+
+    def _filtered(q):
+        q = apply_tenant_filter(q, Order, current_user)
+        q = q.filter(bd.window(Order.created_at, Order.shift_id, start, end))
+        if cashier_id:
+            q = q.filter(Order.waiter_id == cashier_id)
+        if register_id:
+            q = q.join(Shift, Order.shift_id == Shift.id).filter(Shift.register_id == register_id)
+        if status:
+            q = q.filter(Order.status.in_([s.strip() for s in status.split(",") if s.strip()]))
+        return q
+
+    # ── 1) Davr jamilari (butun davr, sahifadan mustaqil) ──────────────────
+    rows = _filtered(db.query(Order.id, Order.created_at, Order.shift_id,
+                              Order.final_amount, Order.status)).all()
+    day_of_id: dict = {}
+    days: dict = {}
+    total_count = 0
+    sum_count = 0
+    sum_total = 0.0
+    for oid, created_at, shift_id, amount, st in rows:
+        d = bd.day_of(created_at, shift_id)
+        key = d.isoformat() if d else None
+        day_of_id[oid] = key
+        total_count += 1
+        cur = days.setdefault(key, {"date": key, "count": 0, "total": 0.0, "other": 0})
+        if getattr(st, "value", st) == "completed":
+            cur["count"] += 1
+            cur["total"] += float(amount or 0)
+            sum_count += 1
+            sum_total += float(amount or 0)
+        else:
+            cur["other"] += 1
+
+    # ── 2) Sahifa (yangisi birinchi) ───────────────────────────────────────
+    page_q = _filtered(db.query(Order).options(
+        selectinload(Order.items),
+        selectinload(Order.payments),
+        joinedload(Order.waiter),
+        joinedload(Order.shift).joinedload(Shift.register),
+    ))
+    orders = (page_q.order_by(Order.created_at.desc(), Order.id.desc())
+              .offset((page - 1) * page_size).limit(page_size).all())
+    items = []
+    for o in orders:
+        it = OrderInDB.model_validate(_enrich_order(o)).model_dump(mode="json")
+        it["business_date"] = day_of_id.get(o.id) or (
+            bd.day_of(o.created_at, o.shift_id).isoformat() if o.created_at else None)
+        items.append(it)
+
+    return {
+        "date_from": d1.isoformat(),
+        "date_to": d2.isoformat(),
+        "mode": bd.mode,
+        "today": today.isoformat(),
+        "summary": {"count": sum_count, "total": round(sum_total, 2), "orders": total_count},
+        "days": sorted(({**v, "total": round(v["total"], 2)} for v in days.values()),
+                       key=lambda x: x["date"] or "", reverse=True),
+        "items": items,
+        "page": page,
+        "page_size": page_size,
+        "total": total_count,
+        "has_more": page * page_size < total_count,
+    }
+
+
 @router.post("/", response_model=OrderInDB)
 async def create_order(
     order_data: OrderCreate,

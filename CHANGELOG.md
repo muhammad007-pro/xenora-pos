@@ -3,6 +3,19 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.6] — 2026-10-12 — Pachka tanlov oynasi xavfsizroq
+
+Frontend (POS). **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+⚠️ Kassa `.exe`/APK'lariga faqat **yangi build** bilan yetadi; brauzer/`app.xenora.uz` da darhol.
+
+### 📦 Pachka / dona
+* tanlov oynasida **birlik (Dona / Kg / Metr) birinchi**, "Pachka" ikkinchi; ikkalasi bir xil
+  ko'rinishda — kassir shoshilib pachkani bosmasin (ilgari pachka birinchi va oltin rangda edi)
+* pachka tugmasida "1 pachka = 3 dona" va "Ombordan 3 dona ayriladi"; dona tugmasida "1 dona"
+* qoldiq bitta pachkaga yetmasa ogohlantirish ("Omborda 2 dona, 1 pachka = 3 dona") —
+  sotuv to'silmaydi
+* sotuv, narx va ombor hisobi o'zgarmadi
+
 ## [1.13.5] — 2026-10-12 — Hisobot kuni: kalendar yoki smena bo'yicha
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

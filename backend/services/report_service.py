@@ -13,6 +13,17 @@ from utils.revenue import (
 )
 
 
+def _bd(db, current_user):
+    """Hisobot kuni qoidasi (core/business_day.py). Kalendar rejimida
+    `window()` aynan `created_at BETWEEN date_from AND date_to`."""
+    from core.business_day import BusinessDay
+    return BusinessDay(db, current_user)
+
+
+def _method_name(m) -> str:
+    return m.value if hasattr(m, "value") else str(m)
+
+
 class ReportService:
     def __init__(self, db: Session):
         self.db = db
@@ -21,36 +32,66 @@ class ReportService:
     def generate_sales_report(self, date_from: datetime, date_to: datetime,
                                branch_id: Optional[int] = None,
                                current_user=None) -> Dict[str, Any]:
-        from deps import apply_tenant_filter
+        """Sotuv hisoboti — to'lov (tender) kesimida.
 
-        q = self.db.query(Payment).filter(
-            Payment.created_at >= date_from,
-            Payment.created_at <= date_to,
-            Payment.status == "paid"
+        ═══ O'ZGARISH (2026-10, feature/business-day) ═══
+        1) NASIYA QO'SHILDI. Ilgari faqat `paid` sanalardi — nasiyaga ketgan
+           tovar bu hisobotda YO'Q edi, boshqa ekranlarda esa bor edi
+           (MANHATTAN 10.10: bu yerda 11 440 000, foyda/dashboardda 12 570 000).
+           Endi `credit` + `pending` (nasiya tenderi, `payment_service.py`)
+           ham sotuv kuniga qo'shiladi — faqat buyurtma `completed` bo'lsa
+           (bekor qilingan/qaytarilgan nasiya `refunded` bo'ladi, kirmaydi).
+           Qarz keyin to'langanda `DebtPayment` yoziladi, `Payment` emas —
+           shuning uchun ikki marta hisoblash YO'Q.
+        2) KUNLIK QATORLAR tenant zonasida. Ilgari `func.date(created_at)` UTC
+           bo'yicha guruhlardi (kun 05:00 dan), jami esa Toshkent 00:00 dan —
+           bitta hisobotda ikki qoida. Endi ikkalasi `bd` (ish kuni) qoidasida.
+        """
+        from deps import apply_tenant_filter
+        from sqlalchemy import or_, and_
+        from models import PaymentMethod, PaymentStatus
+        from core.business_day import shift_of_payment
+
+        bd = _bd(self.db, current_user)
+        shift_col = shift_of_payment()
+        is_credit = and_(
+            Payment.method == PaymentMethod.CREDIT,
+            Payment.status == PaymentStatus.PENDING,
+            Payment.order.has(Order.status == "completed"),
+        )
+        q = self.db.query(
+            Payment.created_at, shift_col.label("shift_id"), Payment.method, Payment.amount,
+        ).filter(
+            bd.window(Payment.created_at, shift_col, date_from, date_to),
+            or_(Payment.status == "paid", is_credit),
         )
         if current_user:
             q = apply_tenant_filter(q, Payment, current_user)
         if branch_id:
             q = q.filter(Payment.branch_id == branch_id)
 
-        total = q.with_entities(func.sum(Payment.amount)).scalar() or 0
-        count = q.with_entities(func.count(Payment.id)).scalar() or 0
-
-        daily = q.with_entities(
-            func.date(Payment.created_at).label('day'),
-            func.sum(Payment.amount).label('total_val'),
-            func.count(Payment.id).label('cnt')
-        ).group_by(func.date(Payment.created_at)).order_by('day').all()
-
-        methods = q.with_entities(
-            Payment.method,
-            func.sum(Payment.amount).label('total_val'),
-            func.count(Payment.id).label('cnt')
-        ).group_by(Payment.method).all()
+        total = 0.0
+        credit_total = 0.0
+        daily: Dict[str, list] = {}
+        methods: Dict[str, list] = {}
+        rows = q.all()
+        for created_at, shift_id, method, amount in rows:
+            amt = float(amount or 0)
+            total += amt
+            m = _method_name(method)
+            if m == "credit":
+                credit_total += amt
+            day = bd.day_of(created_at, shift_id)
+            key = day.isoformat() if day else "None"
+            d = daily.setdefault(key, [0.0, 0])
+            d[0] += amt
+            d[1] += 1
+            mm = methods.setdefault(m, [0.0, 0])
+            mm[0] += amt
+            mm[1] += 1
 
         oq = self.db.query(Order).filter(
-            Order.created_at >= date_from,
-            Order.created_at <= date_to,
+            bd.window(Order.created_at, Order.shift_id, date_from, date_to),
             Order.status == "completed"
         )
         if current_user:
@@ -63,11 +104,14 @@ class ReportService:
             "date_from": date_from.strftime("%Y-%m-%d"),
             "date_to": date_to.strftime("%Y-%m-%d"),
             "total_sales": float(total),
-            "transactions_count": int(count),
+            # Shundan nasiya (pul hali kelmagan) — UI alohida ko'rsatishi uchun.
+            "credit_sales": float(credit_total),
+            "paid_sales": float(total - credit_total),
+            "transactions_count": len(rows),
             "orders_count": orders_count,
             "avg_check": float(total) / orders_count if orders_count else 0,
-            "daily_sales": [{"date": str(r.day), "total": float(r.total_val), "count": r.cnt} for r in daily],
-            "payment_methods": [{"method": m.method, "total": float(m.total_val), "count": m.cnt} for m in methods],
+            "daily_sales": [{"date": k, "total": daily[k][0], "count": daily[k][1]} for k in sorted(daily)],
+            "payment_methods": [{"method": k, "total": v[0], "count": v[1]} for k, v in methods.items()],
         }
 
     # ── FOYDA ─────────────────────────────────────────────────────────────────────
@@ -89,26 +133,39 @@ class ReportService:
         # tan narxi 0, vozvrat tan narxi to'liq ayirilardi.
         cost = OrderItem.quantity * cost_expr()
 
+        # KUNLIK QATORLAR (2026-10): ilgari `func.date(Order.created_at)` bilan
+        # SQL'da guruhlanardi — UTC bo'yicha (kun 05:00 dan), jami esa Toshkent
+        # 00:00 dan edi. Endi chek bo'yicha yig'ilib, kun `bd.day_of()` bilan
+        # Python'da aniqlanadi — filtr (`bd.window`) bilan BIR qoida, shuning
+        # uchun Σ kunlik == jami (vozvratdan oldin).
+        bd = _bd(self.db, current_user)
         q = self.db.query(
-            func.date(Order.created_at).label('d'),
+            Order.id, Order.created_at, Order.shift_id,
             func.sum(net).label('revenue'),
             func.sum(cost).label('cost'),
-            func.count(func.distinct(Order.id)).label('orders')
         ).join(Order, Order.id == OrderItem.order_id
         # `cost_expr()` Product.cost_price ga tushadi → Product ulanishi SHART.
         # outerjoin: mahsulot o'chirilgan bo'lsa ham sotuv qatori yo'qolmasin
         # (many-to-one — qator SONI o'zgarmaydi, dekart ko'paytmasi yo'q).
         ).outerjoin(Product, Product.id == OrderItem.product_id
         ).join(sq, sq.c.order_id == OrderItem.order_id).filter(
-            Order.created_at >= date_from,
-            Order.created_at <= date_to,
+            bd.window(Order.created_at, Order.shift_id, date_from, date_to),
             Order.status == "completed"
         )
         if current_user:
             q = apply_tenant_filter(q, Order, current_user)
         if branch_id:
             q = q.filter(Order.branch_id == branch_id)
-        daily = q.group_by(func.date(Order.created_at)).order_by('d').all()
+        per_day: Dict[str, list] = {}
+        for r in q.group_by(Order.id, Order.created_at, Order.shift_id).all():
+            day = bd.day_of(r.created_at, r.shift_id)
+            cur = per_day.setdefault(day.isoformat() if day else "None", [0.0, 0.0, 0])
+            cur[0] += float(r.revenue or 0)
+            cur[1] += float(r.cost or 0)
+            cur[2] += 1
+        from types import SimpleNamespace
+        daily = [SimpleNamespace(d=k, revenue=v[0], cost=v[1], orders=v[2])
+                 for k, v in sorted(per_day.items())]
 
         # QAYTARISH (Return) — yagona manbadan (utils/revenue.py), QAYTARILGAN
         # sana bo'yicha. Ilgari foyda hisobotidan umuman ayirilmasdi.
@@ -130,8 +187,7 @@ class ReportService:
         ).join(OrderItem, OrderItem.product_id == Product.id
         ).join(Order, Order.id == OrderItem.order_id
         ).join(sq, sq.c.order_id == OrderItem.order_id).filter(
-            Order.created_at >= date_from,
-            Order.created_at <= date_to,
+            _bd(self.db, current_user).window(Order.created_at, Order.shift_id, date_from, date_to),
             Order.status == "completed"
         )
         if current_user:
@@ -244,8 +300,7 @@ class ReportService:
             func.count(Order.id).label('orders_count'),
             func.sum(Order.final_amount).label('spent')
         ).filter(
-            Order.created_at >= date_from,
-            Order.created_at <= date_to,
+            _bd(self.db, current_user).window(Order.created_at, Order.shift_id, date_from, date_to),
             Order.status == "completed",
             Order.customer_id != None
         )
@@ -284,10 +339,13 @@ class ReportService:
                              branch_id: Optional[int] = None,
                              current_user=None) -> Dict[str, Any]:
         from deps import apply_tenant_filter
+        from core.business_day import shift_of_payment
 
+        # Soliq — faqat HAQIQATAN kelgan pul (`paid`); nasiya bu yerga kirmaydi.
+        bd = _bd(self.db, current_user)
+        shift_col = shift_of_payment()
         q = self.db.query(Payment).filter(
-            Payment.created_at >= date_from,
-            Payment.created_at <= date_to,
+            bd.window(Payment.created_at, shift_col, date_from, date_to),
             Payment.status == "paid"
         )
         if current_user:
@@ -298,11 +356,16 @@ class ReportService:
         total = float(q.with_entities(func.sum(Payment.amount)).scalar() or 0)
         count = int(q.with_entities(func.count(Payment.id)).scalar() or 0)
 
-        daily = q.with_entities(
-            func.date(Payment.created_at).label('day'),
-            func.sum(Payment.amount).label('total_val'),
-            func.count(Payment.id).label('cnt')
-        ).group_by(func.date(Payment.created_at)).order_by('day').all()
+        # Kunlik qatorlar (2026-10): `func.date()` UTC'da kesardi — endi ish kuni.
+        per_day: Dict[str, list] = {}
+        for created_at, shift_id, amount in q.with_entities(
+                Payment.created_at, shift_col, Payment.amount).all():
+            day = bd.day_of(created_at, shift_id)
+            cur = per_day.setdefault(day.isoformat() if day else "None", [0.0, 0])
+            cur[0] += float(amount or 0)
+            cur[1] += 1
+        from types import SimpleNamespace
+        daily = [SimpleNamespace(day=k, total_val=v[0], cnt=v[1]) for k, v in sorted(per_day.items())]
 
         methods = q.with_entities(
             Payment.method,
@@ -343,8 +406,7 @@ class ReportService:
         ).join(OrderItem, OrderItem.product_id == Product.id
         ).join(Order, Order.id == OrderItem.order_id
         ).join(sq, sq.c.order_id == OrderItem.order_id).filter(
-            Order.created_at >= date_from,
-            Order.created_at <= date_to,
+            _bd(self.db, current_user).window(Order.created_at, Order.shift_id, date_from, date_to),
             Order.status == "completed"
         )
         if current_user:
@@ -380,8 +442,7 @@ class ReportService:
             func.sum(Order.final_amount).label('total_sales'),
             func.avg(Order.final_amount).label('avg_check')
         ).join(Order, Order.waiter_id == User.id).filter(
-            Order.created_at >= date_from,
-            Order.created_at <= date_to,
+            _bd(self.db, current_user).window(Order.created_at, Order.shift_id, date_from, date_to),
             Order.status == "completed"
         )
         if current_user:
@@ -420,19 +481,25 @@ class ReportService:
         if shift_id:
             query = query.filter(Shift.id == shift_id)
         elif user_id and date:
-            target_date = datetime.strptime(date, "%Y-%m-%d")
+            # Toshkent kuni (2026-10): `func.date()` UTC'da kesardi — 00:00–05:00
+            # da ochilgan smena kechagi sanada qidirilardi.
+            from core.timeutils import day_bounds
+            d_start, d_end = day_bounds(datetime.strptime(date, "%Y-%m-%d").date())
             query = query.filter(
                 Shift.user_id == user_id,
-                func.date(Shift.start_time) == target_date.date()
+                Shift.start_time >= d_start,
+                Shift.start_time < d_end,
             )
 
         shifts = query.all()
+        from core.timeutils import utc_now
         result = []
         for shift in shifts:
             orders = self.db.query(Order).filter(
                 Order.waiter_id == shift.user_id,
                 Order.created_at >= shift.start_time,
-                Order.created_at <= (shift.end_time or datetime.now())
+                # utc_now: naive `datetime.now()` aware ustun bilan zonasiz solishtirilardi
+                Order.created_at <= (shift.end_time or utc_now())
             ).all()
             total_sales = sum(o.final_amount for o in orders if o.status == "completed")
             result.append({

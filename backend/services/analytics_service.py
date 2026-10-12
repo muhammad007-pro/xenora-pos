@@ -9,14 +9,23 @@ class AnalyticsService:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_period_data(self, start_date: datetime, end_date: datetime, current_user=None) -> Dict[str, Any]:
+    def _bd(self, bd, current_user):
+        """Hisobot kuni qoidasi (core/business_day.py). Berilmasa — tenantdan.
+        Kalendar rejimida `window()` aynan `created_at BETWEEN start AND end`."""
+        if bd is not None:
+            return bd
+        from core.business_day import BusinessDay
+        return BusinessDay(self.db, current_user)
+
+    def get_period_data(self, start_date: datetime, end_date: datetime, current_user=None, bd=None) -> Dict[str, Any]:
         """Davr uchun asosiy ko'rsatkichlar"""
         from deps import apply_tenant_filter
+        from core.business_day import shift_of_payment
+        bd = self._bd(bd, current_user)
 
         # Buyurtmalar
         orders_query = self.db.query(Order).filter(
-            Order.created_at >= start_date,
-            Order.created_at <= end_date
+            bd.window(Order.created_at, Order.shift_id, start_date, end_date)
         )
         if current_user is not None:
             orders_query = apply_tenant_filter(orders_query, Order, current_user)
@@ -32,8 +41,7 @@ class AnalyticsService:
         # Accrual (sotuv/foyda) tomoni butunlay boshqa manbada:
         # `utils/revenue.py` + `/analytics/store-dashboard`.
         payments_query = self.db.query(Payment).filter(
-            Payment.created_at >= start_date,
-            Payment.created_at <= end_date,
+            bd.window(Payment.created_at, shift_of_payment(), start_date, end_date),
             Payment.status == "paid"
         )
         if current_user is not None:
@@ -81,42 +89,51 @@ class AnalyticsService:
             "completed_orders": completed_orders
         }
     
-    def get_revenue_chart_data(self, start_date: datetime, end_date: datetime, range_type: str, current_user=None) -> Dict[str, List]:
-        """Daromad grafigi uchun ma'lumotlar"""
-        # Format string aniqlash
-        if range_type == "today":
-            date_format = "HH24:00"
-            group_by = func.to_char(Order.created_at, 'YYYY-MM-DD HH24:00')
-        elif range_type == "week":
-            date_format = "DD.MM"
-            group_by = func.to_char(Order.created_at, 'YYYY-MM-DD')
-        elif range_type == "month":
-            date_format = "DD.MM"
-            group_by = func.to_char(Order.created_at, 'YYYY-MM-DD')
-        else:
-            date_format = "Mon"
-            group_by = func.to_char(Order.created_at, 'YYYY-MM')
-        
+    def get_revenue_chart_data(self, start_date: datetime, end_date: datetime, range_type: str, current_user=None, bd=None) -> Dict[str, List]:
+        """Daromad grafigi uchun ma'lumotlar.
+
+        TUZATISH (2026-10, feature/business-day): ilgari `to_char(created_at, ...)`
+        bilan SQL'da guruhlanardi — u SERVER zonasida (UTC) kesadi: Toshkent
+        14:00 dagi sotuv "09:00" ustuniga, 00:00–05:00 dagisi KECHAGI kunga
+        tushardi (PostgreSQL'ga xos funksiya ham). Endi har to'lov qatori
+        Python'da tenant zonasiga va ish kuniga (`bd.day_of`) yoziladi —
+        yorliq shakli o'zgarmadi.
+        """
+        from core.timeutils import to_local
+        bd = self._bd(bd, current_user)
+
         chart_query = self.db.query(
-            group_by.label('period'),
-            func.sum(Payment.amount).label('revenue')
+            Order.created_at, Order.shift_id, Payment.amount,
         ).join(Payment, Payment.order_id == Order.id).filter(
-            Order.created_at >= start_date,
-            Order.created_at <= end_date,
+            bd.window(Order.created_at, Order.shift_id, start_date, end_date),
             Payment.status == "paid"
         )
         if current_user is not None:
             from deps import apply_tenant_filter
             chart_query = apply_tenant_filter(chart_query, Order, current_user)
 
-        results = chart_query.group_by('period').order_by('period').all()
+        buckets: Dict[str, float] = {}
+        for created_at, shift_id, amount in chart_query.all():
+            if created_at is None:
+                continue
+            day = bd.day_of(created_at, shift_id)
+            if range_type == "today":
+                # Soat — haqiqiy mahalliy soat; sana — ish kuni (tungi soatlar
+                # smena kunining oxirida turadi).
+                key = f"{day.isoformat()} {to_local(created_at).hour:02d}:00"
+            elif range_type in ("week", "month"):
+                key = day.isoformat()
+            else:
+                key = day.strftime("%Y-%m")
+            buckets[key] = buckets.get(key, 0.0) + float(amount or 0)
 
+        keys = sorted(buckets)
         return {
-            "labels": [r.period for r in results],
-            "values": [float(r.revenue or 0) for r in results]
+            "labels": keys,
+            "values": [buckets[k] for k in keys]
         }
-    
-    def get_popular_products(self, start_date: datetime, end_date: datetime, limit: int = 5, current_user=None) -> List[Dict]:
+
+    def get_popular_products(self, start_date: datetime, end_date: datetime, limit: int = 5, current_user=None, bd=None) -> List[Dict]:
         """Ommabop mahsulotlar"""
         query = self.db.query(
             Product.id,
@@ -126,8 +143,7 @@ class AnalyticsService:
         ).join(OrderItem, OrderItem.product_id == Product.id).join(
             Order, Order.id == OrderItem.order_id
         ).filter(
-            Order.created_at >= start_date,
-            Order.created_at <= end_date,
+            self._bd(bd, current_user).window(Order.created_at, Order.shift_id, start_date, end_date),
             Order.status == "completed"
         )
         if current_user is not None:
@@ -148,7 +164,7 @@ class AnalyticsService:
             for r in results
         ]
     
-    def get_sales_by_category(self, start_date: datetime, end_date: datetime, current_user=None) -> List[Dict]:
+    def get_sales_by_category(self, start_date: datetime, end_date: datetime, current_user=None, bd=None) -> List[Dict]:
         """Kategoriyalar bo'yicha savdo"""
         query = self.db.query(
             Category.id,
@@ -157,8 +173,7 @@ class AnalyticsService:
         ).join(Product, Product.category_id == Category.id).join(
             OrderItem, OrderItem.product_id == Product.id
         ).join(Order, Order.id == OrderItem.order_id).filter(
-            Order.created_at >= start_date,
-            Order.created_at <= end_date,
+            self._bd(bd, current_user).window(Order.created_at, Order.shift_id, start_date, end_date),
             Order.status == "completed"
         )
         if current_user is not None:
@@ -178,15 +193,15 @@ class AnalyticsService:
             for r in results
         ]
     
-    def get_payment_methods_data(self, start_date: datetime, end_date: datetime, current_user=None) -> List[Dict]:
+    def get_payment_methods_data(self, start_date: datetime, end_date: datetime, current_user=None, bd=None) -> List[Dict]:
         """To'lov usullari bo'yicha ma'lumot"""
+        from core.business_day import shift_of_payment
         query = self.db.query(
             Payment.method,
             func.sum(Payment.amount).label('total'),
             func.count(Payment.id).label('count')
         ).filter(
-            Payment.created_at >= start_date,
-            Payment.created_at <= end_date,
+            self._bd(bd, current_user).window(Payment.created_at, shift_of_payment(), start_date, end_date),
             Payment.status == "paid"
         )
         if current_user is not None:
@@ -228,40 +243,51 @@ class AnalyticsService:
         return result
     
     def get_sales_report(self, date_from: datetime, date_to: datetime, group_by: str, current_user=None) -> List[Dict]:
-        """Savdo hisoboti"""
-        if group_by == "hour":
-            group_column = func.to_char(Order.created_at, 'YYYY-MM-DD HH24:00')
-        elif group_by == "day":
-            group_column = func.to_char(Order.created_at, 'YYYY-MM-DD')
-        elif group_by == "week":
-            group_column = func.to_char(Order.created_at, 'IYYY-IW')
-        else:  # month
-            group_column = func.to_char(Order.created_at, 'YYYY-MM')
-        
+        """Savdo hisoboti.
+
+        TUZATISH (2026-10): `to_char(created_at)` UTC'da guruhlardi (Toshkent
+        00:00–05:00 kechagi kunga). Endi tenant zonasi + ish kuni, Python'da.
+        Natija shakli o'zgarmadi (period / orders_count / revenue / avg_check).
+        """
+        from core.timeutils import to_local
+        bd = self._bd(None, current_user)
+
         report_query = self.db.query(
-            group_column.label('period'),
-            func.count(Order.id).label('orders_count'),
-            func.sum(Payment.amount).label('revenue'),
-            func.avg(Payment.amount).label('avg_check')
+            Order.created_at, Order.shift_id, Payment.amount,
         ).join(Payment, Payment.order_id == Order.id).filter(
-            Order.created_at >= date_from,
-            Order.created_at <= date_to,
+            bd.window(Order.created_at, Order.shift_id, date_from, date_to),
             Payment.status == "paid"
         )
         if current_user is not None:
             from deps import apply_tenant_filter
             report_query = apply_tenant_filter(report_query, Order, current_user)
 
-        results = report_query.group_by('period').order_by('period').all()
+        agg: Dict[str, list] = {}
+        for created_at, shift_id, amount in report_query.all():
+            if created_at is None:
+                continue
+            day = bd.day_of(created_at, shift_id)
+            if group_by == "hour":
+                key = f"{day.isoformat()} {to_local(created_at).hour:02d}:00"
+            elif group_by == "day":
+                key = day.isoformat()
+            elif group_by == "week":
+                iso = day.isocalendar()
+                key = f"{iso[0]}-{iso[1]:02d}"
+            else:  # month
+                key = day.strftime("%Y-%m")
+            cur = agg.setdefault(key, [0, 0.0])
+            cur[0] += 1
+            cur[1] += float(amount or 0)
 
         return [
             {
-                "period": r.period,
-                "orders_count": r.orders_count,
-                "revenue": float(r.revenue or 0),
-                "avg_check": float(r.avg_check or 0)
+                "period": k,
+                "orders_count": agg[k][0],
+                "revenue": agg[k][1],
+                "avg_check": agg[k][1] / agg[k][0] if agg[k][0] else 0.0,
             }
-            for r in results
+            for k in sorted(agg)
         ]
     
     def get_sales_summary(self, date_from: datetime, date_to: datetime, current_user=None) -> Dict[str, Any]:
@@ -464,15 +490,19 @@ class AnalyticsService:
         ]
     
     def get_hourly_stats(self, date: datetime, current_user=None) -> List[Dict]:
-        """Soatlik statistika"""
-        start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_of_day = start_of_day + timedelta(days=1)
+        """Soatlik statistika.
 
-        hour_col = func.extract('hour', Order.created_at)
+        TUZATISH (2026-10): `extract('hour', created_at)` UTC soatini berardi —
+        Toshkent 14:00 dagi sotuv "9" ustunida turardi. Endi mahalliy soat.
+        Kun chegarasi `day_bounds` (tenant zonasi): naive `date` ham shu
+        zonaning sanasi deb olinadi. Bu SOAT kesimi — ish kuni qoidasi
+        qo'llanmaydi (kalendar kunning 0–23 soati).
+        """
+        from core.timeutils import day_bounds, to_local
+        start_of_day, end_of_day = day_bounds(date.date() if isinstance(date, datetime) else date)
+
         query = self.db.query(
-            hour_col.label('hour'),
-            func.count(Order.id).label('orders_count'),
-            func.sum(Payment.amount).label('revenue')
+            Order.created_at, Payment.amount,
         ).join(Payment, Payment.order_id == Order.id).filter(
             Order.created_at >= start_of_day,
             Order.created_at < end_of_day,
@@ -482,19 +512,19 @@ class AnalyticsService:
             from deps import apply_tenant_filter
             query = apply_tenant_filter(query, Order, current_user)
 
-        results = query.group_by(hour_col).order_by(hour_col).all()
+        counts = [0] * 24
+        revenue = [0.0] * 24
+        for created_at, amount in query.all():
+            if created_at is None:
+                continue
+            h = to_local(created_at).hour
+            counts[h] += 1
+            revenue[h] += float(amount or 0)
 
-        # Barcha soatlar uchun to'ldirish
-        hourly_data = []
-        for hour in range(24):
-            result = next((r for r in results if int(r.hour) == hour), None)
-            hourly_data.append({
-                "hour": hour,
-                "orders_count": result.orders_count if result else 0,
-                "revenue": float(result.revenue) if result and result.revenue else 0
-            })
-        
-        return hourly_data
+        return [
+            {"hour": h, "orders_count": counts[h], "revenue": revenue[h]}
+            for h in range(24)
+        ]
     
     def export_report(self, report_type: str, date_from: datetime, date_to: datetime, format: str, current_user=None) -> str:
         """Hisobotni eksport qilish"""

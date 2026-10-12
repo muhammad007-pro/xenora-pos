@@ -313,6 +313,25 @@ body{background:radial-gradient(ellipse 120% 72% at 75% -10%,#0d1c33 0%,#0a1628 
         </div>
       </div>
 
+      <!-- HISOBOT KUNI: kalendar / smena (backend core/business_day.py) -->
+      <div class="setting-card">
+        <div class="setting-card-title">🗓️ Hisobot kuni</div>
+        <div class="form-group">
+          <label for="cfgReportDay">Kunlik savdo qanday hisoblansin</label>
+          <select id="cfgReportDay">
+            <option value="calendar">Kalendar kun (00:00 — 00:00)</option>
+            <option value="shift">Smena bo'yicha</option>
+          </select>
+        </div>
+        <div class="toggle-hint">
+          Kechasi ishlaydigan do'konlar uchun <b>smena bo'yicha</b> tanlang: yarim tundan
+          keyin (06:00 gacha) qilingan savdo smena ochilgan kunga yoziladi.<br>
+          Smena ochilmagan savdo va 06:00 dan keyingisi kalendar kuniga tushadi.
+          Smenani har kuni yoping — aks holda tungi savdo ertangi kunda qoladi.
+        </div>
+        <div class="toggle-hint" id="rdStatus" style="margin-top:.375rem"></div>
+      </div>
+
       <!-- POS terminal: sotuvchi avto-qulf (qurilma sozlamasi — localStorage) -->
       <div class="setting-card">
         <div class="setting-card-title">🔒 Sotuvchi avto-qulf (POS terminal)</div>
@@ -1076,6 +1095,30 @@ document.getElementById('cfgBlockOversell').onchange = async (e) => {
   loadStockGuard();
 };
 
+// ── Hisobot kuni (kalendar / smena) ──────────────────────────────────────────
+// Darhol saqlanadi: HAMMA hisobot raqamlariga ta'sir qiladi, shuning uchun
+// tasdiq so'raladi. Backend o'zgarishni audit jurnaliga yozadi.
+async function loadReportDay() {
+  const r = await api.get('/settings/report-day').catch(()=>null);
+  if (!r || r.detail) return;
+  document.getElementById('cfgReportDay').value = r.mode;
+  document.getElementById('rdStatus').innerHTML = r.mode === 'shift'
+    ? `✅ Smena bo'yicha — tungi savdo ${r.grace_hours}:00 gacha smena kuniga yoziladi.`
+    : '⚪ Kalendar kun — hisobot 00:00 da yopiladi.';
+}
+
+document.getElementById('cfgReportDay').onchange = async (e) => {
+  const mode = e.target.value;
+  if (!confirm("Hisobot kuni o'zgartirilsinmi?\n\nDashboard, foyda va barcha hisobotlardagi kunlik raqamlar yangi qoida bilan hisoblanadi.")) {
+    loadReportDay();
+    return;
+  }
+  const res = await api.patch('/settings/report-day', { mode });
+  if (res && res.message) toast(res.message, 'success');
+  else toast(res?.detail || 'Xatolik', 'error');
+  loadReportDay();
+};
+
 document.getElementById('saveAppBtn').onclick = async () => {
   const d = {
     currency:     document.getElementById('cfgCurrency').value.trim()||'UZS',
@@ -1340,7 +1383,7 @@ renderBtypes();
 // bog'liq. Shuning uchun `/settings/printer` javobini kutmaymiz: agar u
 // xato bersa ham brauzerdagi foydalanuvchi izohni ko'rishi kerak.
 _loadElectronPrinters();
-Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings(), loadLoyaltySettings(), loadStockGuard()]);
+Promise.all([loadCafeInfo(), loadAppSettings(), loadPrinterSettings(), loadPaymentSettings(), loadFiscalSettings(), loadLoyaltySettings(), loadStockGuard(), loadReportDay()]);
 loadPharmacyFlags();
 loadSalonFlags();
 loadB2bFlags();

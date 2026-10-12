@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from database import get_db
@@ -86,10 +86,13 @@ async def get_shifts(
         query = query.filter(Shift.user_id == user_id)
     
     if date:
-        target_date = datetime.strptime(date, "%Y-%m-%d")
+        # Toshkent kuni (2026-10): naive sana UTC deb solishtirilardi (kun 05:00
+        # dan boshlanardi) va 23:59:59 dan keyingi oxirgi soniya tushib qolardi.
+        from core.timeutils import day_bounds
+        d_start, d_end = day_bounds(datetime.strptime(date, "%Y-%m-%d").date())
         query = query.filter(
-            Shift.start_time >= target_date,
-            Shift.start_time < target_date.replace(hour=23, minute=59, second=59)
+            Shift.start_time >= d_start,
+            Shift.start_time < d_end,
         )
     
     shifts = query.order_by(Shift.start_time.desc()).all()
@@ -366,6 +369,44 @@ async def get_active_shift(
         return None
 
     return ShiftInDB.model_validate(shift)
+
+
+#: Smena shundan uzoq ochiq tursa — admin panelda ogohlantirish.
+STALE_SHIFT_HOURS = 24
+
+
+@router.get("/open-alerts")
+async def get_open_shift_alerts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_analytics")),
+):
+    """Uzoq (24 soatdan ortiq) ochiq qolgan smenalar — egasiga ogohlantirish.
+
+    NEGA (jonli, 2026-10): MANHATTAN'da smena 8 kun, 1001 BARAKA'da 4 kun
+    yopilmay turgan — egasi bilmagan. Ochiq smena Z-hisobotni buzadi va
+    "smena bo'yicha" hisobot kunida (core/business_day.py) himoya tufayli
+    tungi savdo smena kuniga TUSHMAYDI (06:00 dan keyin kalendar kuni).
+    Faqat o'qish; hech narsa yopilmaydi.
+    """
+    now = utc_now()
+    cutoff = now - timedelta(hours=STALE_SHIFT_HOURS)
+    q = db.query(Shift).filter(Shift.end_time.is_(None), Shift.start_time < cutoff)
+    shifts = apply_tenant_filter(q, Shift, current_user).order_by(Shift.start_time).all()
+    alerts = []
+    for s in shifts:
+        hours = (now - to_utc(s.start_time)).total_seconds() / 3600
+        days = int(hours // 24)
+        user = db.query(User.full_name).filter(User.id == s.user_id).first() if s.user_id else None
+        alerts.append({
+            "shift_id":   s.id,
+            "user_name":  (user[0] if user else None) or "—",
+            "start_time": to_local(s.start_time).isoformat(),
+            "opened_at":  _fmt_local(s.start_time),
+            "hours_open": round(hours, 1),
+            "days_open":  days,
+            "message":    f"Smena {days} kundan beri ochiq",
+        })
+    return {"threshold_hours": STALE_SHIFT_HOURS, "alerts": alerts}
 
 
 @router.get("/{shift_id}/report")

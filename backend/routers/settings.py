@@ -451,6 +451,42 @@ async def update_monthly_goal(
     return {"target": target, "message": "Oylik maqsad saqlandi"}
 
 
+# ── Hisobot kuni: kalendar yoki smena bo'yicha (core/business_day.py) ──────────
+# ⚠️ `/{config_name}` dan OLDIN turishi SHART — aks holda o'sha umumiy marshrut
+# "report-day" ni config nomi deb ushlab oladi.
+@router.get("/report-day")
+async def get_report_day(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_analytics")),
+):
+    """Hisobot kuni rejimi: "calendar" (standart) | "shift"."""
+    from core.business_day import SHIFT_GRACE_HOURS, get_mode
+    tid = resolve_tenant_id(db, current_user)
+    return {"mode": get_mode(db, tid), "grace_hours": SHIFT_GRACE_HOURS}
+
+
+@router.patch("/report-day")
+async def update_report_day(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("manage_settings")),
+):
+    """Rejimni o'zgartirish. Hisobot RAQAMLARIGA ta'sir qiladi — audit yoziladi."""
+    from core.business_day import MODES, SHIFT_GRACE_HOURS, get_mode, set_mode
+    from core.audit import log_audit
+    tid = resolve_tenant_id(db, current_user)
+    if tid is None:
+        raise HTTPException(status_code=400, detail="Sozlama saqlash uchun do'kon aniqlanmadi")
+    mode = (payload or {}).get("mode")
+    if mode not in MODES:
+        raise HTTPException(status_code=400, detail="Rejim noto'g'ri: 'calendar' yoki 'shift' bo'lishi kerak")
+    old = get_mode(db, tid)
+    set_mode(db, tid, mode)
+    log_audit(current_user, "settings", "UPDATE", "report_day", tenant_id=tid,
+              detail={"from": old, "to": mode})
+    return {"mode": mode, "grace_hours": SHIFT_GRACE_HOURS, "message": "Hisobot kuni sozlamasi saqlandi"}
+
+
 @router.get("/{config_name}")
 async def get_settings(
     config_name: str,

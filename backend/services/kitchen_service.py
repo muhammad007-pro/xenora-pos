@@ -157,10 +157,14 @@ class KitchenService:
         """Oshxona statistikasi"""
         from sqlalchemy import func
         
-        target_date = date or datetime.now().date()
-        
+        # Toshkent kuni (2026-10): `func.date()` / `datetime.now()` UTC edi.
+        from core.timeutils import day_bounds, tenant_now
+        target_date = date or tenant_now().date()
+        d_start, d_end = day_bounds(target_date)
+
         query = self.db.query(Order).filter(
-            func.date(Order.created_at) == target_date
+            Order.created_at >= d_start,
+            Order.created_at < d_end,
         )
         
         total_orders = query.count()

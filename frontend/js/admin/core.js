@@ -415,8 +415,36 @@ async function apiFetch(path) {
   return res.json();
 }
 
+// ── Uzoq ochiq smena ogohlantirishi ──────────────────────────────────────────
+// Jonli holat (2026-10): smenalar kunlab yopilmay qolgan (8 va 4 kun), egasi
+// bilmagan. Ochiq smena Z-hisobotni buzadi va "smena bo'yicha" hisobot kunida
+// tungi savdo smena kuniga tushmaydi. Yordamchi blok: xato bo'lsa jimgina
+// yashirinadi (asosiy KPI'larga ta'sir qilmasin), toast chiqarilmaydi.
+async function loadStaleShiftAlert() {
+  const box = document.getElementById('staleShiftAlert');
+  if (!box) return;
+  let data = null;
+  try { data = await apiFetch('/shifts/open-alerts'); } catch { data = null; }
+  const alerts = (data && data.alerts) || [];
+  if (!alerts.length) { box.style.display = 'none'; box.textContent = ''; return; }
+  box.textContent = '';
+  const title = document.createElement('div');
+  title.style.fontWeight = '700';
+  title.textContent = '⚠️ Yopilmagan smena';
+  box.appendChild(title);
+  alerts.forEach(a => {
+    const row = document.createElement('div');
+    // textContent — foydalanuvchi ismi HTML sifatida talqin qilinmaydi.
+    row.textContent = `${a.message} — ${a.user_name} (#${a.shift_id}, ochilgan: ${a.opened_at}). `
+      + 'Kassada smenani yoping, aks holda kunlik hisobot va Z-hisobot noto\'g\'ri chiqadi.';
+    box.appendChild(row);
+  });
+  box.style.display = '';
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 async function loadDashboard() {
+  loadStaleShiftAlert();
   try {
     // ⚠️ `.catch(() => null)` xatoni JIMGINA yutadi. Aynan shu sabab serverdagi
     // 500 xatosi kartalarni "buzuq" emas, "BO'SH" qilib ko'rsatgan edi va muammo

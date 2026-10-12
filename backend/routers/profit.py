@@ -80,7 +80,7 @@ _MEMBERSHIP_TYPES  = frozenset({"fitness", "school"})
 # ─── Yordamchi funksiyalar ────────────────────────────────────────────────────
 
 def _period_range(period: str, start_date=None, end_date=None,
-                  date_from=None, date_to=None):
+                  date_from=None, date_to=None, today=None):
     """today | week | month | aniq oraliq → (start_date, end_date) kalendar sanalar.
 
     TA'RIF `core/timeutils.py:period_dates()` da — YAGONA MANBA (2026-09).
@@ -96,6 +96,7 @@ def _period_range(period: str, start_date=None, end_date=None,
         period,
         date_from if date_from is not None else start_date,
         date_to   if date_to   is not None else end_date,
+        today=today,
     )
 
 
@@ -177,13 +178,24 @@ def _get_biz_type(db: Session, current_user: User) -> str:
     return (cafe.business_type if cafe else "restaurant") or "restaurant"
 
 
-def _sales_query(db: Session, current_user: User, start: date, end: date):
+def _business_day(db: Session, current_user: User):
+    from core.business_day import BusinessDay
+    return BusinessDay(db, current_user)
+
+
+def _sales_query(db: Session, current_user: User, start: date, end: date, bd=None):
     # Kun chegarasi TOSHKENT zonasida aware datetime'ga aylantiriladi
     # (`_dt_bounds` -> `core.timeutils.day_bounds`). `func.date()` ISHLATILMAYDI:
     # u server zonasida (UTC) kesardi va PostgreSQL'ga xos `timezone()` ham
     # SQLite testlarida yo'q. Bu yo'l ikkala dialektda ham bir xil ishlaydi va
     # boshqa uch ekran bilan AYNAN bir xil kun ta'rifini beradi.
+    #
+    # Hisobot kuni (2026-10): `bd.window()` — kalendar rejimida aynan
+    # `created_at >= _s_dt AND created_at <= _e_dt`, smena rejimida tungi savdo
+    # smena ochilgan kunga (core/business_day.py).
     _s_dt, _e_dt = _dt_bounds(start, end)
+    if bd is None:
+        bd = _business_day(db, current_user)
     q = (
         db.query(OrderItem)
         .join(Order, OrderItem.order_id == Order.id)
@@ -207,8 +219,7 @@ def _sales_query(db: Session, current_user: User, start: date, end: date):
             # ishlatadi (`tenant_now`/`day_bounds`) — `daily_number` ham Toshkent
             # kuni. Natijada kechqurun 19:00 dan keyingi (Toshkent 00:00+) sotuv
             # bu sahifada KECHAgi kunga tushardi.
-            Order.created_at >= _s_dt,
-            Order.created_at <= _e_dt,
+            bd.window(Order.created_at, Order.shift_id, _s_dt, _e_dt),
         )
     )
     return apply_tenant_filter(q, Order, current_user)
@@ -448,7 +459,9 @@ async def get_profit_summary(
 ):
     """Davr bo'yicha foyda xulosasi — biznes turiga mos ko'rsatkichlar"""
     ensure_recurring_expenses(db, current_user)  # takroriy xarajatlar shu oygacha generatsiya
-    start, end = _period_range(period, start_date, end_date, date_from, date_to)
+    # "bugun" — ish kuni bo'yicha (smena rejimida tunda kechagi kun davom etadi).
+    start, end = _period_range(period, start_date, end_date, date_from, date_to,
+                               today=_business_day(db, current_user).today())
     biz_type  = _get_biz_type(db, current_user)
     expenses  = _fetch_expenses(db, current_user, start, end)
     # UI uchun: "Bu davrga tegishli X so'm (jami Y so'm dan)". Do'konchi
@@ -634,25 +647,41 @@ async def get_profit_timeline(
             })
         return {"group": trunc, "days": days, "business_type": biz_type, "points": points}
 
-    # Mahsulot asosli timeline (asl mantiq)
-    bucket = func.date_trunc(trunc, Order.created_at).label("bucket")
+    # Mahsulot asosli timeline.
+    # TUZATISH (2026-10, feature/business-day): ilgari `date_trunc(created_at)`
+    # SQL'da guruhlardi — u SERVER zonasida (UTC) kesadi, ya'ni Toshkent
+    # 00:00–05:00 dagi sotuv KECHAGI nuqtaga tushardi (MANHATTAN 10.10:
+    # 12 570 000 ko'rsatardi, /profit/summary esa 14 105 000). Endi chek
+    # bo'yicha yig'ib, kun Python'da `bd.day_of()` bilan aniqlanadi — filtr
+    # (`_sales_query`) bilan BIR qoida. Hafta/oy kaliti xarajat xaritasidagi
+    # `bucket_start` bilan bir xil.
+    from services.expense_allocation import bucket_start
+    bd = _business_day(db, current_user)
     rows = (
-        _sales_query(db, current_user, start, end)
+        _sales_query(db, current_user, start, end, bd=bd)
         .with_entities(
-            bucket,
+            Order.id,
+            Order.created_at,
+            Order.shift_id,
             func.sum(_REVENUE_EXPR).label("revenue"),
             func.sum(_COST_EXPR * OrderItem.quantity).label("cost"),
         )
-        .group_by(bucket)
-        .order_by(bucket)
+        .group_by(Order.id, Order.created_at, Order.shift_id)
         .all()
     )
+    agg: dict = {}
+    for r in rows:
+        day = bd.day_of(r.created_at, r.shift_id)
+        if day is None:
+            continue
+        key = bucket_start(day, trunc).isoformat()
+        cur = agg.setdefault(key, [0.0, 0.0])
+        cur[0] += float(r.revenue or 0)
+        cur[1] += float(r.cost or 0)
 
     points = []
-    for r in rows:
-        d_key   = r.bucket.date().isoformat() if r.bucket else None
-        revenue = float(r.revenue or 0)
-        cost    = float(r.cost or 0)
+    for d_key in sorted(agg):
+        revenue, cost = agg[d_key]
         exp_amt = exp_map.get(d_key, 0)
         points.append({
             "date":         d_key,
@@ -908,7 +937,8 @@ async def get_profit_by_receipt(
 ):
     """Chek bo'yicha foyda — har chek uchun tushum, tan narx, foyda, marja."""
     t0 = time.perf_counter()
-    start, end = _period_range(period, None, None, date_from, date_to)
+    start, end = _period_range(period, None, None, date_from, date_to,
+                               today=_business_day(db, current_user).today())
 
     if sort not in _RECEIPT_SORTS:
         raise HTTPException(400, f"Noma'lum saralash: {sort!r}. Ruxsat: {', '.join(_RECEIPT_SORTS)}")

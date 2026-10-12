@@ -23,6 +23,17 @@ from services.recipe_inventory_service import deduct_recipe_ingredients
 router = APIRouter()
 
 
+def _date_filter(q, date_from, date_to):
+    """Toshkent kuni bo'yicha (2026-10): `func.date()` UTC'da kesardi —
+    00:00–05:00 dagi yozuv kechagi sanaga tushardi."""
+    from core.timeutils import day_bounds, parse_date
+    if date_from:
+        q = q.filter(StaffMeal.created_at >= day_bounds(parse_date(date_from, "date_from"))[0])
+    if date_to:
+        q = q.filter(StaffMeal.created_at < day_bounds(parse_date(date_to, "date_to"))[1])
+    return q
+
+
 @router.post("/", response_model=StaffMealInDB)
 async def create_staff_meal(
     data: StaffMealCreate,
@@ -133,10 +144,7 @@ async def list_staff_meals(
         q = q.filter(StaffMeal.tenant_id == tenant_id)
     if employee_id:
         q = q.filter(StaffMeal.employee_id == employee_id)
-    if date_from:
-        q = q.filter(func.date(StaffMeal.created_at) >= date_from)
-    if date_to:
-        q = q.filter(func.date(StaffMeal.created_at) <= date_to)
+    q = _date_filter(q, date_from, date_to)
 
     total = q.count()
     meals = q.order_by(StaffMeal.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -179,10 +187,7 @@ async def staff_meal_report(
     q = db.query(StaffMeal)
     if tenant_id:
         q = q.filter(StaffMeal.tenant_id == tenant_id)
-    if date_from:
-        q = q.filter(func.date(StaffMeal.created_at) >= date_from)
-    if date_to:
-        q = q.filter(func.date(StaffMeal.created_at) <= date_to)
+    q = _date_filter(q, date_from, date_to)
 
     meals = q.all()
 

@@ -3,6 +3,27 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.5] — 2026-10-12 — Hisobot kuni: kalendar yoki smena bo'yicha
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+Server deploy bilan darhol ishlaydi (hisob serverda). Sozlamalar sahifasi va
+dashboard ogohlantirishi brauzer/`app.xenora.uz` da; `.exe` ga yangi build bilan.
+
+### 🗓️ Hisobot kuni
+* yangi sozlama "Hisobot kuni": **Kalendar kun** (standart, avvalgidek) yoki
+  **Smena bo'yicha** — kechasi ishlaydigan do'kon uchun. Smena D kuni ochilgan
+  bo'lsa, ertasi 06:00 gacha qilingan savdo D kuniga yoziladi; smenasiz savdo
+  va 06:00 dan keyingisi kalendar kuniga
+* dashboard, foyda, store-margin, hisobotlar, kassir hisoboti — bitta qoida
+* dashboard'da "Smena N kundan beri ochiq" ogohlantirishi (24 soatdan uzoq)
+
+### 📊 Hisobot tuzatishlari
+* kunlik qatorlar endi Toshkent kuni bo'yicha — ilgari UTC bo'yicha (kun 05:00 dan)
+  guruhlanardi va jami bilan mos kelmasdi (sotuv, foyda, soliq hisobotlari,
+  foyda grafigi, soatlik statistika, bo'limlar, oshxona, xodim ovqati, ombor tarixi)
+* "Savdo" hisobotiga **nasiya** qo'shildi (tovar ketgan kunda); jami ostida
+  "shundan nasiya" ko'rsatiladi
+
 ## [1.13.4] — 2026-10-12 — Qaytarish tiklandi ("Sotuv qatori topilmadi")
 
 Backend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

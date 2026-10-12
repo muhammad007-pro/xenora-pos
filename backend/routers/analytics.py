@@ -10,6 +10,9 @@ from deps import get_current_user, get_current_active_user, has_permission, appl
 from services.analytics_service import AnalyticsService
 from core.timeutils import period_bounds, period_dates, tenant_now, to_local
 from core.tenant_config import get_tenant_config
+# Hisobot kuni (kalendar / smena) — yagona manba. Kalendar rejimida filtr va
+# kunlik guruhlash avvalgisi bilan bit-ba-bit bir xil.
+from core.business_day import BusinessDay, shift_of_payment
 # TUZATISH (audit 2026-08): daromad CHEGIRMA AYIRILGAN bo'lishi kerak — avval
 # OrderItem.total_price (katalog summasi) olinardi. Izoh/formula: utils/revenue.py
 from utils.revenue import (
@@ -47,11 +50,11 @@ async def get_summary(
     from deps import apply_tenant_filter
 
     now        = tenant_now()
-    start, end = period_bounds(period, date_from, date_to)
+    bd         = BusinessDay(db, current_user)
+    start, end = bd.period_bounds(period, date_from, date_to)
 
     orders_q = apply_tenant_filter(db.query(Order), Order, current_user).filter(
-        Order.created_at >= start,
-        Order.created_at <= end,
+        bd.window(Order.created_at, Order.shift_id, start, end),
         Order.status == "completed",
     )
     orders = orders_q.all()
@@ -62,8 +65,7 @@ async def get_summary(
     total_customers = apply_tenant_filter(db.query(Customer), Customer, current_user).count()
 
     payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
-        Payment.created_at >= start,
-        Payment.created_at <= end,
+        bd.window(Payment.created_at, shift_of_payment(), start, end),
         Payment.status == "paid",
     ).all()
     by_method: dict = {}
@@ -77,7 +79,9 @@ async def get_summary(
     # 7/30 kunni ko'rsatadi (yuqoridagi izoh: KPI filtridan mustaqil). Aniq
     # oraliq grafigi kerak bo'lsa `/profit/timeline` ishlatiladi.
     chart_days   = 30 if period == "month" else 7
-    chart_start  = (now - timedelta(days=chart_days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Boshlanish — ish kuni bo'yicha "bugun"dan (kalendar rejimida aynan avvalgi qiymat).
+    from core.timeutils import day_bounds
+    chart_start, _ = day_bounds(bd.today() - timedelta(days=chart_days - 1))
     chart_orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
         Order.created_at >= chart_start,
         Order.status == "completed",
@@ -94,16 +98,20 @@ async def get_summary(
     #
     # Endi kunlar TOSHKENT sanasi bo'yicha guruhlanadi: qulash yo'q va yarim tundan
     # keyingi (00:00–05:00) sotuv o'z kuniga tushadi, oldingi kunga emas.
+    #
+    # Ish kuni (2026-10): `bd.day_of()` — kalendar rejimida `to_local().date()`
+    # ning o'zi, smena rejimida tunda sotilgani smena ochilgan kunga.
     rev_by_day: dict = {}
     for o in chart_orders:
         if not o.created_at:
             continue
-        d = to_local(o.created_at).date()
+        d = bd.day_of(o.created_at, o.shift_id)
         rev_by_day[d] = rev_by_day.get(d, 0) + (o.final_amount or 0)
 
+    today = bd.today()
     daily: list = []
     for i in range(chart_days - 1, -1, -1):
-        d = (now - timedelta(days=i)).date()
+        d = today - timedelta(days=i)
         daily.append({"date": d.isoformat(), "revenue": rev_by_day.get(d, 0)})
 
     return {
@@ -127,9 +135,15 @@ async def get_dashboard_data(
     
     # Vaqt oralig'ini aniqlash
     now = tenant_now()
-    
+    bd = BusinessDay(db, current_user)
+
     if range == "today":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if bd.is_shift:
+            # Smena rejimi: tunda (00:00–06:00) kechagi smena hali ochiq bo'lsa
+            # "bugun" = kechagi ish kuni. Kalendar rejimida bu shoxga kirilmaydi.
+            from core.timeutils import day_bounds
+            start_date, _ = day_bounds(bd.today())
         end_date = now
         previous_start = start_date - timedelta(days=1)
         previous_end = start_date - timedelta(seconds=1)
@@ -150,8 +164,8 @@ async def get_dashboard_data(
         previous_end = start_date - timedelta(seconds=1)
     
     # Joriy davr ma'lumotlari (BOSQICH 1.5: tenant bo'yicha cheklash)
-    current_data = analytics_service.get_period_data(start_date, end_date, current_user=current_user)
-    previous_data = analytics_service.get_period_data(previous_start, previous_end, current_user=current_user)
+    current_data = analytics_service.get_period_data(start_date, end_date, current_user=current_user, bd=bd)
+    previous_data = analytics_service.get_period_data(previous_start, previous_end, current_user=current_user, bd=bd)
 
     # Trendlarni hisoblash
     def calc_trend(current, previous):
@@ -160,16 +174,16 @@ async def get_dashboard_data(
         return round((current - previous) / previous * 100, 1)
     
     # Daromad grafigi
-    revenue_data = analytics_service.get_revenue_chart_data(start_date, end_date, range, current_user=current_user)
+    revenue_data = analytics_service.get_revenue_chart_data(start_date, end_date, range, current_user=current_user, bd=bd)
 
     # Ommabop mahsulotlar
-    popular_products = analytics_service.get_popular_products(start_date, end_date, limit=5, current_user=current_user)
+    popular_products = analytics_service.get_popular_products(start_date, end_date, limit=5, current_user=current_user, bd=bd)
 
     # Kategoriyalar bo'yicha savdo
-    categories_data = analytics_service.get_sales_by_category(start_date, end_date, current_user=current_user)
+    categories_data = analytics_service.get_sales_by_category(start_date, end_date, current_user=current_user, bd=bd)
 
     # To'lov usullari
-    payment_methods = analytics_service.get_payment_methods_data(start_date, end_date, current_user=current_user)
+    payment_methods = analytics_service.get_payment_methods_data(start_date, end_date, current_user=current_user, bd=bd)
 
     # So'nggi buyurtmalar
     recent_orders = analytics_service.get_recent_orders(limit=10, current_user=current_user)
@@ -200,7 +214,7 @@ async def get_dashboard_data(
             # ⚠️ NOMI "net_profit" — ORQAGA MOSLIK uchun. Ma'nosi YALPI FOYDA:
             # operatsion xarajat (ijara/maosh) AYIRILMAGAN. Xarajat ayirilgan
             # haqiqiy sof foyda faqat `/profit/summary` da.
-            return round(period_totals(db, current_user, s, e)["gross_profit"], 0)
+            return round(period_totals(db, current_user, s, e, bd=bd)["gross_profit"], 0)
 
         net_profit = _net_profit(start_date, end_date)
         prev_profit = _net_profit(previous_start, previous_end)
@@ -212,8 +226,15 @@ async def get_dashboard_data(
         goal_cfg = get_tenant_config(db, tid, "monthly_goal") if tid is not None else {}
         monthly_goal_target = float((goal_cfg or {}).get("target") or 0)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if bd.is_shift:
+            # Oy ham ish kuni bo'yicha: 1-kun ertalabki tungi savdo o'tgan oyga.
+            from core.timeutils import day_bounds
+            month_start, _ = day_bounds(bd.today().replace(day=1))
+            month_cond = bd.window(Order.created_at, Order.shift_id, month_start, now)
+        else:
+            month_cond = Order.created_at >= month_start   # avvalgi shart, bit-ba-bit
         mq = db.query(sqlfunc.coalesce(sqlfunc.sum(Order.final_amount), 0)).filter(
-            Order.created_at >= month_start, Order.status == "completed"
+            month_cond, Order.status == "completed"
         )
         mq = apply_tenant_filter(mq, Order, current_user)
         monthly_actual = round(float(mq.scalar() or 0), 0)
@@ -482,7 +503,7 @@ async def get_kitchen_stats(
     for o in orders:
         sec = (o.completed_at - o.preparing_started_at).total_seconds()
         if 0 < sec < 7200:
-            daily[o.created_at.date().isoformat()].append(sec / 60)
+            daily[to_local(o.created_at).date().isoformat()].append(sec / 60)
 
     all_times = [t for v in daily.values() for t in v]
     overall_avg = round(sum(all_times) / len(all_times), 1) if all_times else 0
@@ -561,7 +582,8 @@ async def get_store_margin(
     """
     # YUQORI CHEGARA `period_bounds()` ichida: soati noto'g'ri qurilmadan kelgan
     # KELAJAK sanali buyurtma hisobga kirmasin.
-    start, end = period_bounds(period, date_from, date_to)
+    bd = BusinessDay(db, current_user)
+    start, end = bd.period_bounds(period, date_from, date_to)
 
     from sqlalchemy import func as sqlfunc
 
@@ -569,8 +591,7 @@ async def get_store_margin(
         """Davr + status + tenant — ikkala so'rovda AYNAN bir xil."""
         q = q.join(Order, Order.id == OrderItem.order_id) \
              .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id) \
-             .filter(Order.created_at >= start,
-                     Order.created_at <= end,
+             .filter(bd.window(Order.created_at, Order.shift_id, start, end),
                      Order.status == "completed")
         return apply_tenant_filter(q, Order, current_user)
 
@@ -653,11 +674,11 @@ async def get_cashier_report(
     current_user: User = Depends(has_permission("view_analytics")),
 ):
     """Kassir smena hisoboti вЂ” to'lov usullari breakdown (BOSQICH 14j+)"""
-    start, end = period_bounds(period, date_from, date_to)
+    bd = BusinessDay(db, current_user)
+    start, end = bd.period_bounds(period, date_from, date_to)
 
     payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
-        Payment.created_at >= start,
-        Payment.created_at <= end,
+        bd.window(Payment.created_at, shift_of_payment(), start, end),
         Payment.status == "paid",
     ).all()
 
@@ -718,7 +739,7 @@ async def get_pharmacy_stats(
 
     daily_map: dict = defaultdict(lambda: {"count": 0, "revenue": 0.0, "patients": set()})
     for o in rx_orders:
-        day = o.created_at.date().isoformat()
+        day = to_local(o.created_at).date().isoformat()
         daily_map[day]["count"]   += 1
         daily_map[day]["revenue"] += o.final_amount or 0
         pname = o.biz_meta.get("rx_patient_name", "")
@@ -914,7 +935,7 @@ async def get_auto_stats(
 
     daily_map: dict = defaultdict(float)
     for o in orders:
-        day = o.created_at.date().isoformat()
+        day = to_local(o.created_at).date().isoformat()
         daily_map[day] += o.total_amount or 0
 
     durations = []
@@ -966,7 +987,7 @@ async def get_school_stats(
 
     daily_map: dict = defaultdict(lambda: {"count": 0, "revenue": 0.0, "students": set()})
     for o in school_orders:
-        day = o.created_at.date().isoformat()
+        day = to_local(o.created_at).date().isoformat()
         daily_map[day]["count"]   += 1
         daily_map[day]["revenue"] += o.final_amount or 0
         name = (o.biz_meta or {}).get("student_name", "")
@@ -984,7 +1005,7 @@ async def get_school_stats(
     for o in all_orders:
         if not (o.biz_meta and o.biz_meta.get("student_name")):
             continue
-        month = o.created_at.strftime("%Y-%m")
+        month = to_local(o.created_at).strftime("%Y-%m")
         monthly_map[month]["count"]   += 1
         monthly_map[month]["revenue"] += o.final_amount or 0
         monthly_map[month]["students"].add((o.biz_meta.get("student_name") or "").lower())
@@ -1034,7 +1055,7 @@ async def get_dry_stats(
         if o.status in status_counts:
             status_counts[o.status] += 1
         total_revenue += o.final_amount or 0
-        day = o.created_at.date().isoformat()
+        day = to_local(o.created_at).date().isoformat()
         daily_map[day]["count"]   += 1
         daily_map[day]["revenue"] += o.final_amount or 0
 
@@ -1092,7 +1113,7 @@ async def get_hotel_stats(
 
     daily_map: dict = defaultdict(float)
     for b in active_bk:
-        day = b.created_at.date().isoformat()
+        day = to_local(b.created_at).date().isoformat()
         daily_map[day] += b.total_amount or 0
 
     # Room type revenue
@@ -1390,9 +1411,20 @@ async def get_store_dashboard(
     today_end   = now
     month_start = now - timedelta(days=30)
 
+    # Hisobot kuni (core/business_day.py). Kalendar rejimida pastdagi HAR BIR
+    # shart avvalgi ko'rinishida qoladi (GOLDEN: raqamlar bit-ba-bit), smena
+    # rejimida esa ish kuni oynasi ishlatiladi.
+    from core.timeutils import day_bounds
+    bd = BusinessDay(db, current_user)
+    if bd.is_shift:
+        today_start, _ = day_bounds(bd.today())
+
+    def _since(start, legacy):
+        return bd.window(Order.created_at, Order.shift_id, start, now) if bd.is_shift else legacy
+
     # 1. Bugungi buyurtmalar
     today_orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
-        Order.created_at >= today_start,
+        _since(today_start, Order.created_at >= today_start),
         Order.status == "completed",
     ).all()
     # ⚠️ NOM ANIQLIGI (2026-08-19): `today_revenue` — bu ACCRUAL SOTUV, ya'ni
@@ -1417,7 +1449,7 @@ async def get_store_dashboard(
         sqlfunc.sum(_A_REVENUE_EXPR).label("rev"),
     ).join(Order, Order.id == OrderItem.order_id)\
      .join(_A_SUB_SQ, _A_SUB_SQ.c.order_id == OrderItem.order_id).filter(
-        Order.created_at >= today_start,
+        _since(today_start, Order.created_at >= today_start),
         Order.status == "completed",
         Order.tenant_id == current_user.tenant_id,
     ).group_by(OrderItem.product_id).all()
@@ -1436,7 +1468,7 @@ async def get_store_dashboard(
     #
     # ⚠️ `today_profit` — YALPI foyda (xarajatsiz). Operatsion xarajat
     # (ijara/maosh) faqat `/profit/summary` da ayiriladi — u "sof foyda".
-    _tot = period_totals(db, current_user, today_start, today_end)
+    _tot = period_totals(db, current_user, today_start, today_end, bd=bd)
     today_profit = _tot["gross_profit"]
 
     # 3. Top 5 tovar (bugun tushum bo'yicha)
@@ -1482,9 +1514,14 @@ async def get_store_dashboard(
     for i in range(6, -1, -1):
         d_start = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
         d_end   = (now - timedelta(days=i)).replace(hour=23, minute=59, second=59)
+        if bd.is_shift:
+            d_start, _next = day_bounds(bd.today() - timedelta(days=i))
+            d_cond = bd.window(Order.created_at, Order.shift_id,
+                               d_start, min(_next - timedelta(microseconds=1), now))
+        else:
+            d_cond = (Order.created_at >= d_start) & (Order.created_at <= d_end)
         d_orders = apply_tenant_filter(db.query(Order), Order, current_user).filter(
-            Order.created_at >= d_start,
-            Order.created_at <= d_end,
+            d_cond,
             Order.status == "completed",
         ).all()
         daily_trend.append({
@@ -1495,7 +1532,7 @@ async def get_store_dashboard(
 
     # 7. Oylik jami
     month_orders  = apply_tenant_filter(db.query(Order), Order, current_user).filter(
-        Order.created_at >= month_start,
+        _since(month_start, Order.created_at >= month_start),
         Order.status == "completed",
     ).all()
     month_revenue = sum(o.final_amount or 0 for o in month_orders)

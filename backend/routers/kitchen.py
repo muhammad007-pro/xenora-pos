@@ -364,10 +364,15 @@ async def get_kitchen_stats(
     """Oshxona statistikasi"""
     from sqlalchemy import func
 
-    target_date = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now().date()
+    # Toshkent kuni (2026-10): `func.date()` va `datetime.now()` UTC edi —
+    # 00:00–05:00 dagi buyurtma kechagi statistikaga tushardi.
+    from core.timeutils import day_bounds, tenant_now
+    target_date = datetime.strptime(date, "%Y-%m-%d").date() if date else tenant_now().date()
+    d_start, d_end = day_bounds(target_date)
 
     query = db.query(Order).filter(
-        func.date(Order.created_at) == target_date
+        Order.created_at >= d_start,
+        Order.created_at < d_end,
     )
     # BOSQICH 1.5: tenant bo'yicha cheklash
     query = apply_tenant_filter(query, Order, current_user)

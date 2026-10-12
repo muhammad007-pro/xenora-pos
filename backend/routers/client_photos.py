@@ -13,6 +13,7 @@ from models import ClientPhoto, User
 from schemas import ClientPhotoCreate, ClientPhotoInDB, PaginatedResponse, MessageResponse
 from deps import get_current_active_user, apply_tenant_filter, resolve_tenant_id
 from config import settings
+from core.timeutils import to_local
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("before_after_photo"))])
@@ -120,7 +121,8 @@ async def get_before_after_pairs(
             pairs[key] = {
                 "appointment_id": key,
                 "service_name":   p.service_name,
-                "date":           p.created_at.date().isoformat() if p.created_at else None,
+                # Toshkent sanasi (2026-10): `.date()` UTC sanasini berardi
+                "date":           to_local(p.created_at).date().isoformat() if p.created_at else None,
                 "before": None,
                 "after":  None,
             }

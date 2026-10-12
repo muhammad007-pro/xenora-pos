@@ -5,6 +5,8 @@ from sqlalchemy import func as sqlfunc
 from datetime import datetime, timedelta
 from typing import Optional
 
+from core.timeutils import tenant_now, to_local
+
 from database import get_db
 from models import Department, Category, Product, OrderItem, Order, Inventory, User
 from utils.revenue import cost_expr, net_revenue_expr, order_subtotal_subq
@@ -251,7 +253,7 @@ async def dept_chart(
 ):
     """Bo'lim(lar) bo'yicha kunlik sotuv grafigi"""
     tid = resolve_tenant_id(db, current_user)
-    now = datetime.now()
+    now = tenant_now()   # avval naive datetime.now() (UTC) edi
     days = 7 if period == "week" else 30
     start = now - timedelta(days=days)
 
@@ -273,21 +275,25 @@ async def dept_chart(
         if not prod_ids:
             continue
 
+        # Kun (2026-10): `func.date()` UTC'da guruhlardi — 00:00–05:00 dagi
+        # sotuv kechagi ustunga tushardi. Endi chek bo'yicha olinib, kun
+        # tenant zonasida Python'da aniqlanadi.
         rows = db.query(
-            sqlfunc.date(Order.created_at).label("day"),
+            Order.created_at,
             sqlfunc.sum(OrderItem.total_price).label("total"),
         ).join(OrderItem.order).filter(
             OrderItem.product_id.in_(prod_ids),
             Order.tenant_id == tid,
             Order.status == "completed",
             Order.created_at >= start,
-        ).group_by(sqlfunc.date(Order.created_at)).all()
+        ).group_by(Order.id, Order.created_at).all()
 
+        per_day: dict = {}
         for row in rows:
-            day_str = str(row.day)
-            if day_str not in chart:
-                chart[day_str] = {}
-            chart[day_str][d_id] = round(float(row.total or 0), 0)
+            day_str = to_local(row.created_at).date().isoformat()
+            per_day[day_str] = per_day.get(day_str, 0.0) + float(row.total or 0)
+        for day_str, total in per_day.items():
+            chart.setdefault(day_str, {})[d_id] = round(total, 0)
 
     dept_names = {}
     dept_colors = {}

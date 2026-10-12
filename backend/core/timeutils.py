@@ -201,7 +201,8 @@ def period_start_date(period: str, today: _date) -> _date:
     return today - timedelta(days=PERIOD_DAYS.get(p, 1) - 1)
 
 
-def period_dates(period: str = "today", date_from=None, date_to=None, *, tz_name: str = None):
+def period_dates(period: str = "today", date_from=None, date_to=None, *, tz_name: str = None,
+                 today=None):
     """(start_date, end_date) — INKLYUZIV kalendar sanalar, tenant zonasida.
 
     • `date_from`/`date_to` berilsa — USTUN (period e'tiborsiz qoldiriladi).
@@ -210,8 +211,11 @@ def period_dates(period: str = "today", date_from=None, date_to=None, *, tz_name
       noto'g'ri qurilmadan kelgan kelajak sanali yozuv hisobga kirmasin.
     • So'ralgan davr BUTUNLAY kelajakda bo'lsa (`start > end`) — oraliq bo'sh
       qoladi va so'rov 0 qator beradi (bu ATAYIN: "ertangi hisobot" ≠ "bugun").
+    • `today` — "bugun" ni ustidan yozish. Smena rejimida kechasi 01:00 da
+      hali KECHAGI ish kuni davom etadi (core/business_day.py). Berilmasa —
+      kalendar bugun (avvalgi xulq, bit-ba-bit).
     """
-    today   = tenant_now(tz_name).date()
+    today   = today or tenant_now(tz_name).date()
     d_from  = parse_date(date_from, "date_from")
     d_to    = parse_date(date_to,   "date_to")
 
@@ -226,7 +230,8 @@ def period_dates(period: str = "today", date_from=None, date_to=None, *, tz_name
     return start, end
 
 
-def period_bounds(period: str = "today", date_from=None, date_to=None, *, tz_name: str = None):
+def period_bounds(period: str = "today", date_from=None, date_to=None, *, tz_name: str = None,
+                  today=None):
     """(start, end) aware TIMESTAMP oralig'i — `created_at >= start AND <= end` uchun.
 
     `start` = boshlanish kuni 00:00 (mahalliy), `end` = tugash kuni
@@ -236,7 +241,7 @@ def period_bounds(period: str = "today", date_from=None, date_to=None, *, tz_nam
 
     Chegarasi `<` emas, `<=` — mavjud analytics/profit filtrlari shunday.
     """
-    s_date, e_date = period_dates(period, date_from, date_to, tz_name=tz_name)
+    s_date, e_date = period_dates(period, date_from, date_to, tz_name=tz_name, today=today)
     start, _       = day_bounds(s_date, tz_name)
     _, next_day    = day_bounds(e_date, tz_name)
     end            = next_day - timedelta(microseconds=1)

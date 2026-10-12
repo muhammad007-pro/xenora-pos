@@ -97,10 +97,14 @@ async def _get_today_report(db: Session) -> str:
     from models import Order, Payment
     from sqlalchemy import func
 
-    today_start = date.today().isoformat()
+    # Toshkent kuni (2026-10): `date.today()` + `func.date()` UTC edi.
+    from core.timeutils import day_bounds, tenant_now
+    d_start, d_end = day_bounds(tenant_now().date())
+    today_start = d_start.date().isoformat()   # sarlavha uchun (avvalgi nom)
 
     orders = db.query(Order).filter(
-        func.date(Order.created_at) == today_start,
+        Order.created_at >= d_start,
+        Order.created_at < d_end,
         Order.status == "completed"
     ).all()
 

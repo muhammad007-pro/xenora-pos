@@ -402,12 +402,15 @@ async function renderSales(params){
   const area=document.getElementById('reportArea');
 
   const methodColors=['#d4b46c','#22c55e','#22c55e','#f59e0b','#ef4444'];
-  const mLabels=d.payment_methods.map(m=>m.method||'?');
+  // Nasiya endi jami savdoga kiradi (tovar ketgan kunda) — yorliq tushunarli bo'lsin.
+  const mName={cash:'Naqd',card:'Karta',credit:'Nasiya',click:'Click',payme:'Payme',qr:'QR'};
+  const mLabels=d.payment_methods.map(m=>mName[m.method]||m.method||'?');
   const mValues=d.payment_methods.map(m=>m.total);
+  const creditNote=d.credit_sales?`shundan nasiya ${fmtN(d.credit_sales)}`:'so\'m';
 
   area.innerHTML=`
   <div class="sg">
-    <div class="sc"><div class="sl">Jami savdo</div><div class="sv">${fmtN(d.total_sales)}</div><div class="ss">so'm</div></div>
+    <div class="sc"><div class="sl">Jami savdo</div><div class="sv">${fmtN(d.total_sales)}</div><div class="ss">${creditNote}</div></div>
     <div class="sc"><div class="sl">Buyurtmalar</div><div class="sv">${d.orders_count}</div><div class="ss">ta</div></div>
     <div class="sc"><div class="sl">O'rtacha chek</div><div class="sv">${fmtN(d.avg_check)}</div><div class="ss">so'm</div></div>
     <div class="sc"><div class="sl">Tranzaksiyalar</div><div class="sv">${d.transactions_count}</div><div class="ss">ta</div></div>

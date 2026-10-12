@@ -333,10 +333,13 @@ async def get_movements(
         q = q.filter(StockMovement.product_id == product_id)
     if supplier_id:
         q = q.filter(StockMovement.supplier_id == supplier_id)
+    # Toshkent kuni (2026-10): `func.date()` UTC'da kesardi — 00:00–05:00 dagi
+    # harakat kechagi sanaga tushardi.
+    from core.timeutils import day_bounds, parse_date
     if date_from:
-        q = q.filter(func.date(StockMovement.created_at) >= date_from)
+        q = q.filter(StockMovement.created_at >= day_bounds(parse_date(date_from, "date_from"))[0])
     if date_to:
-        q = q.filter(func.date(StockMovement.created_at) <= date_to)
+        q = q.filter(StockMovement.created_at < day_bounds(parse_date(date_to, "date_to"))[1])
 
     total = q.count()
     rows = q.order_by(StockMovement.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()

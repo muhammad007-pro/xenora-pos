@@ -189,14 +189,23 @@ def returns_totals(db, current_user, start, end) -> dict:
 
 def returns_by_day(db, current_user, start, end) -> dict:
     """Kun kesimida qaytarish: {"YYYY-MM-DD": {"revenue": x, "cost": y}}.
-    Kunlik grafik/jadvalli hisobotlar uchun (report_service)."""
+    Kunlik grafik/jadvalli hisobotlar uchun (report_service).
+
+    TUZATISH (2026-10, feature/business-day): ilgari `func.date(dt)` bilan
+    guruhlanardi — u SERVER zonasida (UTC) kesadi, ya'ni Toshkent 00:00–05:00
+    dagi vozvrat KECHAGI qatorga tushardi, jami esa Toshkent kuni bo'yicha edi.
+    Endi har qaytarish hujjati mahalliy kunga Python'da yoziladi — `start`/`end`
+    filtri bilan bir qoida. Vozvrat SMENA rejimida ham kalendar kuni bo'yicha
+    qoladi (hujjatda smena yo'q) — `returns_totals` bilan bir xil.
+    """
     from deps import apply_tenant_filter
+    from core.timeutils import to_local
 
     dt = return_date_expr()
     cost = return_cost_expr()          # P0-2: birlik mosligi (returns_totals bilan bir xil)
     q = (
         db.query(
-            func.date(dt).label("d"),
+            dt.label("dt"),
             func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
             func.coalesce(func.sum(cost), 0.0).label("cost"),
         )
@@ -205,15 +214,18 @@ def returns_by_day(db, current_user, start, end) -> dict:
         .outerjoin(OrderItem, OrderItem.id == ReturnItem.order_item_id)
         .outerjoin(Product, Product.id == ReturnItem.product_id)
         .filter(Return.status.in_(RETURN_COUNTED_STATUSES), dt >= start, dt <= end)
-        .group_by(func.date(dt))
+        .group_by(Return.id, dt)
     )
     if current_user is not None:
         q = apply_tenant_filter(q, Return, current_user)
 
-    return {
-        str(r.d): {"revenue": float(r.revenue or 0), "cost": float(r.cost or 0)}
-        for r in q.all()
-    }
+    out: dict = {}
+    for r in q.all():
+        key = to_local(r.dt).date().isoformat()
+        cur = out.setdefault(key, {"revenue": 0.0, "cost": 0.0})
+        cur["revenue"] += float(r.revenue or 0)
+        cur["cost"] += float(r.cost or 0)
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -238,7 +250,7 @@ def returns_by_day(db, current_user, start, end) -> dict:
 # "bir o'lchovni ikkinchisiga qo'shma" qoidasining davomi.
 # ═══════════════════════════════════════════════════════════════════════════
 
-def period_totals(db, current_user, start, end) -> dict:
+def period_totals(db, current_user, start, end, bd=None) -> dict:
     """Davr bo'yicha SOTUV yakuni (accrual, xarajatsiz).
 
     Qaytadi:
@@ -255,8 +267,16 @@ def period_totals(db, current_user, start, end) -> dict:
 
     `start`/`end` — chaqiruvchi zonasida aniqlangan chegaralar (odatda
     `core.timeutils.day_bounds`). Bu yerda zona o'zgartirilmaydi.
+
+    Sotuv oralig'i tenantning hisobot kuni rejimida (core/business_day.py):
+    kalendar rejimida shart AYNAN `created_at BETWEEN start AND end`.
+    `bd` berilmasa — joriy foydalanuvchi tenantidan quriladi.
     """
     from deps import apply_tenant_filter
+    from core.business_day import BusinessDay
+
+    if bd is None:
+        bd = BusinessDay(db, current_user)
 
     sq  = order_subtotal_subq()
     net = net_revenue_expr(sq)
@@ -272,7 +292,7 @@ def period_totals(db, current_user, start, end) -> dict:
         # (many-to-one — qator soni o'zgarmaydi)
         .outerjoin(Product, Product.id == OrderItem.product_id)
         .join(sq, sq.c.order_id == OrderItem.order_id)
-        .filter(Order.created_at >= start, Order.created_at <= end,
+        .filter(bd.window(Order.created_at, Order.shift_id, start, end),
                 Order.status == "completed")
     )
     if current_user is not None:

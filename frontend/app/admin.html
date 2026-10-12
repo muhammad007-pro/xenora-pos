@@ -488,6 +488,8 @@
       <!-- ── Dashboard ── -->
       <div class="admin-page active" id="pageDashboard">
         <div class="dash-atmos" id="dashAtmos" aria-hidden="true"></div>
+        <!-- Uzoq ochiq smena ogohlantirishi (GET /shifts/open-alerts) — bo'lmasa yashirin -->
+        <div id="staleShiftAlert" role="alert" style="display:none;margin-bottom:1rem;padding:.75rem 1rem;border-radius:10px;border:1px solid rgba(245,158,11,.45);background:rgba(245,158,11,.12);color:var(--text);font-size:.875rem;line-height:1.45;position:relative;z-index:1"></div>
         <div class="kpi-grid">
           <div class="kpi-card gold">
             <div class="kpi-label">

@@ -121,14 +121,15 @@ async def create_order(
 
     # BOSQICH 2.2: oylik buyurtma limiti tekshirish (FREE tarif: 100/oy)
     if not current_user.is_superuser and current_user.tenant_id is not None:
-        from sqlalchemy import func as sqlfunc
         cafe = db.query(Cafe).filter(Cafe.id == current_user.tenant_id).first()
         if cafe:
-            now = datetime.now()
+            # Toshkent oyi (2026-10): `extract()` UTC'da ishlardi — oyning
+            # 1-kuni 00:00–05:00 dagi buyurtma o'tgan oyga sanalardi.
+            from core.timeutils import month_bounds
+            m_start, _ = month_bounds()
             monthly_count = db.query(Order).filter(
                 Order.tenant_id == current_user.tenant_id,
-                sqlfunc.extract('year', Order.created_at) == now.year,
-                sqlfunc.extract('month', Order.created_at) == now.month
+                Order.created_at >= m_start,
             ).count()
             if not is_within_order_limit(monthly_count, cafe.subscription_plan):
                 limits = get_plan_limits(cafe.subscription_plan)

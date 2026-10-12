@@ -23,9 +23,27 @@ from core.timeutils import to_local, to_utc, utc_now
 # Kassaga tushgan pul — YAGONA manba. Nasiya qarzi to'lovlari `Payment` yozuvi
 # yaratmaydi, shuning uchun ular shu yerdan olinadi (tenant izolyatsiyasi
 # CustomerDebt join'i orqali ta'minlanadi).
-from utils.cashflow import debt_payments_totals, expected_cash as _expected_cash, cash_refund_amount as _cash_refund_amount
+from utils.cashflow import (
+    debt_payments_totals, expected_cash as _expected_cash, cash_refund_amount as _cash_refund_amount,
+    refunded_sales_totals, payment_path_cash_refunds,
+)
 
 router = APIRouter()
+
+
+def _shift_payment_query(db, current_user, legacy_fallback, order_ids, start, end):
+    """Smenaning `Payment` so'rovi (status filtrisiz) — smena buyurtmalari, eski
+    smenalarda vaqt oralig'i. Ikkala Z yo'li (yopish va chekni qayta qurish) shu
+    bitta qoidadan foydalanadi. Buyurtma yo'q bo'lsa — None."""
+    if legacy_fallback:
+        return apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
+            Payment.created_at >= start, Payment.created_at <= end,
+        )
+    if order_ids:
+        return apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
+            Payment.order_id.in_(order_ids),
+        )
+    return None
 
 
 def _returns_in_range(db, current_user, start, end):
@@ -243,28 +261,20 @@ async def close_shift(
     # "nasiya" qatori doim 0 chiqardi. Endi paid + (pending nasiya) olinadi;
     # naqd/karta qatorlari esa AVVALGIDEK faqat `paid` dan hisoblanadi.
     _status_ok = Payment.status.in_(("paid", "pending"))
-    if legacy_fallback:
-        payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
-            Payment.created_at >= start,
-            Payment.created_at <= now,
-            _status_ok,
-        ).all()
-    elif order_ids:
-        payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
-            Payment.order_id.in_(order_ids),
-            _status_ok,
-        ).all()
-    else:
-        payments = []
+    _pay_q = _shift_payment_query(db, current_user, legacy_fallback, order_ids, start, now)
+    payments = _pay_q.filter(_status_ok).all() if _pay_q is not None else []
+    # To'liq qaytarilib `refunded` bo'lgan ASL sotuv — sotuvda QOLADI, qaytarish
+    # pastda `cash_refunds` da bir marta ayiriladi (utils/cashflow izohi).
+    _ref = refunded_sales_totals(_pay_q) if _pay_q is not None else {"cash": 0, "card": 0, "order_ids": set()}
 
     # PaymentStatus — str-enum, ya'ni PaymentStatus.PAID == "paid" (True).
     # Eski yozuvlarda status oddiy matn bo'lishi mumkin — `getattr(...,'value')` shuni qoplaydi.
     def _paid(p):
         return str(getattr(p.status, "value", p.status)) == "paid"
 
-    # Naqd va karta — FAQAT haqiqatan to'langan (pul keldi).
-    cash_sales   = sum(p.amount for p in payments if p.method == "cash" and _paid(p))
-    card_sales   = sum(p.amount for p in payments if p.method in ("card", "payme", "click") and _paid(p))
+    # Naqd va karta — haqiqatan to'langan (pul keldi), keyin qaytarilganlari ham.
+    cash_sales   = sum(p.amount for p in payments if p.method == "cash" and _paid(p)) + _ref["cash"]
+    card_sales   = sum(p.amount for p in payments if p.method in ("card", "payme", "click") and _paid(p)) + _ref["card"]
     # Nasiya — pul kelmagan, lekin TOVAR SOTILGAN: Z-hisobotda alohida qator.
     # Kassada bo'lishi kerak bo'lgan naqd (expected_cash) faqat `cash_sales` dan
     # hisoblanadi — nasiya u yerga KIRMAYDI (pastda).
@@ -274,7 +284,7 @@ async def close_shift(
     # Sotuvlar soni — to'langan YOKI nasiyaga berilgan cheklar (distinct order).
     # Tugallanmagan online to'lov (click/payme, pending) sotuv deb sanalmaydi.
     paid_order_ids = {p.order_id for p in payments
-                      if p.order_id and (_paid(p) or p.method == "credit")}
+                      if p.order_id and (_paid(p) or p.method == "credit")} | _ref["order_ids"]
     sales_count    = len(paid_order_ids)
 
     # Chegirmalar jami — to'langan buyurtmalar bo'yicha
@@ -284,7 +294,8 @@ async def close_shift(
     # Filtr `_returns_in_range()` da — foyda hisoboti bilan BIR XIL qoida.
     returns = _returns_in_range(db, current_user, start, now)
     returns_total = sum(r.total_amount or 0 for r in returns)
-    cash_refunds  = sum(_cash_refund_amount(r) for r in returns)   # aralash chek: qarz qismi chiqmaydi
+    cash_refunds  = (sum(_cash_refund_amount(r) for r in returns)   # aralash chek: qarz qismi chiqmaydi
+                     + payment_path_cash_refunds(db, current_user, start, now))
 
     # ── NASIYA QARZI TO'LOVLARI ─────────────────────────────────────────────
     # Mijoz eski qarzini to'lasa pul KASSAGA tushadi, lekin `Payment` yozuvi
@@ -558,28 +569,22 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
         ).all()
     order_ids = [o.id for o in orders]
 
-    if legacy_fallback:
-        payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
-            Payment.created_at >= start, Payment.created_at <= end,
-            Payment.status == "paid",
-        ).all()
-    elif order_ids:
-        payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
-            Payment.order_id.in_(order_ids), Payment.status == "paid",
-        ).all()
-    else:
-        payments = []
+    _pay_q = _shift_payment_query(db, current_user, legacy_fallback, order_ids, start, end)
+    payments = _pay_q.filter(Payment.status == "paid").all() if _pay_q is not None else []
+    # Qaytarilgan ASL sotuv sotuvda qoladi — close_shift bilan AYNI qoida
+    _ref = refunded_sales_totals(_pay_q) if _pay_q is not None else {"cash": 0, "card": 0, "order_ids": set()}
 
-    cash_sales   = sum(p.amount for p in payments if p.method == "cash")
-    card_sales   = sum(p.amount for p in payments if p.method in ("card", "payme", "click"))
+    cash_sales   = sum(p.amount for p in payments if p.method == "cash") + _ref["cash"]
+    card_sales   = sum(p.amount for p in payments if p.method in ("card", "payme", "click")) + _ref["card"]
     credit_total = sum(p.amount for p in payments if p.method == "credit")
-    paid_order_ids = {p.order_id for p in payments if p.order_id}
+    paid_order_ids = {p.order_id for p in payments if p.order_id} | _ref["order_ids"]
     sales_count    = len(paid_order_ids)
     discount_total = sum((o.discount_amount or 0) for o in orders if o.id in paid_order_ids)
 
     returns = _returns_in_range(db, current_user, start, end)
     returns_total = sum(r.total_amount or 0 for r in returns)
-    cash_refunds  = sum(_cash_refund_amount(r) for r in returns)   # aralash chek: qarz qismi chiqmaydi
+    cash_refunds  = (sum(_cash_refund_amount(r) for r in returns)   # aralash chek: qarz qismi chiqmaydi
+                     + payment_path_cash_refunds(db, current_user, start, end))
 
     # Nasiya qarzi to'lovlari — yopish (close_shift) bilan AYNAN bir xil hisob,
     # aks holda Z-hisobotni qayta ochganda boshqa `expected_cash` chiqardi.

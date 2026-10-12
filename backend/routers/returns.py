@@ -30,6 +30,7 @@ from core.audit import log_audit
 from services.customer_debt import (
     add_advance, apply_payment_to_debts, pick_debts_fifo, recalc_customer_debt,
 )  # xodim harakatlarini yozish (audit)
+from utils.cashflow import RETURN_REFUND_REASON_PREFIX
 # Davr ta'rifi YAGONA manbadan — routers/report.py bilan bir xil qoida
 # (tenant mahalliy zonasi, tugash kuni to'liq qamraladi).
 from core.timeutils import report_bounds
@@ -739,7 +740,9 @@ def _refund_money(db: Session, ret: Return, current_user) -> dict:
             if qoldiq <= 0.009:
                 break
             ulush = min(qoldiq, float(pay.amount or 0))
-            svc.refund_payment(pay, ulush, f"Vozvrat {ret.return_number}", commit=False)
+            # Sabab prefiksi Z-hisobot uchun BELGI (utils/cashflow): hujjat yo'li
+            # yozuvi `cash_refunds` da Return orqali ayiriladi, ikkinchi marta emas.
+            svc.refund_payment(pay, ulush, f"{RETURN_REFUND_REASON_PREFIX}{ret.return_number}", commit=False)
             out["refund_payments"].append({"payment_id": pay.id, "amount": ulush})
             qoldiq -= ulush
         return out

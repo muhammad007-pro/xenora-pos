@@ -374,18 +374,16 @@ def test_toliq_vozvrat_avval_qarz_keyin_naqd(client, shop):
     assert z["cash_refunds"]  == NAQD            # 300k EMAS — tuzatilgan nomuvofiqlik
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "ESKI XATO (main'da ham, bu branchga tegishli emas): naqd to'lov TO'LIQ "
-    "qaytarilsa `refund_payment` uni `refunded` qiladi → Z `cash_sales` dan "
-    "tushadi VA `cash_refunds` da yana ayiriladi (ikki marta). Sof naqd 300k "
-    "chekda ham: expected_cash = start − 200k. Prodda hozircha 0 holat. "
-    "Tuzatilsa bu test o'tadi va strict xfail uni ko'rsatadi."))
-def test_ESKI_XATO_toliq_naqd_vozvrat_expected_cash(client, shop):
+def test_aralash_toliq_vozvrat_expected_cash_faqat_naqd_qismi(client, shop):
+    """Ilgari strict xfail edi (ikki marta ayirish): naqd 170k to'lov to'liq
+    qaytgach `refunded` bo'lib sotuvdan TUSHARDI va yana ayirilardi."""
     hk = _login(client, KASSIR_PHONE, KASSIR_PW)
     ha = _login(client, ADMIN_PHONE, ADMIN_PW)
     _split(client, hk, shop)
     _return(client, hk, ha, shop, qty=3)
     z = _close(client, ha, shop["shift"])
+    assert z["cash_sales"]    == NAQD             # sotuv QOLADI
+    assert z["cash_refunds"]  == NAQD             # bir marta ayiriladi
     assert z["expected_cash"] == START_CASH       # +170k sotuv −170k vozvrat
 
 
@@ -470,6 +468,135 @@ def test_GOLDEN_sof_naqd_vozvrat_total_amount(client, shop):
     z = _close(client, ha, shop["shift"])
     assert z["cash_refunds"]  == UNIT
     assert z["expected_cash"] == START_CASH + TOTAL - UNIT
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6) Z-HISOBOT: IKKI MARTA AYIRISH tuzatildi — sotuv qoladi, qaytarish bir marta
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _zbuild(db, shift_id, user_id):
+    """Z chekni qayta qurish yo'li (`print-z`) — yopish bilan bir xil bo'lishi SHART."""
+    from routers.shift import _build_zreport_data
+    db.expire_all()
+    return _build_zreport_data(db.query(Shift).get(shift_id), db, db.query(User).get(user_id))
+
+
+def test_sof_naqd_toliq_vozvrat_expected_cash_ozgarmaydi(client, shop):
+    db = shop["db"]
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    assert _pay(client, hk, shop["order"], "cash", TOTAL).status_code == 200
+    _return(client, hk, ha, shop, qty=3)
+    db.expire_all()
+    asl = db.query(Payment).filter(Payment.order_id == shop["order"], Payment.amount > 0).one()
+    assert asl.status == "refunded"               # ildiz: holat o'zgaradi
+
+    zb = _zbuild(db, shop["shift"], shop["admin"])
+    z = _close(client, ha, shop["shift"])
+    for r in (z, zb):
+        assert r["cash_sales"]    == TOTAL        # ilgari 0 edi
+        assert r["cash_refunds"]  == TOTAL
+        assert r["expected_cash"] == START_CASH   # ilgari START − 200k
+
+
+def test_qisman_vozvrat_faqat_qaytgan_qism(client, shop):
+    db = shop["db"]
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    assert _pay(client, hk, shop["order"], "cash", TOTAL).status_code == 200
+    _return(client, hk, ha, shop, qty=1)
+    zb = _zbuild(db, shop["shift"], shop["admin"])
+    z = _close(client, ha, shop["shift"])
+    for r in (z, zb):
+        assert (r["cash_sales"], r["cash_refunds"]) == (TOTAL, UNIT)
+        assert r["expected_cash"] == START_CASH + TOTAL - UNIT
+
+
+def test_ikki_qisman_vozvrat_oxirgisi_tolovni_yopadi(client, shop):
+    """1 + 2 dona: ikkinchisida asl to'lov `refunded` bo'ladi — jami 300k bir marta."""
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    assert _pay(client, hk, shop["order"], "cash", TOTAL).status_code == 200
+    _return(client, hk, ha, shop, qty=1)
+    _return(client, hk, ha, shop, qty=2)
+    z = _close(client, ha, shop["shift"])
+    assert (z["cash_sales"], z["cash_refunds"], z["expected_cash"]) == (TOTAL, TOTAL, START_CASH)
+
+
+def test_naqd_karta_toliq_vozvrat_karta_kassaga_tegmaydi(client, shop):
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    assert _pay(client, hk, shop["order"], "card", 100_000.0).status_code == 200
+    assert _pay(client, hk, shop["order"], "cash", 200_000.0).status_code == 200
+    _return(client, hk, ha, shop, qty=3)
+    z = _close(client, ha, shop["shift"])
+    assert (z["cash_sales"], z["card_sales"]) == (200_000.0, 100_000.0)
+    # Vozvrat hujjati `cash` — kassir 300k naqd beradi (avvalgi qoida, total_amount)
+    assert z["expected_cash"] == START_CASH + 200_000.0 - TOTAL
+
+
+def test_tolov_yoli_toliq_qaytarish_bir_marta(client, shop):
+    """`POST /payments/{id}/refund` (hujjatsiz) — ilgari faqat sotuv yo'qolishi
+    bilan hisobga olinardi; endi sotuv qoladi, qaytarish bir marta ayiriladi."""
+    db = shop["db"]
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    pid = _pay(client, hk, shop["order"], "cash", TOTAL).json()["id"]
+    assert client.post(f"/api/v1/payments/{pid}/refund", headers=hk).status_code == 200
+    zb = _zbuild(db, shop["shift"], shop["admin"])
+    z = _close(client, ha, shop["shift"])
+    for r in (z, zb):
+        assert (r["cash_sales"], r["cash_refunds"], r["expected_cash"]) == (TOTAL, TOTAL, START_CASH)
+
+
+def test_tolov_yoli_qisman_qaytarish_endi_ayiriladi(client, shop):
+    """Ilgari qisman qaytarishda pul UMUMAN ayirilmasdi (sotuv `paid` qolardi,
+    hujjat yo'q) — kassada 100k kam chiqardi."""
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    pid = _pay(client, hk, shop["order"], "cash", TOTAL).json()["id"]
+    assert client.post(f"/api/v1/payments/{pid}/refund?amount={UNIT}", headers=hk).status_code == 200
+    z = _close(client, ha, shop["shift"])
+    assert (z["cash_sales"], z["cash_refunds"]) == (TOTAL, UNIT)
+    assert z["expected_cash"] == START_CASH + TOTAL - UNIT
+
+
+def test_GOLDEN_bekor_qilingan_nasiya_credit_totalga_qaytmaydi(client, shop):
+    """Prod: MANHATTAN #4214 — `refunded` NASIYA (qo'lda bekor qilingan qarz).
+    Tuzatish faqat naqd/kartaga tegadi; nasiya qatori avvalgidek."""
+    db = shop["db"]
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    assert _pay(client, hk, shop["order"], "credit", TOTAL).status_code == 200
+    db.expire_all()
+    p = db.query(Payment).filter(Payment.order_id == shop["order"]).one()
+    p.status = "refunded"
+    db.commit()
+    zb = _zbuild(db, shop["shift"], shop["admin"])
+    z = _close(client, _login(client, ADMIN_PHONE, ADMIN_PW), shop["shift"])
+    for r in (z, zb):
+        assert (r["cash_sales"], r["card_sales"], r["credit_total"]) == (0, 0, 0)
+        assert r["sales_count"] == 0
+        assert r["expected_cash"] == START_CASH
+
+
+def test_otgan_smena_z_vozvratdan_keyin_ozgarmaydi(client, shop):
+    """Kecha sotilib bugun qaytgan chek: kechagi (yopilgan) Z qayta qurilganda
+    sotuv o'z joyida qoladi. Ilgari asl to'lov `refunded` bo'lib, kechagi
+    `cash_sales` orqaga qarab kamayardi."""
+    db = shop["db"]
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    assert _pay(client, hk, shop["order"], "cash", TOTAL).status_code == 200
+    kecha = _close(client, ha, shop["shift"])
+    oldin = _zbuild(db, shop["shift"], shop["admin"])
+
+    db.add(Shift(tenant_id=shop["cafe"], user_id=shop["kassir"], start_time=utc_now(),
+                 starting_cash=START_CASH))
+    db.commit()
+    _return(client, hk, ha, shop, qty=3)
+    keyin = _zbuild(db, shop["shift"], shop["admin"])
+    assert keyin["cash_sales"]    == oldin["cash_sales"]    == kecha["cash_sales"] == TOTAL
+    assert keyin["expected_cash"] == oldin["expected_cash"] == kecha["expected_cash"]
 
 
 def test_GOLDEN_cash_refund_amount_eski_yozuv():

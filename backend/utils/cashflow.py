@@ -78,6 +78,75 @@ def debt_payments_totals(db, current_user, start, end) -> dict:
     }
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# QAYTARILGAN SOTUV — Z-hisobotda IKKI MARTA AYIRISH xatosi (2026-10-13)
+# ══════════════════════════════════════════════════════════════════════════════
+# `payment_service.refund_payment` to'liq qaytarishda ASL to'lovni
+# `status="refunded"` qiladi (+ manfiy yozuv). Z esa sotuvni faqat `paid` dan
+# yig'ardi → sotuv orqaga qarab YO'QOLARDI, vozvrat hujjati esa
+# `cash_refunds` da YANA ayirilardi:
+#     300k naqd chek to'liq qaytsa: expected = start + 0 − 300k  (−300k ortiqcha)
+# Qisman qaytarishda asl to'lov `paid` qoladi → xato yo'q edi (shuning uchun
+# sezilmagan).
+#
+# QAROR — SOTUV QOLADI, QAYTARISH O'Z VAQTIDA AYIRILADI (ikkalasi emas):
+#   • pul kassaga sotuv paytida KIRGAN, qaytarish paytida CHIQQAN — kassa
+#     daftari vaqt bo'yicha yuradi;
+#   • sotuvni yo'qotish O'TGAN smenani o'zgartiradi: kecha sotilib bugun
+#     qaytgan chek kechagi Z qayta qurilganda boshqa raqam berardi;
+#   • qisman qaytarish bilan bir xil qoida (u yerda sotuv allaqachon qolardi).
+# Shu sabab `refunded` bo'lgan ASL (amount > 0) naqd/karta to'lov sotuvda
+# qoladi. NASIYA bunga KIRMAYDI: `refunded` nasiya = qo'lda bekor qilingan
+# qarz (prod: MANHATTAN #4214), u `credit_total` da avvalgidek ko'rinmaydi.
+
+# `routers/returns._refund_money` qaytarish sababi shu prefiks bilan yoziladi
+# (`refund_payment` reference: "Refund for TRX..: Vozvrat RET.."). Shu belgi
+# hujjat yo'li yozuvini `POST /payments/{id}/refund` yo'lidan ajratadi —
+# hujjat yo'li `cash_refunds` da `Return` orqali ALLAQACHON ayiriladi.
+RETURN_REFUND_REASON_PREFIX = "Vozvrat "
+_RETURN_REFUND_MARK = ": " + RETURN_REFUND_REASON_PREFIX
+
+
+def refunded_sales_totals(payment_query) -> dict:
+    """`refunded` holatiga o'tgan ASL naqd/karta sotuv to'lovlari (amount > 0).
+
+    `payment_query` — chaqiruvchi smena qoidasi bilan tayyorlagan `Payment`
+    so'rovi (smena buyurtmalari yoki legacy vaqt oralig'i, tenant filtri bilan).
+    Qaytaradi: {"cash": float, "card": float, "order_ids": set}
+    """
+    from models import Payment
+    rows = payment_query.filter(Payment.status == "refunded", Payment.amount > 0).all()
+    cash = sum(float(p.amount or 0) for p in rows if p.method in CASH_METHODS)
+    card = sum(float(p.amount or 0) for p in rows if p.method in CARD_METHODS)
+    return {"cash": cash, "card": card,
+            "order_ids": {p.order_id for p in rows
+                          if p.order_id and p.method in CASH_METHODS + CARD_METHODS}}
+
+
+def payment_path_cash_refunds(db, current_user, start, end) -> float:
+    """`POST /payments/{id}/refund` (hujjatsiz) yo'li bilan qaytarilgan NAQD.
+
+    Sotuv endi qolgani uchun bu yo'lning naqdi ham ayirilishi SHART — aks
+    holda u ilgari faqat "sotuv yo'qolishi" orqali hisobga olinardi (to'liq
+    qaytarishda), qisman qaytarishda esa UMUMAN ayirilmasdi.
+    Vaqt — manfiy yozuv yaratilgan payt (pul shunda chiqadi), `Return` bilan
+    bir xil naqsh. Hujjat yo'li yozuvlari (`: Vozvrat ` belgisi) chiqariladi.
+    """
+    from deps import apply_tenant_filter
+    from models import Order, Payment
+    # ⚠️ Tenant BUYURTMA orqali: `refund_payment` manfiy yozuvga `tenant_id`
+    # qo'ymaydi (NULL) — `Payment` ustidan filtr uni butunlay yashirardi.
+    q = db.query(Payment).join(Order, Order.id == Payment.order_id)
+    rows = apply_tenant_filter(q, Order, current_user).filter(
+        Payment.amount < 0,
+        Payment.status == "refunded",
+        Payment.created_at >= start,
+        Payment.created_at <= end,
+    ).all()
+    return sum(-float(p.amount or 0) for p in rows
+               if p.method in CASH_METHODS and _RETURN_REFUND_MARK not in (p.reference or ""))
+
+
 def cash_refund_amount(ret) -> float:
     """Vozvratda KASSADAN HAQIQATAN chiqqan naqd (faqat `refund_method == "cash"`).
 

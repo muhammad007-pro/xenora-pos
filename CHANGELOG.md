@@ -3,6 +3,20 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.13.4] — 2026-10-12 — Qaytarish tiklandi ("Sotuv qatori topilmadi")
+
+Backend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).
+Server deploy bilan darhol ishlaydi — yangi `.exe`/APK shart emas.
+
+### ↩️ Qaytarish
+* chek/ro'yxat orqali qaytarish v1.12.13 dan beri 400 "Sotuv qatori #N topilmadi"
+  berardi: `order_items.tenant_id` hech qachon yozilmagan, tekshiruv esa shu ustun
+  bo'yicha qidirardi. Endi tenant BUYURTMA (`orders.tenant_id`) orqali tekshiriladi
+* `/order-items/{id}` (GET/PATCH/status/DELETE) — o'z do'koni uchun ham 404 edi, tuzatildi
+* yangi sotuv qatorlari `tenant_id` bilan yoziladi (POS, add_item, QR menyu, sync)
+* `scripts/backfill_order_items_tenant.py` — eski NULL qatorlarni buyurtmadan
+  to'ldirish (preview default, `--apply`)
+
 ## [1.13.3] — 2026-10-07 — Mahsulot rasmini kameradan olish
 
 Frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

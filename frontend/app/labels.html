@@ -46,6 +46,18 @@ select.form-control option{background:var(--bg2)}
 .search-wrap input{padding-left:2rem}
 .search-ico{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--text3);font-size:.875rem}
 
+/* "Hammasini belgilash" sarlavhasi + tanlanganlar qatori */
+.list-head{display:flex;align-items:center;gap:.625rem;padding:.45rem .75rem;margin-top:.5rem;border-radius:var(--r);
+  border:1px solid var(--border2);background:var(--bg2);font-size:.8125rem;color:var(--text2);cursor:pointer;user-select:none}
+.list-head input[type=checkbox]{accent-color:var(--gold);width:16px;height:16px;flex-shrink:0;cursor:pointer}
+.list-head input:disabled{cursor:not-allowed}
+.list-head span{flex:1}
+.sel-bar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.75rem;font-size:.75rem;color:var(--text3);flex-wrap:wrap}
+.sel-bar b{color:var(--gold);font-weight:600}
+.sel-hidden{color:var(--amber)}
+.btn-sm{padding:.3rem .625rem;font-size:.75rem}
+.preview-more{width:100%;text-align:center;padding:.5rem;color:var(--text3);font-size:.75rem}
+
 .product-list{max-height:320px;overflow-y:auto;margin-top:.5rem;display:flex;flex-direction:column;gap:.375rem}
 .product-item{display:flex;align-items:center;gap:.625rem;padding:.5rem .75rem;border-radius:var(--r);border:1px solid var(--border);cursor:pointer;transition:.2s;background:var(--bg3)}
 .product-item:hover{border-color:var(--gold);background:var(--gold-dim)}
@@ -204,16 +216,32 @@ select.form-control option{background:var(--bg2)}
           Zavod kodi yo'q mahsulotlarga ichki EAN-13 beriladi (do'kon ichki kodi).
         </div>
       </div>
+      <!-- Kategoriya filtri — variantlar yuklangan mahsulotlardan yig'iladi
+           (kategoriyasi yo'q katalogda yashirin qoladi) -->
+      <div class="form-group" id="catFilterWrap" style="display:none">
+        <select class="form-control" id="catFilter" onchange="filterProducts()">
+          <option value="">Barcha kategoriyalar</option>
+        </select>
+      </div>
       <div class="form-group">
         <div class="search-wrap">
           <span class="search-ico">🔍</span>
           <input class="form-control" type="text" id="searchInput" placeholder="Mahsulot qidirish..." oninput="filterProducts()">
         </div>
       </div>
+      <!-- Hammasini belgilash — FAQAT hozir ko'rinayotgan (filtrdan o'tgan),
+           barcode'i bor mahsulotlarga ta'sir qiladi -->
+      <label class="list-head">
+        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+        <span id="selectAllLbl">Hammasini belgilash</span>
+      </label>
       <div class="product-list" id="productList">
         <div style="text-align:center;padding:2rem;color:var(--text3);font-size:.875rem">Yuklanmoqda...</div>
       </div>
-      <div style="margin-top:.75rem;font-size:.75rem;color:var(--text3)" id="selectedCount">0 ta tanlangan</div>
+      <div class="sel-bar">
+        <span id="selectedCount">0 ta tanlangan</span>
+        <button class="btn btn-out btn-sm" id="clearSelBtn" style="display:none" onclick="clearAll()">Belgilarni tozalash</button>
+      </div>
     </div>
   </div>
 
@@ -252,7 +280,53 @@ const getToken = () => localStorage.getItem('access_token');
 const API = API_BASE;   // getApiBase() hech qachon mavjud bo'lmagan (config.js API_BASE eksport qiladi)
 let allProducts = [];
 let selected = {};   // product_id → { product, qty }
+let visibleProducts = [];   // hozir ro'yxatda ko'rinayotganlar (filtrdan o'tgan)
 let currentSize = 'sm';
+
+// ── Ko'p tanlash chegaralari ─────────────────────────────────────────────────
+// Preview'da har mahsulot uchun JsBarcode SVG chiziladi va har belgilashda
+// HAMMASI qayta chiziladi — 1000 ta tanlansa har bosish sekinlashadi. Shu sabab
+// preview'da faqat birinchi PREVIEW_MAX ta namuna; chop etishga TA'SIR QILMAYDI.
+const PREVIEW_MAX = 60;
+// Shundan ko'p etiketka — tasdiq so'raladi (rulon tugashi, uzoq chop etish,
+// boshlangach ilovadan to'xtatib bo'lmaydi).
+const LABEL_WARN = 300;
+// A4 rejimida har etiketka DOM'da alohida SVG (qty marta takrorlanadi) —
+// brauzer chop etish oynasi bundan ko'pida qotadi. Qattiq to'siq.
+const A4_MAX = 2000;
+
+// Chop etishdan oldingi tekshiruv (sof funksiya — testda sinaladi).
+// → { block: matn|null, warn: matn|null }
+function printLimitCheck(totalLabels, productCount, printMode) {
+  if (printMode !== 'tspl' && totalLabels > A4_MAX) {
+    return { block: `${totalLabels} ta etiketka oddiy printer (A4) uchun juda ko'p — `
+                  + `ko'pi bilan ${A4_MAX} ta. Kategoriya bo'yicha bo'lib chop eting.`, warn: null };
+  }
+  if (totalLabels > LABEL_WARN) {
+    return { block: null, warn: `${productCount} ta mahsulot, jami ${totalLabels} ta etiketka chop etiladi.\n\n`
+      + `Rulonda yetarli etiketka borligini tekshiring — chop etish boshlangach uni `
+      + `ilovadan to'xtatib bo'lmaydi.\n\nDavom etilsinmi?` };
+  }
+  return { block: null, warn: null };
+}
+
+// Filtr: qidiruv (nom yoki barcode) VA kategoriya. catId '' → hammasi.
+function filterList(products, q, catId) {
+  const s = (q || '').trim().toLowerCase();
+  return products.filter(p =>
+    (!catId || String(p.category_id) === String(catId)) &&
+    (!s || p.name.toLowerCase().includes(s) || (p.barcode || '').toLowerCase().includes(s)));
+}
+
+// "Hammasini belgilash" holati — faqat ko'rinayotgan VA barcode'i bor
+// (tanlab bo'ladigan) mahsulotlar bo'yicha: 'none' | 'some' | 'all' | 'empty'.
+function selectAllState(pool, sel) {
+  if (!pool.length) return 'empty';
+  const n = pool.filter(p => sel[p.id]).length;
+  return n === 0 ? 'none' : n === pool.length ? 'all' : 'some';
+}
+
+const selectablePool = () => visibleProducts.filter(p => p.barcode);
 let mode = 'a4';     // 'a4' (window.print) yoki 'tspl' (etiketka printeri, LAN)
 let labelCfg = null; // GET /settings/label-printer natijasi
 
@@ -370,7 +444,8 @@ async function loadProducts() {
                              : `server ${r.status}`);
     const data = await r.json();
     allProducts = Array.isArray(data) ? data : (data.items || []);
-    renderList(allProducts);
+    fillCategoryFilter();
+    filterProducts();
     refreshGenAll();
     // Chegaraga TEGDI — demak ro'yxat kesilgan bo'lishi mumkin. Jim qolmaymiz:
     // aynan shu jimlik yuqoridagi xatoni oylab sezilmay yurishiga sabab bo'lgan.
@@ -389,8 +464,27 @@ async function loadProducts() {
   }
 }
 
+// Kategoriya variantlari — mahsulotlarning o'zidan (alohida so'rov shart emas).
+function fillCategoryFilter() {
+  const cats = new Map();
+  allProducts.forEach(p => {
+    if (p.category_id != null && !cats.has(p.category_id)) {
+      cats.set(p.category_id, (p.category && p.category.name) || `#${p.category_id}`);
+    }
+  });
+  const sel = document.getElementById('catFilter');
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">Barcha kategoriyalar</option>' +
+    [...cats].sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => `<option value="${id}">${escHtml(name)}</option>`).join('');
+  if (keep && cats.has(Number(keep))) sel.value = keep;
+  document.getElementById('catFilterWrap').style.display = cats.size > 1 ? 'block' : 'none';
+}
+
 function renderList(products) {
+  visibleProducts = products;
   const el = document.getElementById('productList');
+  updateSelectedCount();
   if (!products.length) {
     el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3);font-size:.8rem">Mahsulot topilmadi</div>';
     return;
@@ -550,12 +644,29 @@ window.genAll = async function() {
   }
 };
 
+// ⚠️ Filtr o'zgarganda belgilar SAQLANADI (o'chirilmaydi): kassir
+// "Atirlar → hammasi", keyin "Sovunlar → hammasi" qilib bitta chop etishga
+// yig'a olishi kerak. Filtrda yashiringan tanlanganlar soni pastda alohida
+// ko'rsatiladi — kutilmagan etiketka chiqib qolmasin.
 window.filterProducts = function() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  renderList(q ? allProducts.filter(p =>
-    p.name.toLowerCase().includes(q) ||
-    (p.barcode || '').toLowerCase().includes(q)
-  ) : allProducts);
+  renderList(filterList(allProducts,
+    document.getElementById('searchInput').value,
+    document.getElementById('catFilter').value));
+};
+
+// Sarlavha katakchasi: hammasi belgilangan bo'lsa — ko'rinayotganlardan belgi
+// olinadi; aks holda (hech biri yoki qisman) — ko'rinayotganlarning hammasi
+// belgilanadi. Filtrda YASHIRIN tanlanganlarga tegilmaydi.
+window.toggleSelectAll = function() {
+  const pool = selectablePool();
+  if (selectAllState(pool, selected) === 'all') {
+    pool.forEach(p => { delete selected[p.id]; });
+  } else {
+    const q = clampQty(document.getElementById('globalQty').value) || 1;
+    pool.forEach(p => { if (!selected[p.id]) selected[p.id] = { product: p, qty: q }; });
+  }
+  renderList(visibleProducts);
+  renderPreview();
 };
 
 function syncSizeButtons() {
@@ -591,10 +702,14 @@ window.renderPreview = function() {
     `Jami: ${entries.length} mahsulot, ${totalLabels} etiketka`;
 
   // Preview'da har mahsulotdan BITTA namuna + son belgisi (100 dona yorliqni
-  // ekranga chizish shart emas — brauzer qotib qoladi).
-  grid.innerHTML = entries.map(({ product: p, qty }) =>
+  // ekranga chizish shart emas — brauzer qotib qoladi). Mahsulot ham ko'p
+  // bo'lsa — faqat birinchi PREVIEW_MAX tasi (chop etishga hammasi ketadi).
+  const extra = entries.length - PREVIEW_MAX;
+  grid.innerHTML = entries.slice(0, PREVIEW_MAX).map(({ product: p, qty }) =>
     buildLabelHtml(p, currentSize, qty)
-  ).join('');
+  ).join('') + (extra > 0
+    ? `<div class="preview-more">… yana ${extra} ta mahsulot (namunasi ko'rsatilmadi, chop etishga kiradi)</div>`
+    : '');
 
   // Barcode render
   grid.querySelectorAll('svg[data-barcode]').forEach(svg => {
@@ -638,6 +753,10 @@ window.printLabels = function() {
     toast('Hech qanday mahsulot tanlanmagan', 'warn');
     return;
   }
+  const total = entries.reduce((s, e) => s + e.qty, 0);
+  const lim = printLimitCheck(total, entries.length, mode);
+  if (lim.block) { toast(lim.block, 'err'); return; }
+  if (lim.warn && !confirm(lim.warn)) return;
   if (mode === 'tspl') return printLabelsTspl(entries);
   return printLabelsA4(entries);
 };
@@ -770,8 +889,24 @@ window.clearAll = function() {
 function updateSelectedCount() {
   const n = Object.keys(selected).length;
   const total = Object.values(selected).reduce((s, e) => s + e.qty, 0);
-  document.getElementById('selectedCount').textContent =
-    n ? `${n} ta tanlangan · ${total} etiketka` : '0 ta tanlangan';
+  const visIds = new Set(visibleProducts.map(p => p.id));
+  const hidden = Object.keys(selected).filter(id => !visIds.has(Number(id))).length;
+  document.getElementById('selectedCount').innerHTML = n
+    ? `<b>${n} ta mahsulot tanlandi</b> · ${total} etiketka`
+      + (hidden ? ` <span class="sel-hidden">(${hidden} tasi filtrda ko'rinmayapti)</span>` : '')
+    : '0 ta tanlangan';
+  document.getElementById('clearSelBtn').style.display = n ? '' : 'none';
+
+  // Sarlavha katakchasi: belgilangan / bo'sh / qisman (indeterminate)
+  const pool = selectablePool();
+  const st = selectAllState(pool, selected);
+  const cb = document.getElementById('selectAll');
+  cb.checked = st === 'all';
+  cb.indeterminate = st === 'some';
+  cb.disabled = st === 'empty';
+  document.getElementById('selectAllLbl').textContent = st === 'empty'
+    ? 'Hammasini belgilash'
+    : `Hammasini belgilash (${pool.length} ta ko'rinayotgan)`;
 }
 
 function fmtNum(n) {

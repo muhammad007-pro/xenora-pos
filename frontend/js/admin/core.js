@@ -997,7 +997,81 @@ async function _initSalesFilters() {
     ['shFrom','shTo','shCashier','shRegister'].forEach(id => document.getElementById(id).value='');
     salesPage=1; loadSalesHistory();
   });
+  // Tayyor davrlar: sanalarni to'ldiradi → guruhlangan ko'rinish. "Bugun" — serverning
+  // ish kuni (smena rejimida tunda kechagi kun), oxirgi javobdan; bo'lmasa brauzer sanasi.
+  document.querySelectorAll('#pageSalesHistory [data-sh-preset]').forEach(b =>
+    b.addEventListener('click', () => {
+      const SH = window.XenoraSalesHistory;
+      const r = SH.presetRange(b.dataset.shPreset, _shAdminToday || SH.localToday());
+      document.getElementById('shFrom').value = r.from;
+      document.getElementById('shTo').value   = r.to;
+      salesPage = 1; loadSalesHistory();
+    }));
   _salesFiltersInit = true;
+}
+
+function _salesRowHtml(o) {
+  const [sLbl,sCls] = _statusSales[o.status] || [o.status||'—','badge-gray'];
+  const pay = o.payment_method ? (_payLabel[o.payment_method]||o.payment_method) : '—';
+  return `<tr style="cursor:pointer" onclick="openSaleDetail(${o.id})">
+        <td class="td-bold">${o.daily_number != null ? '#'+o.daily_number : '—'}</td>
+        <td class="td-sub">${fmtDate(o.created_at)}</td>
+        <td>${escH(o.waiter_name||'—')}</td>
+        <td>${escH(o.register_name||'—')}</td>
+        <td>${pay}</td>
+        <td class="td-gold">${fmtMoney(o.final_amount)}</td>
+        <td><span class="badge ${sCls}">${sLbl}</span></td>
+        <td class="td-actions"><button class="act-btn" title="Chekni chop etish" data-reprint="${o.id}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 21h12v-6H6v6z" stroke="currentColor" stroke-width="1.8"/><path d="M18 9h2a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="1.8"/></svg></button><button class="act-btn" title="Ko'rish" onclick="event.stopPropagation();openSaleDetail(${o.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></button></td>
+      </tr>`;
+}
+
+let _shAdminToday = null;   // serverning joriy ish kuni (oxirgi /orders/history javobidan)
+const _SH_ADMIN_PAGE = 50;
+
+/**
+ * Sana tanlanganda: GET /orders/history — kunlarga guruhlangan, har kun sarlavhasida
+ * o'sha kunning TO'LIQ jami (sahifadan mustaqil), tepada davr jami. Kun chegarasi
+ * serverda (kalendar 00:00 yoki smena) — dashboard/hisobotlar bilan bir xil.
+ */
+async function _loadSalesGrouped(from, to, cid, rid) {
+  const SH = window.XenoraSalesHistory;
+  const params = new URLSearchParams({ page: salesPage, page_size: _SH_ADMIN_PAGE });
+  params.set('date_from', from || to);
+  params.set('date_to',   to || from);
+  if (cid) params.set('cashier_id', cid);
+  if (rid) params.set('register_id', rid);
+  const body = document.getElementById('salesBody');
+  const sum  = document.getElementById('shAdminSummary');
+  const d = await apiFetch('/orders/history?' + params);
+  _shAdminToday = d.today || _shAdminToday;
+  const s = d.summary || { count: 0, total: 0, orders: 0 };
+  const other = (s.orders || 0) - (s.count || 0);
+  sum.style.display = '';
+  sum.innerHTML = `<b>${escH(SH.rangeLabel(d.date_from, d.date_to))}</b> · ${s.count} ta chek · `
+    + `<b class="td-gold">${fmtMoney(s.total)}</b>`
+    + (other > 0 ? ` <span style="color:var(--text3)">(+${other} bekor/kutilgan, jamiga kirmaydi)</span>` : '');
+  if (!d.items.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Bu davrda sotuv yo\'q</td></tr>';
+    document.getElementById('salesPaginInfo').textContent = '0 ta';
+    document.getElementById('salesPagination').innerHTML = '';
+    return;
+  }
+  const days = SH.dayMap(d.days);
+  body.innerHTML = SH.groupByDay(d.items).map(g => {
+    const t = days[g.date] || { count: 0, total: 0 };
+    return `<tr class="sh-day-row"><td colspan="8" style="background:var(--bg3);font-weight:700;padding:.5rem .75rem">`
+      + `📅 ${escH(SH.dayLabel(g.date))} <span style="float:right">${t.count} ta · <span class="td-gold">${fmtMoney(t.total)}</span></span></td></tr>`
+      + g.items.map(_salesRowHtml).join('');
+  }).join('');
+  const pages = Math.max(1, Math.ceil((d.total || 0) / _SH_ADMIN_PAGE));
+  document.getElementById('salesPaginInfo').textContent = `${d.items.length} / ${d.total} ta`;
+  let pg = '';
+  if (pages > 1) {
+    pg += `<button class="pager-btn" ${salesPage<=1?'disabled':''} onclick="salesPage--;loadSalesHistory()">‹</button>`;
+    pg += `<span style="padding:0 .5rem">${salesPage} / ${pages}</span>`;
+    pg += `<button class="pager-btn" ${salesPage>=pages?'disabled':''} onclick="salesPage++;loadSalesHistory()">›</button>`;
+  }
+  document.getElementById('salesPagination').innerHTML = pg;
 }
 
 async function loadSalesHistory() {
@@ -1007,6 +1081,16 @@ async function loadSalesHistory() {
   const to   = document.getElementById('shTo').value;
   const cid  = document.getElementById('shCashier').value;
   const rid  = document.getElementById('shRegister').value;
+
+  // Sana tanlangan → kunlarga guruhlangan ko'rinish. Tanlanmagan → AVVALGI ro'yxat
+  // (barcha vaqt, sahifalab) — o'zgarishsiz.
+  if ((from || to) && window.XenoraSalesHistory) {
+    try { await _loadSalesGrouped(from, to, cid, rid); }
+    catch (err) { toast(err.message, 'error'); }
+    return;
+  }
+  document.getElementById('shAdminSummary').style.display = 'none';
+
   if (from) params.set('date_from', from + 'T00:00:00');
   if (to)   params.set('date_to',   to   + 'T23:59:59');
   if (cid)  params.set('cashier_id', cid);
@@ -1017,20 +1101,7 @@ async function loadSalesHistory() {
     const data = await apiFetch('/orders/?' + params);
     const orders = data.items || [];
     if (!orders.length) { body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Sotuvlar topilmadi</td></tr>'; document.getElementById('salesPaginInfo').textContent='0 ta'; document.getElementById('salesPagination').innerHTML=''; return; }
-    body.innerHTML = orders.map(o => {
-      const [sLbl,sCls] = _statusSales[o.status] || [o.status||'—','badge-gray'];
-      const pay = o.payment_method ? (_payLabel[o.payment_method]||o.payment_method) : '—';
-      return `<tr style="cursor:pointer" onclick="openSaleDetail(${o.id})">
-        <td class="td-bold">${o.daily_number != null ? '#'+o.daily_number : '—'}</td>
-        <td class="td-sub">${fmtDate(o.created_at)}</td>
-        <td>${escH(o.waiter_name||'—')}</td>
-        <td>${escH(o.register_name||'—')}</td>
-        <td>${pay}</td>
-        <td class="td-gold">${fmtMoney(o.final_amount)}</td>
-        <td><span class="badge ${sCls}">${sLbl}</span></td>
-        <td class="td-actions"><button class="act-btn" title="Chekni chop etish" data-reprint="${o.id}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 9V3h12v6M6 21h12v-6H6v6z" stroke="currentColor" stroke-width="1.8"/><path d="M18 9h2a2 2 0 012 2v5a2 2 0 01-2 2h-2" stroke="currentColor" stroke-width="1.8"/></svg></button><button class="act-btn" title="Ko'rish" onclick="event.stopPropagation();openSaleDetail(${o.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></button></td>
-      </tr>`;
-    }).join('');
+    body.innerHTML = orders.map(_salesRowHtml).join('');
     const total = data.total || orders.length;
     const pages = data.total_pages || 1;
     document.getElementById('salesPaginInfo').textContent = `${orders.length} / ${total} ta`;

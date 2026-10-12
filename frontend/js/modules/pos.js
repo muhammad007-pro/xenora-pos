@@ -2747,42 +2747,113 @@ function _posIsManager() {
 }
 const _shPay = { cash: 'Naqd', card: 'Karta', click: 'Click', payme: 'Payme', credit: 'Nasiya', transfer: "O'tkazma", room_charge: 'Xona' };
 
-async function loadSalesHistory() {
-  const list = document.getElementById('salesHistoryList');
-  const det  = document.getElementById('salesHistoryDetail');
-  det.style.display = 'none'; list.style.display = '';
-  list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Yuklanmoqda…</div>';
-  const mgr = _posIsManager();
-  document.getElementById('shTitle').textContent = mgr ? 'Sotuvlar tarixi — bugun' : 'Mening sotuvlarim — bugun';
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const params = new URLSearchParams({ page: '1', page_size: '40', date_from: today.toISOString() });
-  const u = _posUser();
-  if (!mgr && u.id) params.set('cashier_id', String(u.id));   // RBAC: kassir → faqat o'z sotuvlari
-  try {
-    const res = await api.get('/orders/?' + params.toString());
-    const orders = (res && res.data && res.data.items) || [];
-    if (!orders.length) {
-      list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Bugun sotuv yo\'q</div>';
-      return;
-    }
-    list.innerHTML = orders.map(o => {
-      const time = o.created_at ? new Date(o.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
-      const num  = o.daily_number != null ? '#' + o.daily_number : (o.order_number || '');
-      const pay  = _shPay[o.payment_method] || o.payment_method || '—';
-      const who  = mgr && o.waiter_name ? ' · ' + _shEsc(o.waiter_name) : '';
-      return `<div class="sh-row" data-sh-detail="${o.id}" style="display:flex;align-items:center;gap:.5rem;padding:.6rem .4rem;border-bottom:1px solid var(--border2);cursor:pointer">
+// Sana oralig'i + kunlar bo'yicha guruhlash (GET /orders/history). Kun chegarasi
+// (kalendar 00:00 yoki smena) SERVERDA — bu yerda faqat ko'rsatiladi.
+// from/to = null → server joriy ISH kunini oladi (smena rejimida tunda — kechagi kun).
+const _sh = { from: null, to: null, preset: 'today', page: 1, items: [], days: {}, today: null };
+const _SH_PAGE = 50;
+
+function _shRowHtml(o, mgr) {
+  const time = o.created_at ? new Date(o.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
+  const num  = o.daily_number != null ? '#' + o.daily_number : (o.order_number || '');
+  const pay  = _shPay[o.payment_method] || o.payment_method || '—';
+  const who  = mgr && o.waiter_name ? ' · ' + _shEsc(o.waiter_name) : '';
+  const off  = o.status && o.status !== 'completed'
+    ? ` · <span style="color:var(--danger)">${o.status === 'cancelled' ? 'bekor' : 'kutilmoqda'}</span>` : '';
+  return `<div class="sh-row" data-sh-detail="${o.id}" style="display:flex;align-items:center;gap:.5rem;padding:.6rem .4rem;border-bottom:1px solid var(--border2);cursor:pointer">
         <div style="flex:1;min-width:0">
           <div style="font-weight:600;font-size:.85rem">${_shEsc(num)} · ${time}</div>
-          <div style="font-size:.72rem;color:var(--text3)">${_shEsc(pay)}${who}</div>
+          <div style="font-size:.72rem;color:var(--text3)">${_shEsc(pay)}${who}${off}</div>
         </div>
         <div style="font-weight:700;color:var(--gold);font-size:.85rem">${fmtNum(o.final_amount)}</div>
         <button data-sh-print="${o.id}" title="Chekni chop etish" style="background:var(--bg3);border:1px solid var(--border2);border-radius:.4rem;padding:.35rem .55rem;cursor:pointer;color:var(--text);font-size:.9rem">🖨</button>
       </div>`;
-    }).join('');
+}
+
+function _shRender(d, mgr) {
+  const SH   = window.XenoraSalesHistory;
+  const list = document.getElementById('salesHistoryList');
+  if (!_sh.items.length) {
+    list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Bu davrda sotuv yo\'q</div>';
+    return;
+  }
+  list.innerHTML = SH.groupByDay(_sh.items).map(g => {
+    const t = _sh.days[g.date] || { count: 0, total: 0 };
+    return `<div class="sh-day"><span>📅 ${_shEsc(SH.dayLabel(g.date))}</span>`
+      + `<span>${t.count} ta · ${fmtNum(t.total)}</span></div>`
+      + g.items.map(o => _shRowHtml(o, mgr)).join('');
+  }).join('')
+  + (d.has_more
+    ? `<button data-sh-more="1" style="width:100%;margin-top:.5rem;background:var(--bg3);border:1px solid var(--border2);border-radius:.5rem;padding:.55rem;cursor:pointer;color:var(--text);font-size:.8rem">Ko'proq yuklash (yana ${d.total - _sh.items.length} ta)</button>`
+    : '');
+}
+
+async function loadSalesHistory(more = false) {
+  const SH   = window.XenoraSalesHistory;
+  const list = document.getElementById('salesHistoryList');
+  const det  = document.getElementById('salesHistoryDetail');
+  det.style.display = 'none'; list.style.display = '';
+  const mgr = _posIsManager();
+  if (!more) {
+    _sh.page = 1; _sh.items = [];
+    list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--text3)">Yuklanmoqda…</div>';
+  }
+  document.querySelectorAll('[data-sh-preset]').forEach(b =>
+    b.classList.toggle('active', b.dataset.shPreset === _sh.preset));
+  const params = new URLSearchParams({ page: String(_sh.page), page_size: String(_SH_PAGE) });
+  if (_sh.from) params.set('date_from', _sh.from);
+  if (_sh.to)   params.set('date_to', _sh.to);
+  const u = _posUser();
+  // RBAC: kassir → faqat o'z sotuvlari (server ham majbur qiladi — bu qulaylik)
+  if (!mgr && u.id) params.set('cashier_id', String(u.id));
+  try {
+    const res = await api.get('/orders/history?' + params.toString());
+    const d = res && res.data;
+    if (!d || !Array.isArray(d.items)) throw new Error('javob yo\'q');
+    _sh.today = d.today;
+    _sh.items = _sh.items.concat(d.items);
+    _sh.days  = SH.dayMap(d.days);
+    document.getElementById('shPosFrom').value = d.date_from;
+    document.getElementById('shPosTo').value   = d.date_to;
+    document.getElementById('shTitle').textContent =
+      (mgr ? 'Sotuvlar tarixi' : 'Mening sotuvlarim') + ' — ' + SH.rangeLabel(d.date_from, d.date_to);
+    const s = d.summary || { count: 0, total: 0, orders: 0 };
+    const other = (s.orders || 0) - (s.count || 0);
+    document.getElementById('shSummary').innerHTML =
+      `Jami: <b>${s.count} ta chek</b> · <b style="color:var(--gold)">${fmtNum(s.total)} UZS</b>`
+      + (other > 0 ? ` <span style="color:var(--text3)">(+${other} bekor/kutilgan, jamiga kirmaydi)</span>` : '');
+    _shRender(d, mgr);
   } catch {
+    if (more) { _sh.page--; toast('Yuklab bo\'lmadi — qayta urinib ko\'ring', 'error'); return; }
+    document.getElementById('shSummary').textContent = '';
     list.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--danger)">Xatolik — qayta urinib ko\'ring</div>';
   }
 }
+
+function _shApplyPreset(key) {
+  const SH = window.XenoraSalesHistory;
+  _sh.preset = key;
+  if (key === 'today') { _sh.from = _sh.to = null; }        // server: joriy ish kuni
+  else {
+    const r = SH.presetRange(key, _sh.today || SH.localToday());
+    _sh.from = r.from; _sh.to = r.to;
+  }
+  loadSalesHistory();
+}
+document.getElementById('shFilterBar')?.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sh-preset]');
+  if (b) _shApplyPreset(b.dataset.shPreset);
+});
+['shPosFrom', 'shPosTo'].forEach(id => document.getElementById(id)?.addEventListener('change', () => {
+  const f = document.getElementById('shPosFrom').value || null;
+  const t = document.getElementById('shPosTo').value || null;
+  if (!f && !t) return;
+  _sh.preset = null;
+  _sh.from = f || t;
+  _sh.to   = t || f;
+  if (_sh.to < _sh.from) { const x = _sh.from; _sh.from = _sh.to; _sh.to = x; }
+  loadSalesHistory();
+}));
 
 async function showSalesDetail(id) {
   const list = document.getElementById('salesHistoryList');
@@ -2830,9 +2901,11 @@ async function reprintSale(id) {
 
 document.getElementById('salesHistoryBtn')?.addEventListener('click', () => {
   openModal('salesHistoryModal');
+  _sh.preset = 'today'; _sh.from = _sh.to = null;   // har ochilishda — joriy ish kuni (avvalgidek)
   loadSalesHistory();
 });
 document.getElementById('salesHistoryList')?.addEventListener('click', (e) => {
+  if (e.target.closest('[data-sh-more]')) { _sh.page++; loadSalesHistory(true); return; }
   const pb = e.target.closest('[data-sh-print]');
   if (pb) { e.stopPropagation(); reprintSale(pb.dataset.shPrint); return; }
   const rb = e.target.closest('[data-sh-detail]');

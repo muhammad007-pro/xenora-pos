@@ -93,6 +93,7 @@ const STATIC_ASSETS = [
     '/js/core/db.js',
     '/js/core/sync.js',
     '/js/core/tenant-backup.js',
+    '/js/core/sales-history.js',   // pos.html/admin.html classic <script> (sotuvlar tarixi)
     '/js/core/theme.js',
     '/js/core/features.js',
     '/js/core/sidebar.js',

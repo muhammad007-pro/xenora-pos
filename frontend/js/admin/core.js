@@ -442,6 +442,35 @@ async function loadStaleShiftAlert() {
   box.style.display = '';
 }
 
+/**
+ * Bugungi foyda bloki: savdo − tannarx = yalpi − xarajat ulushi = SOF foyda.
+ * Raqamlar serverdan TAYYOR keladi (`profit_breakdown` = `/profit/summary`) —
+ * bu yerda hisob YO'Q, faqat ko'rsatish. Xarajat 0 bo'lsa ham qator chiqadi.
+ */
+function renderProfitBreakdown(pb) {
+  const row = (label, val, opts = {}) =>
+    `<div style="display:flex;justify-content:space-between;gap:.5rem${opts.bold ? ';font-weight:700' : ''}${opts.muted ? ';color:var(--text3)' : ''}">`
+    + `<span>${label}</span><span>${opts.minus && val ? '−' : ''}${fmtMoney(val || 0)}</span></div>`;
+  const line = '<div style="border-top:1px solid var(--border);margin:.2rem 0"></div>';
+  const info = pb.expense_info || {};
+  // Taqsimlangan xarajat bo'lsa — "jami X dan" izohi (Foyda tahlilidagi bilan bir xil ma'no)
+  const expHint = info.is_split
+    ? `<div style="font-size:.7rem;color:var(--text3);text-align:right">kunlarga taqsimlangan (jami ${fmtMoney(info.raw)} dan)</div>`
+    : '';
+  document.getElementById('kpiProfitRows').innerHTML =
+      row('Bugungi savdo', pb.revenue)
+    + row('Tan narx', pb.cost, { minus: true, muted: true })
+    + line
+    + row('Yalpi foyda', pb.gross_profit, { bold: true })
+    + row('Xarajat ulushi', pb.expenses, { minus: true, muted: true })
+    + expHint
+    + line;
+  const net = document.getElementById('kpiNetProfit');
+  net.textContent = fmtMoney(pb.net_profit || 0);
+  net.style.color = (pb.net_profit || 0) < 0 ? 'var(--red)' : '';
+  document.getElementById('kpiNetProfitLabel').textContent = 'sof foyda';
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   loadStaleShiftAlert();
@@ -472,8 +501,17 @@ async function loadDashboard() {
     // null/yo'q bo'lsa karta yashirin qoladi (kassir ko'rmaydi).
     const npCard = document.getElementById('kpiNetProfitCard');
     if (npCard) {
-      if (trends && trends.net_profit != null) {
+      const pb = trends && trends.profit_breakdown;
+      if (pb) {
+        renderProfitBreakdown(pb);
+        // Trend — YALPI foyda bo'yicha (kecha bilan; avvalgi kartadagi bilan bir xil)
+        setKpiTrend('kpiProfitTrend', trends.profit_trend, 'kecha');
+        npCard.style.display = '';
+      } else if (trends && trends.net_profit != null) {
+        // Eski server (profit_breakdown yo'q) — avvalgidek faqat yalpi foyda
+        document.getElementById('kpiProfitRows').innerHTML = '';
         document.getElementById('kpiNetProfit').textContent = fmtMoney(trends.net_profit);
+        document.getElementById('kpiNetProfitLabel').textContent = 'yalpi foyda (xarajatsiz)';
         setKpiTrend('kpiProfitTrend', trends.profit_trend, 'kecha');
         npCard.style.display = '';
       } else {
@@ -863,13 +901,16 @@ function daCountUp(el){
   if (!digits || _daReduced()) return;
   const target = parseInt(digits,10);
   if (!isFinite(target) || target<=0) return;
+  // Manfiy son (masalan zarar kunidagi sof foyda) — belgi animatsiya davomida ham
+  // saqlanadi; ilgari oraliq kadrlarda zarar musbat bo'lib ko'rinardi.
+  const sign = /^[-−]/.test(raw) ? '-' : '';
   el._daCounting = true;
   const dur = 1300, t0 = performance.now();
   (function frame(now){
     const p = Math.min(1,(now-t0)/dur);
     const e = 1 - Math.pow(1-p,3); // ease-out cubic
     if (p < 1){
-      el.textContent = Math.round(target*e).toLocaleString('uz-UZ');
+      el.textContent = sign + Math.round(target*e).toLocaleString('uz-UZ');
       requestAnimationFrame(frame);
     } else {
       el.textContent = raw;        // exact original — format never drifts

@@ -24,7 +24,7 @@ from models import (
 )
 from services.payment_service import PaymentService
 from schemas import ReturnCreate, ReturnInDB, ReturnReport, MessageResponse
-from deps import get_current_active_user, apply_tenant_filter, has_permission
+from deps import get_current_active_user, apply_tenant_filter, has_permission, scoped_order_items
 from core.audit import log_audit
 # Mijoz qarzi — FIFO/qoldiq hisobining YAGONA manbasi (ikki nusxa birlashtirildi)
 from services.customer_debt import (
@@ -197,8 +197,10 @@ def _validate_return_items(db: Session, data, current_user) -> list:
     if not talab:
         return warnings
 
+    # Tenant BUYURTMA orqali (OrderItem.tenant_id eski qatorlarda NULL) —
+    # begona do'kon qatori baribir topilmaydi -> 400 "topilmadi".
     items = (
-        apply_tenant_filter(db.query(OrderItem), OrderItem, current_user)
+        scoped_order_items(db, current_user)
         .filter(OrderItem.id.in_(list(talab.keys())))
         .all()
     )

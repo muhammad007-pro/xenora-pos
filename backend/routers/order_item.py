@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import OrderItem, User
 from schemas import OrderItemUpdate, OrderItemInDB, MessageResponse
-from deps import get_current_active_user, apply_tenant_filter
+from deps import get_current_active_user, scoped_order_items
 
 router = APIRouter()
 
@@ -15,8 +15,8 @@ async def get_order_item(
     current_user: User = Depends(get_current_active_user)
 ):
     """Buyurtma elementi ma'lumotlarini olish"""
-    # BOSQICH 1.5: tenant bo'yicha cheklash
-    item = apply_tenant_filter(db.query(OrderItem), OrderItem, current_user).filter(OrderItem.id == item_id).first()
+    # Tenant BUYURTMA orqali (OrderItem.tenant_id eski qatorlarda NULL)
+    item = scoped_order_items(db, current_user).filter(OrderItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Buyurtma elementi topilmadi")
     
@@ -30,8 +30,8 @@ async def update_order_item(
     current_user: User = Depends(get_current_active_user)
 ):
     """Buyurtma elementini yangilash"""
-    # BOSQICH 1.5: tenant bo'yicha cheklash
-    item = apply_tenant_filter(db.query(OrderItem), OrderItem, current_user).filter(OrderItem.id == item_id).first()
+    # Tenant BUYURTMA orqali (OrderItem.tenant_id eski qatorlarda NULL)
+    item = scoped_order_items(db, current_user).filter(OrderItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Buyurtma elementi topilmadi")
     
@@ -56,8 +56,8 @@ async def update_item_status(
     current_user: User = Depends(get_current_active_user)
 ):
     """Buyurtma elementi holatini yangilash"""
-    # BOSQICH 1.5: tenant bo'yicha cheklash
-    item = apply_tenant_filter(db.query(OrderItem), OrderItem, current_user).filter(OrderItem.id == item_id).first()
+    # Tenant BUYURTMA orqali (OrderItem.tenant_id eski qatorlarda NULL)
+    item = scoped_order_items(db, current_user).filter(OrderItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Buyurtma elementi topilmadi")
     
@@ -77,8 +77,8 @@ async def delete_order_item(
     current_user: User = Depends(get_current_active_user)
 ):
     """Buyurtma elementini o'chirish"""
-    # BOSQICH 1.5: tenant bo'yicha cheklash
-    item = apply_tenant_filter(db.query(OrderItem), OrderItem, current_user).filter(OrderItem.id == item_id).first()
+    # Tenant BUYURTMA orqali (OrderItem.tenant_id eski qatorlarda NULL)
+    item = scoped_order_items(db, current_user).filter(OrderItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Buyurtma elementi topilmadi")
     

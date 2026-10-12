@@ -455,6 +455,9 @@ class OrderService:
             for item_data in items_data:
                 self.db.add(OrderItem(
                     order_id=order.id,
+                    # 2026-10-07: ilgari YOZILMASDI (prodda hamma qator NULL) →
+                    # vozvrat tekshiruvi qatorni topa olmasdi. Buyurtma tenanti.
+                    tenant_id=order.tenant_id,
                     product_id=item_data["product_id"],
                     quantity=item_data["quantity"],
                     unit_price=item_data["unit_price"],
@@ -529,6 +532,7 @@ class OrderService:
         else:
             order_item = OrderItem(
                 order_id=order_id,
+                tenant_id=order.tenant_id,
                 product_id=product_id,
                 quantity=quantity,
                 unit_price=product.price,

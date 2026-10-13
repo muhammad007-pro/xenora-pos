@@ -155,8 +155,9 @@ function renderShifts() {
       <td>${fmtNum(s.credit_total||0)}</td>
       <td style="color:${shortage<0?'#ef4444':shortage>0?'#22c55e':'#888'}">${shortage?fmtNum(shortage):0}</td>
       <td>${open?'<span style="color:#22c55e">Faol</span>':'Yopiq'}</td>
-      <td>${open
-        ? `<button class="tb-btn" style="color:#ef4444;border-color:#ef4444" onclick="openCloseShiftModal(${s.id},${s.starting_cash||0})">Yopish</button>`
+      <td style="white-space:nowrap">${open
+        ? `<button class="tb-btn" title="Kassadan pul olish / qo'shish" onclick="openCashMoveModal(${s.id})">💵</button>
+           <button class="tb-btn" style="color:#ef4444;border-color:#ef4444" onclick="openCloseShiftModal(${s.id},${s.starting_cash||0})">Yopish</button>`
         : (hasFeature('z_report') ? `<button class="tb-btn" onclick="printZReport(${s.id},this)">🖨 Z-chek</button>` : '—')}</td>
     </tr>`;
   }).join('');
@@ -205,38 +206,146 @@ async function openShift() {
     toast('Smena ochildi!');
   } catch (e) { toast(e.message || 'Xato', 'error'); }
 }
+// Yopish oynasi: "kutilgan naqd" SERVERDAN (X-hisobot — Z bilan aynan bir xil
+// hisob). Ilgari u "..." bo'lib turardi va "kamomad" = sanalgan − boshlang'ich
+// deb ko'rsatilardi (sotuv, qaytarish, qarz to'lovi umuman hisobga olinmasdi).
+let _closeExpected = null;
 async function openCloseShiftModal(shiftId, startingCash) {
   _activeShiftId = shiftId;
-  document.getElementById('shiftCountedCash').value = '';
+  _closeExpected = null;
+  const inp = document.getElementById('shiftCountedCash');
+  inp.value = '';                     // ⛔ sukut 0 EMAS — sanab kiritilsin
   document.getElementById('shiftCloseNotes').value = '';
-  document.getElementById('shiftClosePreview').style.display = 'none';
-  document.getElementById('scStartCash').textContent = fmtNum(startingCash);
+  document.getElementById('scStartCash').textContent = fmtNum(startingCash) + ' so\'m';
+  ['scCashSales', 'scExpected', 'scShortage'].forEach(id => { document.getElementById(id).textContent = '...'; });
+  document.getElementById('scExtra').innerHTML = '';
   openModal('shiftCloseModal');
-  // Live preview when typing
-  document.getElementById('shiftCountedCash').oninput = function() {
-    const counted = +this.value || 0;
-    const preview = document.getElementById('shiftClosePreview');
-    preview.style.display = '';
-    document.getElementById('scExpected').textContent = '...';
-    document.getElementById('scCashSales').textContent = '...';
-    document.getElementById('scShortage').textContent = fmtNum(counted - startingCash) + ' so\'m';
-  };
+  inp.oninput = _renderCloseDiff;
+  try {
+    const x = await apiFetch(`/shifts/${shiftId}/x-report`);
+    if (_activeShiftId !== shiftId) return;          // boshqa smena oynasi ochilgan
+    _closeExpected = Number(x.expected_cash) || 0;
+    const row = (l, v) => `<div style="display:flex;justify-content:space-between"><span>${l}</span><span>${v}</span></div>`;
+    document.getElementById('scCashSales').textContent = '+' + fmtNum(x.cash_sales) + ' so\'m';
+    document.getElementById('scExtra').innerHTML =
+        (x.cash_refunds   > 0 ? row('Naqd qaytarish:', '−' + fmtNum(x.cash_refunds) + ' so\'m') : '')
+      + (x.debt_paid_cash > 0 ? row('Qarz to\'lovi (naqd):', '+' + fmtNum(x.debt_paid_cash) + ' so\'m') : '')
+      + (x.withdrawals    > 0 ? row('Olindi (inkassatsiya):', '−' + fmtNum(x.withdrawals) + ' so\'m') : '')
+      + (x.deposits       > 0 ? row('Qo\'shildi:', '+' + fmtNum(x.deposits) + ' so\'m') : '');
+    document.getElementById('scExpected').textContent = fmtNum(_closeExpected) + ' so\'m';
+  } catch (e) {
+    document.getElementById('scExpected').textContent = 'yuklanmadi';
+    toast('Kutilgan naqd yuklanmadi: ' + (e.message || ''), 'error');
+  }
+  _renderCloseDiff();
+}
+function _renderCloseDiff() {
+  const el = document.getElementById('scShortage');
+  const raw = document.getElementById('shiftCountedCash').value;
+  if (raw === '' || _closeExpected === null) { el.textContent = '—'; el.style.color = ''; return; }
+  const d = (+raw || 0) - _closeExpected;
+  el.textContent = d < 0 ? `Kamomad: ${fmtNum(-d)} so'm` : d > 0 ? `Ortiqcha: ${fmtNum(d)} so'm` : 'Mos ✓';
+  el.style.color = d < 0 ? '#ef4444' : d > 0 ? '#16a34a' : '#16a34a';
 }
 async function closeShift() {
-  const counted = +document.getElementById('shiftCountedCash').value || 0;
+  const inp = document.getElementById('shiftCountedCash');
+  // ⛔ Bo'sh bilan yopilmaydi (server ham 400 qaytaradi). Yashik bo'sh — 0 yozilsin.
+  if (inp.value.trim() === '' || !(+inp.value >= 0)) {
+    toast('Yashikdagi naqd pulni sanab kiriting (bo\'sh bo\'lsa — 0)', 'error');
+    inp.focus();
+    return;
+  }
+  const counted = +inp.value;
   const notes = document.getElementById('shiftCloseNotes').value.trim();
   const _sid = _activeShiftId;
-  const result = await apiFetchPost(`/shifts/${_sid}/close?counted_cash=${counted}&notes=${encodeURIComponent(notes)}`, {}, 'POST');
-  closeModal('shiftCloseModal');
-  if (result && (result.id || result.shortage !== undefined)) {
-    const shortage = result.shortage || 0;
-    toast(`Smena yopildi. ${shortage < 0 ? '⚠️ Kamomad: ' + fmtNum(Math.abs(shortage)) + ' so\'m' : shortage > 0 ? 'Ortiqcha: ' + fmtNum(shortage) + ' so\'m' : 'Hisob mos!'}`, shortage ? 'warning' : 'success');
-    // Yopilgach — to'liq hisob-kitob cheki ko'rsatiladi (professional Z-hisobot).
-    showShiftReceipt(result, _sid);
-  } else {
-    toast((result && result.detail) || 'Smena yopilmadi', 'error');
+  let result;
+  try {
+    result = await apiFetchPost(`/shifts/${_sid}/close?counted_cash=${counted}&notes=${encodeURIComponent(notes)}`, {}, 'POST');
+  } catch (e) {
+    toast(e.message || 'Smena yopilmadi', 'error');
+    return;                                           // oyna ochiq qoladi — tuzatib qayta urinsin
   }
+  closeModal('shiftCloseModal');
+  const shortage = result.shortage || 0;
+  toast(`Smena yopildi. ${shortage < 0 ? '⚠️ Kamomad: ' + fmtNum(Math.abs(shortage)) + ' so\'m' : shortage > 0 ? 'Ortiqcha: ' + fmtNum(shortage) + ' so\'m' : 'Hisob mos!'}`, shortage ? 'warning' : 'success');
+  // Yopilgach — to'liq hisob-kitob cheki ko'rsatiladi (professional Z-hisobot).
+  showShiftReceipt(result, _sid);
   loadShiftsPage();
+}
+
+// ── Inkassatsiya / razmen ────────────────────────────────────────────────────
+// Xarajat EMAS (foydaga tegmaydi) — faqat "yashikda bo'lishi kerak" ni tuzatadi.
+// Ilgari egasi yashikdan pul olsa smena yopilganda u KAMOMAD bo'lib ko'rinardi.
+let _cmShiftId = null;
+async function openCashMoveModal(shiftId) {
+  _cmShiftId = shiftId;
+  document.getElementById('cmKind').value = 'withdrawal';
+  document.getElementById('cmAmount').value = '';
+  document.getElementById('cmReason').value = '';
+  openModal('cashMoveModal');
+  _loadCashMoves(shiftId);
+}
+async function _loadCashMoves(shiftId) {
+  const el = document.getElementById('cmList');
+  el.innerHTML = '';
+  try {
+    const rows = await apiFetch(`/shifts/${shiftId}/cash-movements`);
+    if (!rows.length) return;
+    el.innerHTML = '<div style="font-weight:600;margin-bottom:.25rem">Shu smenada:</div>' + rows.map(m =>
+      `<div style="display:flex;justify-content:space-between;gap:.5rem"><span>${escH(m.reason || '')}</span>`
+      + `<span style="white-space:nowrap;color:${m.kind === 'withdrawal' ? '#ef4444' : '#16a34a'}">${m.kind === 'withdrawal' ? '−' : '+'}${fmtNum(m.amount)}</span></div>`
+    ).join('');
+  } catch { /* ro'yxat yordamchi — xato bo'lsa jim */ }
+}
+async function saveCashMove() {
+  const amount = +document.getElementById('cmAmount').value;
+  const reason = document.getElementById('cmReason').value.trim();
+  if (!(amount > 0)) { toast('Summani kiriting', 'error'); return; }
+  if (reason.length < 2) { toast('Sababini yozing', 'error'); return; }
+  const btn = document.getElementById('cmSaveBtn');
+  btn.disabled = true;
+  try {
+    await apiFetchPost(`/shifts/${_cmShiftId}/cash-movements`,
+      { kind: document.getElementById('cmKind').value, amount, reason });
+    toast('Kassa harakati yozildi', 'success');
+    closeModal('cashMoveModal');
+  } catch (e) {
+    toast(e.message || 'Saqlanmadi', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Z-hisobotning pul qismi — ekran (showShiftReceipt) va 58mm chek (buildZReport58)
+// SHU BITTA ro'yxatdan. Backend ESC/POS bilan bir xil tartib (escpos_service._z_money_lines).
+//   SAVDO — nima sotildi (nasiya bilan), pul emas
+//   PUL   — KASSAGA TUSHGAN: naqd + karta + qarz to'lovi − qaytarish
+//   YASHIK — naqd: bo'lishi kerak (sanaldi/farq chaqiruvchida)
+// Element: [yorliq, qiymat, qalin]; qiymat null = blok sarlavhasi; '—' = ajratgich.
+function zMoneyBlocks(r, fmt) {
+  const f = fmt || (n => fmtNum(n || 0) + ' so\'m');
+  const g = k => Number(r[k]) || 0;
+  const L = [['SAVDO', null]];
+  L.push(['Naqd:', f(g('cash_sales'))], ['Karta/Click/Payme:', f(g('card_sales'))]);
+  if (g('credit_total') > 0) L.push(['Nasiya:', f(g('credit_total'))]);
+  L.push(['JAMI SAVDO:', f(g('total_sales')), true]);
+  L.push(['Sotuvlar soni:', (r.sales_count || 0) + ' ta'], ['O\'rtacha chek:', f(g('avg_order'))]);
+  if (g('discount_total') > 0) L.push(['Chegirma:', f(g('discount_total'))]);
+  L.push(['—'], ['PUL (KASSAGA TUSHGAN)', null]);
+  L.push(['Naqd sotuv:', '+' + f(g('cash_sales'))], ['Karta sotuv:', '+' + f(g('card_sales'))]);
+  if (g('debt_paid_cash') > 0) L.push(['Qarz to\'lovi (naqd):', '+' + f(g('debt_paid_cash'))]);
+  if (g('debt_paid_card') > 0) L.push(['Qarz to\'lovi (karta):', '+' + f(g('debt_paid_card'))]);
+  if (g('cash_refunds') > 0)   L.push(['Qaytarish (naqd):', '−' + f(g('cash_refunds'))]);
+  if (g('card_refunds') > 0)   L.push(['Qaytarish (karta):', '−' + f(g('card_refunds'))]);
+  L.push(['KASSAGA TUSHGAN:', f(g('cash_in_total')), true]);
+  L.push(['—'], ['YASHIK (NAQD)', null]);
+  L.push(['Boshlang\'ich naqd:', f(g('starting_cash'))], ['Naqd sotuv:', '+' + f(g('cash_sales'))]);
+  if (g('cash_refunds') > 0)   L.push(['Naqd qaytarish:', '−' + f(g('cash_refunds'))]);
+  if (g('debt_paid_cash') > 0) L.push(['Qarz to\'lovi (naqd):', '+' + f(g('debt_paid_cash'))]);
+  if (g('withdrawals') > 0)    L.push(['Olindi (inkassatsiya):', '−' + f(g('withdrawals'))]);
+  if (g('deposits') > 0)       L.push(['Qo\'shildi:', '+' + f(g('deposits'))]);
+  L.push(['Yashikda bo\'lishi kerak:', f(g('expected_cash')), true]);
+  return L;
 }
 
 // Smena yopilish chekini (Z-hisobot) chiroyli ko'rsatadi — jami savdo, naqd, karta,
@@ -266,22 +375,7 @@ function showShiftReceipt(r, shiftId) {
     <div style="font-weight:700;font-size:.78rem;margin-bottom:.2rem">SOTILGAN MAHSULOTLAR</div>
     ${prodHtml}
     ${line}
-    ${row('Sotuvlar soni:', (r.sales_count ?? 0) + ' ta')}
-    ${row('O\'rtacha chek:', money(r.avg_order))}
-    ${row('Naqd sotuv:', money(r.cash_sales))}
-    ${row('Karta/Click/Payme:', money(r.card_sales))}
-    ${row('Nasiya:', money(r.credit_total))}
-    ${row('Chegirma:', money(r.discount_total))}
-    ${row('Qaytarish:', money(r.returns_total))}
-    ${line}
-    ${row('JAMI SAVDO:', money(r.total_sales), true)}
-    ${line}
-    ${row('Boshlang\'ich naqd:', money(r.starting_cash))}
-    ${/* Nasiya to'lovi — kassaga tushgan pul, LEKIN sotuv emas: shu sabab
-          "JAMI SAVDO" dan yuqorida emas, kassa blokida turadi. */''}
-    ${(r.debt_paid_cash > 0) ? row('Nasiya to\'lovi (naqd):', money(r.debt_paid_cash)) : ''}
-    ${(r.debt_paid_card > 0) ? row('Nasiya to\'lovi (karta):', money(r.debt_paid_card)) : ''}
-    ${row('Kutilgan naqd:', money(r.expected_cash))}
+    ${zMoneyBlocks(r).map(([l, v, b]) => l === '—' ? line : (v === null ? `<div style="font-weight:700;font-size:.78rem">${l}</div>` : row(l, v, b))).join('')}
     ${row('Sanaldi (haqiqiy):', money(r.counted_cash))}
     ${row(shortage < 0 ? 'Kamomad:' : (shortage > 0 ? 'Ortiqcha:' : 'Farq:'), shTxt, true)}
     ${r.notes ? line + `<div style="font-size:.75rem;color:#555">Izoh: ${esc(r.notes)}</div>` : ''}
@@ -320,22 +414,9 @@ function buildZReport58(r) {
       <tbody>${prodRows}</tbody>
     </table>
     <div class="receipt-totals">
-      <div class="rt-row"><span>Sotuvlar soni:</span><span>${r.sales_count || 0} ta</span></div>
-      <div class="rt-row"><span>O'rtacha chek:</span><span>${m(r.avg_order)}</span></div>
-      <div class="rt-row bold"><span>JAMI SAVDO:</span><span>${m(r.total_sales)}</span></div>
-    </div>
-    <div class="receipt-totals">
-      <div class="rt-row"><span>Naqd:</span><span>${m(r.cash_sales)}</span></div>
-      <div class="rt-row"><span>Karta/Click/Payme:</span><span>${m(r.card_sales)}</span></div>
-      <div class="rt-row"><span>Nasiya:</span><span>${m(r.credit_total)}</span></div>
-      ${(r.discount_total > 0) ? `<div class="rt-row"><span>Chegirma:</span><span>-${m(r.discount_total)}</span></div>` : ''}
-      ${(r.returns_total > 0) ? `<div class="rt-row"><span>Qaytarish:</span><span>-${m(r.returns_total)}</span></div>` : ''}
-    </div>
-    <div class="receipt-totals">
-      <div class="rt-row"><span>Boshlang'ich naqd:</span><span>${m(r.starting_cash)}</span></div>
-      ${(r.debt_paid_cash > 0) ? `<div class="rt-row"><span>Nasiya to'lovi (naqd):</span><span>+${m(r.debt_paid_cash)}</span></div>` : ''}
-      ${(r.debt_paid_card > 0) ? `<div class="rt-row"><span>Nasiya to'lovi (karta):</span><span>${m(r.debt_paid_card)}</span></div>` : ''}
-      <div class="rt-row"><span>Kutilgan naqd:</span><span>${m(r.expected_cash)}</span></div>
+      ${zMoneyBlocks(r, m).map(([l, v, b]) => l === '—' ? '</div><div class="receipt-totals">'
+        : (v === null ? `<div class="rt-row bold"><span>${l}</span><span></span></div>`
+                      : `<div class="rt-row${b ? ' bold' : ''}"><span>${l}</span><span>${v}</span></div>`)).join('')}
       <div class="rt-row"><span>Sanaldi (haqiqiy):</span><span>${m(r.counted_cash)}</span></div>
       <div class="rt-row bold"><span>${shLabel}:</span><span>${sh < 0 ? '-' : ''}${m(Math.abs(sh))}</span></div>
     </div>

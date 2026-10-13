@@ -834,7 +834,7 @@
         <div class="mini-stats">
           <div class="mini-stat">
             <div class="ms-icon ms-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="var(--success)" stroke-width="2"/></svg></div>
-            <div><div class="ms-val td-gold" id="shiftRevTotal">—</div><div class="ms-lbl">Bugungi daromad</div></div>
+            <div><div class="ms-val td-gold" id="shiftRevTotal">—</div><div class="ms-lbl">Ochiq smenalar savdosi</div></div>
           </div>
           <div class="mini-stat">
             <div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="var(--warning)" stroke-width="2"/></svg></div>
@@ -848,7 +848,7 @@
         <div class="data-table-wrap">
           <div class="dt-head"><h3 class="dt-title">Smenalar</h3></div>
           <table>
-            <thead><tr><th>ID</th><th>Kassir</th><th>Boshlangan</th><th>Yakunlangan</th><th>Daromad</th><th>Naqd</th><th>Status</th><th>Amallar</th></tr></thead>
+            <thead><tr><th>ID</th><th>Kassir</th><th>Boshlangan</th><th>Yakunlangan</th><th>Savdo</th><th>Naqd</th><th>Status</th><th>Amallar</th></tr></thead>
             <tbody id="shiftsBody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>
         </div>
@@ -2094,20 +2094,48 @@
         <div class="modal-box" style="max-width:420px">
           <div class="modal-header"><h3>Smenani yopish</h3><button class="close-btn" onclick="closeModal('shiftCloseModal')">×</button></div>
           <div class="modal-body" id="shiftCloseBody">
-            <div class="form-group"><label>Kassirdagi haqiqiy naqd pul (so'm)</label>
-              <input class="form-control" type="number" id="shiftCountedCash" value="0" min="0">
+            <!-- ⛔ Sukut 0 EMAS, bo'sh + majburiy: 0 bilan yopilsa butun naqd kamomad
+                 bo'lib yozilardi (prod MANHATTAN #52: −42,3 mln). -->
+            <div class="form-group"><label>Yashikdagi naqd pulni SANAB kiriting (so'm) *</label>
+              <input class="form-control" type="number" id="shiftCountedCash" value="" min="0" placeholder="Sanalgan summa" required>
             </div>
-            <div id="shiftClosePreview" style="background:#f4f6fb;padding:.75rem;border-radius:8px;margin:.5rem 0;font-size:.9rem;display:none">
+            <!-- Kutilgan naqd SERVERDAN (GET /shifts/{id}/x-report) — Z bilan aynan bir xil hisob -->
+            <div id="shiftClosePreview" style="background:#f4f6fb;color:#111;padding:.75rem;border-radius:8px;margin:.5rem 0;font-size:.9rem">
               <div style="display:flex;justify-content:space-between"><span>Boshlang'ich pul:</span><span id="scStartCash">—</span></div>
               <div style="display:flex;justify-content:space-between"><span>Naqd sotuv:</span><span id="scCashSales">—</span></div>
-              <div style="display:flex;justify-content:space-between;font-weight:600"><span>Kutilgan naqd:</span><span id="scExpected">—</span></div>
-              <div style="display:flex;justify-content:space-between;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed #ddd;font-weight:600;color:#ef4444"><span>Kamomad/Ortiqcha:</span><span id="scShortage">—</span></div>
+              <div id="scExtra"></div>
+              <div style="display:flex;justify-content:space-between;font-weight:600"><span>Yashikda bo'lishi kerak:</span><span id="scExpected">—</span></div>
+              <div style="display:flex;justify-content:space-between;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed #ddd;font-weight:600"><span>Farq (sanalgan − kutilgan):</span><span id="scShortage">—</span></div>
             </div>
             <div class="form-group"><label>Izoh</label><input class="form-control" id="shiftCloseNotes" placeholder="..."></div>
           </div>
           <div class="modal-footer">
             <button class="tb-btn" onclick="closeModal('shiftCloseModal')">Bekor</button>
             <button class="tb-btn tb-btn-primary" onclick="closeShift()">Yopish</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inkassatsiya / razmen — smena ichida yashikdan pul olish yoki qo'shish.
+           Xarajat EMAS (foydaga tegmaydi), faqat "yashikda bo'lishi kerak" ni tuzatadi. -->
+      <div class="modal-overlay" id="cashMoveModal" onclick="if(event.target===this)closeModal('cashMoveModal')">
+        <div class="modal-box" style="max-width:420px">
+          <div class="modal-header"><h3>Kassa harakati</h3><button class="close-btn" onclick="closeModal('cashMoveModal')">×</button></div>
+          <div class="modal-body">
+            <div class="form-group"><label>Turi</label>
+              <select class="form-control" id="cmKind">
+                <option value="withdrawal">Kassadan olindi (inkassatsiya)</option>
+                <option value="deposit">Kassaga qo'shildi (razmen)</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Summa (so'm) *</label><input class="form-control" type="number" id="cmAmount" min="1" placeholder="0"></div>
+            <div class="form-group"><label>Sababi *</label><input class="form-control" id="cmReason" maxlength="255" placeholder="Masalan: egasiga topshirildi"></div>
+            <div style="font-size:.78rem;color:var(--text3);line-height:1.5">Yozuv o'chirilmaydi — xato bo'lsa teskari yozuv kiriting. Har biri xodimlar faoliyatiga yoziladi.</div>
+            <div id="cmList" style="margin-top:.75rem;font-size:.82rem"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="tb-btn" onclick="closeModal('cashMoveModal')">Bekor</button>
+            <button class="tb-btn tb-btn-primary" id="cmSaveBtn" onclick="saveCashMove()">Saqlash</button>
           </div>
         </div>
       </div>

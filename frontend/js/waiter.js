@@ -155,13 +155,16 @@ class WaiterModule {
             return;
         }
         
-        const endingCash = prompt('Yakuniy kassa summasini kiriting:');
-        if (!endingCash) return;
-        
+        const endingCash = prompt('Yashikdagi naqd pulni sanab kiriting (bo\'sh bo\'lsa 0):');
+        if (endingCash === null || endingCash.trim() === '') return;
+        const counted = parseFloat(endingCash);
+        if (!(counted >= 0)) { showToast('Summa noto\'g\'ri', 'error'); return; }
+
         try {
-            await this.api.post(`/shifts/${this.currentShift.id}/close`, {
-                ending_cash: parseFloat(endingCash)
-            });
+            // ⚠️ `counted_cash` — QUERY parametr. Ilgari tanada `ending_cash`
+            // yuborilardi, server uni o'qimasdi → smena 0 bilan yopilib, butun
+            // naqd soxta KAMOMAD bo'lardi. Endi server bo'sh qiymatni 400 bilan rad etadi.
+            await this.api.post(`/shifts/${this.currentShift.id}/close?counted_cash=${counted}`, {});
             showToast('Smena yopildi', 'success');
             window.location.href = 'shared/login.html';
         } catch (error) {

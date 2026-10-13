@@ -202,7 +202,8 @@ showNavGroup('.report-hub-card');
 
 // `view_finance` — RBAC RUXSATI (admin + menejer, database.py rol urug'i), feature
 // flag EMAS. Shuning uchun `nav-feature-*` mexanizmi bu kartaga yaramaydi va alohida
-// tekshiriladi. ⚠️ Bu — QULAYLIK, himoya emas: `/profit/by-receipt` baribir
+// tekshiriladi (hozir: hub'dagi "Moliya" kartasi → profit.html).
+// ⚠️ Bu — QULAYLIK, himoya emas: `/profit/*` endpointlari baribir
 // `has_permission("view_finance")` bilan qo'riqlanadi (kassirga 403).
 // `showNavGroup` dan KEYIN turishi SHART — u feature-klasssiz kartani ochib qo'yadi.
 (function(){
@@ -1833,8 +1834,6 @@ function loadPageData(page) {
   if (page==='staffMeal')      { smLoadSelects(); loadStaffMeals(); }
   if (page==='modifiers')      loadModifiers();
   if (page==='storeTop')       loadStoreTop();
-  if (page==='storeMargin')    loadStoreMargin();
-  if (page==='receiptProfit')  loadReceiptProfit();
   if (page==='storeCats')      loadStoreCats();
   if (page==='storeCashier')   loadStoreCashier();
   if (page==='storePriceList') loadStorePriceList();

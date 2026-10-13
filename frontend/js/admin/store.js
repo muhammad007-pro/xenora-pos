@@ -39,33 +39,6 @@ async function loadStoreTop() {
   } catch(err) { toast(err.message,'error'); }
 }
 
-async function loadStoreMargin() {
-  const period = document.getElementById('smPeriod')?.value || 'week';
-  try {
-    const data = await apiFetch('/analytics/store-margin?period=' + period);
-    document.getElementById('smRevenue').textContent = fmtMoney(data.total_revenue||0) + ' UZS';
-    document.getElementById('smProfit').textContent  = fmtMoney(data.total_profit||0) + ' UZS';
-    document.getElementById('smMargin').textContent  = (data.overall_margin_pct||0) + '%';
-    // Jadval kesilgan bo'lsa — foydalanuvchi buni bilsin (KPI kesilmagan)
-    const _note = document.getElementById('smLimitNote');
-    if (_note) _note.style.display = data.items_limited ? '' : 'none';
-    const body  = document.getElementById('smBody');
-    const items = data.items || [];
-    if (!items.length) { body.innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Ma\'lumot yo\'q</td></tr>'; return; }
-    body.innerHTML = items.map(it => {
-      const marColor = it.margin_pct >= 30 ? 'var(--success)' : it.margin_pct >= 10 ? 'var(--warning)' : 'var(--danger)';
-      return `<tr>
-        <td class="td-bold">${it.name||'—'}</td>
-        <td>${fmtMoney(it.sell_price||0)} UZS</td>
-        <td class="td-sub">${it.cost_price>0 ? fmtMoney(it.cost_price)+' UZS' : '—'}</td>
-        <td>${it.qty_sold||0} ta</td>
-        <td style="color:var(--success);font-weight:700">${fmtMoney(it.profit||0)} UZS</td>
-        <td><span class="badge ${it.margin_pct>=30?'badge-green':it.margin_pct>=10?'badge-amber':'badge-red'}">${it.margin_pct}%</span></td>
-      </tr>`;
-    }).join('');
-  } catch(err) { toast(err.message,'error'); }
-}
-
 async function loadStoreCats() {
   const period = document.getElementById('scPeriod')?.value || 'week';
   const now = new Date();
@@ -887,8 +860,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (stTopP) stTopP.addEventListener('change', loadStoreTop);
   const stTopS = document.getElementById('stTopSort');
   if (stTopS) stTopS.addEventListener('change', loadStoreTop);
-  const smP = document.getElementById('smPeriod');
-  if (smP) smP.addEventListener('change', loadStoreMargin);
   const scP = document.getElementById('scPeriod');
   if (scP) scP.addEventListener('change', loadStoreCats);
   const caP = document.getElementById('caPeriod');

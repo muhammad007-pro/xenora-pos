@@ -3,6 +3,23 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.1] — 2026-10-13 — Bloklash ochiq sessiyani uzadi + dashboard'da qaytarish qatori
+
+Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`).
+Brauzer/`app.xenora.uz` da darhol; kassa `.exe`/APK'lariga yangi build bilan.
+
+### 🔒 Bloklash
+* super-admin "Bloklash" endi **ochiq sessiyani ham** uzadi (keyingi so'rov 403, token
+  yangilanmaydi) — xodimlarni birma-bir nofaol qilish shart emas
+* kodsiz parol va eski filial-PIN kirishi ham yopiq do'konga token bermaydi
+* yangi ilovada kassir kirish ekraniga qaytadi va "Do'kon vaqtincha faol emas" xabarini ko'radi
+* obuna kill-switch'iga bog'liq emas; muddati tugagan do'kon avvalgidek ishlaydi
+
+### 📈 Dashboard
+* "Bugungi foyda" blokida **Qaytarish** qatori: bugungi savdo − qaytarish = **sof savdo**
+  (ilgari ikki xil son bir xil "Bugungi savdo" nomida edi); qaytarish 0 bo'lsa ham ko'rinadi
+* raqamlar o'zgarmagan — "Foyda tahlili" bilan aynan mos
+
 ## [1.14.0] — 2026-10-13 — Aralash to'lovda nasiya, Z-hisobot kassa nazorati, Moliya bo'limi
 
 Backend + frontend. **IKKI MIGRATSIYA** (alembic head: `c9f2a71d3e84` → `d4e8b2f61a07` →

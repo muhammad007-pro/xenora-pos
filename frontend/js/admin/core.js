@@ -1790,7 +1790,21 @@ async function loadShifts() {
     </tr>`).join('');
     const active = shifts.filter(s=>!s.end_time).length;
     document.getElementById('shiftActive').textContent  = active;
-    document.getElementById('shiftRevTotal').textContent = fmtMoney(shifts.filter(s=>!s.end_time).reduce((a,s)=>a+(s.total_sales||0),0)) + ' UZS';
+    // Ochiq smenalarning JONLI savdosi. `s.total_sales` faqat YOPISHDA yoziladi —
+    // ilgari shu yerdan yig'ilardi va "Bugungi daromad" doim 0 edi (prod: 7/7).
+    // Endi har ochiq smena uchun X-hisobot (Z bilan bir xil hisob, hech narsa yozmaydi).
+    const _open = shifts.filter(s => !s.end_time);
+    const _revEl = document.getElementById('shiftRevTotal');
+    _revEl.textContent = _open.length ? '...' : '0 UZS';
+    if (_open.length) {
+      Promise.all(_open.map(s => apiFetch('/shifts/' + s.id + '/x-report').catch(() => null)))
+        .then(xs => {
+          const ok = xs.filter(Boolean);
+          _revEl.textContent = ok.length
+            ? fmtMoney(ok.reduce((a, x) => a + (x.total_sales || 0), 0)) + ' UZS'
+            : '—';
+        });
+    }
     document.getElementById('shiftOrdTotal').textContent = '—';
   } catch (err) { toast(err.message,'error'); }
 }

@@ -496,6 +496,31 @@ class Shift(Base):
     user = relationship("User", back_populates="shifts")
     register = relationship("CashRegister")
 
+
+class CashMovement(Base):
+    """Smena ICHIDA kassa yashigidan pul olish / qo'shish (inkassatsiya, razmen).
+
+    NEGA `expenses` EMAS: egasi yashikdan pul olsa bu XARAJAT EMAS — pul
+    do'kondan chiqmaydi, faqat yashikdan seyfga/egaga o'tadi. Xarajat
+    jadvaliga yozilsa Moliya'dagi sof foyda soxta kamayardi. Bu yozuv FOYDAGA
+    TEGMAYDI, faqat `expected_cash` ni to'g'rilaydi (aks holda olingan pul
+    smena yopilganda kamomad bo'lib ko'rinardi — BARAKA holati).
+
+    Smenaga `shift_id` bilan QATTIQ bog'lanadi (vaqt oralig'i emas) — bir
+    vaqtda ikki kassa ochiq bo'lsa ham boshqa smenaga tushmaydi.
+    O'chirish/tahrirlash YO'Q: xato yozuv teskari yozuv bilan tuzatiladi
+    (kassa daftari qoidasi), har biri auditga yoziladi.
+    """
+    __tablename__ = "cash_movements"
+    id         = Column(Integer, primary_key=True, index=True)
+    tenant_id  = Column(Integer, ForeignKey("cafes.id"), nullable=True, index=True)
+    shift_id   = Column(Integer, ForeignKey("shifts.id"), nullable=False, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=True)
+    kind       = Column(String(20), nullable=False)   # "withdrawal" (olindi) | "deposit" (qo'shildi)
+    amount     = Column(Float, nullable=False)        # har doim musbat; yo'nalish `kind` da
+    reason     = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 class Notification(Base):
     __tablename__ = "notifications"
     id = Column(Integer, primary_key=True, index=True)

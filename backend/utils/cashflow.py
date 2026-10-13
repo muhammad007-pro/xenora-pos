@@ -120,7 +120,12 @@ def refunded_sale_payments(payment_query) -> list:
 
 
 def payment_path_cash_refunds(db, current_user, start, end) -> float:
-    """`POST /payments/{id}/refund` (hujjatsiz) yo'li bilan qaytarilgan NAQD.
+    """`POST /payments/{id}/refund` (hujjatsiz) yo'li bilan qaytarilgan NAQD."""
+    return payment_path_refunds(db, current_user, start, end, CASH_METHODS)
+
+
+def payment_path_refunds(db, current_user, start, end, methods) -> float:
+    """`POST /payments/{id}/refund` (hujjatsiz) yo'li bilan qaytarilgan pul (`methods` usulida).
 
     Sotuv endi qolgani uchun bu yo'lning naqdi ham ayirilishi SHART — aks
     holda u ilgari faqat "sotuv yo'qolishi" orqali hisobga olinardi (to'liq
@@ -140,7 +145,16 @@ def payment_path_cash_refunds(db, current_user, start, end) -> float:
         Payment.created_at <= end,
     ).all()
     return sum(-float(p.amount or 0) for p in rows
-               if p.method in CASH_METHODS and _RETURN_REFUND_MARK not in (p.reference or ""))
+               if p.method in methods and _RETURN_REFUND_MARK not in (p.reference or ""))
+
+
+def card_refund_amount(ret) -> float:
+    """Vozvratda KARTA orqali qaytarilgan pul — `cash_refund_amount` bilan bir
+    qoida (aralash chekda qarz qismi `debt_offset` chiqmaydi). Yashikka
+    tegmaydi, faqat "Kassaga tushgan" (pul oqimi) dan ayiriladi."""
+    if ret.refund_method != "card":
+        return 0.0
+    return max(0.0, float(ret.total_amount or 0) - float(getattr(ret, "debt_offset", None) or 0))
 
 
 def cash_refund_amount(ret) -> float:
@@ -157,39 +171,62 @@ def cash_refund_amount(ret) -> float:
     return max(0.0, float(ret.total_amount or 0) - float(getattr(ret, "debt_offset", None) or 0))
 
 
-def expected_cash(starting_cash, cash_sales, cash_refunds, debt_cash) -> float:
+def expected_cash(starting_cash, cash_sales, cash_refunds, debt_cash,
+                  withdrawals=0.0, deposits=0.0) -> float:
     """Smena oxirida kassa yashigida BO'LISHI KERAK bo'lgan naqd.
 
         boshlang'ich + naqd sotuv − naqd qaytarish + naqd qarz to'lovlari
+                     − olingan (inkassatsiya) + qo'shilgan (razmen)
 
     Karta/online (sotuv ham, qarz to'lovi ham) bu yerga KIRMAYDI — ular kassa
     yashigiga tushmaydi. Nasiya SOTUVI ham kirmaydi (pul kelmagan).
+    `withdrawals`/`deposits` — `cash_movements` (sukut 0 → avvalgi formula
+    bit-bitiga).
     """
     return (
         float(starting_cash or 0)
         + float(cash_sales or 0)
         - float(cash_refunds or 0)
         + float(debt_cash or 0)
+        - float(withdrawals or 0)
+        + float(deposits or 0)
     )
 
 
-def cash_in_totals(db, current_user, start, end, cash_sales, card_sales, cash_refunds) -> dict:
+def cash_in_summary(cash_sales, card_sales, debt_pay, cash_refunds, card_refunds=0.0) -> dict:
+    """"KASSAGA TUSHGAN" — pul oqimi (sotuv EMAS). Hisob shu yerda, ma'lumot
+    chaqiruvchida (Z: `_shift_totals` allaqachon yig'gan qiymatlar).
+
+        naqd sotuv + karta sotuv + qarz to'lovi (naqd+karta) − qaytarish (naqd+karta)
+
+    Nasiya SOTUVI kirmaydi (pul kelmagan), boshlang'ich naqd va inkassatsiya
+    ham kirmaydi (ular tushum emas, yashik ichidagi harakat).
+    """
+    cash_refunds = float(cash_refunds or 0)
+    card_refunds = float(card_refunds or 0)
+    debt_cash, debt_card = float(debt_pay.get("cash") or 0), float(debt_pay.get("card") or 0)
+    return {
+        "cash_sales":    round(float(cash_sales or 0), 2),
+        "card_sales":    round(float(card_sales or 0), 2),
+        "cash_refunds":  round(cash_refunds, 2),
+        "card_refunds":  round(card_refunds, 2),
+        "debt_cash":     round(debt_cash, 2),
+        "debt_card":     round(debt_card, 2),
+        "debt_total":    round(debt_cash + debt_card, 2),
+        "debt_count":    debt_pay.get("count", 0),
+        "total_cash_in": round(
+            float(cash_sales or 0) + float(card_sales or 0)
+            + debt_cash + debt_card - cash_refunds - card_refunds, 2
+        ),
+    }
+
+
+def cash_in_totals(db, current_user, start, end, cash_sales, card_sales, cash_refunds,
+                   card_refunds=0.0) -> dict:
     """"Kassaga tushgan pul" ko'rsatkichi — hisobot/dashboard uchun to'liq manzara.
 
     Sotuv (accrual) ko'rsatkichi bilan ATAYLAB aralashtirilmaydi: bu "bugun
     qancha PUL keldi" degan savolga javob, "bugun qancha SOTDIK" ga emas.
     """
     debts = debt_payments_totals(db, current_user, start, end)
-    return {
-        "cash_sales":    round(float(cash_sales or 0), 2),
-        "card_sales":    round(float(card_sales or 0), 2),
-        "cash_refunds":  round(float(cash_refunds or 0), 2),
-        "debt_cash":     debts["cash"],
-        "debt_card":     debts["card"],
-        "debt_total":    debts["total"],
-        "debt_count":    debts["count"],
-        "total_cash_in": round(
-            float(cash_sales or 0) + float(card_sales or 0)
-            - float(cash_refunds or 0) + debts["total"], 2
-        ),
-    }
+    return cash_in_summary(cash_sales, card_sales, debts, cash_refunds, card_refunds)

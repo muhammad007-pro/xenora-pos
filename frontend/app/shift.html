@@ -138,10 +138,13 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
       <button class="close-btn" id="closeModalClose">✕</button>
     </div>
     <div class="modal-body">
+      <!-- ⛔ Sukut 0 EMAS, bo'sh + majburiy (0 bilan yopilsa butun naqd kamomad bo'lardi) -->
       <div class="form-group" style="margin-bottom:1rem">
-        <label>Kassa qoldig'i (so'm)</label>
-        <input type="number" id="endingCash" min="0" value="0" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.9375rem;outline:none">
+        <label>Yashikdagi naqd pulni SANAB kiriting (so'm) *</label>
+        <input type="number" id="endingCash" min="0" value="" placeholder="Sanalgan summa" required style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.9375rem;outline:none">
       </div>
+      <!-- Kutilgan naqd SERVERDAN (X-hisobot) — Z bilan aynan bir xil -->
+      <div id="closePreview" style="background:var(--bg3);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1rem;font-size:.875rem"></div>
       <div class="form-group">
         <label>Izoh</label>
         <input type="text" id="shiftNotes" placeholder="Ixtiyoriy" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text);font-size:.875rem;outline:none">
@@ -149,6 +152,40 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
       <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end">
         <button class="btn btn-outline" id="closeModalCancel">Bekor</button>
         <button class="btn btn-danger" id="confirmCloseBtn">Smenani yopish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Inkassatsiya / razmen — xarajat EMAS, faqat yashik hisobini tuzatadi -->
+<div class="modal-wrap" id="cashMoveModal">
+  <div class="modal-overlay" id="cmOverlay"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>💵 Kassa harakati</h3>
+      <button class="close-btn" id="cmClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:.75rem">
+        <label>Turi</label>
+        <select id="cmKind" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text)">
+          <option value="withdrawal">Kassadan olindi (inkassatsiya)</option>
+          <option value="deposit">Kassaga qo'shildi (razmen)</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:.75rem">
+        <label>Summa (so'm) *</label>
+        <input type="number" id="cmAmount" min="1" placeholder="0" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text)">
+      </div>
+      <div class="form-group" style="margin-bottom:.75rem">
+        <label>Sababi *</label>
+        <input type="text" id="cmReason" maxlength="255" placeholder="Masalan: egasiga topshirildi" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:.5rem .875rem;color:var(--text)">
+      </div>
+      <div style="font-size:.78rem;color:var(--text3);line-height:1.5">Yozuv o'chirilmaydi — xato bo'lsa teskari yozuv kiriting.</div>
+      <div id="cmList" style="margin-top:.75rem;font-size:.82rem"></div>
+      <div style="display:flex;gap:.75rem;margin-top:1.25rem;justify-content:flex-end">
+        <button class="btn btn-outline" id="cmCancel">Bekor</button>
+        <button class="btn btn-gold" id="cmSave">Saqlash</button>
       </div>
     </div>
   </div>
@@ -237,6 +274,7 @@ function renderActive() {
           </div>
           <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-end">
             <button class="btn btn-danger" id="closeShiftBtn">⏹ Smenani yopish</button>
+            <button class="btn btn-outline" id="cashMoveBtn" title="Yashikdan pul olish / qo'shish">💵 Kassa harakati</button>
           </div>
         </div>
         <div class="shift-stats" id="liveStats">
@@ -246,11 +284,8 @@ function renderActive() {
       </div>`;
 
     startTimer(activeShift.start_time);
-    document.getElementById('closeShiftBtn').onclick = () => {
-      document.getElementById('endingCash').value = '0';
-      document.getElementById('shiftNotes').value = '';
-      document.getElementById('closeShiftModal').classList.add('open');
-    };
+    document.getElementById('closeShiftBtn').onclick = openCloseModal;
+    document.getElementById('cashMoveBtn').onclick = openCashMove;
   } else {
     if (timerInterval) { clearInterval(timerInterval); timerInterval=null; }
     el.innerHTML = `
@@ -296,9 +331,57 @@ document.getElementById('closeModalClose').onclick   =
 document.getElementById('closeModalCancel').onclick  =
 document.getElementById('closeOverlay').onclick      = () => document.getElementById('closeShiftModal').classList.remove('open');
 
+// Yopish oynasi: "yashikda bo'lishi kerak" SERVERDAN (X-hisobot — Z bilan bir xil
+// hisob, hech narsa yozmaydi). Kassir farqni yopishdan OLDIN ko'radi.
+let closeExpected = null;
+const rrow = (l, v, st = '') => `<div class="rep-row" style="${st}"><span class="rep-label">${l}</span><span class="rep-val">${v}</span></div>`;
+
+async function openCloseModal() {
+  const inp = document.getElementById('endingCash');
+  inp.value = '';                                    // ⛔ sukut 0 EMAS — sanab kiritilsin
+  document.getElementById('shiftNotes').value = '';
+  closeExpected = null;
+  const pv = document.getElementById('closePreview');
+  pv.innerHTML = '<div style="color:var(--text3)">Kutilgan naqd yuklanmoqda...</div>';
+  document.getElementById('closeShiftModal').classList.add('open');
+  inp.oninput = renderCloseDiff;
+  const x = await api.get(`/shifts/${activeShift.id}/x-report`).catch(() => null);
+  if (!x || x.expected_cash == null) {
+    pv.innerHTML = `<div style="color:var(--danger)">Kutilgan naqd yuklanmadi${x?.detail ? ': ' + x.detail : ''}</div>`;
+    return;
+  }
+  closeExpected = Number(x.expected_cash) || 0;
+  pv.innerHTML = rrow("Boshlang'ich", fmt(x.starting_cash))
+    + rrow('Naqd sotuv', '+' + fmt(x.cash_sales))
+    + (x.cash_refunds   > 0 ? rrow('Naqd qaytarish', '−' + fmt(x.cash_refunds)) : '')
+    + (x.debt_paid_cash > 0 ? rrow("Qarz to'lovi (naqd)", '+' + fmt(x.debt_paid_cash)) : '')
+    + (x.withdrawals    > 0 ? rrow('Olindi (inkassatsiya)', '−' + fmt(x.withdrawals)) : '')
+    + (x.deposits       > 0 ? rrow("Qo'shildi", '+' + fmt(x.deposits)) : '')
+    + rrow("<b>Yashikda bo'lishi kerak</b>", `<b>${fmt(closeExpected)}</b>`)
+    + `<div class="rep-row"><span class="rep-label">Farq</span><span class="rep-val" id="closeDiff">—</span></div>`;
+  renderCloseDiff();
+}
+
+function renderCloseDiff() {
+  const el = document.getElementById('closeDiff');
+  if (!el) return;
+  const raw = document.getElementById('endingCash').value;
+  if (raw === '' || closeExpected === null) { el.textContent = '—'; el.style.color = ''; return; }
+  const d = (parseFloat(raw) || 0) - closeExpected;
+  el.textContent = d < 0 ? `Kamomad: ${fmt(-d)}` : d > 0 ? `Ortiqcha: ${fmt(d)}` : 'Mos ✓';
+  el.style.color = d < 0 ? 'var(--danger)' : 'var(--green, #22c55e)';
+}
+
 document.getElementById('confirmCloseBtn').onclick = async () => {
   if (!activeShift) return;
-  const cash  = parseFloat(document.getElementById('endingCash').value) || 0;
+  const inp = document.getElementById('endingCash');
+  // ⛔ Bo'sh bilan yopilmaydi (server ham 400). Yashik bo'sh bo'lsa — 0 yozilsin.
+  if (inp.value.trim() === '' || !(parseFloat(inp.value) >= 0)) {
+    toast("Yashikdagi naqd pulni sanab kiriting (bo'sh bo'lsa — 0)", 'error');
+    inp.focus();
+    return;
+  }
+  const cash  = parseFloat(inp.value);
   const notes = document.getElementById('shiftNotes').value.trim();
   const res   = await api.postForm(`/shifts/${activeShift.id}/close`, { counted_cash: cash, ...(notes?{notes}:{}) });
   if (res.id) {
@@ -307,6 +390,44 @@ document.getElementById('confirmCloseBtn').onclick = async () => {
     await showReport(res.id);
     await init();
   } else toast(res.detail||'Xatolik', 'error');
+};
+
+// ── Inkassatsiya / razmen ─────────────────────────────────────────────────────
+// Xarajat EMAS (foydaga tegmaydi) — faqat "yashikda bo'lishi kerak" ni tuzatadi.
+// Ilgari egasi yashikdan pul olsa smena yopilganda u KAMOMAD bo'lib ko'rinardi.
+const cmModal = document.getElementById('cashMoveModal');
+async function openCashMove() {
+  if (!activeShift) return;
+  document.getElementById('cmKind').value = 'withdrawal';
+  document.getElementById('cmAmount').value = '';
+  document.getElementById('cmReason').value = '';
+  cmModal.classList.add('open');
+  const el = document.getElementById('cmList');
+  el.innerHTML = '';
+  const rows = await api.get(`/shifts/${activeShift.id}/cash-movements`).catch(() => null);
+  if (Array.isArray(rows) && rows.length) {
+    const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    el.innerHTML = '<div style="font-weight:600;margin-bottom:.25rem">Shu smenada:</div>' + rows.map(m =>
+      rrow(esc(m.reason), (m.kind === 'withdrawal' ? '−' : '+') + fmt(m.amount),
+           `color:${m.kind === 'withdrawal' ? 'var(--danger)' : 'inherit'}`)).join('');
+  }
+}
+document.getElementById('cmClose').onclick = document.getElementById('cmCancel').onclick =
+document.getElementById('cmOverlay').onclick = () => cmModal.classList.remove('open');
+document.getElementById('cmSave').onclick = async () => {
+  const amount = parseFloat(document.getElementById('cmAmount').value);
+  const reason = document.getElementById('cmReason').value.trim();
+  if (!(amount > 0)) { toast('Summani kiriting', 'error'); return; }
+  if (reason.length < 2) { toast('Sababini yozing', 'error'); return; }
+  const btn = document.getElementById('cmSave');
+  btn.disabled = true;
+  try {
+    const res = await api.post(`/shifts/${activeShift.id}/cash-movements`,
+      { kind: document.getElementById('cmKind').value, amount, reason });
+    if (res && res.id) { toast('Kassa harakati yozildi', 'success'); cmModal.classList.remove('open'); }
+    else toast(res?.detail || 'Saqlanmadi', 'error');
+  } catch { toast('Saqlanmadi', 'error'); }
+  finally { btn.disabled = false; }
 };
 
 // ── Report modal ───────────────────────────────────────────────────────────────
@@ -329,26 +450,44 @@ async function showReport(shiftId) {
     <div class="rep-row"><span class="rep-label">Yakunlandi</span><span class="rep-val">${r.end_time}</span></div>
     <div class="rep-row"><span class="rep-label">Davomiyligi</span><span class="rep-val">${r.duration_hours} soat</span></div>
 
-    <div class="rep-section">Savdo xulosasi</div>
+    <!-- Variant A: SAVDO (nima sotildi) va PUL (kassaga tushgan) AJRATILGAN.
+         Ilgari "Jami tushum" = Σfinal − chegirma edi (chegirma ikki marta ayrilardi). -->
+    <div class="rep-section">Savdo</div>
+    ${payRows}
+    <div class="rep-total" style="margin-top:.25rem">
+      <span>Jami savdo</span>
+      <span style="color:var(--gold)">${fmt(r.total_sales)}</span>
+    </div>
     <div class="rep-row"><span class="rep-label">Buyurtmalar soni</span><span class="rep-val">${r.summary?.total_orders||0}</span></div>
     <div class="rep-row"><span class="rep-label">Chegirmalar</span><span class="rep-val">${fmt(r.summary?.discount_total)}</span></div>
     <div class="rep-row"><span class="rep-label">O'rtacha buyurtma</span><span class="rep-val">${fmt(r.summary?.avg_order)}</span></div>
 
-    ${payRows?`<div class="rep-section">To'lov usullari</div>${payRows}`:''}
-    ${topRows?`<div class="rep-section">Top mahsulotlar</div>${topRows}`:''}
+    <div class="rep-section">Pul (kassaga tushgan)</div>
+    ${rrow('Naqd sotuv', '+' + fmt(r.cash_sales))}
+    ${rrow('Karta sotuv', '+' + fmt(r.card_sales))}
+    ${r.debt_paid_cash > 0 ? rrow("Qarz to'lovi (naqd)", '+' + fmt(r.debt_paid_cash)) : ''}
+    ${r.debt_paid_card > 0 ? rrow("Qarz to'lovi (karta)", '+' + fmt(r.debt_paid_card)) : ''}
+    ${r.cash_refunds   > 0 ? rrow('Qaytarish (naqd)', '−' + fmt(r.cash_refunds)) : ''}
+    ${r.card_refunds   > 0 ? rrow('Qaytarish (karta)', '−' + fmt(r.card_refunds)) : ''}
+    <div class="rep-total" style="margin-top:.25rem">
+      <span>Kassaga tushgan</span>
+      <span style="color:var(--gold)">${fmt(r.cash_in_total)}</span>
+    </div>
 
-    <div class="rep-row" style="margin-top:.5rem">
-      <span class="rep-label">Boshlang'ich kassa</span>
-      <span class="rep-val">${fmt(r.opening_cash)}</span>
-    </div>
-    <div class="rep-row">
-      <span class="rep-label">Yakuniy kassa</span>
-      <span class="rep-val">${fmt(r.closing_cash)}</span>
-    </div>
-    <div class="rep-total">
-      <span>Jami tushum</span>
-      <span style="color:var(--gold)">${fmt(r.summary?.net_revenue)}</span>
-    </div>
+    <div class="rep-section">Yashik (naqd)</div>
+    ${rrow("Boshlang'ich", fmt(r.opening_cash))}
+    ${rrow('Naqd sotuv', '+' + fmt(r.cash_sales))}
+    ${r.cash_refunds   > 0 ? rrow('Naqd qaytarish', '−' + fmt(r.cash_refunds)) : ''}
+    ${r.debt_paid_cash > 0 ? rrow("Qarz to'lovi (naqd)", '+' + fmt(r.debt_paid_cash)) : ''}
+    ${r.withdrawals    > 0 ? rrow('Olindi (inkassatsiya)', '−' + fmt(r.withdrawals)) : ''}
+    ${r.deposits       > 0 ? rrow("Qo'shildi", '+' + fmt(r.deposits)) : ''}
+    ${rrow("<b>Yashikda bo'lishi kerak</b>", `<b>${fmt(r.expected_cash)}</b>`)}
+    ${r.is_open ? '' : rrow('Sanaldi', fmt(r.counted_cash))}
+    ${r.is_open ? '' : (() => { const s = Number(r.shortage) || 0;
+        return `<div class="rep-total" style="margin-top:.25rem;${s < 0 ? 'color:var(--danger)' : ''}">
+          <span>${s < 0 ? 'Kamomad' : s > 0 ? 'Ortiqcha' : 'Farq'}</span><span>${s ? fmt(Math.abs(s)) : 'Mos ✓'}</span></div>`; })()}
+
+    ${topRows?`<div class="rep-section">Top mahsulotlar</div>${topRows}`:''}
     <div style="margin-top:1rem;text-align:center">
       <button class="btn btn-gold" id="printZBtn">🖨 Z-chek chiqarish</button>
     </div>`;
@@ -369,6 +508,10 @@ async function printZ(shiftId, btn) {
   finally { if (btn) { btn.disabled = false; btn.textContent = '🖨 Z-chek chiqarish'; } }
 }
 
+// Tarix jadvalidagi `onclick="showReport(..)"` — modul ichidagi funksiya global
+// emas edi, ya'ni 📊 tugmasi umuman ishlamasdi.
+window.showReport = showReport;
+
 document.getElementById('repClose').onclick  =
 document.getElementById('repOverlay').onclick = () => document.getElementById('reportModal').classList.remove('open');
 
@@ -383,7 +526,7 @@ async function loadHistory() {
     <table class="history-table">
       <thead><tr>
         <th>Boshlanish</th><th>Yakunlanish</th><th>Davom (soat)</th>
-        <th>Tushum</th><th>Naqd</th><th>Karta</th><th></th>
+        <th>Savdo</th><th>Naqd</th><th>Karta</th><th></th>
       </tr></thead>
       <tbody>
         ${closed.slice(0,20).map(s=>{

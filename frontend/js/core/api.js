@@ -9,6 +9,8 @@ let _refreshInFlight = null;
 
 // Obuna bloklanганда bir marta yo'naltirish (ko'p parallel so'rov → bitta redirect).
 let _subBlockHandled = false;
+// Do'kon yopilganda ham bir marta (parallel 403 lar → bitta redirect).
+let _storeInactiveHandled = false;
 function _handleSubscriptionBlock(message) {
     if (_subBlockHandled) return;
     const path = (typeof location !== 'undefined' && location.pathname) || '';
@@ -63,6 +65,18 @@ class API {
         localStorage.removeItem('refresh_token');
     }
     
+    // Do'kon yopiq (403 STORE_INACTIVE) — sessiyani yopib login'ga. Offline navbat
+    // (IndexedDB) ATAYLAB tegilmaydi: do'kon qayta ochilsa sotuvlar yo'qolmasin.
+    _handleStoreInactive(message) {
+        if (_storeInactiveHandled) return;
+        const path = (typeof location !== 'undefined' && location.pathname) || '';
+        if (/login\.html$/.test(path)) return;
+        _storeInactiveHandled = true;
+        this.clearTokens();
+        try { sessionStorage.setItem('store_inactive_msg', message || ''); } catch {}
+        try { window.location.href = PATHS.login(); } catch {}
+    }
+
     // Headers tayyorlash
     getHeaders() {
         const headers = {
@@ -104,6 +118,13 @@ class API {
                 });
 
                 if (!response.ok) {
+                    // 403 STORE_INACTIVE → do'kon yopilgan: login ekranida sababi ko'rinsin
+                    if (response.status === 403) {
+                        try {
+                            const b = await response.json();
+                            if (b && b.code === 'STORE_INACTIVE') sessionStorage.setItem('store_inactive_msg', b.detail || '');
+                        } catch {}
+                    }
                     // 401 → refresh muddati tugagan YOKI admin xodimni faolsizlantirgan (is_active=False)
                     throw new Error('Tokenni yangilab bo\'lmadi');
                 }
@@ -180,7 +201,9 @@ class API {
                 // detail dict bo'lishi mumkin ({code,message}) — obuna enforcement shunday yuboradi.
                 const rawDetail = isJson ? body.detail : null;
                 const isObjDetail = rawDetail && typeof rawDetail === 'object';
-                const code = isObjDetail ? (rawDetail.code || null) : null;
+                // code ikki shaklda keladi: detail ichida (obuna) yoki yuqori darajada
+                // (StoreInactiveError: {"detail": "<matn>", "code": "STORE_INACTIVE"}).
+                const code = isObjDetail ? (rawDetail.code || null) : ((isJson && body && body.code) || null);
                 const msg = isObjDetail
                     ? (rawDetail.message || 'Xatolik yuz berdi')
                     : (isJson ? (body.detail || body.message || 'Xatolik yuz berdi') : 'Xatolik yuz berdi');
@@ -190,6 +213,11 @@ class API {
                 // uchun bu YAGONA joyda ushlanadi (kassa/hisobot/sozlama — hammasi to'xtaydi).
                 if (status === 403 && code === 'SUBSCRIPTION_EXPIRED') {
                     _handleSubscriptionBlock(msg);
+                }
+                // DO'KON YOPILDI (super-admin "Bloklash"): ochiq sessiya ham uziladi —
+                // tokenlar o'chadi, login ekranida serverning neytral matni chiqadi.
+                if (status === 403 && code === 'STORE_INACTIVE') {
+                    this._handleStoreInactive(msg);
                 }
 
                 return {

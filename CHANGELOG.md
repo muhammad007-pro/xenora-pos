@@ -3,6 +3,35 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.0] — 2026-10-13 — Aralash to'lovda nasiya, Z-hisobot kassa nazorati, Moliya bo'limi
+
+Backend + frontend. **IKKI MIGRATSIYA** (alembic head: `c9f2a71d3e84` → `d4e8b2f61a07` →
+`e7a3c5d91b24`): `returns.debt_offset` ustuni + `cash_movements` jadvali.
+Brauzer/`app.xenora.uz` da darhol; kassa `.exe`/APK'lariga yangi build bilan.
+
+### 💳 To'lov
+* aralash to'lovda **nasiya** qismi; qarz endi serverda, to'lov bilan bitta tranzaksiyada yoziladi
+* nasiyali chekni naqd/karta bilan qaytarishda avval shu chek qarzi yopiladi (kassadan faqat qolgani)
+* kg sotuvdagi tiyin nuqsoni tuzatildi — chek "kutilayotgan"da osilib qolmaydi
+* ortiqcha to'lov to'sig'i (1 so'm dopusk)
+
+### 🧾 Z-hisobot / smena
+* sanalgan naqd majburiy, X-hisobot, **inkassatsiya** (kassadan pul olish — xarajat emas)
+* SAVDO va PUL bloklari; close_shift, print-z va hisobot bitta manbadan
+* to'liq qaytarilgan sotuv ikki marta ayirilmaydi
+
+### ↩️ Vozvrat
+* summa sotuvdagi qator summasidan va **chek chegirmasini** hisobga oladi
+* admin'dagi ishlamaydigan "Qaytarish" bandi olib tashlandi (vozvrat POS'da)
+
+### 📊 Moliya
+* `profit.html` = "Moliya": foyda, marja, chek foydasi, xarajatlar bitta joyda, yagona davr
+
+### 📦 Ombor va boshqalar
+* ombor miqdoriga 1 000 000 chegara (shtrix-kod miqdor maydoniga tushmasin)
+* Kirim sahifasi o'ralgan API javobini to'g'ri o'qiydi + yangi tovar dublikatiga qarshi + "Hozir to'landi"
+* Etiketkalar: "Hammasini belgilash" + kategoriya filtri
+
 ## [1.13.8] — 2026-10-13 — Dashboard'da sof foyda + xarajat tuzatishlari
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `c9f2a71d3e84`).

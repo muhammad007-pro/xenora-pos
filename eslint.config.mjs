@@ -90,6 +90,10 @@ const SHARED_GLOBALS = {
   // berilgan (`window.` emas), shuning uchun ATAYLAB shu yerda e'lon qilinadi.
   fmtMoney: 'readonly',
   fmtNum: 'readonly',
+  // frontend/js/core/qty-guard.js (classic) — xuddi shu `g.X = ...` naqshi.
+  stockQtyError: 'readonly',
+  looksLikeBarcode: 'readonly',
+  confirmIfBarcode: 'readonly',
 };
 
 // `js/admin/*.js` + money.js + searchable-select.js — admin.html da birga

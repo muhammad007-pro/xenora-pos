@@ -13,6 +13,7 @@ from database import get_db
 from models import WriteOff, WriteOffItem, Inventory, Product, User
 from schemas import WriteOffCreate, WriteOffInDB, WriteOffItemInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+from services.quantity_guard import check_items
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("write_off"))])
@@ -66,6 +67,7 @@ async def create_write_off(
 ):
     if not data.items:
         raise HTTPException(status_code=400, detail="Kamida 1 ta tovar kiritilsin")
+    check_items(data.items, "quantity")
     wo = WriteOff(
         tenant_id      = resolve_tenant_id(db, current_user),
         act_number     = _gen_act_number(db),

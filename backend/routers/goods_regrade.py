@@ -16,6 +16,7 @@ from schemas import (
     PaginatedResponse, MessageResponse,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+from services.quantity_guard import check_items
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("goods_regrade"))])
@@ -63,6 +64,7 @@ async def create_regrade(
 ):
     if not data.items:
         raise HTTPException(status_code=400, detail="Kamida 1 ta qator kiritilsin")
+    check_items(data.items, "quantity")
     for it in data.items:
         if it.from_product_id == it.to_product_id:
             raise HTTPException(status_code=400, detail="Bir xil tovarlar o'rtasida peresort bo'lmaydi")

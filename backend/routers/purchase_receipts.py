@@ -17,6 +17,7 @@ from schemas import (
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 from routers.price_history import record_price_change, REASON_RECEIPT
+from services.quantity_guard import check_items
 
 router = APIRouter()
 
@@ -99,6 +100,7 @@ async def create_receipt(
     current_user: User = Depends(has_permission("view_finance")),
 ):
     """Yangi priyomka yaratish (draft holat — omborga kirmagunча)"""
+    check_items(data.items, "quantity", "brak_qty")
     supplier = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
                    .filter(Supplier.id == data.supplier_id).first()
     if not supplier:

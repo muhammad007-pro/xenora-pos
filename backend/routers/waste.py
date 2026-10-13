@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from deps import apply_tenant_filter, get_current_active_user, has_permission, resolve_tenant_id
+from services.quantity_guard import check_qty
 from models import Inventory, Product, User, WasteLog
 
 router = APIRouter()
@@ -90,6 +91,7 @@ async def create_waste_log(
     Ombordan kamaytiradi va WasteLog ga yozadi.
     waste_type: manual (odatiy) | expired (muddati o'tgan)
     """
+    check_qty(quantity)
     if waste_type not in ("manual", "expired"):
         waste_type = "manual"
 

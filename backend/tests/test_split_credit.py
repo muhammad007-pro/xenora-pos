@@ -599,6 +599,84 @@ def test_otgan_smena_z_vozvratdan_keyin_ozgarmaydi(client, shop):
     assert keyin["expected_cash"] == oldin["expected_cash"] == kecha["expected_cash"]
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 7) YAGONA MANBA: close_shift, print-z, /report — bir xil raqamlar
+# ══════════════════════════════════════════════════════════════════════════════
+
+_PUL = ("cash_sales", "card_sales", "credit_total", "cash_refunds", "expected_cash")
+
+
+def _report(client, h, shift_id):
+    r = client.get(f"/api/v1/shifts/{shift_id}/report", headers=h)
+    assert r.status_code == 200, r.text
+    d = r.json()
+    d["_by"] = {m["method"]: m["amount"] for m in d["by_payment_method"]}
+    return d
+
+
+def _uch_joy(client, shop):
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    z  = _close(client, ha, shop["shift"])
+    zb = _zbuild(shop["db"], shop["shift"], shop["admin"])
+    rp = _report(client, ha, shop["shift"])
+    return z, zb, rp
+
+
+def test_print_z_da_nasiya_korinadi(client, shop):
+    """Ilgari print-z faqat `paid` olardi → nasiya DOIM 0 (XOZMAG holati)."""
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    _split(client, hk, shop)
+    z, zb, _ = _uch_joy(client, shop)
+    assert zb["credit_total"] == z["credit_total"] == NASIYA
+    assert zb["sales_count"] == z["sales_count"] == 1
+    assert zb["total_sales"] == TOTAL
+
+
+def test_report_taqsimoti_z_bilan_mos(client, shop):
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    _split(client, hk, shop)
+    z, zb, rp = _uch_joy(client, shop)
+    assert rp["_by"] == {"cash": NAQD, "credit": NASIYA}
+    for k in _PUL:
+        assert rp[k] == z[k] == zb[k], k
+    assert rp["closing_cash"] == z["expected_cash"]     # ilgari start + naqd edi
+
+
+def test_qaytarilgan_sotuv_uch_joyda_bir_xil(client, shop):
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    ha = _login(client, ADMIN_PHONE, ADMIN_PW)
+    assert _pay(client, hk, shop["order"], "cash", TOTAL).status_code == 200
+    _return(client, hk, ha, shop, qty=3)
+    z, zb, rp = _uch_joy(client, shop)
+    for k in _PUL:
+        assert rp[k] == z[k] == zb[k], k
+    assert rp["_by"] == {"cash": TOTAL}               # ilgari taqsimotdan tushib qolardi
+    assert (z["cash_sales"], z["cash_refunds"], z["expected_cash"]) == (TOTAL, TOTAL, START_CASH)
+    assert rp["closing_cash"] == START_CASH
+
+
+def test_report_yakuniy_kassa_qarz_tolovi_bilan(client, shop):
+    """Naqd qarz to'lovi kassaga tushadi — "Yakuniy kassa" uni ham ko'rsatadi."""
+    hk = _login(client, KASSIR_PHONE, KASSIR_PW)
+    _split(client, hk, shop)
+    r = client.post(f"/api/v1/customers/{shop['customer']}/pay-debt", headers=hk,
+                    json={"amount": 30_000.0, "payment_method": "cash", "notes": "qisman"})
+    assert r.status_code == 200, r.text
+    z, zb, rp = _uch_joy(client, shop)
+    assert rp["closing_cash"] == z["expected_cash"] == START_CASH + NAQD + 30_000.0
+
+
+def test_uch_joy_yagona_funksiyadan_oqiydi():
+    """Qulf: pul hisobi qayta ajralib ketmasin — uchala endpoint `_shift_totals`
+    ni chaqiradi va o'zi `Payment` so'rovini YOZMAYDI."""
+    import inspect
+    import routers.shift as sh
+    for fn in (sh.close_shift, sh._build_zreport_data, sh.get_shift_report):
+        src = inspect.getsource(fn)
+        assert "_shift_totals(" in src, fn.__name__
+        assert "query(Payment)" not in src, fn.__name__
+
+
 def test_GOLDEN_cash_refund_amount_eski_yozuv():
     from utils.cashflow import cash_refund_amount
 

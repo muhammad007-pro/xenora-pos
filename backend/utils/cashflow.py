@@ -107,20 +107,16 @@ RETURN_REFUND_REASON_PREFIX = "Vozvrat "
 _RETURN_REFUND_MARK = ": " + RETURN_REFUND_REASON_PREFIX
 
 
-def refunded_sales_totals(payment_query) -> dict:
+def refunded_sale_payments(payment_query) -> list:
     """`refunded` holatiga o'tgan ASL naqd/karta sotuv to'lovlari (amount > 0).
 
     `payment_query` — chaqiruvchi smena qoidasi bilan tayyorlagan `Payment`
     so'rovi (smena buyurtmalari yoki legacy vaqt oralig'i, tenant filtri bilan).
-    Qaytaradi: {"cash": float, "card": float, "order_ids": set}
+    Nasiya va boshqa usullar KIRMAYDI (yuqoridagi izoh).
     """
     from models import Payment
     rows = payment_query.filter(Payment.status == "refunded", Payment.amount > 0).all()
-    cash = sum(float(p.amount or 0) for p in rows if p.method in CASH_METHODS)
-    card = sum(float(p.amount or 0) for p in rows if p.method in CARD_METHODS)
-    return {"cash": cash, "card": card,
-            "order_ids": {p.order_id for p in rows
-                          if p.order_id and p.method in CASH_METHODS + CARD_METHODS}}
+    return [p for p in rows if p.method in CASH_METHODS + CARD_METHODS]
 
 
 def payment_path_cash_refunds(db, current_user, start, end) -> float:

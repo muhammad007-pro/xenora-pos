@@ -317,7 +317,7 @@ async function showReport(shiftId) {
   if (!r.shift_id) { document.getElementById('reportBody').innerHTML = '<p style="color:var(--danger)">Hisobot yuklanmadi</p>'; return; }
 
   const payRows = (r.by_payment_method||[]).map(p=>
-    `<div class="rep-row"><span class="rep-label">${{cash:'Naqd',card:'Karta',transfer:'Pul o\'tkazma'}[p.method]||p.method}</span><span class="rep-val">${fmt(p.amount)}</span></div>`
+    `<div class="rep-row"><span class="rep-label">${{cash:'Naqd',card:'Karta',transfer:'Pul o\'tkazma',credit:'Nasiya',click:'Click',payme:'Payme'}[p.method]||p.method}</span><span class="rep-val">${fmt(p.amount)}</span></div>`
   ).join('');
   const topRows = (r.top_products||[]).map(p=>
     `<div class="rep-row"><span class="rep-label">${p.name}</span><span class="rep-val">${p.quantity} ta</span></div>`

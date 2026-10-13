@@ -1404,6 +1404,11 @@ class Return(Base):
     # BOSQICH D: `exchange` (almashtirish) olib tashlandi — `ReturnCreate` uni rad
     # etadi (pul harakati yo'q edi, jimgina "tasdiqlangan" vozvrat qolardi).
     refund_method    = Column(String(20), default="cash", nullable=False)
+    # ARALASH CHEK (naqd + nasiya): naqd/karta vozvratida avval SHU chekning
+    # qarzi kamayadi — o'sha qism shu yerda. Kassadan chiqqan naqd =
+    # total_amount − debt_offset (`utils/cashflow.cash_refund_amount`).
+    # NULL = eski yozuv / qarzsiz chek → avvalgidek total_amount.
+    debt_offset      = Column(Float, nullable=True)
     # status: pending=kutilmoqda, approved=tasdiqlandi, rejected=rad etildi
     status           = Column(String(20), default="pending", index=True)
     # ESKIRGAN (BOSQICH D): almashtirish olib tashlangach ishlatilmaydi. Ustun

@@ -570,6 +570,9 @@ class PaymentCreate(BaseModel):
     cash_received: Optional[float] = None
     # Sodiqlik: shu to'lovда ishlatiladigan ball (ixtiyoriy). SERVER qayta tekshiradi.
     redeem_points: Optional[int] = 0
+    # NASIYA: qarz kimga yoziladi. Berilmasa — `order.customer_id` (eski .exe'lar
+    # buni yubormaydi, lekin buyurtma mijoz bilan yaratiladi).
+    customer_id: Optional[int] = None
 
 class PaymentInDB(BaseModel):
     id: int
@@ -1412,6 +1415,8 @@ class ReturnInDB(BaseModel):
     total_amount: float
     refund_method: str
     status: str
+    # Aralash (naqd+nasiya) chek: shu chek qarzidan yopilgan qism (naqd EMAS)
+    debt_offset: Optional[float] = None
     exchange_order_id: Optional[int] = None
     notes: Optional[str] = None
     approved_at: Optional[datetime] = None

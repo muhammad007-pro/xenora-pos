@@ -1983,19 +1983,33 @@ async function loadPayMethods() {
 // Karta/Click/Payme = ANIQ ulush (ortiqcha bo'lmaydi); Naqd qolganini qoplaydi
 // (ko'proq berilsa qaytim). Jami >= order summa bo'lganda "Amalga oshirish" faol.
 let _splitMode = false;
-const _SPLIT_METHODS = ['cash', 'card', 'click', 'payme'];
+const _SPLIT_METHODS = ['cash', 'card', 'click', 'payme', 'credit'];
 function _splitInput(m) { return document.getElementById('split_' + m); }
-function _splitVal(m) { const el = _splitInput(m); return el ? (parseMoney(el.value) || 0) : 0; }
+// Yashirin qator (masalan nasiya kafe'da) hisobga KIRMAYDI — eski qiymat qolib ketmasin
+function _splitVal(m) {
+  const el = _splitInput(m);
+  if (!el) return 0;
+  const row = document.getElementById('splitRow_' + m);
+  if (row && row.style.display === 'none') return 0;
+  return parseMoney(el.value) || 0;
+}
 
+// NASIYA ulushi: karta kabi ANIQ ulush (ortiqcha bo'lmaydi), lekin mijoz SHART
+// (qarz kimga yoziladi). U BIRINCHI yuboriladi: server limitni rad etsa naqd/karta
+// hali yozilmagan bo'ladi — chala to'langan chek qolmaydi.
+// credit = 0 bo'lsa payments ro'yxati AVVALGIDEK (karta/click/payme → naqd).
 function buildSplitPayments() {
   const total     = Math.round(computeTotals().total);
-  const other     = _splitVal('card') + _splitVal('click') + _splitVal('payme');  // ANIQ ulushlar
+  const credit    = _splitVal('credit');
+  const other     = credit + _splitVal('card') + _splitVal('click') + _splitVal('payme');  // ANIQ ulushlar
   const cash      = _splitVal('cash');
   const remainder = total - other;              // naqd qoplashi kerak bo'lgan qism
   const enteredRaw = other + cash;
-  // valid: karta/online ortiqcha emas + jami qoplangan + (naqd kerak bo'lmasa naqd 0)
-  const valid = (other <= total) && (enteredRaw >= total) && !(remainder <= 0 && cash > 0);
+  const needCustomer = credit > 0 && !state.customer?.id;
+  // valid: aniq ulushlar ortiqcha emas + jami qoplangan + (naqd kerak bo'lmasa naqd 0) + nasiyada mijoz bor
+  const valid = (other <= total) && (enteredRaw >= total) && !(remainder <= 0 && cash > 0) && !needCustomer;
   const payments = [];
+  if (credit > 0) payments.push({ method: 'credit', amount: credit, given_amount: credit, change: 0 });
   ['card', 'click', 'payme'].forEach(m => {
     const a = _splitVal(m);
     if (a > 0) payments.push({ method: m, amount: a, given_amount: a, change: 0 });
@@ -2003,7 +2017,7 @@ function buildSplitPayments() {
   if (remainder > 0) {
     payments.push({ method: 'cash', amount: remainder, given_amount: cash, change: Math.max(0, cash - remainder) });
   }
-  return { valid, payments, total, other, cash, remainder, enteredRaw };
+  return { valid, payments, total, other, cash, remainder, enteredRaw, credit, needCustomer };
 }
 
 function updateSplit() {
@@ -2019,6 +2033,7 @@ function updateSplit() {
   if (status) {
     if (s.other > s.total)          { status.textContent = 'Ortiqcha (karta):'; status.style.color = 'var(--danger)'; }
     else if (s.enteredRaw < s.total){ status.textContent = 'Qolgan:';            status.style.color = 'var(--danger)'; }
+    else if (s.needCustomer)        { status.textContent = 'Nasiya uchun mijoz tanlang:'; status.style.color = 'var(--danger)'; }
     else                            { status.textContent = 'To\'liq ✓';          status.style.color = 'var(--success)'; }
   }
   const chRow = document.getElementById('splitChangeRow');
@@ -2292,6 +2307,7 @@ function buildOrderPayload() {
 // Backend sum >= final_amount bo'lganda order "completed". FAQAT ONLINE.
 async function doSplitPayment() {
   const s = buildSplitPayments();
+  if (s.needCustomer) { toast('Nasiya uchun mijozni tanlang', 'error'); return; }
   if (!s.valid || !s.payments.length) { toast('Aralash: summa order jamiga teng emas', 'error'); return; }
   const btn = document.getElementById('doPayBtn');
   btn.disabled = true; btn.textContent = 'Amalga oshirilmoqda...';
@@ -2301,6 +2317,7 @@ async function doSplitPayment() {
   const orderId = state.pendingOrderId;
   if (!orderId) { toast('Buyurtma topilmadi', 'error'); btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish'; return; }
 
+  let _splitDone = 0;   // muvaffaqiyatli yuborilgan ulushlar soni (xato matni uchun)
   try {
     // Har ulush alohida Payment (birinchisiga tip biriktiriladi). Biri fail bo'lsa throw.
     // Sodiqlik: order faqat OXIRGI ulush bilan yakunlanadi (backend order_completed
@@ -2308,10 +2325,13 @@ async function doSplitPayment() {
     let _splitLoyalty = null;
     for (let i = 0; i < s.payments.length; i++) {
       const p = s.payments[i];
+      _splitDone = i;
       const payRes = await api.post('/payments/', {
         order_id: orderId, method: p.method, amount: p.amount,
         given_amount: p.given_amount, change: p.change,
         tip_amount: i === 0 ? (tipAmount || 0) : 0,
+        // Nasiya ulushi: qarz SERVERDA shu to'lov bilan bitta tranzaksiyada yoziladi
+        ...(p.method === 'credit' ? { customer_id: state.customer?.id || null } : {}),
       });
       if (!payRes || !payRes.success) throw new Error((payRes && payRes.error) || 'To\'lov qismi amalga oshmadi');
       const _pd = payRes.data || {};
@@ -2334,7 +2354,9 @@ async function doSplitPayment() {
     loadHeldOrders();
   } catch (err) {
     // Diqqat: bir qism o'tib, keyingisi fail bo'lishi mumkin → order qisman to'langan.
-    toast((err?.message || err?.detail || 'To\'lovda xatolik') + ' (qisman to\'langan bo\'lishi mumkin)', 'error');
+    // Birinchi ulush (nasiya bo'lsa — limit) rad etilsa hech narsa yozilmagan.
+    const _partial = _splitDone > 0 ? ' (qisman to\'langan bo\'lishi mumkin)' : '';
+    toast((err?.message || err?.detail || 'To\'lovda xatolik') + _partial, 'error');
   } finally {
     btn.disabled = false; btn.textContent = 'To\'lovni amalga oshirish';
   }
@@ -2343,7 +2365,6 @@ async function doSplitPayment() {
 async function doPayment() {
   // #32: aralash rejim (faqat online) → alohida oqim
   if (_splitMode && !offlineCheckout) { return doSplitPayment(); }
-  const t     = computeTotals();
   const due   = payableTotal();   // redeem'dan keyingi to'lanadigan summa (naqd/karta)
   const given = parseMoney(document.getElementById('cashInput').value) || due;
   if (payMethod === 'cash' && given < due) { toast('Qabul qilingan summa yetarli emas', 'error'); return; }
@@ -2362,6 +2383,9 @@ async function doPayment() {
     change      : payMethod === 'cash' ? Math.max(0, given - due) : 0,
     room_id     : payMethod === 'room_charge' ? (state.table?.id || null) : null,
     redeem_points: redeemPts || 0,              // SERVER qayta tekshiradi
+    // Nasiya: qarz SERVERDA to'lov bilan bitta tranzaksiyada yoziladi (mijoz + limit
+    // tekshiruvi sotuvdan OLDIN). Offline navbatga ham shu maydon tushadi.
+    customer_id : payMethod === 'credit' ? (state.customer?.id || null) : null,
   };
 
   // ── Offline rejim ──
@@ -2415,27 +2439,13 @@ async function doPayment() {
       if (parts.length) toast(parts.join(', ') + (lastLoyalty.balance != null ? ` (balans: ${lastLoyalty.balance})` : ''), 'success', 4000);
     }
 
-    // BOSQICH 19: Nasiya bo'lsa qarz yozuvini yaratish
-    //
-    // TUZATISH: ilgari bu yerda `catch { }` turardi — qarz yozilmasa xato JIMGINA
-    // yutilar, kassirga esa baribir "Nasiya yozildi!" deb ko'rsatilardi. Ya'ni tovar
-    // ketardi, qarz esa hech qayerda qolmasdi — jimgina pul yo'qotish.
-    // Sotuvni BEKOR QILMAYMIZ (to'lov allaqachon serverda tasdiqlangan), lekin
-    // kassir nima bo'lganini va nima qilish kerakligini ANIQ bilishi shart.
-    let _debtFailed = false;
-    if (payMethod === 'credit' && state.customer?.id) {
-      try {
-        await api.post('/debts/', {
-          customer_id: state.customer.id,
-          order_id: orderId,
-          amount: t.total,
-          notes: 'POS dan nasiya',
-        });
-      } catch (debtErr) {
-        _debtFailed = true;
-        console.error('Nasiya qarzi yozilmadi:', debtErr);
-      }
-    }
+    // BOSQICH 19: Nasiya qarzi — endi SERVERDA (`POST /payments/` ichida, sotuv
+    // bilan bitta tranzaksiyada). Ilgari shu yerda sotuvdan KEYIN alohida
+    // `POST /debts/` bo'lardi: u yiqilsa (limit, tarmoq) tovar ketib, qarz
+    // qolmasdi. Endi limit oshsa to'lovning O'ZI 400 qaytaradi va sotuv o'tmaydi
+    // (yuqoridagi `!payRes.success` → catch → xato ko'rsatiladi).
+    // Eski .exe'lar hali `POST /debts/` qiladi — server uni order_id bo'yicha
+    // idempotent qilgan (ikkinchi qarz yaratilmaydi).
 
     closeModal('paymentModal');
     broadcastToDisplay('payment_complete');
@@ -2443,12 +2453,7 @@ async function doPayment() {
     // LOKAL CHEK (B1): order yaratishda saqlangan meta (daily_number/order_number)
     // + shu yerdagi lastLoyalty — server /receipt ga BORMAYMIZ.
     showReceiptLocal(orderId, { loyalty: lastLoyalty });
-    if (_debtFailed) {
-      // Uzoq turadigan (15s) va yashil EMAS — kassir e'tibor bermay o'tib ketmasin.
-      toast("Sotuv o'tdi, LEKIN qarz yozilmadi — mijoz qarzini Nasiya bo'limidan QO'LDA kiriting!", 'error', 15000);
-    } else {
-      toast(payMethod === 'credit' ? 'Nasiya yozildi!' : 'To\'lov qabul qilindi!', 'success');
-    }
+    toast(payMethod === 'credit' ? 'Nasiya yozildi!' : 'To\'lov qabul qilindi!', 'success');
     clearOrderState();
     loadHeldOrders();   // to'langan buyurtma held ro'yxatidan tushadi
   } catch (err) {
@@ -3614,6 +3619,9 @@ function applyBusinessMode() {
       creditBtn.style.display = '';
       const payMethodsEl = document.querySelector('.pay-methods');
       if (payMethodsEl) payMethodsEl.classList.add('has-credit');
+      // Aralash to'lovda ham nasiya ulushi (naqd + nasiya) — tugma bilan bir xil shart
+      const splitCredit = document.getElementById('splitRow_credit');
+      if (splitCredit) splitCredit.style.display = 'flex';
     }
 
     // BOSQICH 20: Tez sotuv panelini yuklash (store/supermarket uchun)

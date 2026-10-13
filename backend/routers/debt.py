@@ -51,6 +51,25 @@ def create_debt(
     if not customer:
         raise HTTPException(404, "Mijoz topilmadi")
 
+    # ── IDEMPOTENT (order_id bo'yicha) ──────────────────────────────────────
+    # Nasiya qarzi endi `POST /payments/` ICHIDA yoziladi (sotuv bilan bitta
+    # tranzaksiyada). Eski .exe'lar o'z frontendini olib yuradi va sotuvdan
+    # keyin baribir shu yerga keladi → shu buyurtmaga qarz bor bo'lsa MAVJUDINI
+    # qaytaramiz, ikkinchisini yaratmaymiz.
+    # ⚠️ LIMIT TEKSHIRUVIDAN OLDIN: aks holda server yozgan qarz `total_debt`
+    # ga allaqachon kirgan, ikkinchi marta qo'shib 400 berardi va eski kassa
+    # "qarz yozilmadi" deb yolg'on ogohlantirardi.
+    # Avans qatorlari (manfiy summa, vozvratdan) hisobga olinmaydi.
+    if data.order_id:
+        existing = (
+            apply_tenant_filter(db.query(CustomerDebt), CustomerDebt, current_user)
+            .filter(CustomerDebt.order_id == data.order_id, CustomerDebt.amount > 0)
+            .order_by(CustomerDebt.id)
+            .first()
+        )
+        if existing:
+            return existing
+
     # Qarz limitini tekshirish
     if customer.credit_limit is not None:
         new_total = customer.total_debt + data.amount

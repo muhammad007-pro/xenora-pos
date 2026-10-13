@@ -134,6 +134,15 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
         <input type="number" class="inp" id="nDiscount" placeholder="0" min="0">
       </div>
     </div>
+    <!-- Nakladnoy kelganda darhol berilgan pul (suppliers.html bilan bir xil). To'lov
+         yozuvi priyomka TASDIQLANGANDA yaratiladi va nakladnoyga bog'lanadi. -->
+    <div class="form-row">
+      <label class="form-label">Hozir to'landi (so'm)</label>
+      <input type="number" class="inp" id="nPaidNow" placeholder="0" min="0" step="1000">
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem" id="nPaidNowHint">
+        Ixtiyoriy. Tasdiqlanganda avtomatik to'lov yoziladi — Firmalar → Qarzlar bo'limiga alohida kirish shart emas.
+      </div>
+    </div>
     <div class="form-row">
       <label class="form-label">Izoh</label>
       <input type="text" class="inp" id="nNotes" placeholder="Ixtiyoriy...">
@@ -167,6 +176,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
     <div style="text-align:right;margin-top:.5rem;font-size:.875rem;color:var(--text2)">
       Jami: <strong id="totalLabel">0</strong> so'm
       &nbsp;|&nbsp; Net: <strong id="netLabel">0</strong> so'm
+      <span id="debtAfterBox" style="display:none">&nbsp;|&nbsp; Qarzga qoladi:
+        <strong id="debtAfterLabel" style="color:#ef4444">0</strong> so'm</span>
     </div>
 
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
@@ -235,6 +246,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
   </div>
 </div>
 
+<!-- Qidiruvli select (classic — window.searchableSelect; modul bloki undan keyin ishlaydi) -->
+<script src="../js/ui/searchable-select.js"></script>
 <script src="../js/core/product-photo.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
@@ -247,6 +260,18 @@ let suppliers = [];
 let categories = [];
 let currentReceiptId = null;
 
+// api.js javobi O'RALGAN: {success, data, error, offline}. Ilgari sahifa uni xom
+// deb o'qirdi (`res.items`, `prod.id`, `res.status`) → ro'yxatlar bo'sh, "Yangi
+// tovar" serverda yaratilsa ham "Mahsulot yaratilmadi" deyilardi. Naqsh suppliers.html dan.
+function apiData(res, fallback = null) {
+  return (res && res.success) ? (res.data ?? fallback) : fallback;
+}
+function apiErr(res, fallback = 'Amal bajarilmadi') {
+  if (res && res.offline) return "Server bilan aloqa yo'q — internet/ulanishni tekshiring";
+  return (res && res.error) || fallback;
+}
+function apiOk(res) { return !!(res && res.success); }
+
 async function init() {
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('nDate').value = today;
@@ -255,12 +280,17 @@ async function init() {
 
   const [supRes, prodRes, catRes] = await Promise.all([
     api.get('/suppliers-b2b/?page_size=200&is_active=true'),
-    api.get('/products/?page_size=500'),
+    // 1000 tagacha boshlang'ich ro'yxat; undan oshgani searchableSelect orqali serverdan
+    api.get('/products/?page_size=1000'),
     api.get('/categories/all').catch(() => null),
   ]);
-  suppliers  = supRes.items || [];
-  products   = prodRes.items || [];
-  categories = Array.isArray(catRes) ? catRes : (catRes?.items || catRes?.data || []);
+  suppliers  = apiData(supRes,  {}).items || [];
+  products   = apiData(prodRes, {}).items || [];
+  const _cats = apiData(catRes, []);
+  categories = Array.isArray(_cats) ? _cats : (_cats?.items || []);
+  if (!apiOk(supRes) || !apiOk(prodRes)) {
+    showToast(apiErr(!apiOk(supRes) ? supRes : prodRes, "Ma'lumot yuklanmadi"), 'error');
+  }
 
   const selSup = document.getElementById('filterSupplier');
   const nSup   = document.getElementById('nSupplier');
@@ -292,8 +322,12 @@ window.load = async () => {
   if (from)   params.set('date_from', from);
   if (to)     params.set('date_to', to);
   const res = await api.get(`/purchase-receipts/?${params}`);
-  const rows = res.items || [];
   const tbody = document.getElementById('tableBody');
+  if (!apiOk(res)) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--danger,#ef4444)">${apiErr(res, 'Priyomkalar yuklanmadi')}</td></tr>`;
+    return;
+  }
+  const rows = apiData(res, {}).items || [];
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Priyomkalar topilmadi</td></tr>';
     return;
@@ -327,7 +361,27 @@ window.addItemRow = () => {
     <td><input type="text" placeholder="seriya" style="width:100%"></td>
     <td><input type="date" style="width:100%"></td>
     <td><button class="remove-btn" onclick="this.closest('tr').remove();calcTotal()">✕</button></td>`;
+  attachProductSearch(row.cells[0].querySelector('select'));
 };
+
+// Mahsulot select'iga qidiruv qatlami (suppliers.html bilan bir xil). `<select>`
+// DOM'da qoladi — sel.value o'qiydigan joylar o'zgarmaydi.
+function attachProductSearch(select) {
+  if (!select || typeof window.searchableSelect !== 'function') return;
+  window.searchableSelect(select, {
+    placeholder: 'Mahsulot nomi bilan qidirish...',
+    initial: products,
+    limit: 50,
+    render: (p) => ({ value: p.id, label: p.name, data: { price: p.price || 0 } }),
+    search: async (q) => {
+      const res = await api.get(`/products/?search=${encodeURIComponent(q)}&page_size=50`);
+      if (!apiOk(res)) return [];
+      const found = apiData(res, {}).items || [];
+      found.forEach(p => { if (!products.some(x => x.id === p.id)) products.push(p); });
+      return found;
+    },
+  });
+}
 
 window.calcRow = (el) => {
   const row  = el.closest('tr');
@@ -348,11 +402,17 @@ function calcTotal() {
     total += Math.max(0, qty - brak) * price;
   });
   const disc = parseFloat(document.getElementById('nDiscount').value) || 0;
+  const net  = Math.max(0, total - disc);
   document.getElementById('totalLabel').textContent = fmt(total);
-  document.getElementById('netLabel').textContent   = fmt(Math.max(0, total - disc));
+  document.getElementById('netLabel').textContent   = fmt(net);
+  // "Hozir to'landi" kiritilsa — qarzga nima qolishini darhol ko'rsatamiz
+  const paidNow = parseFloat(document.getElementById('nPaidNow').value) || 0;
+  document.getElementById('debtAfterBox').style.display = paidNow > 0 ? '' : 'none';
+  document.getElementById('debtAfterLabel').textContent = fmt(Math.max(0, net - paidNow));
 }
 
 document.getElementById('nDiscount').oninput = calcTotal;
+document.getElementById('nPaidNow').oninput  = calcTotal;
 
 window.createReceipt = async () => {
   const supplierId = document.getElementById('nSupplier').value;
@@ -383,22 +443,25 @@ window.createReceipt = async () => {
     invoice_number:  document.getElementById('nInvoice').value.trim() || null,
     receipt_date:    date,
     discount_amount: parseFloat(document.getElementById('nDiscount').value) || 0,
-    notes:           document.getElementById('nNotes').value.trim() || null,
+    paid_now:        parseFloat(document.getElementById('nPaidNow').value) || 0,
+    notes:          document.getElementById('nNotes').value.trim() || null,
     items,
   });
   btn.disabled = false;
-  if (res.id) {
+  if (apiOk(res) && apiData(res, {}).id) {
     showToast('Priyomka saqlandi', 'success');
     closeNewModal();
     load();
   } else {
-    showToast(res.detail || 'Xatolik', 'error');
+    showToast(apiErr(res, 'Priyomka saqlanmadi'), 'error');
   }
 };
 
 window.openDetail = async (id) => {
   currentReceiptId = id;
-  const rec = await api.get(`/purchase-receipts/${id}`);
+  const _r = await api.get(`/purchase-receipts/${id}`);
+  if (!apiOk(_r)) { showToast(apiErr(_r, 'Priyomka ochilmadi'), 'error'); return; }
+  const rec = apiData(_r, {});
   const content = document.getElementById('detailContent');
   const btnConfirm = document.getElementById('btnConfirm');
 
@@ -439,17 +502,21 @@ window.confirmReceipt = async () => {
   btn.disabled = true;
   const res = await api.post(`/purchase-receipts/${currentReceiptId}/confirm`);
   btn.disabled = false;
-  if (res.status === 'confirmed') {
+  // `res.status` — o'ralgan javobning HTTP statusi; priyomka holati `res.data.status` da.
+  // paid_now net'ni to'liq qoplasa server darhol `paid` qiladi — bu ham muvaffaqiyat.
+  if (apiOk(res) && ['confirmed', 'paid'].includes(apiData(res, {}).status)) {
     showToast('Priyomka tasdiqlandi! Ombor yangilandi.', 'success');
     closeDetailModal();
     load();
   } else {
-    showToast(res.detail || 'Xatolik', 'error');
+    showToast(apiErr(res, 'Priyomka tasdiqlanmadi'), 'error');
   }
 };
 
 window.closeNewModal = () => {
   document.getElementById('newModal').classList.remove('active');
+  document.getElementById('nPaidNow').value = '';
+  document.getElementById('debtAfterBox').style.display = 'none';
   document.getElementById('itemsBody').innerHTML = '';
   addItemRow();
 };
@@ -478,9 +545,7 @@ async function handleReceiptScan(code) {
   // 1) Xotiradagi mahsulotlardan
   let prod = products.find(p => p.barcode === code);
   // 2) Ko'p barcode tizimi orqali (multi-barcode + tarozi PLU)
-  if (!prod) {
-    try { const r = await api.get(`/barcodes/lookup/${encodeURIComponent(code)}`); if (r && r.id) prod = r; } catch {}
-  }
+  if (!prod) prod = await lookupBarcode(code);
   if (!prod) {
     st.textContent = `✕ Topilmadi: ${code}`; st.style.color = '#ef4444';
     onReceiptProductNotFound(code);   // 2-bosqich: yangi tovar formasi
@@ -488,6 +553,15 @@ async function handleReceiptScan(code) {
   }
   st.textContent = `✓ ${prod.name}`; st.style.color = '#22c55e';
   addScannedProduct(prod);
+}
+
+// Shtrix-kod bo'yicha o'z mahsulotini topish (asosiy + qo'shimcha barkod, PLU).
+// Topilmasa server 404 beradi → null.
+async function lookupBarcode(code) {
+  try {
+    const found = apiData(await api.get(`/barcodes/lookup/${encodeURIComponent(code)}`));
+    return (found && found.id) ? found : null;
+  } catch { return null; }
 }
 
 // Tovarni kirim qatoriga qo'shish (skanerdan yoki yangi yaratilgach)
@@ -591,21 +665,40 @@ window.saveNewProduct = async () => {
     if (catId === '__new__') {
       const cname = document.getElementById('npNewCat').value.trim();
       if (!cname) { showToast('Yangi kategoriya nomini kiriting', 'error'); btn.disabled=false; btn.textContent='Saqlash + kirim'; return; }
-      const cat = await api.post('/categories/', { name: cname });
-      if (!cat || !cat.id) throw new Error(cat?.detail || 'Kategoriya yaratilmadi');
+      const catRes = await api.post('/categories/', { name: cname });
+      const cat = apiData(catRes);
+      if (!apiOk(catRes) || !cat?.id) throw new Error(apiErr(catRes, 'Kategoriya yaratilmadi'));
       catId = cat.id;
       categories.push(cat);
+      // Keyingi urinishda (masalan rasm/mahsulot xatosidan so'ng) kategoriya
+      // QAYTA yaratilmasin — select endi yangi kategoriyani ko'rsatadi.
+      const sel = document.getElementById('npCat');
+      sel.insertAdjacentHTML('beforeend', `<option value="${cat.id}">${cat.name}</option>`);
+      sel.value = String(cat.id);
+      document.getElementById('npNewCatRow').style.display = 'none';
     }
     if (!catId) { showToast('Kategoriya tanlang', 'error'); btn.disabled=false; btn.textContent='Saqlash + kirim'; return; }
 
+    const barcode = document.getElementById('npBarcode').value || null;
     const payload = {
       name, price,
       cost_price:  parseFloat(document.getElementById('npCost').value) || 0,
-      barcode:     document.getElementById('npBarcode').value || null,
+      barcode,
       category_id: parseInt(catId),
     };
-    const prod = await api.post('/products/', payload);
-    if (!prod || !prod.id) throw new Error(prod?.detail || 'Mahsulot yaratilmadi');
+    const prodRes = await api.post('/products/', payload);
+    const prod = apiData(prodRes);
+    if (!apiOk(prodRes) || !prod?.id) {
+      // DUBLIKATGA QARSHI: javob yo'qolgan bo'lsa (tarmoq uzildi) yoki avvalgi
+      // urinish mahsulotni yaratib bo'lgan bo'lsa ("Bu barcode band") — o'sha
+      // barkod bilan mavjud mahsulotni olamiz, yangisini yaratmaymiz.
+      const existing = barcode ? await lookupBarcode(barcode) : null;
+      if (!existing) throw new Error(apiErr(prodRes, 'Mahsulot yaratilmadi'));
+      showToast(`Bu barkod bilan tovar allaqachon bor: ${existing.name}`, 'info');
+      document.getElementById('npModal').classList.remove('active');
+      addScannedProduct(existing);
+      return;
+    }
 
     // Rasm tanlangan bo'lsa — mahsulot yaratilgach yuklaymiz
     let imgErr = null;

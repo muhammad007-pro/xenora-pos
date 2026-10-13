@@ -7,6 +7,11 @@ from typing import Optional, List
 from models import Order, OrderItem, Product, Table, User, Shift, Discount, order_discounts, Promotion
 from schemas import OrderCreate, OrderUpdate
 
+# Summa rejimidagi `line_total` uchun ruxsat: og'irlik 3 xonaga yaxlitlanadi,
+# ya'ni haqiqiy og'irlik ±0.0005 birlik ichida — summa ham narx × 0.0005 gacha
+# farq qila oladi. Undan ortiq — rad etiladi (client narxni o'zgartira olmaydi).
+LINE_TOTAL_TOLERANCE_QTY = 0.0005
+
 class OrderService:
     def __init__(self, db: Session):
         self.db = db
@@ -307,6 +312,22 @@ class OrderService:
             # (17000 × 0.740 = 12579.999...). Qator summasi tiyingacha
             # yaxlitlanadi — chek va hisobot mos kelsin.
             total_price = round(unit_price * item.quantity, 2)
+
+            # ── SUMMA REJIMI: kassir tergan summa saqlanadi ───────────────────
+            # 15 000 ÷ 26 500 = 0.56604 → 3 xona → 0.566 → × 26 500 = 14 999.
+            # Mijoz "15 000 so'mlik" so'ragan va 15 000 to'laydi — qator summasi
+            # shu bo'ladi. Og'irlik 3 xonada QOLADI (tarozi, ombor, vozvrat
+            # konvensiyasi). Ruxsat oralig'i — og'irlikning yaxlitlash qadami
+            # (±0.0005 birlik) narxi: undan katta farq = client xatosi/aldov → 400.
+            line_total = getattr(item, "line_total", None)
+            if line_total is not None and item_unit_sold != "pachka":
+                diff = abs(float(line_total) - unit_price * item.quantity)
+                if diff > unit_price * LINE_TOTAL_TOLERANCE_QTY + 0.01:
+                    raise ValueError(
+                        f"Qator summasi og'irlikka mos emas: {line_total:,.2f} "
+                        f"≠ {unit_price:,.0f} × {item.quantity}"
+                    )
+                total_price = round(float(line_total), 2)
             total_amount += total_price
             items_data.append({
                 "product_id": product.id,

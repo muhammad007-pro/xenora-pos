@@ -14,7 +14,7 @@ from services.customer_debt import recalc_customer_debt
 from schemas import PaymentCreate, PaymentInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
 from core.feature_flags import Feature, is_feature_enabled
-from services.payment_service import PaymentService
+from services.payment_service import PaymentService, covers
 from services.ofd_service import send_to_ofd
 from websocket.manager import manager
 from core.config_loader import config_loader
@@ -243,7 +243,9 @@ async def create_payment(
         ).scalar() or 0.0
 
         # Redeem = to'lov tenderi: naqd + ball + nasiya qoplagan summa >= final bo'lsa yakunlanadi.
-        if total_paid + _redeem_amount + credit_tender >= order.final_amount:
+        # 1 tiyin dopusk (`covers`): kasrli (kg) sotuvda float dumi buyurtmani
+        # yakunlanmagan holda qoldirardi (prod: XOZMAG #3339/#3641).
+        if covers(total_paid + _redeem_amount + credit_tender, order.final_amount):
             order_completed = True
             # TOCTOU: Order qatorini QULFLAB, ingredients_deducted ni DB'dan YANGI o'qiymiz.
             # Ikki qurilma bir vaqtda split-payment yakunlasa — biri qulfda kutadi, ombor

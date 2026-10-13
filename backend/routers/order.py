@@ -50,6 +50,11 @@ def _enrich_order(o):
     paid = next((p for p in o.payments if p.status == "paid"), None)
     _pm = paid.method if paid else (o.payments[0].method if o.payments else None)
     o.payment_method = getattr(_pm, "value", _pm)
+    # Haqiqatan to'langan summa — POS "kutilayotgan" ro'yxatida QISMAN TO'LANGAN
+    # chekni ajratib ko'rsatish va o'chirishda ogohlantirish uchun (prod: pul
+    # olingan chek o'chirilib, sotuv yo'qolgan — XOZMAG #3339/#3641).
+    o.paid_amount = round(sum(float(p.amount or 0) for p in o.payments
+                              if p.status == "paid" and (p.amount or 0) > 0), 2)
     return o
 
 @router.get("/", response_model=PaginatedResponse)
@@ -276,6 +281,11 @@ async def create_order(
             detail=e.message,
             headers={"X-Stock-Shortage": str(len(e.shortages))},
         )
+    except ValueError as e:
+        # Servis tekshiruvlari (mahsulot topilmadi / mavjud emas / summa rejimi
+        # qator summasi og'irlikka mos emas). Ilgari ushlanmasdi → 500.
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Stol statusini yangilash (faqat stol bor bo'lsa)
     if table:

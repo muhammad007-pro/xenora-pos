@@ -444,22 +444,38 @@ async function loadStaleShiftAlert() {
 }
 
 /**
- * Bugungi foyda bloki: savdo − tannarx = yalpi − xarajat ulushi = SOF foyda.
+ * Bugungi foyda bloki:
+ *   bugungi savdo − qaytarish = SOF SAVDO − tan narx = yalpi − xarajat ulushi = SOF foyda.
  * Raqamlar serverdan TAYYOR keladi (`profit_breakdown` = `/profit/summary`) —
- * bu yerda hisob YO'Q, faqat ko'rsatish. Xarajat 0 bo'lsa ham qator chiqadi.
+ * bu yerda hisob YO'Q, faqat ko'rsatish. Xarajat/qaytarish 0 bo'lsa ham qator chiqadi.
+ *
+ * ⚠️ Qaytarish YALPI FOYDADAN KEYIN emas, SAVDO ostida turadi: serverda `revenue`
+ * ham, `cost` ham qaytarishdan keyin (qaytgan tovar tan narxi ham ayirilgan).
+ * Yalpidan keyin qaytarish summasini ayirsak, u ikki marta ayirilgan bo'lardi
+ * va sof foyda serverdagidan farq qilardi.
+ * Nom: chap karta "Bugungi savdo" (qaytarish ayirilmagan) — bu yerdagi birinchi
+ * qator ham shu son; qaytarishdan keyingisi "Sof savdo" (ikki xil son — ikki xil nom).
  */
 function renderProfitBreakdown(pb) {
   const row = (label, val, opts = {}) =>
-    `<div style="display:flex;justify-content:space-between;gap:.5rem${opts.bold ? ';font-weight:700' : ''}${opts.muted ? ';color:var(--text3)' : ''}">`
+    `<div style="display:flex;justify-content:space-between;gap:.5rem${opts.bold ? ';font-weight:700' : ''}${opts.muted ? ';color:var(--text3)' : ''}"${opts.id ? ` data-row="${opts.id}"` : ''}>`
     + `<span>${label}</span><span>${opts.minus && val ? '−' : ''}${fmtMoney(val || 0)}</span></div>`;
   const line = '<div style="border-top:1px solid var(--border);margin:.2rem 0"></div>';
+  const hint = (text) => `<div style="font-size:.7rem;color:var(--text3);text-align:right">${text}</div>`;
   const info = pb.expense_info || {};
   // Taqsimlangan xarajat bo'lsa — "jami X dan" izohi (Foyda tahlilidagi bilan bir xil ma'no)
-  const expHint = info.is_split
-    ? `<div style="font-size:.7rem;color:var(--text3);text-align:right">kunlarga taqsimlangan (jami ${fmtMoney(info.raw)} dan)</div>`
+  const expHint = info.is_split ? hint(`kunlarga taqsimlangan (jami ${fmtMoney(info.raw)} dan)`) : '';
+  // Eski server (sales_gross yo'q): revenue baribir qaytarishdan keyin → "Sof savdo".
+  const hasReturns = pb.sales_gross != null;
+  const salesRows = hasReturns
+    ? row('Bugungi savdo', pb.sales_gross, { id: 'sales' })
+      + row('Qaytarish', pb.returns, { minus: true, muted: true, id: 'returns' })
+      + hint('kecha sotilgan tovar ham bo\'lishi mumkin')
+      + line
     : '';
   document.getElementById('kpiProfitRows').innerHTML =
-      row('Bugungi savdo', pb.revenue)
+      salesRows
+    + row('Sof savdo', pb.revenue, { id: 'net-sales' })
     + row('Tan narx', pb.cost, { minus: true, muted: true })
     + line
     + row('Yalpi foyda', pb.gross_profit, { bold: true })

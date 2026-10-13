@@ -245,6 +245,11 @@ async def get_dashboard_data(
                 "gross_profit": s.get("gross_profit", 0),
                 "expenses":     s.get("expenses", 0),
                 "net_profit":   s.get("net_profit", 0),
+                # Ko'rsatish uchun (hisob summary'da): savdo − qaytarish = sof savdo.
+                # Xizmat/mehmonxona turlarida qaytarish yo'q → 0, sales_gross = revenue.
+                "returns":       s.get("returns", 0),
+                "returns_count": s.get("returns_count", 0),
+                "sales_gross":   s.get("sales_gross", revenue),
                 "period":       s.get("period"),
                 "expense_info": s.get("expense_info"),
             }

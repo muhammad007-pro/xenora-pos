@@ -184,6 +184,41 @@ async function yangiTovar(page) {
   await ctx.close();
 }
 
+// ── E) "Hozir to'landi" — qarzga qoladi ko'rinadi va paid_now serverga ketadi ─
+{
+  const { page, ctx, log, errors } = await ochish(browser);
+  await page.evaluate(() => document.getElementById('newModal').classList.add('active'));
+  const row = '#itemsBody tr:first-child';
+  await page.fill(`${row} td:nth-child(2) input`, '10');
+  await page.fill(`${row} td:nth-child(3) input`, '7500');      // jami 75 000
+  await page.fill('#nDiscount', '5000');                           // net 70 000
+  check('E_bosh_maydon_quti_yashirin', await page.$eval('#debtAfterBox', el => el.style.display), 'none');
+  await page.fill('#nPaidNow', '30000');
+  check('E_quti_korindi', await page.$eval('#debtAfterBox', el => el.style.display), '');
+  check('E_qarzga_qoladi', await page.$eval('#debtAfterLabel', el => el.textContent),
+        await page.evaluate(() => (40000).toLocaleString('uz-UZ')));
+  await page.fill('#nDiscount', '0');                              // net o'zgarsa qayta hisob
+  check('E_chegirma_ozgarsa_qayta', await page.$eval('#debtAfterLabel', el => el.textContent),
+        await page.evaluate(() => (45000).toLocaleString('uz-UZ')));
+  await page.fill('#nPaidNow', '90000');                           // ortiqcha → 0, manfiy emas
+  check('E_ortiqcha_tolov_0', await page.$eval('#debtAfterLabel', el => el.textContent), '0');
+  await page.fill('#nPaidNow', '30000');
+  await page.evaluate(() => window.createReceipt());
+  await page.waitForTimeout(500);
+  check('E_POST_paid_now', log.receiptPosts.map(b => b.paid_now), [30000]);
+  check('E_yopilgach_tozalandi', [await page.$eval('#nPaidNow', i => i.value),
+        await page.$eval('#debtAfterBox', el => el.style.display)], ['', 'none']);
+
+  // Bo'sh qoldirilsa — 0 yuboriladi (avvalgi xulq)
+  await page.evaluate(() => document.getElementById('newModal').classList.add('active'));
+  await page.fill(`${row} td:nth-child(3) input`, '7500');
+  await page.evaluate(() => window.createReceipt());
+  await page.waitForTimeout(500);
+  check('E_bosh_paid_now_0', log.receiptPosts.map(b => b.paid_now), [30000, 0]);
+  check('E_JS_xatosi_yoq', errors, []);
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(`\n${pass} OK, ${fail} FAIL`);

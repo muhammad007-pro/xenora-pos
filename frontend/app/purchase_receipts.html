@@ -134,6 +134,15 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
         <input type="number" class="inp" id="nDiscount" placeholder="0" min="0">
       </div>
     </div>
+    <!-- Nakladnoy kelganda darhol berilgan pul (suppliers.html bilan bir xil). To'lov
+         yozuvi priyomka TASDIQLANGANDA yaratiladi va nakladnoyga bog'lanadi. -->
+    <div class="form-row">
+      <label class="form-label">Hozir to'landi (so'm)</label>
+      <input type="number" class="inp" id="nPaidNow" placeholder="0" min="0" step="1000">
+      <div style="font-size:.75rem;color:var(--text3);margin-top:.25rem" id="nPaidNowHint">
+        Ixtiyoriy. Tasdiqlanganda avtomatik to'lov yoziladi — Firmalar → Qarzlar bo'limiga alohida kirish shart emas.
+      </div>
+    </div>
     <div class="form-row">
       <label class="form-label">Izoh</label>
       <input type="text" class="inp" id="nNotes" placeholder="Ixtiyoriy...">
@@ -167,6 +176,8 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
     <div style="text-align:right;margin-top:.5rem;font-size:.875rem;color:var(--text2)">
       Jami: <strong id="totalLabel">0</strong> so'm
       &nbsp;|&nbsp; Net: <strong id="netLabel">0</strong> so'm
+      <span id="debtAfterBox" style="display:none">&nbsp;|&nbsp; Qarzga qoladi:
+        <strong id="debtAfterLabel" style="color:#ef4444">0</strong> so'm</span>
     </div>
 
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.25rem">
@@ -391,11 +402,17 @@ function calcTotal() {
     total += Math.max(0, qty - brak) * price;
   });
   const disc = parseFloat(document.getElementById('nDiscount').value) || 0;
+  const net  = Math.max(0, total - disc);
   document.getElementById('totalLabel').textContent = fmt(total);
-  document.getElementById('netLabel').textContent   = fmt(Math.max(0, total - disc));
+  document.getElementById('netLabel').textContent   = fmt(net);
+  // "Hozir to'landi" kiritilsa — qarzga nima qolishini darhol ko'rsatamiz
+  const paidNow = parseFloat(document.getElementById('nPaidNow').value) || 0;
+  document.getElementById('debtAfterBox').style.display = paidNow > 0 ? '' : 'none';
+  document.getElementById('debtAfterLabel').textContent = fmt(Math.max(0, net - paidNow));
 }
 
 document.getElementById('nDiscount').oninput = calcTotal;
+document.getElementById('nPaidNow').oninput  = calcTotal;
 
 window.createReceipt = async () => {
   const supplierId = document.getElementById('nSupplier').value;
@@ -426,7 +443,8 @@ window.createReceipt = async () => {
     invoice_number:  document.getElementById('nInvoice').value.trim() || null,
     receipt_date:    date,
     discount_amount: parseFloat(document.getElementById('nDiscount').value) || 0,
-    notes:           document.getElementById('nNotes').value.trim() || null,
+    paid_now:        parseFloat(document.getElementById('nPaidNow').value) || 0,
+    notes:          document.getElementById('nNotes').value.trim() || null,
     items,
   });
   btn.disabled = false;
@@ -497,6 +515,8 @@ window.confirmReceipt = async () => {
 
 window.closeNewModal = () => {
   document.getElementById('newModal').classList.remove('active');
+  document.getElementById('nPaidNow').value = '';
+  document.getElementById('debtAfterBox').style.display = 'none';
   document.getElementById('itemsBody').innerHTML = '';
   addItemRow();
 };

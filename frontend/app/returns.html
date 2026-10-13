@@ -860,7 +860,7 @@ window.sumModeInput = function(idx) {
   const oiEl = document.getElementById(`ioi${idx}`);
   const r = qtyFromSum(
     document.getElementById(`isum${idx}`)?.value,
-    document.getElementById(`ipr${idx}`)?.value,
+    oiEl?.dataset.netUnit || document.getElementById(`ipr${idx}`)?.value,
     oiEl?.dataset.max);
   const qEl = document.getElementById(`iq${idx}`);
   if (qEl) qEl.value = r.qty > 0 ? String(r.qty) : '';
@@ -903,6 +903,17 @@ function _renderOrderRows(o) {
     // Dona mahsulotda tugma umuman chiqmaydi.
     const sumOk = _sumModeAvailable(it.sale_unit);
     const unitW = _rowUnitWord(it);
+    // CHEGIRMALI chek: qator summasi "580 000 → 515 000" — vozvrat CHEGIRMALI
+    // summadan (server `net_line_totals`), aks holda ortiqcha pul qaytardi.
+    const discShare = Number(it.discount_share) || 0;
+    const discLine = discShare > 0 ? `
+        <div class="oi-meta" title="Chek chegirmasi qatorlarga summasi ulushida taqsimlangan">
+          qator summasi: <s>${fmtNum(it.sold_total_gross)}</s> → <b>${fmtNum(it.sold_total)}</b> so'm
+          <span style="color:var(--text3)">(chek chegirmasi ulushi −${fmtNum(discShare)}; qaytariladigan pul shundan)</span>
+        </div>` : '';
+    // Summa rejimida bo'luvchi: chegirmali chekda — CHEGIRMALI birlik narxi
+    // (mijoz shuncha to'lagan). Chegirmasiz — sotuvdagi narx (GOLDEN).
+    const netUnit = discShare > 0 && it.sold_qty > 0 ? it.sold_total / it.sold_qty : '';
     const modeUI = sumOk ? `
         <div class="ret-mode" id="imode${idx}">
           <button type="button" class="on" data-m="qty" onclick="setRowMode(${idx},'qty')">Miqdor</button>
@@ -913,10 +924,11 @@ function _renderOrderRows(o) {
       <div>
         <div class="oi-name">${escHtml(it.product_name)}</div>
         <div class="oi-meta">sotilgan: ${_fmtQ(it.sold_qty)}${it.unit_sold ? ' ' + escHtml(it.unit_sold) : ''}${qaytarilgan}
-          · qaytarish mumkin: <b>${_fmtQ(it.returnable_qty)}</b></div>
+          · qaytarish mumkin: <b>${_fmtQ(it.returnable_qty)}</b></div>${discLine}
         <input type="hidden" id="ioi${idx}" value="${it.order_item_id}"
                data-product-id="${it.product_id}" data-max="${it.returnable_qty}"
                data-sold-qty="${it.sold_qty}" data-sold-total="${it.sold_total ?? ''}"
+               data-net-unit="${netUnit}"
                data-unit="${escHtml(unitW)}"
                data-name="${escHtml(it.product_name)}">${modeUI}
       </div>

@@ -196,6 +196,48 @@ def _returned_amount_map(db: Session, order_item_ids) -> dict:
 _LAST_PART_EPS = 0.05
 
 
+def net_line_totals(order, items) -> dict:
+    """`order_item_id` -> qatorning CHEGIRMALI (mijoz haqiqatan to'lagan) summasi.
+
+    ═══ NEGA (2026-10) ═══
+    Buyurtma chegirmasi (`Order.discount_amount`) faqat buyurtmada turadi,
+    `OrderItem.total_price` esa CHEGIRMAGACHA summa. Vozvrat shundan
+    hisoblanardi: 580 000 lik tovar chegirma bilan 515 000 ga sotilgan bo'lsa,
+    qaytarishda 580 000 chiqib, do'konchi 65 000 ORTIQCHA qaytarardi.
+
+    QOIDA — hisobotlar bilan bir xil (`utils/revenue.net_revenue_expr`):
+    chegirma qatorlar orasida `total_price` ulushiga PROPORSIONAL taqsimlanadi.
+    Har qator 2 xonaga yaxlitlanadi, yaxlitlash qoldig'i ENG KATTA qatorga
+    qo'shiladi → Σ qatorlar AYNAN `subtotal − chegirma` (chek summasi; soliq/
+    xizmat haqi mahsulot emas, kirmaydi).
+    Chegirma yo'q bo'lsa — `total_price` bit-bitiga (GOLDEN).
+    """
+    totals = {oi.id: float(oi.total_price or 0) for oi in items}
+    sub = sum(totals.values())
+    disc = min(max(float(getattr(order, "discount_amount", 0) or 0), 0.0), sub) if order else 0.0
+    if disc <= 0 or sub <= 0:
+        return totals
+    factor = 1.0 - disc / sub
+    net = {i: round(t * factor, 2) for i, t in totals.items()}
+    qoldiq = round(round(sub - disc, 2) - sum(net.values()), 2)
+    if qoldiq:
+        katta = max(totals, key=lambda i: (totals[i], -i))
+        net[katta] = round(net[katta] + qoldiq, 2)
+    return net
+
+
+def _net_totals_for(db: Session, order_items) -> dict:
+    """Bir nechta sotuv qatori uchun chegirmali summa — har BUYURTMA o'zi bo'yicha
+    taqsimlanadi (taqsimlash uchun buyurtmaning BARCHA qatorlari kerak)."""
+    order_ids = {oi.order_id for oi in order_items if oi.order_id}
+    out: dict = {}
+    for oid in order_ids:
+        order = db.query(Order).filter(Order.id == oid).first()
+        all_items = db.query(OrderItem).filter(OrderItem.order_id == oid).all()
+        out.update(net_line_totals(order, all_items))
+    return out
+
+
 def _return_line_amounts(db: Session, data, current_user) -> list:
     """Har vozvrat qatorining SUMMASI (so'rovdagi tartibda).
 
@@ -223,6 +265,8 @@ def _return_line_amounts(db: Session, data, current_user) -> list:
                  scoped_order_items(db, current_user).filter(OrderItem.id.in_(oi_ids)).all()}
     prev_qty = _returned_qty_map(db, oi_ids)
     prev_amt = _returned_amount_map(db, oi_ids)
+    # CHEGIRMALI qator summasi (buyurtma chegirmasi proporsional taqsimlangan)
+    net = _net_totals_for(db, list(by_id.values()))
 
     out = []
     for it in data.items:
@@ -230,7 +274,7 @@ def _return_line_amounts(db: Session, data, current_user) -> list:
         amount = q * price                                    # avvalgi formula
         oi = by_id.get(it.order_item_id) if it.order_item_id else None
         sold_qty   = float(oi.quantity or 0) if oi else 0.0
-        sold_total = float(oi.total_price or 0) if oi else 0.0
+        sold_total = net.get(oi.id, float(oi.total_price or 0)) if oi else 0.0
         if oi and sold_qty > 0 and sold_total > 0 and abs(price - float(oi.unit_price or 0)) < 0.005:
             amount = round(sold_total * q / sold_qty, 2)
             done_q = prev_qty.get(oi.id, 0.0)
@@ -558,12 +602,15 @@ def lookup_order(
 
     items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
     qaytarilgan = _returned_qty_map(db, [oi.id for oi in items])
+    net = net_line_totals(order, items)
 
     rows = []
     for oi in items:
         sotilgan   = float(oi.quantity or 0)
         allaqachon = qaytarilgan.get(oi.id, 0.0)
         qoldi      = round(max(0.0, sotilgan - allaqachon), 3)
+        brutto     = float(oi.total_price or 0)
+        sof        = net.get(oi.id, brutto)
         rows.append({
             "order_item_id": oi.id,
             "product_id":    oi.product_id,
@@ -573,9 +620,13 @@ def lookup_order(
             "returned_qty":  round(allaqachon, 3),
             "returnable_qty": qoldi,
             "unit_price":    float(oi.unit_price or 0),
-            # Sotuvda YOZILGAN qator summasi — vozvrat summasi shundan
-            # proporsional (`_return_line_amounts`); POS oldindan ko'rish uchun.
-            "sold_total":    float(oi.total_price or 0),
+            # Qatorning CHEGIRMALI summasi (mijoz haqiqatan to'lagan) — vozvrat
+            # summasi shundan proporsional (`_return_line_amounts`); POS oldindan
+            # ko'rish uchun. Chegirmasiz chekda = `total_price` (GOLDEN).
+            "sold_total":    sof,
+            # Ko'rsatish uchun: "580 000 → 515 000" (chegirma ulushi alohida)
+            "sold_total_gross": brutto,
+            "discount_share":   round(brutto - sof, 2),
             # SUMMA BO'YICHA QAYTARISH uchun: kassir "9500 so'mlik qaytaraman"
             # deydi va tizim miqdorni SOTUVDAGI narxga bo'lib topadi. Frontend
             # bu rejimni FAQAT og'irlik birliklarida (kg/g/l/litr) ko'rsatadi,
@@ -610,6 +661,7 @@ def lookup_order(
         "daily_number":   order.daily_number,
         "created_at":     order.created_at,
         "final_amount":   float(order.final_amount or 0),
+        "discount_amount": float(order.discount_amount or 0),
         "customer_id":    order.customer_id,
         "customer_name":  order.customer.name if order.customer else None,
         "payment_methods": sorted({_m(p) for p in pays if _m(p)}),

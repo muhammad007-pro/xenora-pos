@@ -6,6 +6,21 @@ from typing import Optional, Dict, Any
 from models import Payment, Order
 from config import settings
 
+# ── "TO'LANDIMI" DOPUSKI — 1 tiyin ───────────────────────────────────────────
+# MUAMMO (prod, 2026-10-03/05, XOZMAG): 0.566 kg × 26 500 frontendda float
+# bo'lib 14998.999999999998 keldi, `final_amount` esa serverda round(…, 2) =
+# 14999. `paid >= final` → FALSE → buyurtma YAKUNLANMADI: pul olindi, tovar
+# ketdi, ombor ayrilmadi, chek "kutilayotgan"da osilib qoldi (keyin o'chirildi).
+# Qoida: to'langan summa chek summasidan 1 tiyindan KO'P kam bo'lmasa — yopiq.
+# 1 so'm kam — hali to'lanmagan (yakunlanmaydi). Barcha yo'llar shu funksiyadan.
+PAYMENT_TOLERANCE = 0.01
+
+
+def covers(paid, due) -> bool:
+    """`paid` summa `due` ni qoplaydimi (1 tiyin dopusk bilan)."""
+    return float(paid or 0) >= float(due or 0) - PAYMENT_TOLERANCE
+
+
 class PaymentService:
     def __init__(self, db: Session):
         self.db = db
@@ -156,4 +171,4 @@ class PaymentService:
     def is_order_fully_paid(self, order: Order) -> bool:
         """Buyurtma to'liq to'langanligini tekshirish"""
         total_paid = self.get_total_paid(order.id)
-        return total_paid >= order.final_amount
+        return covers(total_paid, order.final_amount)

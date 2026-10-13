@@ -398,6 +398,12 @@ class OrderItemCreate(BaseModel):
     # discount_value) o'tadi va u yerda subtotal bilan cheklangan. Ya'ni client
     # narxni o'zi uchun ARZONLASHTIRA OLMAYDI.
     unit_price_override: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
+    # SUMMA REJIMI (kg/ml/m): kassir "15 000 so'mlik" deb TERGAN summa. Og'irlik
+    # 3 xonaga yaxlitlanadi (0.566) va narx × og'irlik = 14 999 — 1 so'm
+    # yo'qolardi. Server bu summani FAQAT og'irlik yaxlitlash oralig'ida
+    # (narx × 0.0005) qabul qiladi — client narxni o'zgartira olmaydi
+    # (`order_service.LINE_TOTAL_TOLERANCE_QTY`).
+    line_total: Optional[float] = Field(default=None, gt=0, le=1_000_000_000)
 
     # Yaxlitlash + "nolga tushib qolmasin" tekshiruvi — qarang `_yaxlitla_miqdor`.
     # Tarozi yoki "summa bo'yicha" hisob 0.7405882... kabi uzun kasr berishi
@@ -526,6 +532,7 @@ class OrderInDB(BaseModel):
     waiter_name: Optional[str] = None
     register_name: Optional[str] = None   # kassa nomi (Shift.register orqali)
     payment_method: Optional[str] = None  # to'lov usuli (Payment orqali)
+    paid_amount: Optional[float] = None   # to'langan summa (_enrich_order; held ro'yxat uchun)
     customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     # Chek qaysi smenada yozilgani. Frontend buni "To'lov usulini o'zgartirish"

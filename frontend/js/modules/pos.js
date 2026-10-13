@@ -303,6 +303,14 @@ const PRICE_MAX = 999999999;   // fat-finger himoyasi
 // (server ham shuni ishlatadi), aks holda katalog narxi. Tushirish bu yerda
 // AKS ETMAYDI: u chegirma bo'lib alohida ayiriladi, aks holda ikki marta
 // hisoblangan bo'lardi.
+// Pul — 2 xona (tiyin). Server qator summasini va chek jamisini ham AYNAN
+// round(…, 2) qiladi (order_service). Kasrli og'irlikda float dumi
+// (0.566 × 26500 = 14998.999999999998) to'lovni chek summasidan "kam" qilib,
+// buyurtmani yakunlanmagan holda qoldirardi (prod: XOZMAG #3339/#3641).
+function roundMoney(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
 function effPrice(item) {
   const p = Number(item.price) || 0;
   const n = item._priceNew;
@@ -866,7 +874,10 @@ function showWeightModal(product) {
 function updateWeightPreview() {
   const w = _currentWeight();
   const unit = _weightProduct?.sale_unit || 'kg';
-  const total = (_weightProduct?.price || 0) * w;
+  // Summa rejimida — kassir tergan summa (savatga aynan shu tushadi)
+  const total = _weightMode === 'sum' && w > 0
+    ? (parseFloat(document.getElementById('weightInput').value) || 0)
+    : (_weightProduct?.price || 0) * w;
   document.getElementById('weightTotalAmt').textContent = fmt(total);
 
   // 'sum' rejimida hisoblangan og'irlikni ko'rsatamiz — kassir nima
@@ -895,7 +906,11 @@ document.getElementById('confirmWeightBtn')?.addEventListener('click', () => {
     return;
   }
   closeModal('weightModal');
-  doAddToCart(_weightProduct, [], w);   // savatga HAR DOIM og'irlik
+  // Savatga HAR DOIM og'irlik; summa rejimida kassir tergan summa ham saqlanadi
+  // (qator summasi = 15 000, 0.566 × 26 500 = 14 999 EMAS).
+  const _sum = _weightMode === 'sum'
+    ? (parseFloat(document.getElementById('weightInput').value) || null) : null;
+  doAddToCart(_weightProduct, [], w, null, _sum);
   toast(`${_weightProduct.name} — ${w} ${_weightProduct.sale_unit} qo'shildi`, 'success');
 });
 
@@ -1105,7 +1120,10 @@ function _warnIfShort(product, weight, isPack) {
   }
 }
 
-function doAddToCart(product, modifiers, weight = null, unitMode = null) {
+// lineTotal — SUMMA REJIMIDA kassir tergan summa (15 000). Berilsa qator summasi
+// SHU bo'ladi (og'irlikdan qayta hisoblanmaydi: 0.566 × 26 500 = 14 999 —
+// 1 so'm yo'qolardi). Server uni og'irlik yaxlitlash oralig'ida tekshiradi.
+function doAddToCart(product, modifiers, weight = null, unitMode = null, lineTotal = null) {
   const modKey   = modifiers.map(m => m.modifier_id).sort().join(',');
   const modDelta = modifiers.reduce((s, m) => s + (m.price_delta || 0), 0);
   // #20 atir: ml ham hajm (necha ml) — weight branch (narx = 1ml × ml). Flakon esa
@@ -1119,11 +1137,13 @@ function doAddToCart(product, modifiers, weight = null, unitMode = null) {
     // Og'irlik mahsulot: narx = baho_per_unit × og'irlik; har bir bor yangi qator
     const w     = parseFloat(weight) || 0;
     const unitP = product.price + modDelta;
-    const total = unitP * w;
+    // Server bilan AYNI: round(narx × og'irlik, 2). Summa rejimida — tergan summa.
+    const total = lineTotal != null ? roundMoney(lineTotal) : roundMoney(unitP * w);
     state.cart.push({
       id: product.id, name: product.name,
       price: total,      // savatda umumiy summa (qty=1)
       qty: 1,
+      _lineTotal : lineTotal != null ? total : null,
       _modKey: modKey + '_w' + w, // har og'irlik alohida
       modifiers,
       modLabel   : modifiers.map(m => m.name).join(', ') || null,
@@ -1999,7 +2019,10 @@ function _splitVal(m) {
 // hali yozilmagan bo'ladi — chala to'langan chek qolmaydi.
 // credit = 0 bo'lsa payments ro'yxati AVVALGIDEK (karta/click/payme → naqd).
 function buildSplitPayments() {
-  const total     = Math.round(computeTotals().total);
+  // 2 xona (tiyin) — butun songa yaxlitlash kasrli chekni (14 999.4) pastga
+  // tushirib, naqd qolganini chek summasidan KAM qilardi → buyurtma osilardi.
+  // Butun summada natija avvalgidek.
+  const total     = roundMoney(computeTotals().total);
   const credit    = _splitVal('credit');
   const other     = credit + _splitVal('card') + _splitVal('click') + _splitVal('payme');  // ANIQ ulushlar
   const cash      = _splitVal('cash');
@@ -2240,6 +2263,9 @@ function buildOrderPayload() {
       unit_price_override: (i._priceNew != null && i._priceNew > i.price)
         ? (i._weight != null && i._weight > 0 ? i._priceNew / i._weight : i._priceNew)
         : null,
+      // Summa rejimi: kassir tergan qator summasi (faqat shunday qatorda, narx
+      // kelishuvisiz). Boshqa qatorlarda kalit UMUMAN yo'q — payload avvalgidek.
+      ...(i._lineTotal != null && i._priceNew == null ? { line_total: i._lineTotal } : {}),
       weight_unit   : i._unit     || null,
       unit_sold     : i._unitSold || null,   // BOSQICH B4: "pachka"|"dona"|null (server base_qty/narx hisoblaydi)
       course_number : MODE.hasCourses ? (i.course_number || 1) : 1,
@@ -2261,6 +2287,7 @@ function buildOrderPayload() {
       _priceNew: i._priceNew ?? null,
       _modKey: i._modKey || '', modifiers: i.modifiers || [], modLabel: i.modLabel || null,
       _weight: i._weight ?? null, _unit: i._unit || null, _unitPrice: i._unitPrice ?? null,
+      _lineTotal: i._lineTotal ?? null,   // summa rejimi (qayta ochilganda saqlansin)
       _unitSold: i._unitSold || null, _packLabel: i._packLabel || null,   // BOSQICH B4
       course_number: i.course_number || 1,
     })),
@@ -2365,7 +2392,9 @@ async function doSplitPayment() {
 async function doPayment() {
   // #32: aralash rejim (faqat online) → alohida oqim
   if (_splitMode && !offlineCheckout) { return doSplitPayment(); }
-  const due   = payableTotal();   // redeem'dan keyingi to'lanadigan summa (naqd/karta)
+  // redeem'dan keyingi to'lanadigan summa (naqd/karta) — 2 xona, server chek
+  // summasi bilan AYNAN mos (float dumi buyurtmani osiltirib qo'yardi)
+  const due   = roundMoney(payableTotal());
   const given = parseMoney(document.getElementById('cashInput').value) || due;
   if (payMethod === 'cash' && given < due) { toast('Qabul qilingan summa yetarli emas', 'error'); return; }
   // BOSQICH 19: Nasiya uchun mijoz tanlanganligini tekshirish
@@ -3070,6 +3099,20 @@ async function loadHeldOrders() {
   }
 }
 
+// O'chirish tasdig'i. To'lov bo'lgan chekda ODDIY savol EMAS — kassir pul
+// olinganini va o'chirish nimaga olib kelishini ko'rishi kerak.
+function _heldDeleteMessage(order) {
+  const paid = Number(order?.paid_amount) || 0;
+  if (paid > 0.009) {
+    return `⚠️ Bu chekda ${fmt(paid)} to'lov bor!\n\n`
+      + `O'chirilsa pul kassada hisoblanib qoladi, sotuv esa yo'qoladi `
+      + `(tovar ombordan ayrilmaydi).\n\n`
+      + `Mijoz to'lagan bo'lsa O'CHIRMANG va qayta to'lov olmang — `
+      + `administratorga xabar bering.\n\nBaribir o'chirilsinmi?`;
+  }
+  return 'Bu kutilayotgan buyurtma o\'chirilsinmi?';
+}
+
 function openHeldModal() {
   const list = document.getElementById('heldList');
   if (!_heldOrders.length) {
@@ -3081,10 +3124,17 @@ function openHeldModal() {
       const cnt   = (o.items || []).length;
       const when  = o.created_at ? new Date(o.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }) : '';
       const tbl   = o.table?.number || o.table_number;
-      return `<div class="held-row" data-hid="${o.id}" style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.75rem .875rem;background:var(--bg3);border:1px solid var(--border2);border-radius:.625rem;cursor:pointer">
+      // QISMAN TO'LANGAN chek: pul allaqachon olingan. O'chirilsa pul kassada
+      // qoladi, sotuv esa yo'qoladi (prod: XOZMAG #3339/#3641) — ajratib ko'rsatamiz.
+      const paid  = Number(o.paid_amount) || 0;
+      const paidTag = paid > 0.009
+        ? `<div class="held-paid" style="font-size:.72rem;font-weight:600;color:#f59e0b">💵 ${fmt(paid)} to'langan</div>`
+        : '';
+      return `<div class="held-row" data-hid="${o.id}" style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.75rem .875rem;background:var(--bg3);border:1px solid ${paid > 0.009 ? 'rgba(245,158,11,.55)' : 'var(--border2)'};border-radius:.625rem;cursor:pointer">
         <div>
           <div style="font-weight:600;color:var(--text)">#${n}${tbl ? ` · Stol ${tbl}` : ''}</div>
           <div style="font-size:.75rem;color:var(--text3)">${cnt} ta mahsulot${when ? ' · ' + when : ''}</div>
+          ${paidTag}
         </div>
         <div style="display:flex;align-items:center;gap:.625rem">
           <div style="font-weight:700;color:var(--gold)">${fmt(total)}</div>
@@ -3101,7 +3151,7 @@ function openHeldModal() {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const hid = +btn.dataset.hid;
-        if (!confirm('Bu kutilayotgan buyurtma o\'chirilsinmi?')) return;
+        if (!confirm(_heldDeleteMessage(_heldOrders.find(o => o.id === hid)))) return;
         btn.disabled = true;
         const res = await api.post(`/orders/${hid}/cancel?reason=${encodeURIComponent('Kutilayotgan o\'chirildi')}`);
         if (res && res.success) {
@@ -3144,6 +3194,7 @@ async function reopenHeldOrder(orderId) {
       _weight: i._weight ?? null,
       _unit: i._unit || null,
       _unitPrice: i._unitPrice ?? null,
+      _lineTotal: i._lineTotal ?? null,    // summa rejimi qator summasi
       _unitSold: i._unitSold || null,      // BOSQICH B4
       _packLabel: i._packLabel || null,    // BOSQICH B4
       _priceNew: i._priceNew ?? null,      // narx kelishuvi ham tiklanadi

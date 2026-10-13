@@ -916,6 +916,7 @@ function _renderOrderRows(o) {
           · qaytarish mumkin: <b>${_fmtQ(it.returnable_qty)}</b></div>
         <input type="hidden" id="ioi${idx}" value="${it.order_item_id}"
                data-product-id="${it.product_id}" data-max="${it.returnable_qty}"
+               data-sold-qty="${it.sold_qty}" data-sold-total="${it.sold_total ?? ''}"
                data-unit="${escHtml(unitW)}"
                data-name="${escHtml(it.product_name)}">${modeUI}
       </div>
@@ -981,13 +982,24 @@ window.removeRow = function(idx) {
   calcTotal();
 };
 
+// Qator summasi — SERVER qoidasi bilan bir xil (`returns._return_line_amounts`):
+// sotuv qatoriga bog'langan bo'lsa SOTUVDAGI summadan proporsional (summa
+// rejimida sotilgan 15 000 lik qator 15 000 qaytadi, 14 999 emas), 2 xona.
+// Bog'lanmagan qator yoki eski server (sold_total yo'q) — avvalgidek q × narx.
+function _rowAmount(oiEl, q, pr) {
+  const soldQty   = parseFloat(oiEl?.dataset.soldQty);
+  const soldTotal = parseFloat(oiEl?.dataset.soldTotal);
+  if (soldQty > 0 && soldTotal > 0) return Math.round(soldTotal * q / soldQty * 100) / 100;
+  return q * pr;
+}
+
 window.calcTotal = function() {
   let total = 0;
   document.querySelectorAll('[id^="irow"]').forEach(row => {
     const id = row.id.replace('irow', '');
     const q = parseFloat(document.getElementById(`iq${id}`)?.value) || 0;
     const pr = parseFloat(document.getElementById(`ipr${id}`)?.value) || 0;
-    total += q * pr;
+    total += _rowAmount(document.getElementById(`ioi${id}`), q, pr);
   });
   document.getElementById('cTotal').textContent = total > 0 ? `Jami: ${fmtNum(total)} so'm` : '';
 };

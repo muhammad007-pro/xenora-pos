@@ -43,6 +43,7 @@ const ctx = {
 };
 vm.createContext(ctx);
 vm.runInContext([
+  grab(POS, /function roundMoney\(n\) \{[\s\S]*?\n}/, 'roundMoney'),
   grab(POS, /const _SPLIT_METHODS = \[[^\]]*\];/, '_SPLIT_METHODS'),
   grab(POS, /function _splitInput\(m\) \{[^\n]*\}/, '_splitInput'),
   grab(POS, /function _splitVal\(m\) \{[\s\S]*?\n}/, '_splitVal'),

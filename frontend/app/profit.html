@@ -69,6 +69,27 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .del-btn:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3)}
 .ld{text-align:center;padding:2.5rem;color:var(--text3);font-size:.875rem}
 .empty{text-align:center;padding:1.75rem;color:var(--text3);font-size:.8125rem}
+/* ── Moliya: yagona davr + yorliqlar ── */
+.period-bar{flex-wrap:wrap;align-items:center}
+.period-bar .inp{width:auto;padding:.45rem .6rem}
+.period-sep{color:var(--text3);font-size:.8rem}
+.tabs{display:flex;gap:.25rem;margin-bottom:1.25rem;border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:.6rem 1rem;font-size:.875rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+.term-note{font-size:.75rem;color:var(--text3);margin:-.75rem 0 1rem;line-height:1.5}
+.note-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.45);border-radius:var(--r);padding:.5rem .75rem;margin-bottom:1rem;font-size:.8rem;line-height:1.5}
+.tbl tfoot td{border-top:1px solid var(--border2)}
+.tbl tr.click{cursor:pointer}
+.pager{display:flex;gap:.4rem;align-items:center;justify-content:center;padding:.75rem;font-size:.8125rem;color:var(--text2)}
+.pager button{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:var(--r);padding:.25rem .65rem;cursor:pointer}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+.modal-overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:4vh 1rem;overflow-y:auto}
+.modal-overlay.open{display:flex}
+.modal-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);width:100%;max-width:720px;padding:1.25rem}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;font-weight:700;color:var(--gold)}
+.modal-x{background:none;border:none;color:var(--text2);font-size:1.1rem;cursor:pointer}
 @media(max-width:1000px){.sg{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.exp-form{grid-template-columns:1fr 1fr}}
 </style>
 <link rel="stylesheet" href="../styles/premium-overlay.css">
@@ -79,22 +100,44 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 <div class="xa-atmos" aria-hidden="true"></div>
 <header class="ph">
   <a href="admin.html" class="bk">←</a>
-  <h1 class="ph-title">💰 Foyda tahlili</h1>
+  <h1 class="ph-title">💰 Moliya</h1>
 </header>
 
+<!-- MOLIYA — hisob-kitob ekranlari bitta joyda (2026-10). FAQAT JOYLASHUV:
+     har yorliq avvalgi endpointini o'zgarishsiz chaqiradi (/profit/summary,
+     /analytics/store-margin, /profit/by-receipt, /profit/expenses), raqamlar
+     ilgarigi ekranlar bilan AYNAN bir xil. Davr tanlagichi BITTA — hammasiga. -->
 <div class="pc">
   <div class="period-bar">
     <button class="pb active" data-p="today">Bugun</button>
     <button class="pb" data-p="week">7 kun</button>
     <button class="pb" data-p="month">30 kun</button>
+    <input type="date" class="inp" id="pFrom" title="Sanadan">
+    <span class="period-sep">—</span>
+    <input type="date" class="inp" id="pTo" title="Sanagacha">
+    <button class="pb" id="pClear" style="display:none" title="Oraliqni tozalash">✕</button>
+  </div>
+  <!-- "Daromad" ikki ma'noda ishlatilardi. Bu bo'limda HAMMA summa — SAVDO. -->
+  <div class="term-note">
+    <b>Savdo</b> — sotilgan tovar summasi (chegirma va vozvrat ayirilgan), to'lov usulidan qat'i nazar (nasiya ham kiradi).
+    <b>Kassaga tushgan</b> pul bu yerda emas — u Smena / Z-hisobotda.
   </div>
 
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="profit">Foyda tahlili</button>
+    <button class="tab" data-tab="margin" data-product-only="1">Foyda marjasi</button>
+    <button class="tab" data-tab="receipts" data-product-only="1">Chek bo'yicha foyda</button>
+    <button class="tab" data-tab="expenses">Xarajatlar</button>
+  </div>
+
+  <!-- ══ 1. FOYDA TAHLILI ══ -->
+  <div class="tab-pane active" id="tab-profit">
   <!-- Summary kartalar — JS tomonidan dinamik to'ldiriladi -->
   <div class="sg" id="sg"><div class="sc" style="grid-column:1/-1"><div class="ld">Yuklanmoqda...</div></div></div>
 
   <!-- Timeline chart -->
   <div class="card">
-    <div class="card-title" id="timelineTitle">📈 Daromad va foyda dinamikasi (30 kun)</div>
+    <div class="card-title" id="timelineTitle">📈 Savdo va foyda dinamikasi</div>
     <div class="chart-wrap"><canvas id="chTimeline"></canvas></div>
   </div>
 
@@ -111,11 +154,78 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- By category -->
   <div class="card">
-    <div class="card-title" id="byCatTitle">📂 Kategoriya bo'yicha foyda (30 kun)</div>
+    <div class="card-title" id="byCatTitle">📂 Kategoriya bo'yicha foyda</div>
     <div id="byCat"><div class="ld">Yuklanmoqda...</div></div>
   </div>
+  </div><!-- /tab-profit -->
 
-  <!-- Expenses -->
+  <!-- ══ 2. FOYDA MARJASI — /analytics/store-margin (avval admin hub'da edi) ══ -->
+  <div class="tab-pane" id="tab-margin">
+    <div class="sg">
+      <div class="sc"><div class="sl">Savdo</div><div class="sv" id="smRevenue">—</div></div>
+      <div class="sc"><div class="sl">Yalpi foyda</div><div class="sv pos" id="smProfit">—</div></div>
+      <div class="sc"><div class="sl">Umumiy marja</div><div class="sv gold" id="smMargin">—</div></div>
+    </div>
+    <div class="card">
+      <!-- Jadval TOP-50 bilan cheklangan; KPI esa BUTUN davr bo'yicha
+           (backend ikki alohida so'rov qiladi). -->
+      <div class="card-title">📊 Mahsulot foyda tahlili (Top 50)
+        <span id="smLimitNote" style="margin-left:auto;font-size:.7rem;text-transform:none;letter-spacing:0;color:var(--text3);display:none">jadval 50 ta bilan cheklangan — yuqoridagi jami butun davr bo'yicha</span>
+      </div>
+      <div id="smBody"><div class="ld">Yuklanmoqda...</div></div>
+    </div>
+  </div>
+
+  <!-- ══ 3. CHEK BO'YICHA FOYDA — /profit/by-receipt (avval admin hub'da edi) ══
+       Barcha son shu endpointdan; u `/profit/summary` ning O'Z funksiyasini
+       (`_product_summary`) ishlatadi → "Sof foyda" 1-yorliq bilan AYNAN mos. -->
+  <div class="tab-pane" id="tab-receipts">
+    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+      <select class="inp" id="rpSort" style="width:auto">
+        <option value="date" selected>Sana bo'yicha</option>
+        <option value="profit">Foyda bo'yicha</option>
+        <option value="margin">Marja bo'yicha</option>
+        <option value="revenue">Savdo bo'yicha</option>
+      </select>
+      <select class="inp" id="rpOrder" style="width:auto">
+        <option value="desc" selected>Kamayish</option>
+        <option value="asc">O'sish</option>
+      </select>
+      <span id="rpElapsed" style="margin-left:auto;font-size:.72rem;color:var(--text3)"></span>
+    </div>
+    <!-- Xizmat asosli bizneslarda jami farq qilishi NORMAL — backend izohi -->
+    <div id="rpNote" class="note-warn" style="display:none"></div>
+    <div class="sg">
+      <div class="sc"><div class="sl">Sotuv foydasi</div><div class="sv" id="rpSalesProfit">—</div></div>
+      <div class="sc"><div class="sl">Vozvrat (ayriladi)</div><div class="sv neg" id="rpReturnsProfit">—</div></div>
+      <div class="sc net"><div class="sl">Sof foyda (davr)</div><div class="sv pos" id="rpNetProfit">—</div></div>
+      <div class="sc"><div class="sl">Umumiy marja</div><div class="sv gold" id="rpNetMargin">—</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🧾 Chek bo'yicha foyda
+        <span id="rpPaginInfo" style="margin-left:auto;font-size:.75rem;text-transform:none;letter-spacing:0;color:var(--text3)"></span>
+      </div>
+      <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>Sana</th><th>Chek №</th><th class="num">Qator</th><th class="num">Chegirma</th><th class="num">Savdo</th><th class="num">Tan narx</th><th class="num">Foyda</th><th class="num">Marja</th></tr></thead>
+        <tbody id="rpBody"><tr><td colspan="8"><div class="ld">Yuklanmoqda...</div></td></tr></tbody>
+        <tfoot id="rpFoot"></tfoot>
+      </table>
+      </div>
+      <div class="pager" id="rpPagination"></div>
+      <!-- ⚠️ Vozvrat SOTUV sanasiga emas, QAYTARILGAN sanaga yoziladi
+           (utils/revenue.py QOIDA 1). Shuning uchun chek qatorlari YALPI
+           turadi, vozvrat esa jamida alohida qator bo'ladi. -->
+      <div style="font-size:.75rem;color:var(--text3);line-height:1.5;margin-top:.5rem">
+        Chek qatorlari — sotuv paytidagi foyda (tan narx <b>snapshot</b>, bugungi xarid narxi emas).
+        Vozvrat <b>qaytarilgan sana</b> bo'yicha ayriladi, shu sabab alohida qatorda —
+        «Sof foyda» esa <b>Foyda tahlili</b> yorlig'i bilan aynan bir xil.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 4. XARAJATLAR ══ -->
+  <div class="tab-pane" id="tab-expenses">
   <div class="card">
     <div class="card-title">🧾 Xarajatlar (ijara, oylik, kommunal...)
       <!-- UI-4: ikki hisobot farqi BIR JOYDA tushuntiriladi -->
@@ -159,6 +269,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     </div>
     <div id="expList"><div class="ld">Yuklanmoqda...</div></div>
   </div>
+  </div><!-- /tab-expenses -->
+</div>
+
+<!-- Chek foydasi tafsiloti (modal) -->
+<div class="modal-overlay" id="rpModal" onclick="if(event.target===this)closeRp()">
+  <div class="modal-card">
+    <div class="modal-head"><span id="rpdTitle">Chek foydasi</span><button class="modal-x" onclick="closeRp()">✕</button></div>
+    <div id="rpdBody"><div class="ld">Yuklanmoqda...</div></div>
+  </div>
 </div>
 
 <script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
@@ -185,6 +304,36 @@ const MEMBER_TYPES   = new Set(['fitness','school']);
 let period   = 'today';
 let bizType  = 'restaurant';
 let chTimeline = null;
+
+// ── YAGONA DAVR — barcha yorliqlarga ─────────────────────────────────────────
+// Oraliq (dFrom..dTo) berilsa u `period` dan USTUN (backend: timeutils.period_dates).
+// dTo yolg'iz berilsa dFrom unga tenglanadi — aks holda period va days
+// endpointlari "faqat date_to" ni turlicha talqin qiladi (_period_range vs _days_range).
+let dFrom = '', dTo = '';
+const PERIOD_DAYS  = {today:1, week:7, month:30};   // timeutils.PERIOD_DAYS bilan bir xil
+const PERIOD_LABEL = {today:'bugun', week:'7 kun', month:'30 kun'};
+
+// period asosli endpointlar: /profit/summary, /analytics/store-margin, /profit/by-receipt, /profit/expenses
+function periodQS() {
+  const p = new URLSearchParams({period});
+  if (dFrom) p.set('date_from', dFrom);
+  if (dTo)   p.set('date_to',   dTo);
+  return p.toString();
+}
+// days asosli endpointlar: /profit/timeline, /top-products, /by-category
+function daysQS(minDays = 1) {
+  if (dFrom) {
+    const p = new URLSearchParams({date_from: dFrom});
+    if (dTo) p.set('date_to', dTo);
+    return p.toString();
+  }
+  return 'days=' + Math.max(PERIOD_DAYS[period] || 1, minDays);
+}
+function periodLabel(minDays = 1) {
+  if (dFrom) return `${dFrom} — ${dTo || 'bugun'}`;
+  const n = Math.max(PERIOD_DAYS[period] || 1, minDays);
+  return n === (PERIOD_DAYS[period] || 1) ? PERIOD_LABEL[period] : `oxirgi ${n} kun`;
+}
 
 Chart.defaults.color       = '#8b9bb0';
 Chart.defaults.borderColor = 'rgba(255,255,255,.06)';
@@ -217,7 +366,7 @@ function expSub(d) {
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 async function loadSummary() {
-  const d = await api.get(`/profit/summary?period=${period}`).catch(()=>null);
+  const d = await api.get(`/profit/summary?${periodQS()}`).catch(()=>null);
   if (!d) { document.getElementById('sg').innerHTML = '<div class="sc" style="grid-column:1/-1"><div class="empty">API bilan bog\'lanib bo\'lmadi</div></div>'; return; }
   bizType = d.business_type || 'restaurant';
   window._bizType = bizType;   // test va debug uchun
@@ -249,14 +398,14 @@ async function loadSummary() {
       const aptRev = d.revenue - d.membership_revenue;
       sg.innerHTML = ''
         + sc('Uchrashuvlar',    aptRev,             `${d.appointments_count||0} ta`)
-        + sc("A'zolik daromadi", d.membership_revenue)
+        + sc("A'zolik savdosi", d.membership_revenue)
         + sc('Material narxi',  d.material_cost)
         + sc('Usta komissiyasi', d.commission_cost)
         + sc('Xarajatlar',     -d.expenses, expSub(d))
         + scNet(d.net_profit,   netSub);
     } else {
       sg.innerHTML = ''
-        + sc('Jami daromad',    d.revenue,           `${d.appointments_count||0} ta uchrashuv`)
+        + sc('Jami savdo',      d.revenue,           `${d.appointments_count||0} ta uchrashuv`)
         + sc('Material narxi',  d.material_cost,     '')
         + sc('Usta komissiyasi', d.commission_cost,  '')
         + sc('Xarajatlar',     -d.expenses, expSub(d))
@@ -266,8 +415,8 @@ async function loadSummary() {
   } else if (bizType === 'hotel') {
     // ── Mehmonxona ───────────────────────────────────────────────────────────
     sg.innerHTML = ''
-      + sc('Xona daromadi',    d.room_revenue,    `${d.bookings_count||0} ta bron`)
-      + sc('Xizmat daromadi',  d.service_revenue, `${d.appointments_count||0} ta xizmat`)
+      + sc('Xona savdosi',     d.room_revenue,    `${d.bookings_count||0} ta bron`)
+      + sc('Xizmat savdosi',   d.service_revenue, `${d.appointments_count||0} ta xizmat`)
       + sc('Jami tan narx',    d.total_cost,      'xona + xizmat')
       + sc('Xarajatlar',      -d.expenses, expSub(d))
       + scNet(d.net_profit,    netSub);
@@ -289,16 +438,17 @@ async function loadSummary() {
 
 // ── Timeline chart ────────────────────────────────────────────────────────────
 async function loadTimeline() {
-  const d = await api.get('/profit/timeline?days=30&group=day').catch(()=>null);
-  if (!d) return;
+  // "Bugun" da bitta nuqtali grafik ma'nosiz → kamida 7 kun (sarlavhada aytiladi)
+  const d = await api.get(`/profit/timeline?${daysQS(7)}&group=day`).catch(()=>null);
+  if (!d || !d.points) return;
 
   const isService = SERVICE_TYPES.has(bizType) || bizType === 'hotel';
   document.getElementById('timelineTitle').textContent =
-    `📈 Daromad va foyda dinamikasi (30 kun)`;
+    `📈 Savdo va foyda dinamikasi (${periodLabel(7)})`;
 
   const labels = d.points.map(p => p.date ? p.date.slice(5) : '');
   const datasets = [
-    {label:'Daromad',   data:d.points.map(p=>p.revenue),    borderColor:'#d4b46c', backgroundColor:'rgba(34,197,94,.08)', fill:true, tension:.35, pointRadius:2},
+    {label:'Savdo',     data:d.points.map(p=>p.revenue),    borderColor:'#d4b46c', backgroundColor:'rgba(34,197,94,.08)', fill:true, tension:.35, pointRadius:2},
     {label:'Sof foyda', data:d.points.map(p=>p.net_profit), borderColor:'#22c55e', tension:.35, pointRadius:2},
   ];
   // Xizmat asosli bo'lmasa tan narxni ham ko'rsat
@@ -366,28 +516,28 @@ function esc(s){const d=document.createElement('div');d.textContent=s||'';return
 async function loadTops() {
   const isService = SERVICE_TYPES.has(bizType) || bizType === 'hotel';
   const noun = isService ? 'xizmatlar' : 'mahsulotlar';
-  document.getElementById('topBestTitle').textContent  = `🏆 Eng foydali ${noun} (TOP-10, 30 kun)`;
+  document.getElementById('topBestTitle').textContent  = `🏆 Eng foydali ${noun} (TOP-10, ${periodLabel()})`;
   document.getElementById('topWorstTitle').textContent = `⚠️ Eng kam foydali ${noun} (narxini ko'rib chiqing)`;
 
   const [best, worst] = await Promise.all([
-    api.get('/profit/top-products?limit=10&order=best&days=30').catch(()=>null),
-    api.get('/profit/top-products?limit=10&order=worst&days=30').catch(()=>null),
+    api.get(`/profit/top-products?limit=10&order=best&${daysQS()}`).catch(()=>null),
+    api.get(`/profit/top-products?limit=10&order=worst&${daysQS()}`).catch(()=>null),
   ]);
 
   const render = isService ? serviceTable : productTable;
-  document.getElementById('topBest').innerHTML  = best  ? render(best.items,  false) : '<div class="empty">Xatolik</div>';
-  document.getElementById('topWorst').innerHTML = worst ? render(worst.items, true)  : '<div class="empty">Xatolik</div>';
+  document.getElementById('topBest').innerHTML  = best?.items  ? render(best.items,  false) : '<div class="empty">Xatolik</div>';
+  document.getElementById('topWorst').innerHTML = worst?.items ? render(worst.items, true)  : '<div class="empty">Xatolik</div>';
 }
 
 // ── By category ───────────────────────────────────────────────────────────────
 async function loadByCat() {
   const isService = SERVICE_TYPES.has(bizType) || bizType === 'hotel';
   document.getElementById('byCatTitle').textContent =
-    `📂 ${isService ? 'Xizmat turi' : 'Kategoriya'} bo'yicha foyda (30 kun)`;
+    `📂 ${isService ? 'Xizmat turi' : 'Kategoriya'} bo'yicha foyda (${periodLabel()})`;
 
-  const d = await api.get('/profit/by-category?days=30').catch(()=>null);
+  const d = await api.get(`/profit/by-category?${daysQS()}`).catch(()=>null);
   const el = document.getElementById('byCat');
-  if (!d || !d.items.length) { el.innerHTML = '<div class="empty">Ma\'lumot yo\'q</div>'; return; }
+  if (!d || !d.items || !d.items.length) { el.innerHTML = '<div class="empty">Ma\'lumot yo\'q</div>'; return; }
 
   const maxRev = Math.max(...d.items.map(c=>c.revenue), 1);
   const costLabel = isService ? 'Mat+Kom' : 'Tan narx';
@@ -396,7 +546,7 @@ async function loadByCat() {
     <thead><tr>
       <th>${isService ? 'Xizmat turi' : 'Kategoriya'}</th>
       <th style="width:28%"></th>
-      <th class="num">Daromad</th>
+      <th class="num">Savdo</th>
       <th class="num">${costLabel}</th>
       <th class="num">Foyda</th>
       <th class="num">Marja</th>
@@ -415,10 +565,10 @@ async function loadByCat() {
 
 // ── Expenses ──────────────────────────────────────────────────────────────────
 async function loadExpenses() {
-  const d = await api.get(`/profit/expenses?period=month`).catch(()=>null);
+  const d = await api.get(`/profit/expenses?${periodQS()}`).catch(()=>null);
   const el = document.getElementById('expList');
-  if (!d) { el.innerHTML = '<div class="empty">Xatolik</div>'; return; }
-  if (!d.items.length) { el.innerHTML = '<div class="empty">Oxirgi 30 kunda xarajat kiritilmagan</div>'; return; }
+  if (!d || !d.items) { el.innerHTML = '<div class="empty">Xatolik</div>'; return; }
+  if (!d.items.length) { el.innerHTML = `<div class="empty">Bu davrda (${periodLabel()}) xarajat kiritilmagan</div>`; return; }
   el.innerHTML = `<table class="tbl">
     <thead><tr><th>Sana</th><th>Nomi</th><th>Turi</th><th class="num">Summa</th><th></th></tr></thead>
     <tbody>${d.items.map(e=>`<tr>
@@ -434,7 +584,7 @@ async function loadExpenses() {
           ? `<span style="font-size:.7rem;color:var(--text3)">salary modulida</span>`
           : `<button class="del-btn" onclick="delExpense(${e.id})">O'chirish</button>`}</td>
     </tr>`).join('')}
-    <tr><td colspan="3" style="font-weight:700">Jami (30 kun)</td><td class="num neg" style="font-weight:700">−${fmt(d.total)}</td><td></td></tr>
+    <tr><td colspan="3" style="font-weight:700">Jami (${periodLabel()})</td><td class="num neg" style="font-weight:700">−${fmt(d.total)}</td><td></td></tr>
     </tbody></table>`;
 }
 
@@ -520,24 +670,308 @@ async function delExpense(id) {
   loadExpenses(); loadSummary(); loadTimeline();
 }
 
+// ── FOYDA MARJASI — /analytics/store-margin (admin.html dan ko'chirildi) ────────
+// Raqamlar endpointdan o'zgarishsiz; faqat yorliq: "Jami tushum" → "Savdo",
+// "Brutto foyda" → "Yalpi foyda" (1-yorliqdagi atama bilan bir xil).
+async function loadMargin() {
+  const el = document.getElementById('smBody');
+  el.innerHTML = '<div class="ld">Yuklanmoqda...</div>';
+  const d = await api.get(`/analytics/store-margin?${periodQS()}`).catch(()=>null);
+  if (!d || d.detail) {
+    el.innerHTML = `<div class="empty">${esc(d?.detail ? String(d.detail) : "API bilan bog'lanib bo'lmadi")}</div>`;
+    return;
+  }
+  document.getElementById('smRevenue').textContent = fmt(d.total_revenue);
+  document.getElementById('smProfit').textContent  = fmt(d.total_profit);
+  document.getElementById('smMargin').textContent  = (d.overall_margin_pct || 0) + '%';
+  // Jadval kesilgan bo'lsa — foydalanuvchi buni bilsin (KPI kesilmagan)
+  document.getElementById('smLimitNote').style.display = d.items_limited ? '' : 'none';
+  const items = d.items || [];
+  if (!items.length) { el.innerHTML = '<div class="empty">Ma\'lumot yo\'q</div>'; return; }
+  el.innerHTML = `<div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Mahsulot</th><th class="num">Sotish narxi</th><th class="num">Xarid narxi</th>
+      <th class="num">Sotilgan</th><th class="num">Foyda</th><th class="num">Marja</th></tr></thead>
+    <tbody>${items.map(it => `<tr>
+      <td style="font-weight:600">${esc(it.name || '—')}</td>
+      <td class="num">${fmt(it.sell_price)}</td>
+      <td class="num" style="color:var(--text2)">${it.cost_price > 0 ? fmt(it.cost_price) : '—'}</td>
+      <td class="num">${it.qty_sold || 0}</td>
+      <td class="num ${it.profit >= 0 ? 'pos' : 'neg'}">${fmt(it.profit)}</td>
+      <td class="num"><span class="badge ${it.margin_pct < 10 ? 'b-low' : 'b-ok'}">${it.margin_pct}%</span></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── CHEK BO'YICHA FOYDA — /profit/by-receipt (admin.html dan ko'chirildi) ───────
+// FAQAT KO'RSATISH. ⚠️ Chek qatori YALPI (sotuv) foyda, vozvrat ALOHIDA qator:
+// vozvrat QAYTARILGAN sanaga yoziladi (utils/revenue.py QOIDA 1), ya'ni
+// boshqa davrda sotilgan chekka tegishli bo'lishi mumkin — tarqatilmaydi.
+let rpPage = 1;
+const fmtDT = s => s ? new Date(s).toLocaleString('uz-UZ',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+const rpBadge = m => m >= 10 ? 'b-ok' : 'b-low';
+
+async function loadReceiptProfit() {
+  const qs = new URLSearchParams(periodQS());
+  qs.set('sort',  document.getElementById('rpSort').value);
+  qs.set('order', document.getElementById('rpOrder').value);
+  qs.set('page', rpPage);
+  qs.set('page_size', 50);
+  const body = document.getElementById('rpBody');
+  const foot = document.getElementById('rpFoot');
+  const d = await api.get('/profit/by-receipt?' + qs).catch(()=>null);
+  if (!d || d.detail) {
+    body.innerHTML = `<tr><td colspan="8"><div class="empty">${esc(d?.detail ? String(d.detail) : "API bilan bog'lanib bo'lmadi")}</div></td></tr>`;
+    foot.innerHTML = '';
+    return;
+  }
+  const t = d.totals || {};
+  document.getElementById('rpSalesProfit').textContent   = fmt(t.sales_profit);
+  document.getElementById('rpReturnsProfit').textContent = t.returns_profit ? '−' + fmt(t.returns_profit) : '0';
+  document.getElementById('rpNetProfit').textContent     = fmt(t.net_profit);
+  document.getElementById('rpNetMargin').textContent     = (t.net_margin_pct || 0) + '%';
+  document.getElementById('rpElapsed').textContent       = `${d.elapsed_ms} ms · ${d.period?.from} — ${d.period?.to}`;
+
+  // Xizmat asosli bizneslarda "Foyda tahlili" uchrashuv/bron asosida — farq NORMAL
+  const noteEl = document.getElementById('rpNote');
+  noteEl.textContent   = d.note || '';
+  noteEl.style.display = d.note ? '' : 'none';
+
+  const items = d.items || [];
+  const pagEl = document.getElementById('rpPagination');
+  if (!items.length) {
+    body.innerHTML = '<tr><td colspan="8"><div class="empty">Bu davrda sotuv topilmadi</div></td></tr>';
+    foot.innerHTML = '';
+    document.getElementById('rpPaginInfo').textContent = '0 ta';
+    pagEl.innerHTML = '';
+    return;
+  }
+  body.innerHTML = items.map(it => `
+    <tr class="click" onclick="openReceiptProfit(${Number(it.order_id)})">
+      <td style="color:var(--text2)">${fmtDT(it.created_at)}</td>
+      <td style="font-weight:600">${it.daily_number != null ? '#' + it.daily_number : esc(it.order_number || '—')}</td>
+      <td class="num" style="color:var(--text2)">${it.lines}</td>
+      <td class="num" style="color:var(--text2)">${it.discount_amount ? '−' + fmt(it.discount_amount) : '—'}</td>
+      <td class="num">${fmt(it.revenue)}</td>
+      <td class="num" style="color:var(--text2)">${fmt(it.cost)}</td>
+      <td class="num ${it.profit >= 0 ? 'pos' : 'neg'}">${fmt(it.profit)}</td>
+      <td class="num"><span class="badge ${rpBadge(it.margin_pct)}">${it.margin_pct}%</span></td>
+    </tr>`).join('');
+
+  // JAMI — DAVR bo'yicha (sahifa bo'yicha EMAS). Vozvrat alohida qatorda.
+  const retRow = t.returns_count ? `
+    <tr style="color:var(--red)">
+      <td colspan="4" class="num">Vozvrat (${t.returns_count} ta, qaytarilgan sana bo'yicha)</td>
+      <td class="num">−${fmt(t.returns_revenue)}</td>
+      <td class="num">−${fmt(t.returns_cost)}</td>
+      <td class="num" style="font-weight:700">−${fmt(t.returns_profit)}</td>
+      <td></td>
+    </tr>` : '';
+  foot.innerHTML = `
+    <tr>
+      <td colspan="4" class="num" style="color:var(--text3)">Sotuv jami (${t.receipts_count} chek)</td>
+      <td class="num">${fmt(t.sales_revenue)}</td>
+      <td class="num" style="color:var(--text2)">${fmt(t.sales_cost)}</td>
+      <td class="num" style="font-weight:700">${fmt(t.sales_profit)}</td>
+      <td class="num"><span class="badge ${rpBadge(t.sales_margin_pct)}">${t.sales_margin_pct}%</span></td>
+    </tr>
+    ${retRow}
+    <tr style="font-weight:800">
+      <td colspan="4" class="num">SOF FOYDA (davr)</td>
+      <td class="num">${fmt(t.net_revenue)}</td>
+      <td class="num">${fmt(t.net_cost)}</td>
+      <td class="num gold">${fmt(t.net_profit)}</td>
+      <td class="num"><span class="badge ${rpBadge(t.net_margin_pct)}">${t.net_margin_pct}%</span></td>
+    </tr>`;
+
+  document.getElementById('rpPaginInfo').textContent = `${items.length} / ${d.total} ta chek`;
+  pagEl.innerHTML = (d.total_pages || 1) > 1 ? `
+    <button ${rpPage <= 1 ? 'disabled' : ''} onclick="rpPage--;loadReceiptProfit()">‹</button>
+    <span>${rpPage} / ${d.total_pages}</span>
+    <button ${rpPage >= d.total_pages ? 'disabled' : ''} onclick="rpPage++;loadReceiptProfit()">›</button>` : '';
+}
+window.loadReceiptProfit = loadReceiptProfit;
+
+function closeRp() { document.getElementById('rpModal').classList.remove('open'); }
+window.closeRp = closeRp;
+
+async function openReceiptProfit(orderId) {
+  document.getElementById('rpModal').classList.add('open');
+  const el = document.getElementById('rpdBody');
+  el.innerHTML = '<div class="ld">Yuklanmoqda...</div>';
+  const d = await api.get('/profit/by-receipt/' + orderId).catch(()=>null);
+  if (!d || d.detail) {
+    el.innerHTML = `<div class="empty" style="color:var(--red)">Xatolik: ${esc(d?.detail ? String(d.detail) : "API bilan bog'lanib bo'lmadi")}</div>`;
+    return;
+  }
+  document.getElementById('rpdTitle').textContent =
+    'Chek foydasi ' + (d.daily_number != null ? '#' + d.daily_number : (d.order_number || ''));
+
+  const rows = (d.items || []).map(i => `
+    <tr>
+      <td style="font-weight:600">${esc(i.product_name || '#' + i.product_id)}</td>
+      <td class="num">${i.quantity}${i.unit_sold ? ' ' + esc(i.unit_sold) : ''}</td>
+      <td class="num">${fmt(i.unit_price)}</td>
+      <td class="num" style="color:var(--red)">${i.discount_share ? '−' + fmt(i.discount_share) : '—'}</td>
+      <td class="num">${fmt(i.revenue)}</td>
+      <td class="num" style="color:var(--text2)">${fmt(i.cost)}</td>
+      <td class="num ${i.profit >= 0 ? 'pos' : 'neg'}">${fmt(i.profit)}</td>
+      <td class="num"><span class="badge ${rpBadge(i.margin_pct)}">${i.margin_pct}%</span></td>
+    </tr>`).join('');
+
+  const dc = d.discount || {};
+  // Chegirma proporsional taqsimlanadi: Σ(ulush) = buyurtma chegirmasi (kafolat)
+  const qoldiq = Math.abs((dc.allocated_total || 0) - (dc.order_discount || 0)) > 1;
+  const discBlock = dc.order_discount > 0 ? `
+    <div class="note-warn" style="background:var(--bg3);border-color:var(--border)">
+      <b>Chegirma taqsimi:</b> ${fmt(dc.order_discount)} — proporsional
+      (koeffitsiyent <b>${dc.factor}</b>, ya'ni har qator <b>${(dc.factor * 100).toFixed(2)}%</b> qiymatida hisoblanadi).
+      <br>Qatorlarga tarqatilgani: <b>${fmt(dc.allocated_total)}</b>
+      ${qoldiq ? '<span style="color:#f59e0b"> ⚠️ qoldiq bor</span>' : '<span class="pos"> ✓ to&rsquo;liq</span>'}
+    </div>` : '';
+
+  const rt = d.returns_totals || {};
+  const tt = d.totals || {};
+  const retBlock = (d.returns || []).length ? `
+    <div class="card-title" style="margin-top:1rem;color:var(--red)">Qaytarish — foydadan ayriladi</div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Hujjat</th><th>Mahsulot</th><th class="num">Soni</th><th class="num">Summa</th><th class="num">Tan narx</th><th class="num">Foyda</th><th>Ayrilgan sana</th></tr></thead>
+      <tbody>${d.returns.map(r => `
+        <tr style="color:var(--red)">
+          <td>${esc(r.return_number || '—')}</td>
+          <td>${esc(r.product_name || '—')}</td>
+          <td class="num">${r.quantity}</td>
+          <td class="num">−${fmt(r.revenue)}</td>
+          <td class="num">−${fmt(r.cost)}</td>
+          <td class="num" style="font-weight:700">−${fmt(r.profit)}</td>
+          <td style="color:var(--text2)">${fmtDT(r.counted_at)}</td>
+        </tr>`).join('')}</tbody>
+    </table></div>
+    <div style="font-size:.75rem;color:var(--text3);margin-top:.4rem;line-height:1.5">
+      ⚠️ Vozvrat <b>qaytarilgan sana</b> davriga yoziladi — yuqoridagi chek foydasi
+      (<b>${fmt(tt.profit)}</b>) o&rsquo;zgarmaydi, ayirish o&rsquo;sha davr
+      jamisida ko&rsquo;rinadi. Jami ayrilgan: <b>−${fmt(rt.profit || 0)}</b>.
+    </div>` : '';
+
+  const line = (lbl, val, bold, color) =>
+    `<div style="display:flex;justify-content:space-between;padding:.3rem 0;${bold ? 'font-weight:800;border-top:1px solid var(--border);margin-top:.3rem;padding-top:.5rem' : ''}"><span style="color:var(--text3)">${lbl}</span><span${color ? ` style="color:${color}"` : ''}>${fmt(val)}</span></div>`;
+
+  // Hisobotlar FAQAT `completed` ni sanaydi (`_sales_query`) — boshqa holatda ogohlantirish
+  const statusWarn = d.status && d.status !== 'completed' ? `
+    <div class="note-warn">⚠️ Chek holati — <b>${esc(d.status)}</b>. Yakunlanmagan chek foyda
+      hisobotlariga <b>kirmaydi</b>; pastdagi raqamlar faqat ma'lumot uchun.</div>` : '';
+
+  el.innerHTML = `
+    ${statusWarn}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .75rem;font-size:.84rem;margin-bottom:.75rem">
+      <div><span style="color:var(--text3)">Chek №:</span> <b>${d.daily_number != null ? '#' + d.daily_number : '—'}</b></div>
+      <div><span style="color:var(--text3)">Sana:</span> ${fmtDT(d.created_at)}</div>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Mahsulot</th><th class="num">Soni</th><th class="num">Narx</th><th class="num">Chegirma</th><th class="num">Savdo</th><th class="num">Tan narx</th><th class="num">Foyda</th><th class="num">Marja</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="8"><div class="empty">Qator yo&rsquo;q</div></td></tr>'}</tbody>
+    </table></div>
+    ${discBlock}
+    <div style="margin-top:.5rem;font-size:.85rem">
+      ${line('Savdo (chegirma ayirilgan)', tt.revenue)}
+      ${line('Tan narx (sotuvdagi snapshot)', tt.cost)}
+      ${line('FOYDA', tt.profit, true, 'var(--gold)')}
+      <div style="display:flex;justify-content:space-between;padding:.3rem 0"><span style="color:var(--text3)">Marja</span><span class="badge ${rpBadge(tt.margin_pct)}">${tt.margin_pct}%</span></div>
+    </div>
+    ${(tt.tax_amount > 0 || tt.service_charge > 0) ? `
+    <div style="font-size:.75rem;color:var(--text3);margin-top:.5rem;line-height:1.5">
+      Chekda soliq ${fmt(tt.tax_amount)} va xizmat haqi ${fmt(tt.service_charge)} bor
+      (yakuniy summa ${fmt(tt.final_amount)}). Bular <b>mahsulot savdosi emas</b> —
+      foyda hisobiga kirmaydi.
+    </div>` : ''}
+    ${retBlock}`;
+}
+window.openReceiptProfit = openReceiptProfit;
+
+['rpSort', 'rpOrder'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => { rpPage = 1; loadReceiptProfit(); }));
+
+// ── Yorliqlar ─────────────────────────────────────────────────────────────────
+// Faqat ochilgan yorliq yuklanadi; davr o'zgarsa hammasi "eskirgan" deb
+// belgilanadi va qaysi biri ochilsa — o'sha qayta yuklanadi.
+const TABS = ['profit', 'margin', 'receipts', 'expenses'];
+let activeTab = 'profit';
+const loaded = {};
+
+function loadTab(t) {
+  loaded[t] = true;
+  if (t === 'profit') {
+    // Summary avval — bizType aniqlansin, keyin qolganlar
+    return loadSummary().then(() => { applyBizTabs(); loadTimeline(); loadTops(); loadByCat(); });
+  }
+  if (t === 'margin')   return loadMargin();
+  if (t === 'receipts') { rpPage = 1; return loadReceiptProfit(); }
+  if (t === 'expenses') return loadExpenses();
+}
+
+// Marja va chek — CHEK (mahsulot) sotuvi asosida. Xizmat asosli bizneslarda
+// (salon/fitnes/mehmonxona...) ular "Foyda tahlili" bilan mos kelmaydi →
+// avvalgidek ko'rsatilmaydi (admin hub'da ham faqat store/restoran guruhida edi).
+function applyBizTabs() {
+  const isProduct = PRODUCT_TYPES.has(bizType);
+  document.querySelectorAll('.tab[data-product-only]').forEach(b => { b.style.display = isProduct ? '' : 'none'; });
+  if (!isProduct && document.querySelector(`.tab[data-tab="${activeTab}"]`)?.dataset.productOnly) showTab('profit');
+}
+
+function showTab(t) {
+  if (!TABS.includes(t)) t = 'profit';
+  activeTab = t;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-' + t));
+  try { history.replaceState(null, '', '#' + t); } catch (e) { /* file:// */ }
+  if (!loaded[t]) loadTab(t);
+}
+
+function reloadPeriod() {
+  TABS.forEach(t => { loaded[t] = false; });
+  loadTab(activeTab);
+}
+
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
 // ── Period switching ──────────────────────────────────────────────────────────
-document.querySelectorAll('.pb').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.pb').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active');
+const pFrom = document.getElementById('pFrom');
+const pTo   = document.getElementById('pTo');
+const pClear = document.getElementById('pClear');
+
+function syncPeriodUI() {
+  const custom = !!dFrom;
+  document.querySelectorAll('.pb[data-p]').forEach(x => x.classList.toggle('active', !custom && x.dataset.p === period));
+  pClear.style.display = custom ? '' : 'none';
+}
+
+document.querySelectorAll('.pb[data-p]').forEach(b => b.addEventListener('click', () => {
   period = b.dataset.p;
-  loadSummary();
+  dFrom = dTo = ''; pFrom.value = pTo.value = '';
+  syncPeriodUI();
+  reloadPeriod();
 }));
+
+function onRangeChange() {
+  dFrom = pFrom.value; dTo = pTo.value;
+  if (!dFrom && dTo) { dFrom = dTo; pFrom.value = dTo; }   // yolg'iz "gacha" → bitta kun
+  if (dFrom && dTo && dFrom > dTo) { [dFrom, dTo] = [dTo, dFrom]; pFrom.value = dFrom; pTo.value = dTo; }
+  syncPeriodUI();
+  reloadPeriod();
+}
+pFrom.addEventListener('change', onRangeChange);
+pTo.addEventListener('change', onRangeChange);
+pClear.addEventListener('click', () => {
+  dFrom = dTo = ''; pFrom.value = pTo.value = '';
+  syncPeriodUI();
+  reloadPeriod();
+});
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.getElementById('exDate').value = new Date().toISOString().slice(0,10);
 
-// Summary avval yuklanadi — bizType aniqlansin, keyin qolganlar
-loadSummary().then(() => {
-  loadTimeline();
-  loadTops();
-  loadByCat();
-});
-loadExpenses();
+// "Foyda tahlili" har doim yuklanadi (bizType shu yerdan); keyin #hash yorlig'i
+loadTab('profit');
+const _hashTab = (location.hash || '').slice(1);
+if (_hashTab && _hashTab !== 'profit') showTab(_hashTab);
 </script>
 </body>
 </html>

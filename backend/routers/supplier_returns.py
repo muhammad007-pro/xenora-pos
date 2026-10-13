@@ -15,6 +15,7 @@ from schemas import (
     PaginatedResponse, MessageResponse,
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
+from services.quantity_guard import check_qty
 from core.audit import log_audit
 
 router = APIRouter()
@@ -72,6 +73,7 @@ async def create_return(
     current_user: User = Depends(has_permission("manage_inventory")),
 ):
     """Firmaga vozvrat: ombor kamayadi, firma qarzidan ayriladi"""
+    check_qty(data.quantity)
     supplier = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
                    .filter(Supplier.id == data.supplier_id).first()
     if not supplier:

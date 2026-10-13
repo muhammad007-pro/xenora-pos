@@ -319,6 +319,9 @@ async function saveRestock() {
   const qty      = isPack ? qtyInput * _restockPack.size : qtyInput;
   const unitCost = isPack ? (priceInput / _restockPack.size) : priceInput;
   const packNote = isPack ? `${qtyInput} pachka (${qty} dona)` : '';
+  // Shtrix-kod miqdor maydoniga tushib qolsa (prodda 8 marta) — omborga yetmasin.
+  const tooBig = stockQtyError(qty);
+  if (tooBig) { toast(tooBig, 'error'); return; }
 
   const btn = document.getElementById('rmSaveBtn');
   btn.disabled = true; btn.textContent = 'Saqlanmoqda...';
@@ -375,6 +378,8 @@ function closeWriteoffModal() { document.getElementById('writeoffModal').classLi
 async function saveWriteoff() {
   const qty = parseFloat(document.getElementById('woQty').value);
   if (!qty || qty <= 0) { toast("Miqdorni kiriting", 'error'); return; }
+  const tooBig = stockQtyError(qty);
+  if (tooBig) { toast(tooBig, 'error'); return; }
   const btn = document.getElementById('woSaveBtn');
   btn.disabled = true; btn.textContent = "O'chirilmoqda...";
   try {
@@ -674,6 +679,10 @@ function icFilterItems() {
 async function icUpdateItem(itemId, actualQtyStr, unit) {
   const actualQty = parseFloat(actualQtyStr);
   if (isNaN(actualQty) || actualQty < 0) return;
+  // Sanoqda ham skaner fokusni o'g'irlashi mumkin — server 400 beradi, lekin
+  // bu funksiya xatoni jim yutadi, shuning uchun xabarni shu yerda ko'rsatamiz.
+  const tooBig = stockQtyError(actualQty);
+  if (tooBig) { toast(tooBig, 'error'); return; }
   try {
     const res = await fetch(`${API_BASE}/inventory/count/${_icCurrentCountId}/items/${itemId}`, {
       method: 'PATCH',

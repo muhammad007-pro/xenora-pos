@@ -905,6 +905,14 @@ document.getElementById('confirmWeightBtn')?.addEventListener('click', () => {
           'warning');
     return;
   }
+  // Skaner fokus og'irlik katagida bo'lsa shtrix-kod "miqdor" bo'lib qoladi.
+  // SOTUVNI TO'SMAYDI — faqat 8+ raqamli butun songa tasdiq so'raydi.
+  // 'sum' rejimida tekshirilmaydi: u yerda 8 xonali summa (10 mln so'm) normal.
+  // `window.confirmIfBarcode` yo'q bo'lsa (eski SW keshi) — sotuv odatdagidek o'tadi.
+  if (_weightMode === 'qty' && window.confirmIfBarcode &&
+      !window.confirmIfBarcode(document.getElementById('weightInput').value, _weightProduct?.sale_unit)) {
+    return;
+  }
   closeModal('weightModal');
   // Savatga HAR DOIM og'irlik; summa rejimida kassir tergan summa ham saqlanadi
   // (qator summasi = 15 000, 0.566 × 26 500 = 14 999 EMAS).
@@ -1335,7 +1343,9 @@ function _commitQty(inp) {
   if (raw === '' || !Number.isFinite(n))  err = "Miqdor son bo'lishi kerak";
   else if (!Number.isInteger(n))          err = "Miqdor butun son bo'lishi kerak";
   else if (n <= 0)                        err = "Miqdor 0 dan katta bo'lsin — o'chirish uchun ✕ tugmasi";
-  else if (n > QTY_MAX)                   err = `Miqdor juda katta (eng ko'pi ${QTY_MAX})`;
+  else if (n > QTY_MAX)                   err = window.looksLikeBarcode?.(raw)
+    ? "Bu shtrix-kodga o'xshaydi — miqdor o'zgartirilmadi"
+    : `Miqdor juda katta (eng ko'pi ${QTY_MAX})`;
 
   if (err) {
     toast(err, 'warning');

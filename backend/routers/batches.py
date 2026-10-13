@@ -18,6 +18,7 @@ from schemas import (
 from deps import (
     get_current_active_user, apply_tenant_filter, resolve_tenant_id, has_permission,
 )
+from services.quantity_guard import check_qty
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("batch_tracking"))])
@@ -67,6 +68,8 @@ async def create_batch(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_inventory")),
 ):
+    check_qty(data.quantity)
+    check_qty(data.initial_quantity)
     tenant_id = resolve_tenant_id(db, current_user)
 
     product = (
@@ -157,6 +160,7 @@ async def update_batch(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_inventory")),
 ):
+    check_qty(data.quantity)
     batch = _get_batch(db, batch_id, current_user)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(batch, field, value)

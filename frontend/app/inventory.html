@@ -381,6 +381,7 @@ body{background:radial-gradient(ellipse 120% 70% at 75% -10%,#0d1c33 0%,#0a1628 
 <script>if(!localStorage.getItem('access_token')) location.href='../shared/login.html';</script>
 <!-- Umumiy pul formati (vergulli) — window.fmtMoney/parseMoney/attachMoneyInput. -->
 <script src="../js/core/money.js"></script>
+<script src="../js/core/qty-guard.js"></script>
 <script src="../js/core/product-photo.js"></script>
 <!-- Qidiruvli select (classic — window.searchableSelect) -->
 <script src="../js/ui/searchable-select.js"></script>
@@ -553,21 +554,27 @@ function openAdd(invId=null) {
 async function saveStock() {
   const qty = parseFloat(document.getElementById('addQty').value);
   if (!qty || qty <= 0) { showT('Miqdor kiriting', 'warning'); return; }
+  const tooBig = stockQtyError(qty);   // shtrix-kod miqdor maydoniga tushsa
+  if (tooBig) { showT(tooBig, 'error'); return; }
   const note = document.getElementById('addNote').value;
   const btn  = document.getElementById('addSaveBtn');
   btn.disabled=true; btn.textContent='...';
   try {
+    let res;
     if (addingInventoryId) {
-      await api.post(`/inventory/${addingInventoryId}/add-stock`, { quantity: qty, notes: note });
+      res = await api.post(`/inventory/${addingInventoryId}/add-stock`, { quantity: qty, notes: note });
     } else {
       const prodId = parseInt(document.getElementById('prodSel').value);
       if (!prodId) { showT('Mahsulot tanlang', 'warning'); return; }
-      await api.post('/inventory/', { product_id: prodId, quantity: qty, notes: note });
+      res = await api.post('/inventory/', { product_id: prodId, quantity: qty, notes: note });
     }
+    // `api.post` 4xx da ham resolve qiladi — server rad etsa (`detail`) ilgari
+    // baribir "Kirim saqlandi" chiqardi.
+    if (res && res.detail) throw new Error(typeof res.detail === 'string' ? res.detail : 'Xatolik yuz berdi');
     showT('Kirim saqlandi', 'success');
     closeModal('addModal');
     await load();
-  } catch { showT('Xatolik yuz berdi', 'error'); }
+  } catch (e) { showT(e.message || 'Xatolik yuz berdi', 'error'); }
   finally { btn.disabled=false; btn.textContent='Saqlash'; }
 }
 
@@ -713,6 +720,10 @@ async function saveNewProduct() {
   const price = parseMoney(document.getElementById('npPrice').value);
   if (!name)               { showT('Nom kiriting', 'warning'); return; }
   if (!price || price <= 0) { showT('Sotuv narxini kiriting', 'warning'); return; }
+  // Boshlang'ich qoldiq MAHSULOT YARATILISHIDAN OLDIN tekshiriladi — aks holda
+  // server qoldiqni rad etib, mahsulot qoldiqsiz yaratilib qolardi.
+  const stockErr = stockQtyError(document.getElementById('npStock').value);
+  if (stockErr) { showT(stockErr, 'error'); return; }
 
   const btn = document.getElementById('npSaveBtn');
   btn.disabled = true; btn.textContent = '...';
@@ -749,7 +760,10 @@ async function saveNewProduct() {
     // Boshlang'ich qoldiq — kiritilsa omborga kirim sifatida yoziladi
     const startStock = parseFloat(document.getElementById('npStock').value) || 0;
     if (startStock > 0) {
-      await api.post('/inventory/', { product_id: prod.id, quantity: startStock, notes: 'Boshlang\'ich qoldiq' });
+      const invRes = await api.post('/inventory/', { product_id: prod.id, quantity: startStock, notes: 'Boshlang\'ich qoldiq' });
+      if (invRes && invRes.detail) {
+        imgErr = [imgErr, `Tovar qo'shildi, lekin qoldiq yozilmadi: ${invRes.detail}`].filter(Boolean).join(' · ');
+      }
     }
 
     products.push(prod);

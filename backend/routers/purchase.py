@@ -7,6 +7,7 @@ from database import get_db
 from models import User, Inventory
 from schemas import MessageResponse
 from deps import get_current_user, has_permission, apply_tenant_filter
+from services.quantity_guard import check_qty
 
 router = APIRouter()
 
@@ -41,6 +42,7 @@ async def create_purchase(
     current_user: User = Depends(has_permission("manage_inventory"))
 ):
     """Yangi sotib olish"""
+    check_qty(quantity)
     # Omborni yangilash (BOSQICH 1.5: tenant bo'yicha cheklash)
     inventory = apply_tenant_filter(db.query(Inventory), Inventory, current_user).filter(
         Inventory.product_id == product_id

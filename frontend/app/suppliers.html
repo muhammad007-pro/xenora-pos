@@ -698,6 +698,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1);min-height:100v
 <!-- Qidiruvli select (classic — window.searchableSelect; modul bloki undan keyin ishlaydi) -->
 <script src="../js/ui/searchable-select.js"></script>
 <script src="../js/core/product-photo.js"></script>
+<script src="../js/core/qty-guard.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API } from '../js/core/api.js';
@@ -986,6 +987,11 @@ window.recCreate = async () => {
     items.push({ product_id: parseInt(productId), quantity: qty, unit_price: price, brak_qty: brak, batch_number: batch || null, expiry_date: expiry || null });
   });
   if (!ok || !items.length) { showToast('Tovarlarni to\'liq kiriting', 'error'); return; }
+  // Shtrix-kod miqdor/brak katagiga tushib qolsa — nakladnoy saqlanmasin.
+  for (let i = 0; i < items.length; i++) {
+    const e = stockQtyError(items[i].quantity) || stockQtyError(items[i].brak_qty);
+    if (e) { showToast(`${i + 1}-qator: ${e}`, 'error'); return; }
+  }
   const btn = document.getElementById('btnCreate');
   btn.disabled = true;
   const res = await api.post('/purchase-receipts/', {
@@ -1490,6 +1496,8 @@ window.debtSaveRet = async () => {
   const price = parseFloat(document.getElementById('retPrice').value);
   const date  = document.getElementById('retDate').value;
   if (!supId || !prodId || !qty || !price || !date) { showToast("Barcha maydonlarni to'ldiring", 'error'); return; }
+  const tooBig = stockQtyError(qty);
+  if (tooBig) { showToast(tooBig, 'error'); return; }
   const btn = document.getElementById('btnRetSave'); btn.disabled = true;
   const res = await api.post('/supplier-returns/', {
     supplier_id: parseInt(supId), product_id: parseInt(prodId), quantity: qty, unit_price: price,

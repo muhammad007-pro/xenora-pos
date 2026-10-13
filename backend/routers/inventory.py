@@ -35,6 +35,7 @@ from deps import (
 )
 from routers.price_history import record_price_change, REASON_STOCK_IN
 from services.unit_converter import inventory_unit  # sotuv birligi → ombor birligi (pcs→dona)
+from services.quantity_guard import check_qty  # shtrix-kod miqdor maydoniga tushsa — 400
 
 router = APIRouter()
 
@@ -457,6 +458,7 @@ async def add_stock(
     """Omborga mahsulot kiritish (kelim)"""
     if data.quantity <= 0:
         raise HTTPException(status_code=400, detail="Miqdor musbat bo'lishi kerak")
+    check_qty(data.quantity)
 
     inv = _get_inv(db, inventory_id, current_user)
 
@@ -540,6 +542,7 @@ async def remove_stock(
     """Omborni qo'lda kamaytirish"""
     if quantity <= 0:
         raise HTTPException(status_code=400, detail="Miqdor musbat bo'lishi kerak")
+    check_qty(quantity)
 
     inv = _get_inv(db, inventory_id, current_user)
 
@@ -579,6 +582,7 @@ async def writeoff_stock(
 
     if data.quantity <= 0:
         raise HTTPException(status_code=400, detail="Miqdor musbat bo'lishi kerak")
+    check_qty(data.quantity)
     if inv.quantity < data.quantity:
         raise HTTPException(
             status_code=400,
@@ -632,6 +636,8 @@ async def create_inventory_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("manage_inventory"))
 ):
+    # Boshlang'ich qoldiq — shtrix-kod tushgan holatlarning aynan shu yo'li.
+    check_qty(inventory_data.quantity, "Boshlang'ich qoldiq")
     product = db.query(Product).filter(Product.id == inventory_data.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Mahsulot topilmadi")
@@ -662,6 +668,7 @@ async def update_inventory_item(
     if not inventory:
         raise HTTPException(status_code=404, detail="Ombor elementi topilmadi")
 
+    check_qty(inventory_data.quantity)
     update_data = inventory_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(inventory, field, value)
@@ -798,7 +805,8 @@ async def update_count_item(
     current_user: User = Depends(has_permission("manage_inventory"))
 ):
     """Haqiqiy sanalgan miqdorni kiritish"""
-    count = apply_tenant_filter(db.query(InventoryCount), InventoryCount, current_user).filter(InventoryCount.id == count_id).first()
+    check_qty(data.actual_qty, "Sanalgan miqdor")
+    count =apply_tenant_filter(db.query(InventoryCount), InventoryCount, current_user).filter(InventoryCount.id == count_id).first()
     if not count:
         raise HTTPException(status_code=404, detail="Inventarizatsiya topilmadi")
     if count.status != 'draft':

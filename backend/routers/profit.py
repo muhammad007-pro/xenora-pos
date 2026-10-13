@@ -369,6 +369,25 @@ def _product_summary(db: Session, current_user: User, start: date, end: date) ->
     }
 
 
+def _returns_fields(d: dict) -> dict:
+    """Qaytarishni KO'RSATISH uchun maydonlar — hisob O'ZGARMAYDI.
+
+    `revenue`/`cost` allaqachon qaytarish ayirilgan holda (yuqorida). Bu yerda
+    faqat ayirilgan summa ochiq beriladi, ekranda zanjir ko'rinsin:
+        sales_gross − returns = revenue ("sof savdo") − cost = gross_profit
+    `sales_gross` = yaxlitlangan `revenue` + yaxlitlangan `returns` — ekrandagi
+    ayirish 1 so'mgacha AYNAN chiqsin (alohida yaxlitlash ±1 berishi mumkin edi).
+    Qaytarish sanasi — QAYTARILGAN kun (sotilgan kun emas), `returns_totals`.
+    """
+    returns = round(d.get("returns_revenue", 0), 0)
+    return {
+        "returns":       returns,
+        "returns_cost":  round(d.get("returns_cost", 0), 0),
+        "returns_count": d.get("returns_count", 0),
+        "sales_gross":   round(d["revenue"], 0) + returns,
+    }
+
+
 def _expired_loss(db: Session, current_user: User) -> float:
     """Pharmacy: muddati o'tgan va omborda qolgan dorilar zarari"""
     from models import Inventory
@@ -501,6 +520,7 @@ async def get_profit_summary(
             "gross_profit":    round(gross, 0),
             "expenses":        round(expenses, 0),
             "net_profit":      round(net, 0),
+            **_returns_fields(d),
             # YAGONA ekran: bu SOF foyda — operatsion xarajat AYIRILGAN.
             # Boshqa uch ekran YALPI foyda ko'rsatadi (xarajatsiz), shuning
             # uchun ular bilan farq qilishi NORMAL, xato emas.
@@ -575,6 +595,7 @@ async def get_profit_summary(
         "gross_profit":   round(gross, 0),
         "expenses":       round(expenses, 0),
         "net_profit":     round(net, 0),
+        **_returns_fields(d),
         "orders_count":   d["orders_count"],
         "margin_pct":     round(gross / d["revenue"] * 100, 1) if d["revenue"] > 0 else 0,
         "net_margin_pct": round(net   / d["revenue"] * 100, 1) if d["revenue"] > 0 else 0,

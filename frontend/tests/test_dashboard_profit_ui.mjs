@@ -7,6 +7,7 @@
  *   3) Taqsimlangan xarajat — "jami X dan" izohi; taqsimlanmagan — izohsiz
  *   4) Sof foyda manfiy bo'lsa qizil
  *   5) Belgilash: blok ID'lari joyida (view_finance bo'lmasa yashirin)
+ *   6) Qaytarish qatori: bugungi savdo − qaytarish = sof savdo (0 bo'lsa ham), izoh
  *
  * Raqamlar serverdan tayyor keladi — bu yerda faqat ko'rsatish sinaladi.
  * Ishga tushirish:  node frontend/tests/test_dashboard_profit_ui.mjs
@@ -42,10 +43,11 @@ const render = pb => vm.runInContext(`renderProfitBreakdown(${JSON.stringify(pb)
 const rows = () => [...nodes.kpiProfitRows.innerHTML.matchAll(/<span>([^<]+)<\/span><span>([^<]+)<\/span>/g)]
   .map(m => [m[1], m[2]]);
 
-console.log('\n── 1) Qatorlar ──');
+console.log('\n── 1) Qatorlar (eski server — sales_gross yo\'q) ──');
 render({ revenue: 10000, cost: 6000, gross_profit: 4000, expenses: 1500, net_profit: 2500,
          expense_info: { is_split: false, raw: 1500 } });
-check('1_tartib', rows(), [['Bugungi savdo', '10000'], ['Tan narx', '−6000'],
+// revenue serverda qaytarishdan KEYIN → "Sof savdo" (chap kartadagi "Bugungi savdo" bilan adashmasin)
+check('1_tartib', rows(), [['Sof savdo', '10000'], ['Tan narx', '−6000'],
                           ['Yalpi foyda', '4000'], ['Xarajat ulushi', '−1500']]);
 check('1_ikki_chiziq', (nodes.kpiProfitRows.innerHTML.match(/border-top/g) || []).length, 2);
 check('1_sof_foyda', nodes.kpiNetProfit.textContent, '2500');
@@ -73,6 +75,21 @@ for (const id of ['kpiNetProfitCard', 'kpiProfitRows', 'kpiNetProfit', 'kpiNetPr
 }
 check('5_default_yashirin', /id="kpiNetProfitCard" style="display:none"/.test(HTML), true);
 check('5_eski_server_zaxira', /trends\.net_profit != null/.test(CORE), true);
+
+console.log('\n── 6) Qaytarish qatori (feature/dashboard-returns-row) ──');
+render({ sales_gross: 4605000, returns: 515000, returns_count: 2, revenue: 4090000,
+         cost: 2500000, gross_profit: 1590000, expenses: 100000, net_profit: 1490000, expense_info: {} });
+check('6_tartib', rows(), [['Bugungi savdo', '4605000'], ['Qaytarish', '−515000'], ['Sof savdo', '4090000'],
+                          ['Tan narx', '−2500000'], ['Yalpi foyda', '1590000'], ['Xarajat ulushi', '−100000']]);
+check('6_uch_chiziq', (nodes.kpiProfitRows.innerHTML.match(/border-top/g) || []).length, 3);
+check('6_izoh', /kecha sotilgan tovar ham bo'lishi mumkin/.test(nodes.kpiProfitRows.innerHTML), true);
+check('6_nomlar_ikki_xil', rows().filter(r => r[0] === 'Bugungi savdo').length, 1);
+const r6 = Object.fromEntries(rows());
+check('6_zanjir', [4605000 - 515000 === +r6['Sof savdo'], +r6['Sof savdo'] - 2500000 === +r6['Yalpi foyda']], [true, true]);
+check('6_sof_foyda', nodes.kpiNetProfit.textContent, '1490000');
+render({ sales_gross: 10000, returns: 0, returns_count: 0, revenue: 10000, cost: 6000,
+         gross_profit: 4000, expenses: 0, net_profit: 4000, expense_info: {} });
+check('6_qaytarish_0_korinadi', rows().find(r => r[0] === 'Qaytarish'), ['Qaytarish', '0']);
 
 console.log(`\n${pass}/${pass + fail} PASS`);
 process.exit(fail ? 1 : 0);

@@ -174,6 +174,77 @@ def _returned_qty_map(db: Session, order_item_ids) -> dict:
     return {oid: float(q or 0) for oid, q in rows}
 
 
+def _returned_amount_map(db: Session, order_item_ids) -> dict:
+    """`order_item_id` -> ALLAQACHON qaytarilgan SUMMA (`ReturnItem.total`).
+    `_returned_qty_map` bilan bir xil qoida: `rejected` sanalmaydi."""
+    ids = [i for i in order_item_ids if i]
+    if not ids:
+        return {}
+    rows = (
+        db.query(ReturnItem.order_item_id, func.coalesce(func.sum(ReturnItem.total), 0.0))
+        .join(Return, Return.id == ReturnItem.return_id)
+        .filter(ReturnItem.order_item_id.in_(ids), Return.status != "rejected")
+        .group_by(ReturnItem.order_item_id)
+        .all()
+    )
+    return {oid: float(s or 0) for oid, s in rows}
+
+
+# Oxirgi qism qoidasi faqat yaxlitlash dumini yopadi: "qolgan summa" proporsional
+# hisobdan shundan ko'p farq qilsa (avvalgi vozvrat boshqa narxda bo'lgan) —
+# proporsional olinadi, qoldiqqa ishonilmaydi.
+_LAST_PART_EPS = 0.05
+
+
+def _return_line_amounts(db: Session, data, current_user) -> list:
+    """Har vozvrat qatorining SUMMASI (so'rovdagi tartibda).
+
+    ═══ NEGA (2026-10-14) ═══
+    Ilgari summa `miqdor × unit_price` edi. SUMMA REJIMIDA sotilgan qator
+    (kassir "15 000 so'mlik" dedi → 0.566 kg, qator summasi 15 000) qaytarilsa
+    0.566 × 26 500 = 14 999 qaytardi — 1 so'm sotuvdan kam, ustiga float dumi
+    (14998.999999999998) yaxlitlanmasdi.
+
+    QOIDA (faqat SOTUV QATORIGA bog'langan va narxi sotuvdagi bilan bir xil
+    qatorda — oddiy yo'l, narx maydoni readonly):
+      • summa SOTUVDA YOZILGAN `total_price` dan proporsional:
+        round(total_price × qaytarilgan / sotilgan, 2)
+      • qatorning OXIRGI qismi qaytarilsa — `total_price − allaqachon
+        qaytarilgan summa`: bo'laklab qaytarishda ham jami aynan sotuv summasi
+        (yaxlitlash dumi to'planmaydi).
+    Bog'lanmagan qator yoki boshqa narx (qo'lda kiritilgan) — AVVALGIDEK
+    `miqdor × unit_price`. Butun sonli oddiy qatorda natija o'sha son
+    (3 × 100 000 dan 1 tasi → 100 000).
+    """
+    oi_ids = [it.order_item_id for it in data.items if it.order_item_id]
+    by_id = {}
+    if oi_ids:
+        by_id = {oi.id: oi for oi in
+                 scoped_order_items(db, current_user).filter(OrderItem.id.in_(oi_ids)).all()}
+    prev_qty = _returned_qty_map(db, oi_ids)
+    prev_amt = _returned_amount_map(db, oi_ids)
+
+    out = []
+    for it in data.items:
+        q, price = float(it.quantity), float(it.unit_price)
+        amount = q * price                                    # avvalgi formula
+        oi = by_id.get(it.order_item_id) if it.order_item_id else None
+        sold_qty   = float(oi.quantity or 0) if oi else 0.0
+        sold_total = float(oi.total_price or 0) if oi else 0.0
+        if oi and sold_qty > 0 and sold_total > 0 and abs(price - float(oi.unit_price or 0)) < 0.005:
+            amount = round(sold_total * q / sold_qty, 2)
+            done_q = prev_qty.get(oi.id, 0.0)
+            if done_q + q >= sold_qty - _QTY_EPS:             # oxirgi qism
+                rest = round(sold_total - prev_amt.get(oi.id, 0.0), 2)
+                if abs(rest - amount) <= _LAST_PART_EPS:
+                    amount = rest
+            # Bir so'rovda shu qator yana kelsa — keyingisi buni ham hisoblasin
+            prev_qty[oi.id] = done_q + q
+            prev_amt[oi.id] = prev_amt.get(oi.id, 0.0) + amount
+        out.append(amount)
+    return out
+
+
 def _validate_return_items(db: Session, data, current_user) -> list:
     """Miqdor cheklovini tekshiradi. Buzilsa 400, aks holda ogohlantirishlar.
 
@@ -319,7 +390,9 @@ def create_return(
     warnings = _validate_return_items(db, data, current_user)
     warnings += _validate_refund_method(db, data, current_user)
 
-    total_amount = sum(item.quantity * item.unit_price for item in data.items)
+    # Qator summalari SOTUVDAGI summadan (summa rejimi — 15 000 to'liq qaytadi)
+    line_amounts = _return_line_amounts(db, data, current_user)
+    total_amount = sum(line_amounts)
 
     ret = Return(
         tenant_id=current_user.tenant_id,
@@ -337,7 +410,7 @@ def create_return(
     db.add(ret)
     db.flush()
 
-    for item_data in data.items:
+    for item_data, line_amount in zip(data.items, line_amounts):
         product = db.query(Product).filter(Product.id == item_data.product_id).first()
         if not product:
             raise HTTPException(404, f"Mahsulot {item_data.product_id} topilmadi")
@@ -350,7 +423,7 @@ def create_return(
             # BOSQICH B-returns: pachka qaytarilsa dona miqdori (pack_size×qty)
             base_qty=_return_base_qty(db, item_data.order_item_id, item_data.quantity),
             unit_price=item_data.unit_price,
-            total=item_data.quantity * item_data.unit_price,
+            total=line_amount,
             restore_to_inventory=item_data.restore_to_inventory,
         )
         db.add(ri)
@@ -500,6 +573,9 @@ def lookup_order(
             "returned_qty":  round(allaqachon, 3),
             "returnable_qty": qoldi,
             "unit_price":    float(oi.unit_price or 0),
+            # Sotuvda YOZILGAN qator summasi — vozvrat summasi shundan
+            # proporsional (`_return_line_amounts`); POS oldindan ko'rish uchun.
+            "sold_total":    float(oi.total_price or 0),
             # SUMMA BO'YICHA QAYTARISH uchun: kassir "9500 so'mlik qaytaraman"
             # deydi va tizim miqdorni SOTUVDAGI narxga bo'lib topadi. Frontend
             # bu rejimni FAQAT og'irlik birliklarida (kg/g/l/litr) ko'rsatadi,

@@ -86,7 +86,8 @@ def client(db_session):
 def shop(db_session):
     db = db_session
     perms = []
-    for code in ("process_payments", "view_reports", "manage_menu"):
+    # manage_shifts — vozvratni tasdiqlash (pul harakati) testlari uchun
+    for code in ("process_payments", "view_reports", "manage_menu", "manage_shifts"):
         p = db.query(Permission).filter(Permission.code == code).first()
         if not p:
             p = Permission(code=code, description=code)
@@ -291,6 +292,98 @@ def test_yoq_mahsulot_400_500_emas(client, shop):
     r = _order(client, h, [{"product_id": 999999, "quantity": 1}])
     assert r.status_code == 400
     assert "topilmadi" in r.json()["detail"]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 5) VOZVRAT — sotuvdagi summa (summa rejimi 15 000 → 15 000 qaytadi)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _sold(client, h, db, items, pay):
+    o = _order(client, h, items).json()
+    _pay(client, h, o["id"], pay)
+    assert _status(db, o["id"]) == "completed"
+    ois = db.query(OrderItem).filter(OrderItem.order_id == o["id"]).order_by(OrderItem.id).all()
+    return o, ois
+
+
+def _ret(client, h, oid, rows, *, approve=False):
+    r = client.post("/api/v1/returns/", headers=h, json={
+        "order_id": oid, "reason": "other", "refund_method": "cash", "items": rows})
+    assert r.status_code == 200, r.text
+    ret = r.json()
+    if approve:
+        a = client.post(f"/api/v1/returns/{ret['id']}/approve", headers=h)
+        assert a.status_code == 200, a.text
+    return ret
+
+
+def _row(oi, qty, price=None):
+    return {"product_id": oi.product_id, "order_item_id": oi.id, "quantity": qty,
+            "unit_price": oi.unit_price if price is None else price, "restore_to_inventory": True}
+
+
+def test_vozvrat_summa_rejimi_toliq_15000(client, shop):
+    db, h = shop["db"], _h(client)
+    o, (oi,) = _sold(client, h, db, [{"product_id": shop["kg"], "quantity": 0.566,
+                                       "line_total": 15000}], 15000)
+    ret = _ret(client, h, o["id"], [_row(oi, 0.566)], approve=True)
+    assert ret["total_amount"] == 15000.0                 # ilgari 14998.999999999998
+    assert ret["items"][0]["total"] == 15000.0
+    db.expire_all()
+    qaytgan = -sum(p.amount for p in db.query(Payment).filter(
+        Payment.order_id == o["id"], Payment.amount < 0))
+    assert qaytgan == 15000.0                             # aynan to'langan summa
+
+
+def test_vozvrat_qisman_proporsional_va_jami_aniq(client, shop):
+    db, h = shop["db"], _h(client)
+    o, (oi,) = _sold(client, h, db, [{"product_id": shop["kg"], "quantity": 0.566,
+                                       "line_total": 15000}], 15000)
+    r1 = _ret(client, h, o["id"], [_row(oi, 0.3)])
+    assert r1["total_amount"] == round(15000 * 0.3 / 0.566, 2) == 7950.53
+    r2 = _ret(client, h, o["id"], [_row(oi, 0.266)])      # oxirgi qism
+    assert r2["total_amount"] == 7049.47
+    assert r1["total_amount"] + r2["total_amount"] == 15000.0   # 1 so'm farq YO'Q
+
+
+def test_vozvrat_uch_bolak_dumsiz(client, shop):
+    """Yaxlitlash dumi to'planmaydi: 3 bo'lakda ham jami aynan sotuv summasi."""
+    db, h = shop["db"], _h(client)
+    o, (oi,) = _sold(client, h, db, [{"product_id": shop["kg"], "quantity": 0.566,
+                                       "line_total": 15000}], 15000)
+    jami = sum(_ret(client, h, o["id"], [_row(oi, q)])["total_amount"]
+               for q in (0.1, 0.233, 0.233))
+    assert round(jami, 2) == 15000.0
+
+
+def test_vozvrat_ogirlik_rejimi_dumsiz(client, shop):
+    db, h = shop["db"], _h(client)
+    o, (oi,) = _sold(client, h, db, [{"product_id": shop["kg"], "quantity": 0.566}], 14999)
+    assert _ret(client, h, o["id"], [_row(oi, 0.566)])["total_amount"] == 14999.0
+
+
+def test_GOLDEN_vozvrat_butun_sonli(client, shop):
+    db, h = shop["db"], _h(client)
+    o, (oi,) = _sold(client, h, db, [{"product_id": shop["dona"], "quantity": 3}], 15000)
+    assert _ret(client, h, o["id"], [_row(oi, 1)])["total_amount"] == DONA_PRICE
+    assert _ret(client, h, o["id"], [_row(oi, 2)])["total_amount"] == 2 * DONA_PRICE
+
+
+def test_GOLDEN_vozvrat_boglanmagan_qator_avvalgidek(client, shop):
+    h = _h(client)
+    r = client.post("/api/v1/returns/", headers=h, json={
+        "reason": "other", "refund_method": "cash",
+        "items": [{"product_id": shop["kg"], "quantity": 0.566, "unit_price": KG_PRICE,
+                   "restore_to_inventory": True}]})
+    assert r.status_code == 200, r.text
+    assert r.json()["total_amount"] == 0.566 * KG_PRICE   # q × narx, o'zgarmagan
+
+
+def test_GOLDEN_vozvrat_boshqa_narx_avvalgidek(client, shop):
+    """Narx sotuvdagidan farq qilsa (qo'lda) — sotuv summasiga suyanilmaydi."""
+    db, h = shop["db"], _h(client)
+    o, (oi,) = _sold(client, h, db, [{"product_id": shop["dona"], "quantity": 2}], 10000)
+    assert _ret(client, h, o["id"], [_row(oi, 1, price=4000)])["total_amount"] == 4000.0
 
 
 if __name__ == "__main__":

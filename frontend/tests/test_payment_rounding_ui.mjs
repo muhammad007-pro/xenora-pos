@@ -106,5 +106,21 @@ const held = grab(/function openHeldModal\(\) \{[\s\S]*?\n}/, 'openHeldModal');
 check('4_royxatda_tolangan_belgisi', /held-paid[\s\S]*to'langan/.test(held), true);
 check('4_ochirish_yangi_xabar', /confirm\(_heldDeleteMessage\(/.test(held), true);
 
+// ── 5) Vozvrat oldindan ko'rish (returns.html) — server qoidasi bilan bir xil ──
+console.log('\n── 5) Vozvrat oldindan ko\'rish ──');
+const RET = readFileSync(resolve('frontend', 'app/returns.html'), 'utf8').replace(/\r\n/g, '\n');
+const rowAmountSrc = (RET.match(/function _rowAmount\(oiEl, q, pr\) \{[\s\S]*?\n}/) || [])[0];
+if (!rowAmountSrc) { console.error('XATO: _rowAmount topilmadi'); process.exit(2); }
+const rctx = {};
+vm.createContext(rctx);
+vm.runInContext(rowAmountSrc, rctx);
+const el = (soldQty, soldTotal) => ({ dataset: { soldQty: String(soldQty), soldTotal: String(soldTotal) } });
+check('5_summa_rejimi_toliq', rctx._rowAmount(el(0.566, 15000), 0.566, 26500), 15000);
+check('5_qisman_proporsional', rctx._rowAmount(el(0.566, 15000), 0.3, 26500), 7950.53);
+check('5_GOLDEN_butun_son', rctx._rowAmount(el(3, 15000), 1, 5000), 5000);
+check('5_GOLDEN_boglanmagan', rctx._rowAmount(null, 2, 5000), 10000);
+check('5_GOLDEN_eski_server_sold_total_yoq', rctx._rowAmount({ dataset: { soldQty: '3', soldTotal: '' } }, 1, 5000), 5000);
+check('5_calcTotal_rowAmount', /total \+= _rowAmount\(document\.getElementById\(`ioi\$\{id\}`\), q, pr\);/.test(RET), true);
+
 console.log(`\n${pass}/${pass + fail} PASS`);
 process.exit(fail ? 1 : 0);

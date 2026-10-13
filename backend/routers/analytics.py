@@ -121,6 +121,72 @@ async def get_summary(
         "avg_order"          : avg_order,
         "by_payment_method"  : [{"method": k, "amount": v} for k, v in by_method.items()],
         "daily_revenue"      : daily,
+        # QO'SHIMCHA (2026-10): dashboard savdo kartasi qatorlari. Yuqoridagi
+        # kalitlar O'ZGARMADI.
+        "sales_breakdown"    : _sales_breakdown(db, current_user, bd, period, date_from, date_to,
+                                                start, end, total_revenue),
+    }
+
+
+def _sales_breakdown(db, current_user, bd, period, date_from, date_to, start, end, total_revenue) -> dict:
+    """"Bugungi savdo" kartasining qatorlari — FAQAT KO'RSATISH, yangi formula yo'q.
+
+        savdo (= total_revenue) = naqd + karta + nasiya + boshqa
+        savdo − qaytarish = SOF SAVDO   (do'konlar ishchi premiyasini shundan hisoblaydi)
+
+    • Usullar: shu davrdagi `completed` buyurtmalarning (total_revenue bilan AYNAN
+      bir xil to'plam) sotuv tenderlari — Z-hisobot qoidasi (`sale_tenders`).
+      `other` = savdo − (naqd+karta+nasiya): transfer va eski yozuvlar; qatorlar
+      yig'indisi har doim savdoga AYNAN teng.
+      ⚠️ Bu yerdagi "naqd" — SOTUV usuli. Eski `by_payment_method` (kassaga tushgan
+      pul, to'lov vaqti bo'yicha) dan farq qilishi normal: kecha sotilib bugun
+      to'langan nasiya u yerda bor, bu yerda yo'q.
+    • Qaytarish: `/profit/summary` bilan BIR manba (`returns_totals`, qaytarilgan
+      kalendar kuni) — sof savdo Moliya "Savdo" si bilan mos.
+    • Kassadan olingan: smena inkassatsiyasi (`cash_movements`) — FOYDAGA ham,
+      SOF SAVDOGA ham ta'sir qilmaydi, faqat ma'lumot.
+    """
+    from models import CashMovement
+    from core.timeutils import day_bounds
+    from utils.cashflow import sale_tenders, CASH_METHODS, CARD_METHODS
+
+    pay_q = apply_tenant_filter(
+        db.query(Payment).join(Order, Order.id == Payment.order_id), Order, current_user,
+    ).filter(
+        bd.window(Order.created_at, Order.shift_id, start, end),
+        Order.status == "completed",
+    )
+    tenders = sale_tenders(pay_q)
+    cash   = round(sum(p.amount or 0 for p in tenders if p.method in CASH_METHODS), 0)
+    card   = round(sum(p.amount or 0 for p in tenders if p.method in CARD_METHODS), 0)
+    credit = round(sum(p.amount or 0 for p in tenders if p.method == "credit"), 0)
+    sales  = round(total_revenue or 0, 0)
+
+    # Qaytarish — `/profit/summary` ning aynan oralig'i: davr kunlari to'liq
+    # (`routers/profit._dt_bounds`), kelajak kesilmaydi.
+    s_date, e_date = bd.period_dates(period, date_from, date_to)
+    r_start, _     = day_bounds(s_date)
+    _, r_next      = day_bounds(e_date)
+    ret = returns_totals(db, current_user, r_start, r_next - timedelta(microseconds=1))
+    returns = round(ret["revenue"], 0)
+
+    w_q = db.query(CashMovement).filter(
+        CashMovement.kind == "withdrawal",
+        CashMovement.created_at >= start, CashMovement.created_at <= end,
+    )
+    withdrawals = apply_tenant_filter(w_q, CashMovement, current_user).all()
+
+    return {
+        "sales":         sales,
+        "cash":          cash,
+        "card":          card,
+        "credit":        credit,
+        "other":         sales - cash - card - credit,
+        "returns":       returns,
+        "returns_count": ret["count"],
+        "net_sales":     sales - returns,
+        "cash_withdrawn":       round(sum(m.amount or 0 for m in withdrawals), 0),
+        "cash_withdrawn_count": len(withdrawals),
     }
 
 

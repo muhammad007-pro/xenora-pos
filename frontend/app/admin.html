@@ -498,11 +498,15 @@
             </div>
             <div class="kpi-value" id="kpiRevenue">—</div>
             <div class="kpi-sub">UZS <span class="kpi-trend" id="kpiRevTrend"></span></div>
+            <!-- Savdo qatorlari: naqd/karta/nasiya − qaytarish = SOF SAVDO (premiya
+                 shundan). `/analytics/summary` → `sales_breakdown`; eski server
+                 bo'lsa bo'sh qoladi. -->
+            <div class="profit-rows" id="kpiSalesRows" style="font-size:.8125rem;line-height:1.7;margin-top:.5rem"></div>
           </div>
           <div class="kpi-card green">
             <div class="kpi-label">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="currentColor" stroke-width="2"/></svg>
-              Buyurtmalar
+              <span data-store-label="Cheklar">Buyurtmalar</span>
             </div>
             <div class="kpi-value" id="kpiOrders">—</div>
             <div class="kpi-sub">Bugun <span class="kpi-trend" id="kpiOrdTrend"></span></div>
@@ -838,7 +842,7 @@
           </div>
           <div class="mini-stat">
             <div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke="var(--warning)" stroke-width="2"/></svg></div>
-            <div><div class="ms-val" id="shiftOrdTotal">—</div><div class="ms-lbl">Bugungi buyurtmalar</div></div>
+            <div><div class="ms-val" id="shiftOrdTotal">—</div><div class="ms-lbl" data-store-label="Bugungi cheklar">Bugungi buyurtmalar</div></div>
           </div>
           <div class="mini-stat">
             <div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="var(--info)" stroke-width="2"/><path d="M12 6v6l4 2" stroke="var(--info)" stroke-width="2" stroke-linecap="round"/></svg></div>
@@ -846,7 +850,14 @@
           </div>
         </div>
         <div class="data-table-wrap">
-          <div class="dt-head"><h3 class="dt-title">Smenalar</h3></div>
+          <!-- Boshqaruv — POS/shift.html dagi smena oynasi bilan bir xil amallar:
+               ochish, yopish, X-hisobot, Z-hisobot, kassa harakati (js/admin/shift.js
+               dagi oynalar qayta ishlatiladi — "Kassa Smena" sahifasi bilan umumiy). -->
+          <div class="dt-head" style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+            <h3 class="dt-title">Smenalar</h3>
+            <span id="myShiftHint" style="font-size:.78rem;color:var(--text3)"></span>
+            <button class="tb-btn primary" id="shiftsOpenBtn" style="margin-left:auto" onclick="openShiftModal()">+ Smena ochish</button>
+          </div>
           <table>
             <thead><tr><th>ID</th><th>Kassir</th><th>Boshlangan</th><th>Yakunlangan</th><th>Savdo</th><th>Naqd</th><th>Status</th><th>Amallar</th></tr></thead>
             <tbody id="shiftsBody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
@@ -1315,7 +1326,7 @@
         <div class="data-table-wrap">
           <div class="dt-head"><h3 class="dt-title">Eng ko'p sotilgan mahsulotlar</h3></div>
           <table>
-            <thead><tr><th>#</th><th>Mahsulot</th><th>Kategoriya</th><th>Sotilgan (dona)</th><th>Tushum</th><th>Buyurtmalar</th></tr></thead>
+            <thead><tr><th>#</th><th>Mahsulot</th><th>Kategoriya</th><th>Sotilgan (dona)</th><th>Tushum</th><th>Cheklar</th></tr></thead>
             <tbody id="stTopBody"><tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>
         </div>
@@ -1469,7 +1480,7 @@
         <div class="mini-stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:1rem">
           <div class="mini-stat"><div class="ms-icon ms-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><line x1="12" y1="1" x2="12" y2="23" stroke="#22c55e" stroke-width="1.8"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="sdTodayRevenue">—</div><div class="ms-lbl">Bugungi tushum</div></div></div>
           <div class="mini-stat"><div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" stroke="#3b82f6" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="sdTodayProfit">—</div><div class="ms-lbl" title="Ijara/maosh ayirilmagan — sof foyda «Foyda tahlili» sahifasida">Bugungi yalpi foyda</div></div></div>
-          <div class="mini-stat"><div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="#f59e0b" stroke-width="1.8"/><path d="M8 21h8M12 17v4" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="sdTodayOrders">—</div><div class="ms-lbl">Bugungi buyurtmalar</div></div></div>
+          <div class="mini-stat"><div class="ms-icon ms-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="20" height="14" rx="2" stroke="#f59e0b" stroke-width="1.8"/><path d="M8 21h8M12 17v4" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="sdTodayOrders">—</div><div class="ms-lbl">Bugungi cheklar</div></div></div>
           <div class="mini-stat"><div class="ms-icon ms-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="20" height="15" rx="2" stroke="#3b82f6" stroke-width="1.8"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" stroke="#3b82f6" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="sdMonthRevenue">—</div><div class="ms-lbl">Oylik tushum</div></div></div>
           <div class="mini-stat"><div class="ms-icon ms-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#ef4444" stroke-width="1.8"/><line x1="12" y1="9" x2="12" y2="13" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"/></svg></div><div><div class="ms-val" id="sdLowStock" style="color:var(--red)">—</div><div class="ms-lbl">Kam qoldiq</div></div></div>
           <div class="mini-stat"><div class="ms-icon ms-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#ef4444" stroke-width="1.8"/><circle cx="9" cy="7" r="4" stroke="#ef4444" stroke-width="1.8"/></svg></div><div><div class="ms-val" id="sdSupplierDebt" style="color:var(--red)">—</div><div class="ms-lbl">Firma qarzlari</div></div></div>
@@ -1599,7 +1610,7 @@
         <div class="data-table-wrap" style="margin-top:1rem">
           <div class="dt-head"><h3 class="dt-title">Soatlik jadvali</h3></div>
           <table>
-            <thead><tr><th>Soat</th><th>Buyurtmalar</th><th>Tushum</th><th>Faollik</th></tr></thead>
+            <thead><tr><th>Soat</th><th>Cheklar</th><th>Tushum</th><th>Faollik</th></tr></thead>
             <tbody id="phBody"><tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--text3)">Yuklanmoqda...</td></tr></tbody>
           </table>
         </div>

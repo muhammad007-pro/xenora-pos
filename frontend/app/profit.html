@@ -73,6 +73,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .period-bar{flex-wrap:wrap;align-items:center}
 .period-bar .inp{width:auto;padding:.45rem .6rem}
 .period-sep{color:var(--text3);font-size:.8rem}
+.pb-go{border-color:rgba(34,197,94,.45);color:var(--gold)}
+.period-now{font-size:.78rem;color:var(--text3);margin-left:.25rem}
 .tabs{display:flex;gap:.25rem;margin-bottom:1.25rem;border-bottom:1px solid var(--border);overflow-x:auto}
 .tab{padding:.6rem 1rem;font-size:.875rem;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit}
 .tab.active{color:var(--gold);border-bottom-color:var(--gold)}
@@ -115,7 +117,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <input type="date" class="inp" id="pFrom" title="Sanadan">
     <span class="period-sep">—</span>
     <input type="date" class="inp" id="pTo" title="Sanagacha">
+    <!-- Ko'rsatish: sana o'zgarganda ham avtomatik yuklanadi; tugma — aniq tasdiq
+         (qo'lda terilgan sanada `change` ba'zan maydondan chiqqanda keladi). -->
+    <button class="pb pb-go" id="pApply" title="Tanlangan oraliqni ko'rsatish">Ko'rsatish</button>
     <button class="pb" id="pClear" style="display:none" title="Oraliqni tozalash">✕</button>
+    <span class="period-now" id="pNow"></span>
   </div>
   <!-- "Daromad" ikki ma'noda ishlatilardi. Bu bo'limda HAMMA summa — SAVDO. -->
   <div class="term-note">
@@ -287,7 +293,12 @@ const _isDev = ['5500','5501','3000','4200','8080'].includes(_lport) && ['localh
 const BASE = _isDev ? 'http://localhost:8000/api/v1' : ((window.XENORA_SERVER||'')+'/api/v1');
 const tok  = () => localStorage.getItem('access_token');
 const api  = {
-  get:  u => fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json()),
+  // Davr almashsa, ESKI davrning kech kelgan javobi tashlanadi (hech qachon
+  // resolve bo'lmaydi) — aks holda "1-oktabrdan" so'rovi "1–5 oktabr" dan
+  // keyin kelib ekranni eski raqam bilan qayta yozardi.
+  get:  u => { const g = periodGen;
+    return fetch(`${BASE}${u}`,{headers:{Authorization:'Bearer '+tok()}}).then(r=>r.json())
+      .then(d => g === periodGen ? d : new Promise(() => {})); },
   post: (u,b) => fetch(`${BASE}${u}`,{method:'POST',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json().then(d=>({ok:r.ok,data:d}))),
   // `post` kabi {ok,data} qaytaradi — chaqiruvchi xatoni ko'ra olsin
   patch:(u,b) => fetch(`${BASE}${u}`,{method:'PATCH',headers:{Authorization:'Bearer '+tok(),'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json().then(d=>({ok:r.ok,data:d}))),
@@ -310,6 +321,7 @@ let chTimeline = null;
 // dTo yolg'iz berilsa dFrom unga tenglanadi — aks holda period va days
 // endpointlari "faqat date_to" ni turlicha talqin qiladi (_period_range vs _days_range).
 let dFrom = '', dTo = '';
+let periodGen = 0;   // har davr almashuvida +1 (api.get eski javobni tashlaydi)
 const PERIOD_DAYS  = {today:1, week:7, month:30};   // timeutils.PERIOD_DAYS bilan bir xil
 const PERIOD_LABEL = {today:'bugun', week:'7 kun', month:'30 kun'};
 
@@ -335,10 +347,15 @@ function periodLabel(minDays = 1) {
   return n === (PERIOD_DAYS[period] || 1) ? PERIOD_LABEL[period] : `oxirgi ${n} kun`;
 }
 
-Chart.defaults.color       = '#8b9bb0';
-Chart.defaults.borderColor = 'rgba(255,255,255,.06)';
-Chart.defaults.font.family = 'Inter,system-ui,sans-serif';
-Chart.defaults.font.size   = 11;
+// Chart.js CDN'dan keladi. Yuklanmasa (internet sekin/yo'q) bu qatorlar
+// ilgari BUTUN skriptni to'xtatardi — sana filtri, yorliqlar, raqamlar hech
+// biri ishlamasdi. Endi faqat grafik chiqmaydi.
+if (window.Chart) {
+  Chart.defaults.color       = '#8b9bb0';
+  Chart.defaults.borderColor = 'rgba(255,255,255,.06)';
+  Chart.defaults.font.family = 'Inter,system-ui,sans-serif';
+  Chart.defaults.font.size   = 11;
+}
 
 // ── Yordamchi: karta HTML ─────────────────────────────────────────────────────
 function sc(label, value, sub='', cls='') {
@@ -459,6 +476,7 @@ async function loadTimeline() {
   }
 
   if (chTimeline) chTimeline.destroy();
+  if (!window.Chart) return;   // CDN yuklanmagan — grafiksiz davom etamiz
   chTimeline = new Chart(document.getElementById('chTimeline'), {
     type: 'line',
     data: { labels, datasets },
@@ -926,6 +944,7 @@ function showTab(t) {
 }
 
 function reloadPeriod() {
+  periodGen++;
   TABS.forEach(t => { loaded[t] = false; });
   loadTab(activeTab);
 }
@@ -936,11 +955,17 @@ document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () =>
 const pFrom = document.getElementById('pFrom');
 const pTo   = document.getElementById('pTo');
 const pClear = document.getElementById('pClear');
+const pApply = document.getElementById('pApply');
+const pNow   = document.getElementById('pNow');
+const _dmy = s => s ? s.split('-').reverse().join('.') : '';
 
 function syncPeriodUI() {
   const custom = !!dFrom;
   document.querySelectorAll('.pb[data-p]').forEach(x => x.classList.toggle('active', !custom && x.dataset.p === period));
   pClear.style.display = custom ? '' : 'none';
+  // Qaysi davr ko'rsatilayotgani ANIQ yozilsin — ilgari sana tanlangach
+  // ekranda hech narsa o'zgarmagandek ko'rinardi.
+  pNow.textContent = custom ? `Ko'rsatilmoqda: ${_dmy(dFrom)} — ${dTo ? _dmy(dTo) : 'bugun'}` : '';
 }
 
 document.querySelectorAll('.pb[data-p]').forEach(b => b.addEventListener('click', () => {
@@ -950,15 +975,28 @@ document.querySelectorAll('.pb[data-p]').forEach(b => b.addEventListener('click'
   reloadPeriod();
 }));
 
-function onRangeChange() {
-  dFrom = pFrom.value; dTo = pTo.value;
-  if (!dFrom && dTo) { dFrom = dTo; pFrom.value = dTo; }   // yolg'iz "gacha" → bitta kun
-  if (dFrom && dTo && dFrom > dTo) { [dFrom, dTo] = [dTo, dFrom]; pFrom.value = dFrom; pTo.value = dTo; }
+// force=false (avtomatik): oraliq o'zgarmagan bo'lsa qayta yuklamaydi
+// (`input` va `change` ikkalasi keladi). force=true — "Ko'rsatish" tugmasi.
+function onRangeChange(force) {
+  let f = pFrom.value, t = pTo.value;
+  if (!f && !t) { if (force === true) reloadPeriod(); return; }   // bo'sh — joriy davrni yangilash
+  if (!f && t) { f = t; pFrom.value = t; }                 // yolg'iz "gacha" → bitta kun
+  if (f && t && f > t) { [f, t] = [t, f]; pFrom.value = f; pTo.value = t; }
+  if (force !== true && f === dFrom && t === dTo) return;
+  dFrom = f; dTo = t;
   syncPeriodUI();
   reloadPeriod();
 }
-pFrom.addEventListener('change', onRangeChange);
-pTo.addEventListener('change', onRangeChange);
+// Sana terilayotganda har tugmada so'rov ketmasin — qisqa kutish
+let _rangeTimer = null;
+const onRangeInput = () => { clearTimeout(_rangeTimer); _rangeTimer = setTimeout(onRangeChange, 500); };
+pFrom.addEventListener('change', onRangeInput);
+pTo.addEventListener('change', onRangeInput);
+pFrom.addEventListener('input', onRangeInput);
+pTo.addEventListener('input', onRangeInput);
+pFrom.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(_rangeTimer); onRangeChange(true); } });
+pTo.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(_rangeTimer); onRangeChange(true); } });
+pApply.addEventListener('click', () => { clearTimeout(_rangeTimer); onRangeChange(true); });
 pClear.addEventListener('click', () => {
   dFrom = dTo = ''; pFrom.value = pTo.value = '';
   syncPeriodUI();

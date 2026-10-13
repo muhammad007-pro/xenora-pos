@@ -162,6 +162,12 @@ function renderShifts() {
     </tr>`;
   }).join('');
 }
+// Smena ochilgach/yopilgach — qaysi sahifadan chaqirilgan bo'lsa O'SHA yangilansin
+// (umumiy "Smenalar" sahifasi yoki "Kassa Smena" — oynalar ikkalasiga umumiy).
+function _reloadShiftViews() {
+  if (typeof currentPage !== 'undefined' && currentPage === 'shifts') loadShifts();
+  else loadShiftsPage();
+}
 async function openShiftModal() {
   // Xodim TANLANMAYDI — smena har doim joriy foydalanuvchiga ochiladi
   // (backend `create_shift` klient bergan `user_id` ni qabul qilmaydi, 403).
@@ -202,7 +208,7 @@ async function openShift() {
   try {
     await apiFetchPost('/shifts/', body, 'POST');
     closeModal('shiftOpenModal');
-    loadShiftsPage();
+    _reloadShiftViews();
     toast('Smena ochildi!');
   } catch (e) { toast(e.message || 'Xato', 'error'); }
 }
@@ -270,7 +276,7 @@ async function closeShift() {
   toast(`Smena yopildi. ${shortage < 0 ? '⚠️ Kamomad: ' + fmtNum(Math.abs(shortage)) + ' so\'m' : shortage > 0 ? 'Ortiqcha: ' + fmtNum(shortage) + ' so\'m' : 'Hisob mos!'}`, shortage ? 'warning' : 'success');
   // Yopilgach — to'liq hisob-kitob cheki ko'rsatiladi (professional Z-hisobot).
   showShiftReceipt(result, _sid);
-  loadShiftsPage();
+  _reloadShiftViews();
 }
 
 // ── Inkassatsiya / razmen ────────────────────────────────────────────────────
@@ -350,9 +356,13 @@ function zMoneyBlocks(r, fmt) {
 
 // Smena yopilish chekini (Z-hisobot) chiroyli ko'rsatadi — jami savdo, naqd, karta,
 // Click/Payme (card ichida), nasiya, qaytarish, sotuvlar soni, vaqt, kamomad.
+// `r.is_open === true` (X-hisobot, /x-report ochiq smenadan) — sarlavha
+// X-HISOBOT, "Sanaldi/Farq" qatorlari va printer Z-chek tugmasi chiqmaydi
+// (smena hali yopilmagan, sanalgan naqd yo'q).
 function showShiftReceipt(r, shiftId) {
   _lastZReport = r;   // chop etish uchun saqlaymiz (buildZReport58)
-  const fdt = (s) => { try { return new Date(s).toLocaleString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return s || '—'; } };
+  const isX = r.is_open === true;
+  const fdt = _fmtShiftDt;
   const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const row = (l, v, bold) => `<div style="display:flex;justify-content:space-between;${bold?'font-weight:700;':''}"><span>${l}</span><span>${v}</span></div>`;
   const line = '<div style="border-top:1px dashed #999;margin:.4rem 0"></div>';
@@ -367,22 +377,22 @@ function showShiftReceipt(r, shiftId) {
   document.getElementById('shiftReceiptArea').innerHTML = `
     <div style="text-align:center;font-weight:700;margin-bottom:.3rem">${esc(r.store_name || 'XENORA')}</div>
     <div style="text-align:center;font-weight:700">SMENA HISOB-KITOBI</div>
-    <div style="text-align:center;font-size:.72rem;color:#555;margin-bottom:.6rem">Z-HISOBOT · #${r.id ?? shiftId ?? ''}</div>
+    <div style="text-align:center;font-size:.72rem;color:#555;margin-bottom:.6rem">${isX ? 'X-HISOBOT (smena ochiq)' : 'Z-HISOBOT'} · #${r.id ?? shiftId ?? ''}</div>
     ${row('Kassir:', esc(r.cashier || '—'))}
     ${row('Ochilish:', fdt(r.start_time))}
-    ${row('Yopilish:', fdt(r.end_time))}
+    ${isX ? row('Hozir:', esc(r.datetime || '—')) : row('Yopilish:', fdt(r.end_time))}
     ${line}
     <div style="font-weight:700;font-size:.78rem;margin-bottom:.2rem">SOTILGAN MAHSULOTLAR</div>
     ${prodHtml}
     ${line}
     ${zMoneyBlocks(r).map(([l, v, b]) => l === '—' ? line : (v === null ? `<div style="font-weight:700;font-size:.78rem">${l}</div>` : row(l, v, b))).join('')}
-    ${row('Sanaldi (haqiqiy):', money(r.counted_cash))}
-    ${row(shortage < 0 ? 'Kamomad:' : (shortage > 0 ? 'Ortiqcha:' : 'Farq:'), shTxt, true)}
+    ${isX ? '' : row('Sanaldi (haqiqiy):', money(r.counted_cash))}
+    ${isX ? '' : row(shortage < 0 ? 'Kamomad:' : (shortage > 0 ? 'Ortiqcha:' : 'Farq:'), shTxt, true)}
     ${r.notes ? line + `<div style="font-size:.75rem;color:#555">Izoh: ${esc(r.notes)}</div>` : ''}
   `;
   const zbtn = document.getElementById('shiftReceiptPrintZBtn');
   if (zbtn) {
-    if (hasFeature('z_report')) { zbtn.style.display=''; zbtn.onclick = () => printZReport(r.id ?? shiftId, zbtn); }
+    if (!isX && hasFeature('z_report')) { zbtn.style.display=''; zbtn.onclick = () => printZReport(r.id ?? shiftId, zbtn); }
     else zbtn.style.display = 'none';
   }
   openModal('shiftReceiptModal');
@@ -390,10 +400,23 @@ function showShiftReceipt(r, shiftId) {
 
 // Z-hisobot 58mm innerHTML (chek idiomida: .receipt-* / .rt-row → margin:0, 48mm,
 // chapga, monospace, shrift sozlama). Markaziy printDocument shu HTML'ni bosadi.
+// Vaqt: close_shift ISO beradi, /x-report esa serverda tayyor "dd.mm.yyyy HH:MM"
+// (Toshkent) — u `new Date()` da "Invalid Date" bo'lardi, shuning uchun o'zi chiqadi.
+function _fmtShiftDt(s) {
+  if (!s) return '—';
+  if (/^\d{2}\.\d{2}\.\d{4}/.test(String(s))) return String(s);
+  const d = new Date(s);
+  return isNaN(d) ? String(s)
+    : d.toLocaleString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
 function buildZReport58(r) {
   const esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const m = (n) => fmtNum(n || 0);
-  const dt = (s) => { try { return new Date(s).toLocaleString('uz-UZ'); } catch { return s || '—'; } };
+  // ISO uchun avvalgi format o'zgarmaydi; tayyor "dd.mm.yyyy" satri o'zi chiqadi
+  const dt = (s) => (/^\d{2}\.\d{2}\.\d{4}/.test(String(s || '')) ? String(s)
+    : (() => { try { return new Date(s).toLocaleString('uz-UZ'); } catch { return s || '—'; } })());
+  const isX = r.is_open === true;
   const sh = r.shortage || 0;
   const shLabel = sh < 0 ? 'KAMOMAD' : (sh > 0 ? 'ORTIQCHA' : 'FARQ');
   const prodRows = (Array.isArray(r.products) ? r.products : []).map(p =>
@@ -402,12 +425,12 @@ function buildZReport58(r) {
   return `
     <div class="receipt-center">
       <h4>${esc(r.store_name || 'XENORA')}</h4>
-      <p>SMENA HISOB-KITOBI<br>Z-HISOBOT #${esc(r.id != null ? r.id : '')}</p>
+      <p>SMENA HISOB-KITOBI<br>${isX ? 'X-HISOBOT (smena ochiq)' : 'Z-HISOBOT'} #${esc(r.id != null ? r.id : '')}</p>
     </div>
     <div style="font-size:0.85em;margin-bottom:4px">
       Kassir: ${esc(r.cashier || '—')}<br>
       Ochilish: ${esc(dt(r.start_time))}<br>
-      Yopilish: ${esc(dt(r.end_time))}
+      ${isX ? 'Hozir: ' + esc(r.datetime || '—') : 'Yopilish: ' + esc(dt(r.end_time))}
     </div>
     <table class="receipt-table">
       <thead><tr><th>Mahsulot</th><th>Soni</th><th>Summa</th></tr></thead>
@@ -417,11 +440,11 @@ function buildZReport58(r) {
       ${zMoneyBlocks(r, m).map(([l, v, b]) => l === '—' ? '</div><div class="receipt-totals">'
         : (v === null ? `<div class="rt-row bold"><span>${l}</span><span></span></div>`
                       : `<div class="rt-row${b ? ' bold' : ''}"><span>${l}</span><span>${v}</span></div>`)).join('')}
-      <div class="rt-row"><span>Sanaldi (haqiqiy):</span><span>${m(r.counted_cash)}</span></div>
-      <div class="rt-row bold"><span>${shLabel}:</span><span>${sh < 0 ? '-' : ''}${m(Math.abs(sh))}</span></div>
+      ${isX ? '' : `<div class="rt-row"><span>Sanaldi (haqiqiy):</span><span>${m(r.counted_cash)}</span></div>
+      <div class="rt-row bold"><span>${shLabel}:</span><span>${sh < 0 ? '-' : ''}${m(Math.abs(sh))}</span></div>`}
     </div>
     ${r.notes ? `<div style="font-size:0.8em;margin-top:4px">Izoh: ${esc(r.notes)}</div>` : ''}
-    <div class="receipt-footer">XENORA POS · Z-hisobot</div>`;
+    <div class="receipt-footer">XENORA POS · ${isX ? 'X-hisobot' : 'Z-hisobot'}</div>`;
 }
 
 // Z-hisobotni MARKAZIY print servisga (B1: printDocument) yuboradi — 58mm, silent,

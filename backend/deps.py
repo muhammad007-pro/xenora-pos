@@ -14,6 +14,34 @@ oauth2_scheme = OAuth2PasswordBearer(
     auto_error=False
 )
 
+def assert_store_open(user: User, db: Session) -> None:
+    """Do'kon QO'LDA yopilgan bo'lsa (is_active=False yoki tenant_status='blocked') — 403.
+
+    MUAMMO (2026-10-13, BARAKA): super-admin "Bloklash" faqat KIRISH yo'lini
+    (resolve-code / pin-login) to'sardi. Har so'rovda faqat `user.is_active`
+    tekshirilardi, refresh esa har safar yangi 30 kunlik token berardi — ya'ni
+    ochiq kassa sessiyasi CHEKSIZ ishlashda davom etardi. Uzish uchun xodimlarni
+    birma-bir nofaol qilish kerak edi.
+
+    `ENFORCE_SUBSCRIPTION` dan MUSTAQIL, ATAYLAB: bu obuna sanasi emas, super-admin
+    AMALI. Kill-switch faqat sana bo'yicha avtomatik blokni boshqaradi; `expired`
+    bu yerda YO'Q (u kill-switch ostida qoladi, qarang `_enforce_subscription`).
+
+    Super-admin va tenantsiz hisob — hech qachon. Cafe topilmasa — to'smaymiz
+    (`_enforce_subscription` bilan izchil). Javob `_find_store_by_code` bilan
+    bir xil: 403 STORE_INACTIVE, neytral matn (sabab aytilmaydi).
+    """
+    if user.is_superuser or user.tenant_id is None:
+        return
+    from models import Cafe
+    from core.exceptions import StoreInactiveError
+    cafe = db.query(Cafe.is_active, Cafe.tenant_status).filter(Cafe.id == user.tenant_id).first()
+    if cafe is None:
+        return
+    if cafe.is_active is False or (cafe.tenant_status or "active").lower() == "blocked":
+        raise StoreInactiveError(settings.SUPPORT_CONTACT)
+
+
 async def get_current_user(
     token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -37,6 +65,9 @@ async def get_current_user(
     if not user or not user.is_active:
         return None
 
+    # Do'kon qo'lda yopilgan bo'lsa — OCHIQ SESSIYA ham shu yerda uziladi.
+    assert_store_open(user, db)
+
     # JWT dan active_branch_id ni user ob'ektiga vaqtincha o'rnating
     # (DB ga yozmaydi — faqat request davomida ishlatiladi)
     user._active_branch_id = payload.get("branch_id")
@@ -52,7 +83,8 @@ async def get_current_active_user_no_sub(
 ) -> User:
     """Faol foydalanuvchi — obuna ENFORCEMENT'siz (xom).
 
-    Faqat autentifikatsiyani talab qiladi. Bloklangan tenant HAM o'ta oladi —
+    Faqat autentifikatsiyani talab qiladi. OBUNA bo'yicha bloklangan tenant HAM
+    o'ta oladi (qo'lda yopilgan do'kon esa yo'q — `assert_store_open`) —
     shuning uchun FAQAT istisno endpointlar uchun (bloklangan do'kon sababni
     ko'rishi / o'z ma'lumotini eksport qilishi kerak bo'lganlar):
       • /cafes/my/subscription (nega bloklangan + qancha to'lash)

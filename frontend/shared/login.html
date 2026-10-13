@@ -624,6 +624,12 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
 let accessCode = '';
 function showCodeErr(msg){ const e=document.getElementById('codeError'); e.textContent=msg; e.style.display='block'; document.getElementById('codeWrap').classList.add('has-error'); }
 function hideCodeErr(){ const e=document.getElementById('codeError'); e.style.display='none'; document.getElementById('codeWrap').classList.remove('has-error'); }
+// Ochiq sessiya do'kon yopilgani sababli uzilgan bo'lsa (api.js STORE_INACTIVE) —
+// kassir sababsiz login ekraniga tushib qolmasin: serverning neytral matni ko'rsatiladi.
+try {
+  const _inactiveMsg = sessionStorage.getItem('store_inactive_msg');
+  if (_inactiveMsg) { sessionStorage.removeItem('store_inactive_msg'); showCodeErr(_inactiveMsg); }
+} catch (e) {}
 
 async function resolveStore(code, btn){
   code = (code||'').trim();

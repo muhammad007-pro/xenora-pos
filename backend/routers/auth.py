@@ -22,7 +22,7 @@ from core.role_guard import (
     resolve_target_tenant, assert_can_assign_role, assert_branch_in_tenant,
 )
 from services.auth_service import AuthService
-from deps import get_current_user, get_current_active_user, has_permission
+from deps import get_current_user, get_current_active_user, has_permission, assert_store_open
 
 
 def _build_token_data(user: User, db: Session, branch_id=None) -> dict:
@@ -246,6 +246,9 @@ async def login(
     # tekshiramiz. Rad etilsa — quyidagi `last_login` va LOGIN audit yozuvi
     # umuman bo'lmaydi (muvaffaqiyatsiz urinish "kirdi" deb yozilmasin).
     _assert_code_matches_tenant(db, user, access_code)
+    # Kodsiz login (eski klient) do'kon holatini tekshirmasdi — yopiq do'konga
+    # token berib, keyingi so'rovda 403 olishdan ko'ra shu yerda to'xtatamiz.
+    assert_store_open(user, db)
 
     # Oxirgi login vaqtini yangilash
     user.last_login = datetime.now()
@@ -295,6 +298,8 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Foydalanuvchi topilmadi yoki faol emas"
         )
+    # Do'kon qo'lda yopilgan → 403 (yangi token BERILMAYDI, sessiya cho'zilmaydi)
+    assert_store_open(user, db)
 
     branch_id = user.branch_id
     token_data = _build_token_data(user, db, branch_id)
@@ -400,6 +405,8 @@ async def pin_login(
         raise InvalidCredentialsError()
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hisob faol emas")
+    # Eski branch_id yo'li do'kon holatini tekshirmasdi (kod yo'li — `_find_store_by_code`)
+    assert_store_open(user, db)
 
     user.last_login = datetime.now()
     db.commit()

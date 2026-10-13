@@ -21,6 +21,21 @@ def covers(paid, due) -> bool:
     return float(paid or 0) >= float(due or 0) - PAYMENT_TOLERANCE
 
 
+# ── ORTIQCHA TO'LOV DOPUSKI — 1 so'm ─────────────────────────────────────────
+# Prod (1001 BARAKA, order 4094): chek 177 000, naqd to'lov 247 000 qabul
+# qilingan → Z'dagi naqd sotuv va `expected_cash` 70 000 ga oshdi, kassir
+# soxta KAMOMAD oldi. Server endi chekdan ortiq to'lovni rad etadi.
+# NEGA 1 so'm (tiyin emas): eski .exe (v1.13.x) aralash to'lovda jamini
+# `Math.round(total)` qilib yuboradi — kasrli (kg) chekda 0,5 so'mgacha ortiq.
+# Tiyin dopuski jonli kg+aralash sotuvlarni yiqitardi.
+OVERPAY_TOLERANCE = 1.0
+
+
+def overpays(already, amount, due) -> bool:
+    """Yangi to'lov (`amount`) chekni (`due`) dopuskdan ORTIQ oshirib yuboradimi."""
+    return float(already or 0) + float(amount or 0) > float(due or 0) + OVERPAY_TOLERANCE
+
+
 class PaymentService:
     def __init__(self, db: Session):
         self.db = db

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from database import get_db
-from models import Shift, User, Order, Payment, OrderItem, CashRegister, Return, Cafe
+from models import Shift, User, Order, Payment, OrderItem, CashRegister, Return, Cafe, CashMovement
 from schemas import ShiftCreate, ShiftUpdate, ShiftInDB, MessageResponse
 from deps import (
     resolve_tenant_id, get_current_user, get_current_active_user,
@@ -26,6 +26,7 @@ from core.timeutils import to_local, to_utc, utc_now
 from utils.cashflow import (
     debt_payments_totals, expected_cash as _expected_cash, cash_refund_amount as _cash_refund_amount,
     refunded_sale_payments, payment_path_cash_refunds, CASH_METHODS, CARD_METHODS,
+    card_refund_amount as _card_refund_amount, payment_path_refunds, cash_in_summary,
 )
 
 router = APIRouter()
@@ -111,10 +112,20 @@ def _shift_totals(db, current_user, shift: Shift, end) -> dict:
     returns_total = sum(r.total_amount or 0 for r in returns)
     cash_refunds  = (sum(_cash_refund_amount(r) for r in returns)   # aralash chek: qarz qismi chiqmaydi
                      + payment_path_cash_refunds(db, current_user, start, end))
+    # Karta qaytarish — yashikka TEGMAYDI, faqat "Kassaga tushgan" dan ayiriladi
+    card_refunds  = (sum(_card_refund_amount(r) for r in returns)
+                     + payment_path_refunds(db, current_user, start, end, CARD_METHODS))
 
     # Nasiya qarzi to'lovlari — pul KASSAGA tushadi (Payment yozuvi yo'q)
     debt_pay = debt_payments_totals(db, current_user, start, end)
-    expected_cash = _expected_cash(shift.starting_cash, cash_sales, cash_refunds, debt_pay["cash"])
+
+    # Inkassatsiya / razmen — smenaga `shift_id` bilan QATTIQ bog'langan
+    moves = _cash_movements(db, shift)
+    withdrawals = sum(m.amount or 0 for m in moves if m.kind == "withdrawal")
+    deposits    = sum(m.amount or 0 for m in moves if m.kind == "deposit")
+
+    expected_cash = _expected_cash(shift.starting_cash, cash_sales, cash_refunds, debt_pay["cash"],
+                                   withdrawals, deposits)
 
     return {
         "start": start, "end": end, "orders": orders,
@@ -123,8 +134,42 @@ def _shift_totals(db, current_user, shift: Shift, end) -> dict:
         "by_method": by_method,
         "paid_order_ids": paid_order_ids, "sales_count": len(paid_order_ids),
         "discount_total": discount_total,
-        "returns_total": returns_total, "cash_refunds": cash_refunds,
+        "returns_total": returns_total, "cash_refunds": cash_refunds, "card_refunds": card_refunds,
         "debt_pay": debt_pay, "expected_cash": expected_cash,
+        "withdrawals": withdrawals, "deposits": deposits, "movements": moves,
+        "cash_in": cash_in_summary(cash_sales, card_sales, debt_pay, cash_refunds, card_refunds),
+    }
+
+
+def _cash_movements(db, shift: Shift) -> list:
+    """Smenaning inkassatsiya/razmen yozuvlari (vaqt tartibida). Tenant smena
+    orqali kafolatlangan — `shift` allaqachon tenant filtri bilan olingan."""
+    return (db.query(CashMovement)
+            .filter(CashMovement.shift_id == shift.id)
+            .order_by(CashMovement.created_at, CashMovement.id)
+            .all())
+
+
+def _z_money_fields(t: dict) -> dict:
+    """Z-hisobotning PUL bloki (variant A) — close / print-z / report / x-report
+    hammasi shu bitta shakldan. SAVDO bloki (naqd/karta/nasiya → jami savdo)
+    eski maydonlarda qoladi (`total_sales` GOLDEN)."""
+    ci = t["cash_in"]
+    return {
+        "card_refunds":     round(t["card_refunds"], 0),
+        "money_refunds":    round(t["cash_refunds"] + t["card_refunds"], 0),
+        "cash_in_total":    round(ci["total_cash_in"], 0),
+        "withdrawals":      round(t["withdrawals"], 0),
+        "deposits":         round(t["deposits"], 0),
+        "cash_movements":   [_movement_out(m) for m in t["movements"]],
+    }
+
+
+def _movement_out(m) -> dict:
+    return {
+        "id": m.id, "kind": m.kind, "amount": m.amount, "reason": m.reason,
+        "user_id": m.user_id,
+        "created_at": to_utc(m.created_at).isoformat() if m.created_at else None,
     }
 
 
@@ -284,35 +329,31 @@ async def create_shift(
 @router.post("/{shift_id}/close")
 async def close_shift(
     shift_id: int,
-    counted_cash: float = 0.0,
+    # ⛔ MAJBURIY (2026-10). Ilgari sukut 0.0 edi: kassir maydonni bo'sh
+    # qoldirsa (yoki klient umuman yubormasa — waiter.js tanada `ending_cash`
+    # yuborardi, server uni o'qimasdi) butun naqd KAMOMAD bo'lib yozilardi.
+    # Prod: MANHATTAN #52 — 0 bilan yopildi → −42 325 002 soxta kamomad.
+    counted_cash: Optional[float] = None,
     notes: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Smenani yopish — counted_cash=kassirdagi haqiqiy naqd pul"""
-    shift = apply_tenant_filter(db.query(Shift), Shift, current_user).filter(Shift.id == shift_id).first()
-    if not shift:
-        raise HTTPException(status_code=404, detail="Smena topilmadi")
-
-    # ── KIM YOPA OLADI ────────────────────────────────────────────────────────
-    # ILGARI: tenant ichidagi HAR KIM har kimning smenasini yopa olardi. Ya'ni
-    # bir kassir ikkinchisining smenasini yopib, uning Z-hisobotini yakunlab
-    # qo'yishi va kamomad o'sha odamning nomiga yozilishi mumkin edi.
-    #
-    # Endi: kassir FAQAT o'z smenasini yopadi. `manage_shifts` ruxsati borlar
-    # (admin va menejer — qarang `database.py` rol urug'i) istalganini yopadi:
-    # kassir smenani yopmasdan ketib qolsa, kun yakunini kimdir yopishi kerak.
-    # Tekshiruv 404 dan KEYIN, "allaqachon yopilgan" dan OLDIN — begona smena
-    # holati (ochiq/yopiq) sizib chiqmasin.
-    if shift.user_id != current_user.id and not user_has_permission(current_user, "manage_shifts"):
-        raise HTTPException(
-            status_code=403,
-            detail="Faqat o'z smenangizni yopa olasiz. Boshqa xodimning smenasini "
-                   "administrator yoki menejer yopadi.",
-        )
+    """Smenani yopish — counted_cash=kassirdagi haqiqiy naqd pul (majburiy)"""
+    shift = _get_shift_for_cashier(db, current_user, shift_id, action="yopa")
 
     if shift.end_time:
         raise HTTPException(status_code=400, detail="Smena allaqachon yopilgan")
+
+    # Qiymat tekshiruvi ruxsatdan KEYIN — begona smena haqida ma'lumot sizmasin.
+    # 0 — QONUNIY qiymat (yashik haqiqatan bo'sh), faqat "kiritilmagan" rad etiladi.
+    if counted_cash is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Kassadagi naqd pulni sanab kiriting. Bo'sh qoldirib smenani yopib bo'lmaydi "
+                   "(yashik bo'sh bo'lsa — 0 yozing).",
+        )
+    if counted_cash < 0 or counted_cash > 1e12:
+        raise HTTPException(status_code=400, detail="Sanalgan naqd noto'g'ri")
 
     now   = utc_now()                # aware UTC — `end_time` timestamptz ga yoziladi
     # ⚠️ `shift.start_time` bazadan naive ham kelishi mumkin (SQLite, yoki
@@ -383,7 +424,107 @@ async def close_shift(
         # Z-hisobot: SOTILGAN MAHSULOTLAR (nima nechta, summa) — faqat to'langan
         "products":       _shift_products(t["orders"], t["paid_order_ids"]),
         "notes":          notes,
+        **_z_money_fields(t),
     }
+
+
+def _get_shift_for_cashier(db, current_user, shift_id: int, action: str = "ko'ra") -> Shift:
+    """Smena + egalik tekshiruvi (yopish, X-hisobot, inkassatsiya — bitta qoida).
+
+    ILGARI (yopish): tenant ichidagi HAR KIM har kimning smenasini yopa olardi —
+    bir kassir ikkinchisining Z-hisobotini yakunlab, kamomadni o'sha odam
+    nomiga yozishi mumkin edi. Endi: kassir FAQAT o'z smenasini; `manage_shifts`
+    (admin, menejer) — istalganini (kassir yopmay ketsa, kunni kimdir yopadi).
+    Tekshiruv 404 dan KEYIN, holat tekshiruvlaridan OLDIN — begona smena
+    holati (ochiq/yopiq) sizib chiqmasin.
+    """
+    shift = apply_tenant_filter(db.query(Shift), Shift, current_user).filter(Shift.id == shift_id).first()
+    if not shift:
+        raise HTTPException(status_code=404, detail="Smena topilmadi")
+    if shift.user_id != current_user.id and not user_has_permission(current_user, "manage_shifts"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Faqat o'z smenangizni {action} olasiz. Boshqa xodimning smenasini "
+                   "administrator yoki menejer boshqaradi.",
+        )
+    return shift
+
+
+@router.get("/{shift_id}/x-report")
+async def get_shift_x_report(
+    shift_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """X-hisobot — smenani YOPMASDAN joriy holat (Z bilan aynan bir xil hisob).
+
+    Yopish oynasi shundan HAQIQIY "kutilgan naqd" ni oladi: ilgari u "..."
+    bo'lib turardi va "kamomad" = sanalgan − boshlang'ich deb ko'rsatilardi.
+    Hech narsa yozmaydi. Ruxsat — yopish bilan bir xil (o'z smenasi yoki
+    `manage_shifts`).
+    """
+    shift = _get_shift_for_cashier(db, current_user, shift_id, action="ko'ra")
+    data = _build_zreport_data(shift, db, current_user)
+    data["is_open"] = shift.end_time is None
+    return data
+
+
+_MOVE_KINDS = {"withdrawal": "Kassadan olindi", "deposit": "Kassaga qo'shildi"}
+
+
+@router.get("/{shift_id}/cash-movements")
+async def list_cash_movements(
+    shift_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Smenaning inkassatsiya/razmen yozuvlari."""
+    shift = _get_shift_for_cashier(db, current_user, shift_id, action="ko'ra")
+    return [_movement_out(m) for m in _cash_movements(db, shift)]
+
+
+@router.post("/{shift_id}/cash-movements")
+async def create_cash_movement(
+    shift_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Smena ichida yashikdan pul olish (inkassatsiya) yoki qo'shish (razmen).
+
+    FOYDAGA TEGMAYDI (xarajat emas) — faqat `expected_cash` ni to'g'rilaydi.
+    O'chirish/tahrir YO'Q: xato yozuv teskari yozuv bilan tuzatiladi; har biri
+    auditga tushadi. Faqat OCHIQ smenaga.
+    """
+    shift = _get_shift_for_cashier(db, current_user, shift_id, action="boshqara")
+    if shift.end_time:
+        raise HTTPException(status_code=400, detail="Smena yopilgan — kassa harakati qo'shib bo'lmaydi")
+
+    kind = str(payload.get("kind") or "").strip().lower()
+    if kind not in _MOVE_KINDS:
+        raise HTTPException(status_code=400, detail="Tur noto'g'ri: withdrawal (olish) yoki deposit (qo'shish)")
+    try:
+        amount = round(float(payload.get("amount")), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Summa noto'g'ri")
+    if not (0 < amount <= 1e12):
+        raise HTTPException(status_code=400, detail="Summa musbat bo'lishi kerak")
+    reason = str(payload.get("reason") or "").strip()[:255]
+    if len(reason) < 2:
+        # Kim, nima uchun — keyin "kamomad"ni tushuntiradigan yagona iz
+        raise HTTPException(status_code=400, detail="Sababini yozing (masalan: egasiga topshirildi)")
+
+    m = CashMovement(
+        tenant_id=shift.tenant_id, shift_id=shift.id, user_id=current_user.id,
+        kind=kind, amount=amount, reason=reason, created_at=utc_now(),
+    )
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    log_audit(current_user, "cash_movements", "CREATE", m.id, tenant_id=shift.tenant_id, detail={
+        "shift_id": shift.id, "kind": kind, "amount": amount, "reason": reason,
+    })
+    return _movement_out(m)
 
 @router.get("/active")
 async def get_active_shift(
@@ -510,7 +651,11 @@ async def get_shift_report(
             "total_revenue":  total_revenue,
             "discount_total": discount_total,
             "returns_total":  round(returns_total, 0),
-            "net_revenue":    total_revenue - discount_total,
+            # ⚠️ `final_amount` = subtotal − chegirma (+ soliq/xizmat), ya'ni
+            # chegirma ALLAQACHON ayrilgan. Ilgari bu yerda yana ayirilardi —
+            # kassir hisobotidagi "Jami tushum" chegirma summasiga kam chiqardi
+            # (prod MANHATTAN #52: 39 166 006, aslida 48 595 006).
+            "net_revenue":    total_revenue,
             "avg_order":      round(total_revenue / total_orders, 0) if total_orders else 0,
         },
         "by_payment_method": [{"method": k, "amount": v} for k, v in by_method.items()],
@@ -527,6 +672,14 @@ async def get_shift_report(
         "cash_refunds":      round(t["cash_refunds"], 0),
         "debt_paid_cash":    round(t["debt_pay"]["cash"], 0),
         "expected_cash":     round(t["expected_cash"], 0),
+        # Kassir hisobotida ham Z'ning SAVDO/PUL bloklari + kamomad (ilgari
+        # kassir yopgandan keyin kamomadni umuman ko'rmasdi).
+        "total_sales":       t["total_sales"],
+        "debt_paid_card":    round(t["debt_pay"]["card"], 0),
+        "counted_cash":      shift.counted_cash,
+        "shortage":          round(shift.shortage or 0, 0) if shift.end_time else None,
+        "is_open":           shift.end_time is None,
+        **_z_money_fields(t),
     }
 
 
@@ -610,6 +763,7 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
         "shortage_type":  "ortiqcha" if shortage > 0 else ("kamomad" if shortage < 0 else "mos"),
         "products":       _shift_products(orders, paid_order_ids),
         "notes":          shift.notes,
+        **_z_money_fields(t),
     }
 
 

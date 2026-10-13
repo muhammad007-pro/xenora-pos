@@ -297,6 +297,59 @@ def _shortage_label(data: Dict[str, Any]) -> str:
     return "MOS"
 
 
+def _z_money_lines(data: Dict[str, Any], w: int) -> List[tuple]:
+    """Z-hisobotning pul qismi — (qalin?, satr) ro'yxati. ESC/POS va matn
+    ko'rinishi SHU BITTA ro'yxatdan (ilgari ikki nusxa yozilgan edi).
+
+    Uch blok (variant A, 2026-10):
+      SAVDO — nima sotildi (nasiya bilan). Pul emas.
+      PUL   — KASSAGA TUSHGAN: naqd + karta + qarz to'lovi − qaytarish.
+      YASHIK — naqd: bo'lishi kerak / sanaldi / farq.
+    """
+    g = lambda k: data.get(k) or 0
+    L: List[tuple] = []
+    L.append((True, "SAVDO"))
+    L.append((False, _row("Naqd:", _money(g("cash_sales")), w)))
+    L.append((False, _row("Karta/Click:", _money(g("card_sales")), w)))
+    if g("credit_total") > 0:
+        L.append((False, _row("Nasiya:", _money(g("credit_total")), w)))
+    L.append((True, _row("JAMI SAVDO:", _money(g("total_sales")) + " UZS", w)))
+    L.append((False, _row("Sotuvlar soni:", str(g("sales_count")), w)))
+    if g("discount_total") > 0:
+        L.append((False, _row("Chegirmalar:", _money(g("discount_total")), w)))
+    L.append((False, "-" * w))
+
+    L.append((True, "PUL (KASSAGA TUSHGAN)"))
+    L.append((False, _row("Naqd sotuv:", "+" + _money(g("cash_sales")), w)))
+    L.append((False, _row("Karta sotuv:", "+" + _money(g("card_sales")), w)))
+    # Nasiya qarzi to'lovi — kassaga tushgan pul, LEKIN sotuv emas
+    if g("debt_paid_cash") > 0:
+        L.append((False, _row("Qarz to'lovi (naqd):", "+" + _money(g("debt_paid_cash")), w)))
+    if g("debt_paid_card") > 0:
+        L.append((False, _row("Qarz to'lovi (karta):", "+" + _money(g("debt_paid_card")), w)))
+    if g("cash_refunds") > 0:
+        L.append((False, _row("Qaytarish (naqd):", "-" + _money(g("cash_refunds")), w)))
+    if g("card_refunds") > 0:
+        L.append((False, _row("Qaytarish (karta):", "-" + _money(g("card_refunds")), w)))
+    L.append((True, _row("KASSAGA TUSHGAN:", _money(g("cash_in_total")) + " UZS", w)))
+    L.append((False, "-" * w))
+
+    L.append((True, "YASHIK (NAQD)"))
+    L.append((False, _row("Boshlang'ich:", _money(g("starting_cash")), w)))
+    L.append((False, _row("Naqd sotuv:", "+" + _money(g("cash_sales")), w)))
+    if g("cash_refunds") > 0:
+        L.append((False, _row("Naqd qaytarish:", "-" + _money(g("cash_refunds")), w)))
+    if g("debt_paid_cash") > 0:
+        L.append((False, _row("Qarz to'lovi (naqd):", "+" + _money(g("debt_paid_cash")), w)))
+    if g("withdrawals") > 0:
+        L.append((False, _row("Olindi (inkassatsiya):", "-" + _money(g("withdrawals")), w)))
+    if g("deposits") > 0:
+        L.append((False, _row("Qo'shildi:", "+" + _money(g("deposits")), w)))
+    L.append((True, _row("Bo'lishi kerak:", _money(g("expected_cash")), w)))
+    L.append((False, _row("Sanaldi:", _money(g("counted_cash")), w)))
+    return L
+
+
 def build_z_report(data: Dict[str, Any], width_mm: int = 80) -> bytes:
     """Z-hisobot (kun yakuni / smena yopilishi) chekini ESC/POS bayt qaytaradi.
 
@@ -347,40 +400,11 @@ def build_z_report(data: Dict[str, Any], width_mm: int = 80) -> bytes:
         d.text(_row("Yopildi:", _sanitize(data["end_time"]), w) + "\n")
     d.text("-" * w + "\n")
 
-    # ── Savdo taqsimoti ──
-    d.set(text_type="B")
-    d.text("SAVDO\n")
+    # ── SAVDO / PUL / YASHIK — bitta ro'yxatdan (`_z_money_lines`) ──
+    for bold, ln in _z_money_lines(data, w):
+        d.set(text_type="B" if bold else "normal")
+        d.text(ln + "\n")
     d.set(text_type="normal")
-    d.text(_row("Naqd:", _money(data.get("cash_sales")), w) + "\n")
-    d.text(_row("Karta/Click:", _money(data.get("card_sales")), w) + "\n")
-    if (data.get("credit_total") or 0) > 0:
-        d.text(_row("Nasiya:", _money(data["credit_total"]), w) + "\n")
-    d.set(text_type="B")
-    d.text(_row("JAMI SOTUV:", _money(data.get("total_sales")) + " UZS", w) + "\n")
-    d.set(text_type="normal")
-    d.text(_row("Sotuvlar soni:", str(data.get("sales_count") or 0), w) + "\n")
-    if (data.get("discount_total") or 0) > 0:
-        d.text(_row("Chegirmalar:", _money(data["discount_total"]), w) + "\n")
-    if (data.get("returns_total") or 0) > 0:
-        d.text(_row("Qaytarishlar:", _money(data["returns_total"]), w) + "\n")
-    d.text("-" * w + "\n")
-
-    # ── Kassa hisob-kitobi ──
-    d.set(text_type="B")
-    d.text("KASSA\n")
-    d.set(text_type="normal")
-    d.text(_row("Boshlang'ich:", _money(data.get("starting_cash")), w) + "\n")
-    d.text(_row("Naqd savdo:", "+" + _money(data.get("cash_sales")), w) + "\n")
-    if (data.get("cash_refunds") or 0) > 0:
-        d.text(_row("Naqd qaytarish:", "-" + _money(data["cash_refunds"]), w) + "\n")
-    # Nasiya qarzi to'lovi — kassaga tushgan pul, LEKIN sotuv emas (sotuv o'z
-    # kunida hisoblangan). Faqat NAQD qismi "bo'lishi kerak" ga kiradi.
-    if (data.get("debt_paid_cash") or 0) > 0:
-        d.text(_row("Nasiya to'lovi (naqd):", "+" + _money(data["debt_paid_cash"]), w) + "\n")
-    if (data.get("debt_paid_card") or 0) > 0:
-        d.text(_row("Nasiya to'lovi (karta):", _money(data["debt_paid_card"]), w) + "\n")
-    d.text(_row("Bo'lishi kerak:", _money(data.get("expected_cash")), w) + "\n")
-    d.text(_row("Sanaldi:", _money(data.get("counted_cash")), w) + "\n")
     d.text("=" * w + "\n")
 
     # ── Farq ──
@@ -429,30 +453,7 @@ def render_z_report(data: Dict[str, Any], width_mm: int = 80) -> str:
     if data.get("end_time"):
         L.append(_row("Yopildi:", _sanitize(data["end_time"]), w))
     L.append("-" * w)
-    L.append("SAVDO")
-    L.append(_row("Naqd:", _money(data.get("cash_sales")), w))
-    L.append(_row("Karta/Click:", _money(data.get("card_sales")), w))
-    if (data.get("credit_total") or 0) > 0:
-        L.append(_row("Nasiya:", _money(data["credit_total"]), w))
-    L.append(_row("JAMI SOTUV:", _money(data.get("total_sales")) + " UZS", w))
-    L.append(_row("Sotuvlar soni:", str(data.get("sales_count") or 0), w))
-    if (data.get("discount_total") or 0) > 0:
-        L.append(_row("Chegirmalar:", _money(data["discount_total"]), w))
-    if (data.get("returns_total") or 0) > 0:
-        L.append(_row("Qaytarishlar:", _money(data["returns_total"]), w))
-    L.append("-" * w)
-    L.append("KASSA")
-    L.append(_row("Boshlang'ich:", _money(data.get("starting_cash")), w))
-    L.append(_row("Naqd savdo:", "+" + _money(data.get("cash_sales")), w))
-    if (data.get("cash_refunds") or 0) > 0:
-        L.append(_row("Naqd qaytarish:", "-" + _money(data["cash_refunds"]), w))
-    # Nasiya qarzi to'lovi — sotuv emas; faqat NAQD qismi kassa hisobiga kiradi
-    if (data.get("debt_paid_cash") or 0) > 0:
-        L.append(_row("Nasiya to'lovi (naqd):", "+" + _money(data["debt_paid_cash"]), w))
-    if (data.get("debt_paid_card") or 0) > 0:
-        L.append(_row("Nasiya to'lovi (karta):", _money(data["debt_paid_card"]), w))
-    L.append(_row("Bo'lishi kerak:", _money(data.get("expected_cash")), w))
-    L.append(_row("Sanaldi:", _money(data.get("counted_cash")), w))
+    L.extend(ln for _, ln in _z_money_lines(data, w))
     L.append("=" * w)
     L.append(_row(_shortage_label(data) + ":", _money(data.get("shortage")) + " UZS", w))
     L.append("=" * w)

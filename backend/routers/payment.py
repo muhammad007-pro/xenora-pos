@@ -1,6 +1,6 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from typing import Optional
 from datetime import datetime
 import logging
@@ -14,7 +14,7 @@ from services.customer_debt import recalc_customer_debt
 from schemas import PaymentCreate, PaymentInDB, PaginatedResponse, MessageResponse
 from deps import resolve_tenant_id, get_current_user, get_current_active_user, has_permission, apply_tenant_filter
 from core.feature_flags import Feature, is_feature_enabled
-from services.payment_service import PaymentService, covers
+from services.payment_service import PaymentService, covers, overpays
 from services.ofd_service import send_to_ofd
 from websocket.manager import manager
 from core.config_loader import config_loader
@@ -178,6 +178,35 @@ async def create_payment(
     _loy_cfg = get_loyalty_config(db, tenant_id)
     _redeem_points = int(getattr(payment_data, "redeem_points", 0) or 0)
     _redeem_amount = validate_redeem(db, order, _loy_cfg, _redeem_points) if _redeem_points > 0 else 0.0
+
+    # 0 — qonuniy (ball butun chekni qoplasa POS 0 yuboradi), manfiy — yo'q
+    if float(payment_data.amount or 0) < 0:
+        raise HTTPException(status_code=400, detail="To'lov summasi manfiy bo'lishi mumkin emas")
+
+    # ── ORTIQCHA TO'LOV — HECH NARSA YOZILMASDAN OLDIN ───────────────────────
+    # Allaqachon qoplangan = paid + nasiya tenderi (pending credit) + shu
+    # so'rovdagi ball. Tugallanmagan Click/Payme (pending) HISOBGA OLINMAYDI —
+    # u pul emas, ustiga naqd to'lansa to'sib qo'ymaylik.
+    # offline_sync — ISTISNO (log bilan): navbatdagi sotuv allaqachon bo'lgan,
+    # rad etilsa sync.js xatoni yutadi va sotuv yo'qoladi (nasiya limiti bilan
+    # bir xil qaror, `_credit_customer`).
+    _already = db.query(func.coalesce(func.sum(Payment.amount), 0.0)).filter(
+        Payment.order_id == order.id,
+        or_(Payment.status == PaymentStatus.PAID,
+            and_(Payment.method == PaymentMethod.CREDIT, Payment.status == PaymentStatus.PENDING)),
+    ).scalar() or 0.0
+    if overpays(float(_already) + _redeem_amount, payment_data.amount, order.final_amount):
+        _qoldiq = max(0.0, float(order.final_amount or 0) - float(_already) - _redeem_amount)
+        if offline_sync:
+            log.warning("[SALE] order=%s offline ORTIQCHA to'lov qabul qilindi: chek=%s, oldin=%s, yangi=%s",
+                        order.id, order.final_amount, _already, payment_data.amount)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=(f"To'lov chek summasidan ko'p: chek {order.final_amount:,.0f}, "
+                        f"to'lanishi kerak {_qoldiq:,.0f}, yuborildi {float(payment_data.amount):,.0f}. "
+                        f"Qaytim berilsa — to'lovga chek summasini yozing.").replace(",", " "),
+            )
 
     # ── ATOMIK SOTUV ─────────────────────────────────────────────────────────
     # To'lov + order.status + ombor chiqimi + StockMovement + ingredients_deducted —

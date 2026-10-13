@@ -273,15 +273,12 @@ const browser = await chromium.launch({ headless: true });
 // ══════════════════════════════════════════════════════════════════════════════
 // D) inventory / suppliers / purchase_receipts — bir xil ikki tugma + yuklash
 // ══════════════════════════════════════════════════════════════════════════════
-// ⚠️ purchase_receipts.html: "Yangi tovar" saqlash OLDINDAN buzuq (2026-10-07
-// aniqlandi, bu branchda tuzatilmagan) — sahifa api.js ning O'RALGAN javobini
-// ({success,data}) xom deb o'qiydi → `prod.id` undefined → "Mahsulot
-// yaratilmadi" (server esa mahsulotni yaratib bo'lgan). Shu sabab u yerda
-// faqat tugma/kamera/preview tekshiriladi, yuklash emas.
+// purchase_receipts.html: 2026-10-13 gacha o'ralgan javobni xom o'qigani uchun
+// yuklash bu yerda tekshirilmasdi (fix/purchase-receipts-page da tuzatildi).
 for (const [url, openCls, saveFn, uploadWorks] of [
   ['/app/inventory.html', 'open', 'saveNewProduct', true],
   ['/app/suppliers.html', 'active', 'recSaveNewProduct', true],
-  ['/app/purchase_receipts.html', 'active', 'saveNewProduct', false],
+  ['/app/purchase_receipts.html', 'active', 'saveNewProduct', true],
 ]) {
   const tag = url.split('/').pop().replace('.html', '');
   for (const imageStatus of (uploadWorks ? [200, 400] : [200])) {

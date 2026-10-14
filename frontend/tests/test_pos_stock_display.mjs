@@ -79,6 +79,9 @@ check('1_uzun_kasr_qisqaradi', badge(1, { quantity: 0.740, unit: 'kg', min_thres
       '<div class="prod-stock">0.74 kg</div>');
 check('1_birliksiz', badge(1, { quantity: 5, unit: null, min_threshold: 1 }),
       '<div class="prod-stock">5</div>');
+// fix/inventory-precision: 3 xona (1 gramm); float chiqindisi ko'rinmaydi
+check('1_uch_xona', badge(1, { quantity: 0.265 + 8.4, unit: 'kg', min_threshold: 0 }),
+      '<div class="prod-stock">8.665 kg</div>');
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 2) RANG — min_threshold bo'yicha

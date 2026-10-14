@@ -1994,3 +1994,44 @@ class OffProduct(Base):
                         server_default="off", default="off")
     updated_at = Column(DateTime(timezone=True), server_default=func.now(),
                         onupdate=func.now())
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MIQDOR ANIQLIGI — float chiqindisi omborga yozilmasin (2026-10-14, BARAKA)
+# ══════════════════════════════════════════════════════════════════════════════
+# 0.265 + 8.4 = 8.665000000000001 (ikkilik float). Frontend "qoldiqni X ga
+# tenglash" farqini ham float'da hisoblab yuborardi: prodda bir kunda
+# `writeoff 0.665000000000001`, `in 9e-15`, `in 2e-16` kabi 12 ta harakat.
+# Qoldiq 20+ joyda yangilanadi (kirim, chiqim, spisaniye, inventarizatsiya,
+# priyomka, ko'chirish, regrade, firma qaytarishi, AI-ombor, retsept, ...) va
+# faqat 4 tasi yaxlitlardi. Har joyni alohida tuzatish keyingi yangi yo'lda
+# yana unutiladi — shuning uchun ATRIBUT DARAJASIDA (har `=`, `+=`, konstruktor):
+#   • Inventory.quantity     → 3 xona (1 gramm; sotuv/qaytarish/retsept yo'llari
+#                              allaqachon shunday yozardi — endi hamma yo'l bir xil)
+#   • StockMovement.quantity → 6 xona: float chiqindisi (~1e-14) yo'qoladi, lekin
+#                              retsept yo'li ataylab yozadigan gramm ulushlari
+#                              (`round(waste_qty, 6)`) o'zgarmaydi.
+# SQL ifoda (masalan `Inventory.quantity - x`) tayinlansa tegilmaydi — kodda
+# bunday yangilash yo'q, bo'lsa ham SQL darajasida float chiqindisi bo'lmaydi.
+from numbers import Real as _Real
+from sqlalchemy import event as _sa_event
+
+QTY_DECIMALS = 3
+MOVEMENT_QTY_DECIMALS = 6
+
+
+def round_qty(value, ndigits: int = QTY_DECIMALS):
+    """Miqdorni `ndigits` xonaga yaxlitlaydi; -0.0 → 0.0. Son bo'lmasa o'zgarmaydi."""
+    if value is None or isinstance(value, bool) or not isinstance(value, _Real):
+        return value
+    r = round(float(value), ndigits)
+    return 0.0 if r == 0 else r
+
+
+@_sa_event.listens_for(Inventory.quantity, "set", retval=True)
+def _round_inventory_quantity(target, value, oldvalue, initiator):
+    return round_qty(value, QTY_DECIMALS)
+
+
+@_sa_event.listens_for(StockMovement.quantity, "set", retval=True)
+def _round_movement_quantity(target, value, oldvalue, initiator):
+    return round_qty(value, MOVEMENT_QTY_DECIMALS)

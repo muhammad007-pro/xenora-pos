@@ -510,7 +510,7 @@ function render() {
       <td><div style="font-weight:600">${p?.name||'—'}</div>${p?.sale_unit?`<div style="font-size:.75rem;color:var(--text3)">${p.sale_unit}</div>`:''}</td>
       <td>${cat?.name||'—'}</td>
       <td>
-        <div>${qty%1?qty.toFixed(2):qty} ${i.unit||p?.sale_unit||''}</div>
+        <div>${fmtQty(qty)} ${i.unit||p?.sale_unit||''}</div>
         <div class="stk-bar"><div class="stk-fill ${st.fill}" style="width:${st.pct}%"></div></div>
       </td>
       <td>${i.min_threshold||0}</td>
@@ -542,7 +542,7 @@ function openAdd(invId=null) {
     document.getElementById('addTitle').textContent = 'Kirim qilish';
     document.getElementById('addInfo').style.display = '';
     document.getElementById('addProdName').textContent = p?.name||'—';
-    document.getElementById('addCurQty').textContent = (inv?.quantity||0) + ' ' + (inv?.unit||p?.sale_unit||'');
+    document.getElementById('addCurQty').textContent = fmtQty(inv?.quantity||0) + ' ' + (inv?.unit||p?.sale_unit||'');
     document.getElementById('prodSelectRow').style.display = 'none';
   } else {
     document.getElementById('addTitle').textContent = 'Yangi kirim';

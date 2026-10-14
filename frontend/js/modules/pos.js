@@ -2995,8 +2995,10 @@ document.getElementById('salesHistoryDetail')?.addEventListener('click', (e) => 
 // kassir KO'RMAYDI (backend /inventory/pos-stock cost'ni faqat view_finance'ga beradi).
 let _posStockTimer = null;
 function _stockNum(n) {
-  const v = Number(n) || 0;
-  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '');
+  // 3 xona (1 gramm) — ombor ham, og'irlikli sotuv ham shu aniqlikda.
+  // Ilgari 2 xona edi: 8.665 kg "8.67" (toFixed yaxlitlashi) bo'lib ko'rinardi.
+  const v = Math.round((Number(n) || 0) * 1000) / 1000;
+  return String(v === 0 ? 0 : v);
 }
 async function loadPosStock(search = '') {
   const list  = document.getElementById('posStockList');

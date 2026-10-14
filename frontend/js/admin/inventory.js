@@ -45,7 +45,7 @@ async function loadInventory() {
             <div style="flex:1;height:6px;background:var(--bg4);border-radius:3px;min-width:60px;overflow:hidden">
               <div style="width:${pct}%;height:100%;background:${barColor};border-radius:3px"></div>
             </div>
-            <span style="font-size:.875rem;font-weight:700;${isLow?'color:var(--danger)':''};min-width:50px;white-space:nowrap">${inv.quantity} ${inv.unit}</span>
+            <span style="font-size:.875rem;font-weight:700;${isLow?'color:var(--danger)':''};min-width:50px;white-space:nowrap">${fmtQty(inv.quantity)} ${inv.unit}</span>
             ${isLow?'<span class="badge badge-red">Kam</span>':''}
           </div>
         </td>
@@ -481,7 +481,7 @@ async function loadStockIn() {
       <td class="td-sub">${mv.created_at ? mv.created_at.slice(0,16).replace('T',' ') : '—'}</td>
       <td class="td-bold">${mv.product_name || '—'}</td>
       <td><span style="color:${typeColors[mv.movement_type]||'var(--text2)'};font-weight:600;font-size:.8125rem">${typeLabels[mv.movement_type]||mv.movement_type}</span></td>
-      <td>${mv.quantity} ${mv.unit}</td>
+      <td>${fmtQty(mv.quantity)} ${mv.unit}</td>
       <td class="td-sub">${mv.unit_cost > 0 ? fmtMoney(mv.unit_cost) : '—'}</td>
       <td class="td-sub">${mv.total_cost > 0 ? fmtMoney(mv.total_cost) : '—'}</td>
       <td class="td-sub">${mv.supplier_name || '—'}</td>
@@ -528,7 +528,7 @@ async function loadStockOut() {
         const isLow = inv.quantity <= inv.min_threshold;
         return `<tr${isLow?' style="background:rgba(239,68,68,.04)"':''}>
           <td class="td-bold">${p.name || '—'}</td>
-          <td><span style="font-weight:700;${isLow?'color:var(--danger)':''}">${inv.quantity}</span>${isLow?' <span class="badge badge-red">Kam</span>':''}</td>
+          <td><span style="font-weight:700;${isLow?'color:var(--danger)':''}">${fmtQty(inv.quantity)}</span>${isLow?' <span class="badge badge-red">Kam</span>':''}</td>
           <td class="td-sub">${inv.unit}</td>
           <td class="td-sub">${inv.min_threshold}</td>
           <td class="td-actions">
@@ -549,7 +549,7 @@ async function loadStockOut() {
       hBody.innerHTML = woItems.map(mv => `<tr>
         <td class="td-sub">${mv.created_at ? mv.created_at.slice(0,16).replace('T',' ') : '—'}</td>
         <td class="td-bold">${mv.product_name || '—'}</td>
-        <td style="color:var(--danger);font-weight:600">−${mv.quantity} ${mv.unit}</td>
+        <td style="color:var(--danger);font-weight:600">−${fmtQty(mv.quantity)} ${mv.unit}</td>
         <td><span class="badge badge-red">${reasonLabels[mv.reason]||mv.reason||'—'}</span></td>
         <td class="td-sub">${mv.notes || '—'}</td>
         <td class="td-sub">${mv.user_name || '—'}</td>
@@ -791,7 +791,7 @@ async function loadInvReport() {
     } else {
       deadBody.innerHTML = dead.map(r => `<tr>
         <td class="td-bold" style="color:var(--warning)">${r.product_name}</td>
-        <td class="td-sub">${r.quantity}</td>
+        <td class="td-sub">${fmtQty(r.quantity)}</td>
         <td class="td-sub">${r.last_restock ? r.last_restock.slice(0,10) : '—'}</td>
       </tr>`).join('');
     }

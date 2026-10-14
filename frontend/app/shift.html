@@ -234,7 +234,13 @@ const user  = (() => { try { return JSON.parse(localStorage.getItem('user')||'{}
   const admin = user.is_superuser || rn.includes('admin') || rn.includes('manager') || rn.includes('menej');
   const uy    = admin ? 'admin.html' : 'pos.html';
   btn.href = uy;
+  window._shiftHome = { url: uy, admin: !!admin };
   btn.addEventListener('click', (e) => {
+    // SMENA YOPILGAN bo'lsa tarixga QAYTILMAYDI: oldingi sahifa odatda POS,
+    // u esa smenasiz "Smena oching" oynasida qamab qo'yardi (admin panelga
+    // yo'l yo'q edi). Admin → admin panel, kassir → POS (u yerda yangi smena
+    // ochadi yoki chiqadi). `replace` — orqaga bosib yana shu yerga qaytmasin.
+    if (window._shiftJustClosed) { e.preventDefault(); location.replace(uy); return; }
     // `history.length > 1` — shu oynada oldin sahifa bo'lgan. Electron'da
     // bitta oyna butun sessiyani yuritadi, shuning uchun bu ishonchli.
     if (history.length > 1) { e.preventDefault(); history.back(); }
@@ -385,6 +391,7 @@ document.getElementById('confirmCloseBtn').onclick = async () => {
   const notes = document.getElementById('shiftNotes').value.trim();
   const res   = await api.postForm(`/shifts/${activeShift.id}/close`, { counted_cash: cash, ...(notes?{notes}:{}) });
   if (res.id) {
+    window._shiftJustClosed = true;   // ← tugmasi endi tarixga emas, rolga mos sahifaga
     document.getElementById('closeShiftModal').classList.remove('open');
     toast('Smena yopildi', 'success');
     await showReport(res.id);
@@ -513,7 +520,13 @@ async function printZ(shiftId, btn) {
 window.showReport = showReport;
 
 document.getElementById('repClose').onclick  =
-document.getElementById('repOverlay').onclick = () => document.getElementById('reportModal').classList.remove('open');
+document.getElementById('repOverlay').onclick = () => {
+  document.getElementById('reportModal').classList.remove('open');
+  // Smena HOZIR yopildi va bu admin — hisobot ko'rildi, admin panelga qaytamiz
+  // (POS'ga qaytsa smenasiz "Smena oching" oynasida qamalib qolardi).
+  // Kassir shu sahifada qoladi: ← tugmasi uni POS'ga olib boradi.
+  if (window._shiftJustClosed && window._shiftHome?.admin) location.replace(window._shiftHome.url);
+};
 
 // ── History ────────────────────────────────────────────────────────────────────
 async function loadHistory() {

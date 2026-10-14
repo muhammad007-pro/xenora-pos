@@ -214,6 +214,15 @@ showNavGroup('.report-hub-card');
     .forEach(el => el.style.setProperty('display', 'none'));
 })();
 
+// ATAMA: do'konda (store/supermarket) savdo birligi — CHEK, restoranda — BUYURTMA.
+// Umumiy sahifalardagi yorliqlar `data-store-label="..."` bilan belgilangan;
+// faqat do'kon sahifalaridagi (storeTop, peakHours...) yorliqlar HTML'da
+// to'g'ridan "Cheklar". Restoran/kafe va boshqa turlarda o'zgarmaydi.
+const _isStore = _storeTypes.includes(bizType);
+if (_isStore) {
+  document.querySelectorAll('[data-store-label]').forEach(el => { el.textContent = el.dataset.storeLabel; });
+}
+
 // "Buyurtmalar" (orders) — aktiv buyurtma oqimi FAQAT ovqatlanish (food) oilasida
 // mantiqli. Food bo'lmasa (magazin, dorixona, salon, fitnes, auto, maktab, mehmonxona,
 // kimyoviy tozalash) orders navini + dashboard "Oxirgi buyurtmalar" blokini yashiramiz.
@@ -488,6 +497,34 @@ function renderProfitBreakdown(pb) {
   document.getElementById('kpiNetProfitLabel').textContent = 'sof foyda';
 }
 
+/**
+ * "Bugungi savdo" kartasi qatorlari — serverdan TAYYOR (`sales_breakdown`),
+ * bu yerda hisob YO'Q:
+ *   naqd + karta + nasiya (+ boshqa) = savdo − qaytarish = SOF SAVDO
+ * Sof savdo — `/profit/summary` revenue bilan bir xil (foyda blokidagi son);
+ * do'konlar ishchi premiyasini shundan hisoblaydi. "Kassadan olingan" —
+ * inkassatsiya, ma'lumot uchun, hech narsadan ayirilmaydi.
+ */
+function renderSalesBreakdown(b) {
+  const box = document.getElementById('kpiSalesRows');
+  if (!box) return;
+  if (!b) { box.innerHTML = ''; return; }   // eski server
+  const row = (label, val, opts = {}) =>
+    `<div style="display:flex;justify-content:space-between;gap:.5rem${opts.bold ? ';font-weight:700' : ''}${opts.muted ? ';color:var(--text3)' : ''}"${opts.id ? ` data-row="${opts.id}"` : ''}>`
+    + `<span>${label}</span><span>${opts.minus && val ? '−' : ''}${fmtMoney(val || 0)}</span></div>`;
+  const line = '<div style="border-top:1px solid var(--border);margin:.2rem 0"></div>';
+  box.innerHTML =
+      row('Naqd', b.cash, { id: 'cash' })
+    + row('Karta', b.card, { id: 'card' })
+    + row('Nasiya', b.credit, { id: 'credit' })
+    // Boshqa (QR/o'tkazma) — faqat bo'lsa; qatorlar yig'indisi savdoga teng qolsin
+    + (Math.abs(b.other || 0) >= 1 ? row('Boshqa', b.other, { id: 'other' }) : '')
+    + row('Qaytarish', b.returns, { minus: true, muted: true, id: 'returns' })
+    + line
+    + row('Sof savdo', b.net_sales, { bold: true, id: 'net-sales' })
+    + row('Kassadan olingan', b.cash_withdrawn, { muted: true, id: 'withdrawn' });
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   loadStaleShiftAlert();
@@ -541,6 +578,7 @@ async function loadDashboard() {
       document.getElementById('kpiOrders').textContent    = analytics.total_orders||0;
       document.getElementById('kpiCustomers').textContent = analytics.total_customers||0;
       document.getElementById('kpiAvgOrder').textContent  = fmtMoney(analytics.avg_order||0);
+      renderSalesBreakdown(analytics.sales_breakdown);
       if (analytics.by_payment_method) {
         let cash=0,card=0,online=0,total=0;
         analytics.by_payment_method.forEach(m => {
@@ -1793,18 +1831,34 @@ async function loadShifts() {
     const shifts = data.items||data||[];
     const body   = document.getElementById('shiftsBody');
     if (!shifts.length) { body.innerHTML='<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Smena topilmadi</td></tr>'; return; }
-    body.innerHTML = shifts.map(s => `<tr>
+    // Amallar — POS/shift.html smena oynasi bilan bir xil (js/admin/shift.js
+    // oynalari): ochiq smena → X-hisobot, kassa harakati, yopish;
+    // yopilgan → Z-hisobot (+ printer Z-chek, z_report flagi bo'lsa).
+    // Begona smenani yopish/harakat — server `manage_shifts` ni tekshiradi.
+    body.innerHTML = shifts.map(s => {
+      const open = !s.end_time;
+      const acts = open
+        ? `<button class="tb-btn" onclick="viewShiftReport(${s.id})" title="X-hisobot (smena yopilmaydi)">X-hisobot</button>
+           <button class="tb-btn" onclick="openCashMoveModal(${s.id})" title="Kassadan pul olish / qo'shish">💵 Kassa</button>
+           <button class="tb-btn" style="color:var(--red);border-color:var(--red)" onclick="openCloseShiftModal(${s.id},${Number(s.starting_cash)||0})">Yopish</button>`
+        : `<button class="tb-btn" onclick="viewShiftReport(${s.id})" title="Z-hisobot">Z-hisobot</button>`
+          + (hasFeature('z_report') ? ` <button class="tb-btn" onclick="printZReport(${s.id},this)">🖨 Z-chek</button>` : '');
+      return `<tr>
       <td class="td-sub">${s.id}</td>
-      <td class="td-bold">${s.user_name||s.cashier||'—'}</td>
+      <td class="td-bold">${escH((s.user && s.user.full_name) || s.user_name || s.cashier || '—')}</td>
       <td class="td-sub">${fmtDate(s.start_time)}</td>
       <td class="td-sub">${s.end_time?fmtDate(s.end_time):'—'}</td>
-      <td class="td-gold">${fmtMoney(s.total_sales||0)} UZS</td>
-      <td>${fmtMoney(s.cash_sales||0)} UZS</td>
+      <td class="td-gold">${open ? '—' : fmtMoney(s.total_sales||0)+' UZS'}</td>
+      <td>${open ? '—' : fmtMoney(s.cash_sales||0)+' UZS'}</td>
       <td><span class="badge ${s.end_time?'badge-gray':'badge-green'}">${s.end_time?'Yopilgan':'Faol'}</span></td>
-      <td class="td-actions">
-        <button class="act-btn" onclick="viewShiftReport(${s.id})" title="Hisobot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M9 13h6M9 17h4" stroke="currentColor" stroke-width="1.8"/></svg></button>
-      </td>
-    </tr>`).join('');
+      <td class="td-actions" style="white-space:nowrap">${acts}</td>
+    </tr>`;
+    }).join('');
+    // O'z ochiq smenasi bo'lsa ikkinchisini ochib bo'lmaydi (server 400) — tugma yashiriladi
+    const _me = getUser();
+    const _mine = shifts.find(s => !s.end_time && s.user_id === _me.id);
+    document.getElementById('shiftsOpenBtn').style.display = _mine ? 'none' : '';
+    document.getElementById('myShiftHint').textContent = _mine ? `Sizning smenangiz ochiq (#${_mine.id})` : '';
     const active = shifts.filter(s=>!s.end_time).length;
     document.getElementById('shiftActive').textContent  = active;
     // Ochiq smenalarning JONLI savdosi. `s.total_sales` faqat YOPISHDA yoziladi —
@@ -1825,11 +1879,14 @@ async function loadShifts() {
     document.getElementById('shiftOrdTotal').textContent = '—';
   } catch (err) { toast(err.message,'error'); }
 }
+// X / Z hisobot — `/x-report` (Z bilan AYNAN bir hisob, hech narsa yozmaydi).
+// Ochiq smenada X (sanalgan/farq yo'q), yopilganda Z — chek oynasi bitta
+// (js/admin/shift.js showShiftReceipt). Ilgari bu yerda faqat toast chiqardi.
 async function viewShiftReport(shiftId) {
   try {
-    const rep = await apiFetch('/shifts/'+shiftId+'/report');
-    toast(`Smena #${shiftId}: ${fmtMoney(rep.summary?.total_revenue)} UZS, ${rep.summary?.total_orders} buyurtma`,'info',5000);
-  } catch { toast('Hisobot yuklanmadi','error'); }
+    const r = await apiFetch('/shifts/'+shiftId+'/x-report');
+    showShiftReceipt({ ...r, id: r.shift_id ?? shiftId }, shiftId);
+  } catch (e) { toast('Hisobot yuklanmadi: ' + (e.message || ''),'error'); }
 }
 
 // ── Page load dispatcher ──────────────────────────────────────────────────────

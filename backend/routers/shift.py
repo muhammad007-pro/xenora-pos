@@ -25,7 +25,7 @@ from core.timeutils import to_local, to_utc, utc_now
 # CustomerDebt join'i orqali ta'minlanadi).
 from utils.cashflow import (
     debt_payments_totals, expected_cash as _expected_cash, cash_refund_amount as _cash_refund_amount,
-    refunded_sale_payments, payment_path_cash_refunds, CASH_METHODS, CARD_METHODS,
+    sale_tenders, payment_path_cash_refunds, CASH_METHODS, CARD_METHODS,
     card_refund_amount as _card_refund_amount, payment_path_refunds, cash_in_summary,
 )
 
@@ -82,18 +82,9 @@ def _shift_totals(db, current_user, shift: Shift, end) -> dict:
     order_ids = [o.id for o in orders]
 
     pay_q = _shift_payment_query(db, current_user, legacy_fallback, order_ids, start, end)
-    if pay_q is not None:
-        live = pay_q.filter(Payment.status.in_(("paid", "pending"))).all()
-        refunded = refunded_sale_payments(pay_q)
-    else:
-        live, refunded = [], []
-
-    # PaymentStatus — str-enum; eski yozuvlarda oddiy matn bo'lishi mumkin.
-    def _paid(p):
-        return str(getattr(p.status, "value", p.status)) == "paid"
-
-    tenders = [p for p in live if _paid(p) or p.method == "credit"]
-    sales = tenders + refunded           # sotuv tenderlari (qaytarilgani ham)
+    # Sotuv tenderlari (qaytarilgani ham) — qoida `utils/cashflow.sale_tenders` da,
+    # dashboard savdo kartasi ham shu funksiyani chaqiradi.
+    sales = sale_tenders(pay_q) if pay_q is not None else []
 
     cash_sales   = sum(p.amount for p in sales if p.method in CASH_METHODS)
     card_sales   = sum(p.amount for p in sales if p.method in CARD_METHODS)

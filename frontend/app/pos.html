@@ -1517,6 +1517,14 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
     <div class="modal-footer">
       <button class="btn btn-gold" id="gateOpenBtn">Smenani ochish</button>
     </div>
+    <!-- CHIQISH YO'LLARI: smena yopilgach bu oyna yopilmas edi va orqada
+         turgan sidebar bosilmasdi — admin panelga ham, chiqishga ham yo'l
+         yo'q edi. Admin panel — faqat admin/menejer (sidebar bilan bir qoida). -->
+    <div id="gateExits" style="display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;padding:0 1.25rem 1rem">
+      <a href="admin.html" class="btn btn-ghost" id="gateAdminBtn" style="display:none;text-decoration:none">⚙ Admin panel</a>
+      <a href="shift.html" class="btn btn-ghost" id="gateShiftBtn" style="text-decoration:none">🕐 Smenalar</a>
+      <button type="button" class="btn btn-ghost" id="gateLogoutBtn" style="color:var(--danger)">Chiqish</button>
+    </div>
   </div>
 </div>
 

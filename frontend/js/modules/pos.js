@@ -3980,6 +3980,16 @@ async function ensureShiftGate() {
     }
     document.getElementById('gateStartCash').value = '0';
     document.getElementById('gateError').style.display = 'none';
+    // Chiqish yo'llari: admin panel tugmasi sidebar'dagi "Admin" havolasi
+    // ko'rinadigan rollarga (applySidebarRoles — admin/menejer) ko'rinadi.
+    const _adminLink = document.querySelector('.sidebar a.nav-item[href="admin.html"]');
+    const _adminBtn  = document.getElementById('gateAdminBtn');
+    if (_adminBtn) _adminBtn.style.display = (_adminLink && _adminLink.style.display !== 'none') ? '' : 'none';
+    const _shiftLink = document.querySelector('.sidebar a.nav-item[href="shift.html"]');
+    const _shiftBtn  = document.getElementById('gateShiftBtn');
+    if (_shiftBtn) _shiftBtn.style.display = (_shiftLink && _shiftLink.style.display !== 'none') ? '' : 'none';
+    const _logoutBtn = document.getElementById('gateLogoutBtn');
+    if (_logoutBtn) _logoutBtn.onclick = () => document.getElementById('logoutBtn')?.click();
     openModal('openShiftGate');
 
     const btn = document.getElementById('gateOpenBtn');

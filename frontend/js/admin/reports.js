@@ -147,7 +147,7 @@ async function loadPeakHours() {
     const d = await apiFetch(`/analytics/peak-hours?period=${period}`);
     if (d.peak_hour && d.peak_day) {
       document.getElementById('phPeakInfo').textContent =
-        `Peak soat: ${d.peak_hour.label} (${d.peak_hour.count} buyurtma) | Peak kun: ${d.peak_day.label}`;
+        `Peak soat: ${d.peak_hour.label} (${d.peak_hour.count} chek) | Peak kun: ${d.peak_day.label}`;
     }
 
     const maxH = Math.max(...d.hours.map(x => x.count), 1);

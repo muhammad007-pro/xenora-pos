@@ -119,6 +119,25 @@ def refunded_sale_payments(payment_query) -> list:
     return [p for p in rows if p.method in CASH_METHODS + CARD_METHODS]
 
 
+def sale_tenders(payment_query) -> list:
+    """SOTUV TENDERLARI — Z-hisobot (`routers/shift._shift_totals`) va dashboard
+    savdo kartasi (`routers/analytics.get_summary`) uchun BITTA qoida:
+      • `paid` to'lovlar + NASIYA (`credit`, pending) — tovar sotilgan;
+      • tugallanmagan Click/Payme (pending) sotuv EMAS;
+      • to'liq qaytarilgan ASL naqd/karta to'lov sotuvda QOLADI
+        (`refunded_sale_payments` izohi) — qaytarish alohida ayiriladi.
+    `payment_query` — chaqiruvchining `Payment` so'rovi (status filtrisiz).
+    """
+    from models import Payment
+    live = payment_query.filter(Payment.status.in_(("paid", "pending"))).all()
+
+    # PaymentStatus — str-enum; eski yozuvlarda oddiy matn bo'lishi mumkin.
+    def _paid(p):
+        return str(getattr(p.status, "value", p.status)) == "paid"
+
+    return [p for p in live if _paid(p) or p.method == "credit"] + refunded_sale_payments(payment_query)
+
+
 def payment_path_cash_refunds(db, current_user, start, end) -> float:
     """`POST /payments/{id}/refund` (hujjatsiz) yo'li bilan qaytarilgan NAQD."""
     return payment_path_refunds(db, current_user, start, end, CASH_METHODS)

@@ -42,6 +42,48 @@
     );
   }
 
+  /* ── NARX qo'riqchisi (2026-10-14) ───────────────────────────────────────────
+     Skaner shtrix-kodni narx/tan narx maydoniga QO'SHIB yuboradi: "12000" +
+     "4780019480…" = 1.2e17 (audit: 11 marta, 3 do'kon; BARAKA "Ombor qiymati"
+     95,6 trln). Server chegarasi: backend/services/price_guard.py — 1 mlrd.
+       • 1 000 000 000 dan katta → RAD (alert, false)
+       • 8+ raqamli butun son (masalan bo'sh maydonga EAN-8) → TASDIQ (confirm)
+     Maydon formatlangan bo'lishi mumkin ("7,000") — ajratgichlar olib tashlanadi. */
+  var PRICE_MAX = 1000000000;
+  var PRICE_TOO_BIG_MSG = "Narx juda katta — shtrix-kod narx maydoniga tushib qolmadimi?";
+
+  function _priceDigits(raw) {
+    return String(raw == null ? '' : raw).replace(/[\s,]/g, '');
+  }
+
+  function priceError(value) {
+    if (value === '' || value == null) return null;
+    var n = Number(_priceDigits(value));
+    if (!(Math.abs(n) <= PRICE_MAX)) return PRICE_TOO_BIG_MSG;
+    return null;
+  }
+
+  // true = davom etish. `label` — "Narx", "Tan narx" ...
+  function guardPrice(raw, label) {
+    var s = _priceDigits(raw);
+    if (s === '') return true;
+    var err = priceError(s);
+    if (err) {
+      g.alert((label ? label + ': ' : '') + err + '\n\nKiritildi: ' + s +
+              '\nRuxsat: 1 000 000 000 so\'m gacha.');
+      return false;
+    }
+    var intPart = s.split('.')[0].replace(/^-/, '');
+    if (/^\d{8,}$/.test(intPart)) {
+      return g.confirm((label ? label + ': ' : '') + '"' + s + '" — 8 xonali son, shtrix-kodga o\'xshaydi.\n\n' +
+                       'Haqiqatan ' + Number(s).toLocaleString('en-US') + ' so\'m kiritmoqchimisiz?');
+    }
+    return true;
+  }
+
+  g.PRICE_MAX         = PRICE_MAX;
+  g.priceError        = priceError;
+  g.guardPrice        = guardPrice;
   g.QTY_STOCK_MAX    = QTY_STOCK_MAX;
   g.QTY_TOO_BIG_MSG  = TOO_BIG_MSG;
   g.looksLikeBarcode = looksLikeBarcode;

@@ -36,6 +36,7 @@ from deps import (
 from routers.price_history import record_price_change, REASON_STOCK_IN
 from services.unit_converter import inventory_unit  # sotuv birligi → ombor birligi (pcs→dona)
 from services.quantity_guard import check_qty  # shtrix-kod miqdor maydoniga tushsa — 400
+from services.price_guard import check_price   # shtrix-kod narx maydoniga tushsa — 400
 
 router = APIRouter()
 
@@ -459,6 +460,7 @@ async def add_stock(
     if data.quantity <= 0:
         raise HTTPException(status_code=400, detail="Miqdor musbat bo'lishi kerak")
     check_qty(data.quantity)
+    check_price(data.unit_cost, "Tan narx")   # mahsulot cost_price shundan yangilanadi
 
     inv = _get_inv(db, inventory_id, current_user)
 

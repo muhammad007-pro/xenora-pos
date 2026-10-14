@@ -465,6 +465,9 @@
 }
 .browser-mode-banner .bmb__x:hover{ background:rgba(245,158,11,.2); }
 .browser-mode-banner .bmb__x:focus-visible{ outline:2px solid #f59e0b; outline-offset:1px; }
+/* Oq rejim: och sariq matn oq fonda o'qilmasdi */
+[data-theme="light"] .browser-mode-banner,
+[data-theme="light"] .browser-mode-banner .bmb__x{ color:#7a4d00; }
 
 @media (max-width:600px){
   .browser-mode-banner{ font-size:.78125rem; padding:.55rem .625rem; }

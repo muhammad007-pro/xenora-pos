@@ -1,0 +1,23 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   XENORA — OQ REJIM PALITRASI (umumiy)
+   ───────────────────────────────────────────────────────────────────────────
+   O'z [data-theme="light"] qoidasi YO'Q sahifalar uchun ("A oilasi" o'zgaruvchilari:
+   --bg/--bg2/--bg3/--bg4/--border/--text/--gold...). Qiymatlar inventory/report/
+   customers dagi sinalgan palitraning AYNAN o'zi — sahifalar bir xil ko'rinsin.
+
+   ULANISH: sahifa <style> idan KEYIN (premium-overlay.css dan oldin). Selektor
+   `:root` bilan bir xil spetsifiklik → manba tartibi bo'yicha yutadi; qora
+   rejimda (data-theme="dark") bu fayl umuman qo'llanmaydi.
+   O'z oq palitrasi bor sahifalarga (inventory, pos, settings...) ULANMAYDI.
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="light"]{
+  --bg:#f4f6fb;--bg2:#ffffff;--bg3:#eef2f9;--bg4:#e9ecef;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.12);
+  --text:#0f2038;--text2:#5a6b82;--text3:#677689;
+  --gold:#c9a84c;--gold-dim:rgba(34,197,94,.12);--gold-glow:0 0 0 1px rgba(34,197,94,.25);
+  --glass:rgba(255,255,255,.85);--glass2:rgba(248,249,250,.95);
+  /* attendance/salary eski nomlari */
+  --bg-secondary:#ffffff;--border-color:rgba(0,0,0,.12);--text-color:#0f2038;
+  color-scheme:light;
+}
+[data-theme="light"] body{color:var(--text,#0f2038)}

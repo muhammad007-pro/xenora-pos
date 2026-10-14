@@ -4,6 +4,7 @@
 <script src="../js/core/plans.js"></script>
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
+<script src="../js/core/theme-boot.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Super Admin | XENORA</title>
 <link rel="stylesheet" href="../styles/main.css">
@@ -28,7 +29,7 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
 .ss{font-size:.75rem;color:var(--text2);margin-top:.125rem}
 /* Nav shortcuts */
 .nav{display:grid;grid-template-columns:repeat(3,1fr);gap:.875rem;margin-bottom:1.5rem}
-.nb{display:flex;align-items:center;gap:.875rem;padding:1rem 1.25rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);text-decoration:none;color:#e8eef5;transition:.2s}
+.nb{display:flex;align-items:center;gap:.875rem;padding:1rem 1.25rem;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);text-decoration:none;color:var(--text,#e8eef5);transition:.2s}
 .nb:hover{border-color:var(--gold);background:var(--gold-dim)}
 .ni{font-size:1.5rem;flex-shrink:0}
 .nb-text h3{font-size:.9375rem;font-weight:700;margin-bottom:.125rem}
@@ -63,6 +64,7 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
 @media(max-width:640px){.sg{grid-template-columns:repeat(2,1fr)}.nav{grid-template-columns:1fr}.welcome{flex-direction:column}}
 </style>
 <!-- Mobil qatlam - ENG OXIRGI stil (faqat @media max-width ichida ishlaydi) -->
+<link rel="stylesheet" href="../styles/theme-light.css">
 <link rel="stylesheet" href="../styles/mobile.css">
 </head>
 <body>

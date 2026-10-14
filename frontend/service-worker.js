@@ -96,6 +96,9 @@ const STATIC_ASSETS = [
     '/js/core/sales-history.js',   // pos.html/admin.html classic <script> (sotuvlar tarixi)
     '/js/core/qty-guard.js',       // miqdor qo'riqchisi (shtrix-kod miqdor maydoniga tushsa)
     '/js/core/theme.js',
+    '/js/core/theme-boot.js',      // har sahifa <head> da (tema chizishdan oldin)
+    '/js/core/print-config.js',    // pos.js IMPORT qiladi — offline'da yo'q bo'lsa POS moduli yuklanmaydi
+    '/styles/theme-light.css',
     '/js/core/features.js',
     '/js/core/sidebar.js',
     '/js/main.js',

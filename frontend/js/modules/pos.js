@@ -11,6 +11,7 @@ import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow,
          qtyPriceLabel, unitPriceOf,
          packKind, packSizeLabel, fmtPackQty, unitChoiceLabel } from '../core/receipt-print.js';
 import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
+import { createPrintConfig, showPrintConfigAlert } from '../core/print-config.js';
 
 const api = new API();
 
@@ -2511,8 +2512,11 @@ let _lastReceiptOrderId = null;
 // store_name/address/phone/tax_id/header_text/footer_text — LOKAL CHEK (B1-bosqich)
 // uchun: bir marta (sessiya boshida) yuklanadi, har sotuvda serverga qayta so'ralmaydi.
 // paper_width (LAN 2-bosqich): 57/58 → 32 belgi, 80 → 48 belgi (ESC/POS qator).
+// ⚠️ print_type sukut `null` (ilgari 'usb'): sozlama yuklanmasa chek JIMGINA
+// Windows standart printeriga (etiketka printeri bo'lishi mumkin) ketardi.
+// Endi printer sozlamasi FAQAT `printCfg` dan (js/core/print-config.js).
 let _receiptCfg = {
-  font_size: 'normal', print_type: 'usb', printer_ip: null, printer_port: null,
+  font_size: 'normal', print_type: null, printer_ip: null, printer_port: null,
   store_name: null, address: null, phone: null, tax_id: null, header_text: null, footer_text: null,
   // ⚠️ ILGARI bu yerda `80` turardi — butun loyihada YAGONA chetga chiqqan
   // zaxira (receipt-print.js: 58, electron/main.js: 58 × 2). Sozlama yuklanmay
@@ -2522,32 +2526,51 @@ let _receiptCfg = {
   paper_width: null,
 };
 
-async function loadPrinterStatus() {
-  try {
-    const s = await api.get('/settings/printer/status');
-    if (s && s.success && s.data && typeof s.data === 'object') _printerStatus = s.data;
-  } catch { /* status olinmasa — window.print fallback ishlaydi */ }
+// Printer status + chek sozlamasi — BITTA manba (js/core/print-config.js):
+// faqat muvaffaqiyatli javob, do'kon bo'yicha kesh, eskirsa chop etishdan oldin
+// yangilanadi. Ilgari ikkala so'rov xatosi jimgina yutilardi va `{success:false}`
+// o'rami sozlama deb olinardi (printer_ip/port `null` bilan yozilib ketardi).
+const printCfg = createPrintConfig({
+  fetchStatus:  () => api.get('/settings/printer/status'),
+  fetchReceipt: () => api.get('/receipt-settings/'),
+});
+
+function _applyPrintCfg() {
+  const c = printCfg.get();
+  if (!c) return;
+  // printer nomi — YAGONA manba `c.printerName` (chek ham, pul qutisi ham shu nomga)
+  if (c.status && typeof c.status === 'object') _printerStatus = Object.assign({}, c.status, { printer_name: c.printerName });
+  const d = c.receipt || {};
+  if (d.font_size) _receiptCfg.font_size = d.font_size;
+  _receiptCfg.print_type   = c.printType;          // B1: usb/lan/qr — serverdagi ANIQ qiymat
+  _receiptCfg.printer_ip   = c.printerIp;
+  _receiptCfg.printer_port = c.printerPort;
+  // Do'kon rekvizitlari — LOKAL CHEK uchun keshlanadi (server /receipt SHART EMAS).
+  _receiptCfg.store_name   = d.store_name   || null;
+  _receiptCfg.address      = d.address      || null;
+  _receiptCfg.phone        = d.phone        || null;
+  _receiptCfg.tax_id       = d.tax_id       || null;
+  _receiptCfg.header_text  = d.header_text  || null;
+  _receiptCfg.footer_text  = d.footer_text  || null;
+  if (d.paper_width) _receiptCfg.paper_width = d.paper_width;
 }
 
-async function loadReceiptSettings() {
-  try {
-    const s = await api.get('/receipt-settings/');
-    const d = (s && s.success && s.data) ? s.data : s;   // api.js wrapped yoki xom
-    if (d && typeof d === 'object') {
-      if (d.font_size)  _receiptCfg.font_size  = d.font_size;
-      if (d.print_type) _receiptCfg.print_type = d.print_type;   // B1: usb/lan/qr
-      _receiptCfg.printer_ip   = d.printer_ip   || null;
-      _receiptCfg.printer_port = d.printer_port || null;
-      // Do'kon rekvizitlari — LOKAL CHEK uchun keshlanadi (server /receipt SHART EMAS).
-      _receiptCfg.store_name   = d.store_name   || null;
-      _receiptCfg.address      = d.address      || null;
-      _receiptCfg.phone        = d.phone        || null;
-      _receiptCfg.tax_id       = d.tax_id       || null;
-      _receiptCfg.header_text  = d.header_text  || null;
-      _receiptCfg.footer_text  = d.footer_text  || null;
-      if (d.paper_width) _receiptCfg.paper_width = d.paper_width;
-    }
-  } catch { /* sozlama olinmasa — 'normal' shrift + 'usb' print ishlatiladi, chekda "XENORA" chiqadi */ }
+// Ikki eski nom saqlandi (init chaqiradi) — ikkalasi bitta so'rov juftini kutadi.
+async function loadPrinterStatus()   { await printCfg.load(); _applyPrintCfg(); }
+async function loadReceiptSettings() { await printCfg.load(); _applyPrintCfg(); }
+
+/** Chop etishdan oldin: ANIQ sozlama bo'lsa true. Yo'q bo'lsa kassirga
+ *  ogohlantirish + "Qayta urinish" (retry) va false — chek BOSHQA printerga
+ *  yuborilmaydi. */
+async function _ensurePrintCfg(retry) {
+  const ok = await printCfg.ensure();
+  _applyPrintCfg();
+  // Brauzer/APK: chek brauzer dialogi orqali chiqadi, printerni kassir O'ZI
+  // tanlaydi — jim "noto'g'ri printer" xavfi yo'q, to'xtatish esa offline
+  // chop etishni buzardi. To'siq faqat Electron (jimgina chop etish) uchun.
+  if (!ok && !isElectronApp()) return true;
+  if (!ok) showPrintConfigAlert(retry);
+  return ok;
 }
 
 // Pul qutisi (cash drawer) — sozlama yoqilgan va rejimга mos bo'lsa 'true'.
@@ -2598,6 +2621,7 @@ async function _maybeOpenUsbDrawer() {
 async function sendEscposPrint(_orderId) {
   const inner = (document.getElementById('receiptBody') || {}).innerHTML || '';
   if (!inner.trim()) { toast('Chek mavjud emas', 'warning'); return false; }
+  if (!await _ensurePrintCfg(() => sendEscposPrint(_orderId))) return false;
   const res = await printReceiptHTML(inner, _printOpts({
     deviceName: _printerStatus.printer_name || '',
     title: 'Chek',
@@ -2933,6 +2957,7 @@ async function reprintSale(id) {
     const rec = res && res.data;
     if (!rec) { toast('Chek topilmadi', 'error'); return; }
     const html = buildReceipt58(rec);   // admin reprint bilan bir xil (global state'siz)
+    if (!await _ensurePrintCfg(() => reprintSale(id))) return;
     // openDrawer:false — reprint eski (stale) payMethod asosida qutini QAYTA
     // OCHMASIN (kassir eski chekni qayta chop etayotgani uchun, yangi sotuv emas).
     const r = await printReceiptHTML(html, _printOpts({ deviceName: _printerStatus.printer_name || '', title: 'Chek #' + (rec.order_number || id), openDrawer: false }));

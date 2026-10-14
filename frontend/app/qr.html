@@ -3,6 +3,7 @@
 <head>
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
+<script src="../js/core/theme-boot.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QR Kodlar — XENORA</title>
 <style>
@@ -121,7 +122,10 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
   .qr-num{color:#000}.qr-url{color:#444}
   .pc{padding:0}
 }
+/* Oq rejim: sarlavha foni qattiq qora edi */
+[data-theme="light"] .ph{background:rgba(255,255,255,.92)}
 </style>
+<link rel="stylesheet" href="../styles/theme-light.css">
 <link rel="stylesheet" href="../styles/premium-overlay.css">
 </head>
 <body>

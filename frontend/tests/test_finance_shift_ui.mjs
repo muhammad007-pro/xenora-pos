@@ -105,7 +105,9 @@ console.log('\n── 1) Moliya sana filtri ──');
   check('1_tugma_bor', await t.page.isVisible('#pApply'), true);
   t.calls.length = 0;
   await t.page.fill('#pFrom', '2026-10-01');
-  await kut(800);
+  // 500 ms kechikish + javob - qattiq pauza emas, so'rov kelishini kutamiz (sovuq ishga tushishda beqaror edi)
+  for (let i = 0; i < 30 && !t.calls.some(c => c.path === '/profit/summary'); i++) await kut(100);
+  await kut(200);
   check('1_dan_avtomatik', t.calls.filter(c => c.path === '/profit/summary').map(c => c.q),
         ['?period=today&date_from=2026-10-01']);
   await t.page.fill('#pTo', '2026-10-05');
@@ -167,7 +169,7 @@ for (const biz of ['store', 'cafe']) {
   const kpiLbl = await t.page.$eval('#kpiOrders', el => el.parentElement.querySelector('.kpi-label').textContent.trim());
   check(`3_${biz}_kpi_yorligi`, kpiLbl, biz === 'store' ? 'Cheklar' : 'Buyurtmalar');
   if (biz === 'cafe') { await t.ctx.close(); continue; }
-  await t.page.evaluate(() => switchPage('shifts'));
+  await t.page.evaluate(() => window.switchPage('shifts'));
   await t.page.waitForFunction(() => document.querySelectorAll('#shiftsBody tr').length === 2, null, { timeout: 5000 });
   const rows = await t.page.$$eval('#shiftsBody tr', trs => trs.map(tr => [...tr.querySelectorAll('td:last-child button')].map(b => b.textContent.trim())));
   check('2_ochiq_amallar', rows[0], ['X-hisobot', '💵 Kassa', 'Yopish']);
@@ -182,12 +184,12 @@ for (const biz of ['store', 'cafe']) {
   check('2_X_sanaldi_yoq', x.includes('Sanaldi'), false);
   check('2_X_vaqt_satri', x.includes('14.10.2026 09:00') && !x.includes('Invalid'), true);
   check('2_X_zchek_tugmasi_yoq', await t.page.isVisible('#shiftReceiptPrintZBtn'), false);
-  await t.page.evaluate(() => closeModal('shiftReceiptModal'));
+  await t.page.evaluate(() => window.closeModal('shiftReceiptModal'));
   await t.page.click('#shiftsBody tr:nth-child(2) button:has-text("Z-hisobot")');
   await t.page.waitForFunction(() => /Z-HISOBOT/.test(document.getElementById('shiftReceiptArea').textContent), null, { timeout: 5000 });
   const z = await t.page.textContent('#shiftReceiptArea');
   check('2_Z_sanaldi_bor', z.includes('Sanaldi') && z.includes('Kamomad'), true);
-  await t.page.evaluate(() => closeModal('shiftReceiptModal'));
+  await t.page.evaluate(() => window.closeModal('shiftReceiptModal'));
   await t.page.click('#shiftsBody tr:nth-child(1) button:has-text("Yopish")');
   await t.page.waitForFunction(() => document.getElementById('shiftCloseModal').classList.contains('open'), null, { timeout: 5000 });
   check('2_yopish_xreport', t.calls.filter(c => c.path === '/shifts/11/x-report').length >= 2, true);

@@ -3,6 +3,34 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.2] — 2026-10-14 — Savdo kartasi, admin smenalar, tema barqarorligi, printer himoyasi
+
+Asosan frontend; backend'da faqat qo'shimcha kalit. **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`).
+Brauzer/`app.xenora.uz` da darhol; kassa `.exe` lariga yangi build bilan (APK qurilmagan).
+
+### 📈 Dashboard
+* "Bugungi savdo" kartasida qatorlar: naqd, karta, nasiya, qaytarish (−), **sof savdo**,
+  kassadan olingan (inkassatsiya). Sof savdo "Foyda tahlili" bilan bir xil manbadan
+* do'kon turlarida "Buyurtmalar" → "Cheklar"
+
+### 🕐 Smena
+* admin "Smenalar" bo'limida: smena ochish, X-hisobot, Z-hisobot, kassa harakati, yopish
+* POS'da smena yopilgach "Smena oching" oynasidan chiqish: Admin panel / Smenalar / Chiqish;
+  admin Z-hisobotni yopgach admin panelga qaytadi
+* Z-hisobot raqamlari o'zgarmagan (sotuv qoidasi umumiy funksiyaga ko'chirildi)
+
+### 💰 Moliya
+* sana oralig'i: "Ko'rsatish" tugmasi + avtomatik yuklash, tanlangan davr yoziladi;
+  grafik kutubxonasi yuklanmasa ham sahifa ishlaydi
+
+### 🎨 Tema
+* oq rejim hamma sahifada: tanlov sahifa chizilishidan oldin qo'yiladi (miltillash yo'q),
+  oynalar o'rtasida sinxron, har sahifada tema tugmasi
+
+### 🖨 Printer
+* sozlama olinmasa chek jimgina Windows standart printeriga (etiketka printeri) ketmaydi:
+  oxirgi to'g'ri sozlama ishlatiladi yoki kassirga ogohlantirish + "Qayta urinish"
+
 ## [1.14.1] — 2026-10-13 — Bloklash ochiq sessiyani uzadi + dashboard'da qaytarish qatori
 
 Backend + frontend. **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`).

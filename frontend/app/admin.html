@@ -3,6 +3,7 @@
 <head>
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
+<script src="../js/core/theme-boot.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <meta name="theme-color" content="#22c55e">
 <title>Admin Panel — XENORA</title>
@@ -3735,42 +3736,33 @@ window.__xenoraApi = new API();
 <!-- Chek REPRINT (Sotuvlar tarixi) — LOKAL silent print. Module: global scope tegmaydi. -->
 <script type="module">
 import { printReceiptHTML, buildReceipt58 } from '../js/core/receipt-print.js';
+import { createPrintConfig, showPrintConfigAlert } from '../js/core/print-config.js';
 
-let _deviceName = '';   // Windows printer nomi (bo'sh = OS default)
-// Chek sozlamalari (B1/B3) — markaziy print servisga uzatiladi.
-// ⚠️ `paper_width` QO'SHILDI: ilgari o'qilmasdi va reprint har safar
-// `receipt-print.js` dagi 58mm zaxirasiga tushardi — 80mm sozlagan do'konda
-// (1001 BARAKA, NICE, FAZZA) chek tor chiqardi, narx ustuni siqilardi.
-let _rcptCfg = { print_type: 'usb', printer_ip: null, printer_port: null,
-                 font_size: 'normal', paper_width: null };
-(async () => {
-  try {
-    const s = await window.apiFetch('/settings/printer/status');
-    if (s && typeof s.printer_name === 'string') _deviceName = s.printer_name;
-  } catch { /* status olinmasa OS default printer */ }
-  try {
-    const r = await window.apiFetch('/receipt-settings/');
-    if (r && typeof r === 'object') {
-      _rcptCfg.print_type   = r.print_type   || 'usb';
-      _rcptCfg.printer_ip   = r.printer_ip   || null;
-      _rcptCfg.printer_port = r.printer_port || null;
-      _rcptCfg.font_size    = r.font_size    || 'normal';
-      _rcptCfg.paper_width  = r.paper_width  || null;   // null → receipt-print.js zaxirasi
-    }
-  } catch { /* sozlama olinmasa — usb + normal */ }
-})();
+// Printer sozlamasi — POS bilan BIR manba (js/core/print-config.js). Ilgari
+// ikkala so'rov xatosi jimgina yutilib `usb` + bo'sh printer nomi (= Windows
+// standart printeri, etiketka printeri bo'lishi mumkin) qolardi.
+// `paper_width` ham shu yerdan (80mm do'konlarda reprint tor chiqmasin).
+const _printCfg = createPrintConfig({
+  fetchStatus:  () => window.apiFetch('/settings/printer/status'),
+  fetchReceipt: () => window.apiFetch('/receipt-settings/'),
+});
+_printCfg.load();
+const _isElectronPrint = () => !!(window.electronAPI && window.electronAPI.isElectron && window.electronAPI.printReceipt);
 
 // MARKAZIY chop etish (B4): 58mm innerHTML → printReceiptHTML → printDocument (B1).
 // deviceName + print_type/ip/port + shrift avtomatik qo'shiladi. Z-hisobot /
 // kunlik hisobot shu orqali (klassik skriptlar window'dan chaqiradi).
-window.printReceiptDoc = (innerHTML, opts = {}) => printReceiptHTML(innerHTML, Object.assign({
-  deviceName:  _deviceName,
-  fontSize:    _rcptCfg.font_size,
-  printType:   _rcptCfg.print_type,
-  printerIp:   _rcptCfg.printer_ip,
-  printerPort: _rcptCfg.printer_port,
-  paperWidth:  _rcptCfg.paper_width,
-}, opts));
+// Sozlama yo'q (server ham, kesh ham) + Electron → chop etilmaydi, ogohlantirish
+// + "Qayta urinish"; natija `{ok:false}` (chaqiruvchi o'z xabarini chiqaradi).
+// Brauzerda dialog orqali — printerni foydalanuvchi o'zi tanlaydi.
+window.printReceiptDoc = async (innerHTML, opts = {}) => {
+  const ok = await _printCfg.ensure();
+  if (!ok && _isElectronPrint()) {
+    showPrintConfigAlert(() => window.printReceiptDoc(innerHTML, opts));
+    return { ok: false, error: 'printer sozlamasi olinmadi' };
+  }
+  return printReceiptHTML(innerHTML, Object.assign(_printCfg.printOpts() || {}, opts));
+};
 
 async function reprintOrder(id) {
   if (!id) return;

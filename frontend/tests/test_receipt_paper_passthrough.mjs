@@ -70,12 +70,18 @@ check('2_ogohda_sozlama_nomi', /paper_width/.test(ogohlar[0]), true);
 // ══════════════════════════════════════════════════════════════════════════
 // 3) ADMIN REPRINT — sozlama UZATILADI (asosiy tuzatish)
 // ══════════════════════════════════════════════════════════════════════════
-// a) `_rcptCfg` API javobidan `paper_width` o'qiydi
-check('3a_rcptCfg_maydoni', /_rcptCfg = \{[\s\S]*?paper_width: null[\s\S]*?\}/.test(ADMIN), true);
-check('3a_apidan_oqiladi',  /_rcptCfg\.paper_width\s*=\s*r\.paper_width/.test(ADMIN), true);
+// a) Admin printer sozlamasi endi POS bilan BIR modulda (js/core/print-config.js,
+//    fix/remaining-issues): `/receipt-settings/` dan o'qiladi.
+check('3a_admin_modul_orqali', /createPrintConfig\(\{[\s\S]*?fetchReceipt:\s*\(\)\s*=>\s*window\.apiFetch\('\/receipt-settings\/'\)/.test(ADMIN), true);
+// Xatti-harakat: sozlamadagi `paper_width` chop etish opsiyasiga AYNAN yetadi
+const { createPrintConfig } = await import('../../frontend/js/core/print-config.js');
+const _pc = createPrintConfig({ fetchStatus: () => ({ printer_name: 'P' }),
+                                fetchReceipt: () => ({ print_type: 'usb', paper_width: 80 }) });
+await _pc.load();
+check('3a_apidan_oqiladi', _pc.printOpts().paperWidth, 80);
 
-// b) `printReceiptDoc` o'rami `paperWidth` ni uzatadi
-check('3b_oram_uzatadi', /paperWidth:\s*_rcptCfg\.paper_width/.test(ADMIN), true);
+// b) `printReceiptDoc` o'rami modul opsiyalarini (paperWidth bilan) uzatadi
+check('3b_oram_uzatadi', /printReceiptHTML\(innerHTML,\s*Object\.assign\(_printCfg\.printOpts\(\)/.test(ADMIN), true);
 
 // c) `reprintOrder` XOM `printReceiptHTML` ni ISHLATMAYDI (eski nuqson)
 const reprintSrc = (ADMIN.match(/async function reprintOrder\(id\)[\s\S]*?\n\}/) || [''])[0];

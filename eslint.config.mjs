@@ -89,6 +89,7 @@ const SHARED_GLOBALS = {
   // Avtomatik yig'uvchi ularni ko'rmaydi: IIFE ichida `g.fmtMoney = ...` shaklida
   // berilgan (`window.` emas), shuning uchun ATAYLAB shu yerda e'lon qilinadi.
   fmtMoney: 'readonly',
+  fmtQty: 'readonly',
   fmtNum: 'readonly',
   // frontend/js/core/qty-guard.js (classic) — xuddi shu `g.X = ...` naqshi.
   stockQtyError: 'readonly',

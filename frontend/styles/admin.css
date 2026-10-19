@@ -784,3 +784,34 @@ tbody tr:hover{background:rgba(34,197,94,.04)!important}
   .stat-card{animation:none!important}
   .stat-card:hover,.stat-card:active,.kpi-card:active{transform:none!important}
 }
+
+/* ═══ Sensor monoblok (~1024–1366px): jadval KESILMASIN (2026-10-14, BARAKA) ═══
+   `.data-table-wrap{overflow:hidden}` (yuqorida) keng jadvalning o'ng tomonini —
+   ombordagi +/− (kirim / hisobdan o'chirish) tugmalari turgan "Amallar"
+   ustunini — SHUNCHAKI KESIB TASHLARDI va skroll ham yo'q edi. mobile.css bu
+   holatni faqat ≤768px da ochardi; 1024px monoblok undan katta.
+   overflow-x:auto burchak radiusini saqlaydi (overflow ≠ visible ham kesadi). */
+.data-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* Ombor jadvali: "Amallar" ustuni O'NGGA YOPISHGAN — jadval qancha keng bo'lmasin,
+   +/− tugmalari skrollsiz ko'rinadi. `.td-actions{display:flex}` <td> ni jadval
+   katakchasidan chiqaradi (sticky ishonchsiz) — shu jadvalda katak qaytariladi,
+   tugmalar ichida bir qatorda turadi. Fon SHAFFOF EMAS: ostidagi ustunlar ko'rinmasin. */
+.inv-table th:last-child,
+.inv-table td.td-actions{
+  position:sticky;right:0;z-index:1;display:table-cell;white-space:nowrap;
+  background:var(--bg2);box-shadow:-8px 0 12px -10px rgba(0,0,0,.45);
+}
+.inv-table th:last-child{background:var(--bg3)}
+.inv-table td.td-actions .act-btn{display:inline-flex;vertical-align:middle;margin-right:.375rem}
+.inv-table td.td-actions .act-btn:last-child{margin-right:0}
+@media (max-width:1366px){
+  /* Joy tejash: ikkinchi darajali ustunlar torayadi (ma'lumot yo'qolmaydi) */
+  .inv-table th,.inv-table td{padding-left:.625rem;padding-right:.625rem}
+  .inv-table code{font-size:.72rem !important}
+}
+/* Sensor ekran (barmoq): tugmalar 40px — 30px barmoq bilan xato bosiladi */
+@media (pointer:coarse){
+  .act-btn{width:40px;height:40px}
+  .inv-table td.td-actions .act-btn svg{width:18px;height:18px}
+}

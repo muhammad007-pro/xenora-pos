@@ -3,6 +3,21 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.5] — 2026-10-21 — Chekda kelishilgan narx, Yordam bo'limi
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+kassa `.exe` lariga yangi build bilan (APK qurilmagan).
+
+### 🧾 Chek va vozvrat
+* savatda narx kelishilgan bo'lsa, chek qatorida **kelishilgan summa** chiqadi
+  (`biz_meta.cart` snapshot'dan); mos kelmasa — avvalgidek. Chegirmali chekda "Jami:" → "Chegirmasiz:"
+* vozvrat chekdagi summa bo'yicha hisoblanadi (lookup'da chekdagi summa ko'rinadi)
+* hisobotlar o'zgarmadi (Foyda, Moliya, Xodimlar)
+
+### ❓ Yordam
+* POS header va admin sidebar'da "? Yordam" oynasi: 7 bo'lim, 35 savol, qidiruv, offline ishlaydi
+  (`docs/help` → `scripts/build_help.py` → `js/core/help-content.js`)
+
 ## [1.14.4] — 2026-10-21 — Vozvrat qaytarilgan kunda, xodim bo'yicha savdo
 
 **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;

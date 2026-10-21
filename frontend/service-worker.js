@@ -94,6 +94,8 @@ const STATIC_ASSETS = [
     '/js/core/sync.js',
     '/js/core/tenant-backup.js',
     '/js/core/sales-history.js',   // pos.html/admin.html classic <script> (sotuvlar tarixi)
+    '/js/core/help-content.js',    // pos.html/admin.html — yordam matni (docs/help → build_help.py)
+    '/js/core/help-center.js',     // pos.html/admin.html — "? Yordam" oynasi (offline'da ham ochilsin)
     '/js/core/qty-guard.js',       // miqdor qo'riqchisi (shtrix-kod miqdor maydoniga tushsa)
     '/js/core/theme.js',
     '/js/core/theme-boot.js',      // har sahifa <head> da (tema chizishdan oldin)

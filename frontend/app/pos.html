@@ -754,6 +754,10 @@ body{background:radial-gradient(ellipse 120% 78% at 72% -12%,#0d1c33 0%,#0a1628 
         <button class="icon-btn" id="fullscreenBtn" title="To'liq ekran">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </button>
+        <!-- Yordam (do'konchi savol-javobi) — js/core/help-center.js `data-help-open` ni ulaydi -->
+        <button class="icon-btn" id="helpBtn" type="button" data-help-open title="Yordam" aria-label="Yordam">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="currentColor" stroke-width="1.8"/><path d="M9.3 9.2a2.8 2.8 0 015.4 1c0 1.9-2.7 2.4-2.7 4.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.1" fill="currentColor"/></svg>
+        </button>
       </div>
     </header>
 
@@ -1617,6 +1621,9 @@ initErrorHandler();
 </script>
 <!-- Sotuvlar tarixi yordamchisi (classic, window.XenoraSalesHistory) — pos.js dan OLDIN -->
 <script src="../js/core/sales-history.js"></script>
+<!-- Yordam oynasi: matn (docs/help → build_help.py) + umumiy modul (admin.html bilan bir xil) -->
+<script src="../js/core/help-content.js"></script>
+<script src="../js/core/help-center.js"></script>
 <script src="../js/core/qty-guard.js"></script>
 <script type="module" src="../js/modules/pos.js"></script>
 

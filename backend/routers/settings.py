@@ -487,6 +487,57 @@ async def update_report_day(
     return {"mode": mode, "grace_hours": SHIFT_GRACE_HOURS, "message": "Hisobot kuni sozlamasi saqlandi"}
 
 
+# ── Xodim hisoboti: alohida hisoblanadigan kategoriyalar (services/staff_split.py)
+# MOLIYAVIY — view_finance (/profit/staff-sales bilan bir ruxsat).
+# ⚠️ `/{config_name}` dan OLDIN turishi SHART (report-day izohiga qara).
+@router.get("/staff-split")
+async def get_staff_split(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """Tanlangan kategoriyalar + tanlash uchun do'kon kategoriyalari."""
+    from services import staff_split
+    tid = resolve_tenant_id(db, current_user)
+    ids = staff_split.get_category_ids(db, tid)
+    cats = staff_split.tenant_categories(db, tid) if tid is not None else []
+    return {
+        "category_ids": ids,
+        "categories": [{"id": c.id, "name": c.name, "parent_id": c.parent_id} for c in cats],
+    }
+
+
+@router.patch("/staff-split")
+async def update_staff_split(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """{"category_ids": [..]}. Bo'sh ro'yxat = ajratish yo'q (hammasi "Asosiy")."""
+    from services import staff_split
+    tid = resolve_tenant_id(db, current_user)
+    if tid is None:
+        raise HTTPException(status_code=400, detail="Sozlama saqlash uchun do'kon aniqlanmadi")
+    old = staff_split.get_category_ids(db, tid)
+
+    raw_ids = payload.get("category_ids", old)
+    if not isinstance(raw_ids, list):
+        raise HTTPException(status_code=400, detail="category_ids ro'yxat bo'lishi kerak")
+    try:
+        ids = {int(x) for x in raw_ids}
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Kategoriya id noto'g'ri")
+    # Faqat SHU do'kon kategoriyalari — begona tenant id'si yozilmasin
+    own = {c.id for c in staff_split.tenant_categories(db, tid)}
+    foreign = ids - own
+    if foreign:
+        raise HTTPException(status_code=400, detail=f"Kategoriya topilmadi: {sorted(foreign)}")
+
+    saved = staff_split.save_category_ids(db, tid, ids)
+    log_audit(current_user, "settings", "UPDATE", "staff_split", tenant_id=tid,
+              detail={"from": old, "to": saved})
+    return {"category_ids": saved, "message": "Sozlama saqlandi"}
+
+
 @router.get("/{config_name}")
 async def get_settings(
     config_name: str,

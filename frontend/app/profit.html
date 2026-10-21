@@ -84,6 +84,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .term-note{font-size:.75rem;color:var(--text3);margin:-.75rem 0 1rem;line-height:1.5}
 .note-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.45);border-radius:var(--r);padding:.5rem .75rem;margin-bottom:1rem;font-size:.8rem;line-height:1.5}
 .tbl tfoot td{border-top:1px solid var(--border2)}
+#tab-staff.no-split .st-split{display:none}
 .tbl tr.click{cursor:pointer}
 .pager{display:flex;gap:.4rem;align-items:center;justify-content:center;padding:.75rem;font-size:.8125rem;color:var(--text2)}
 .pager button{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:var(--r);padding:.25rem .65rem;cursor:pointer}
@@ -136,6 +137,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <button class="tab" data-tab="margin" data-product-only="1">Foyda marjasi</button>
     <button class="tab" data-tab="receipts" data-product-only="1">Chek bo'yicha foyda</button>
     <button class="tab" data-tab="expenses">Xarajatlar</button>
+    <button class="tab" data-tab="staff" data-product-only="1">Xodimlar</button>
   </div>
 
   <!-- ══ 1. FOYDA TAHLILI ══ -->
@@ -278,6 +280,44 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
     <div id="expList"><div class="ld">Yuklanmoqda...</div></div>
   </div>
   </div><!-- /tab-expenses -->
+
+  <!-- ══ 5. XODIMLAR — /profit/staff-sales ══
+       Sotuvchi = chekdagi sotuvchi (Order.waiter_id), to'lovni olgan kassir emas.
+       Jami "Sof savdo" — Foyda tahlili "Jami savdo" bilan AYNAN bir xil. -->
+  <div class="tab-pane" id="tab-staff">
+    <div class="sg">
+      <div class="sc net"><div class="sl">Sof savdo</div><div class="sv" id="stNet">—</div><div class="ss" id="stNetSub"></div></div>
+      <div class="sc st-split"><div class="sl">Asosiy</div><div class="sv" id="stMainNet">—</div></div>
+      <div class="sc st-split"><div class="sl">Alohida</div><div class="sv gold" id="stSepNet">—</div><div class="ss" id="stSepCats"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">👥 Xodim bo'yicha savdo
+        <button type="button" class="pb" id="stCfgBtn" style="margin-left:auto;text-transform:none;letter-spacing:0;padding:.3rem .75rem;font-size:.75rem">⚙️ Alohida kategoriyalar</button>
+      </div>
+      <div id="stCfg" style="display:none;background:var(--bg3);border-radius:var(--r);padding:.875rem 1rem;margin-bottom:1rem;font-size:.8125rem">
+        <div style="margin-bottom:.5rem;color:var(--text2)">Qaysi kategoriyalar savdosi «Alohida» ustunda ko'rinsin?
+          <span style="color:var(--text3)">(qolgani — «Asosiy»; ichki kategoriyalar ham kiradi)</span></div>
+        <div id="stCats" style="display:flex;flex-wrap:wrap;gap:.4rem .9rem;margin-bottom:.75rem"></div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn" id="stSave">Saqlash</button>
+        </div>
+      </div>
+      <div id="stNoSplit" class="term-note" style="display:none;margin:0 0 .75rem">
+        Alohida kategoriya tanlanmagan — «⚙️ Alohida kategoriyalar» dan belgilang (masalan, kiyim).
+      </div>
+      <div style="overflow-x:auto">
+      <table class="tbl" id="stTbl">
+        <thead><tr><th>Xodim</th><th class="num">Chek</th><th class="num">Savdo</th><th class="num">Vozvrat</th><th class="num">Sof savdo</th><th class="num st-split">Asosiy</th><th class="num st-split">Alohida</th></tr></thead>
+        <tbody id="stBody"><tr><td colspan="7"><div class="ld">Yuklanmoqda...</div></td></tr></tbody>
+        <tfoot id="stFoot"></tfoot>
+      </table>
+      </div>
+      <div style="font-size:.75rem;color:var(--text3);line-height:1.5;margin-top:.5rem">
+        Savdo — chegirma ayirilgan. Vozvrat <b>qaytarilgan kunda</b>, tovarni <b>sotgan</b> xodimdan ayriladi.
+        Xodim qatorini bossangiz — kunlar bo'yicha.
+      </div>
+    </div>
+  </div><!-- /tab-staff -->
 </div>
 
 <!-- Chek foydasi tafsiloti (modal) -->
@@ -909,10 +949,100 @@ window.openReceiptProfit = openReceiptProfit;
 ['rpSort', 'rpOrder'].forEach(id =>
   document.getElementById(id).addEventListener('change', () => { rpPage = 1; loadReceiptProfit(); }));
 
+// ── XODIMLAR — /profit/staff-sales + /settings/staff-split ─────────────────────
+// FAQAT KO'RSATISH: hamma son backenddan. Jami "Sof savdo" = Foyda tahlili savdosi.
+// Alohida kategoriya tanlanmagan bo'lsa Asosiy/Alohida ustunlari yashiriladi.
+let stOpen = null;   // kunlari ochilgan xodim qatori
+
+async function loadStaff() {
+  const body = document.getElementById('stBody');
+  const foot = document.getElementById('stFoot');
+  const d = await api.get(`/profit/staff-sales?${periodQS()}`).catch(()=>null);
+  if (!d || d.detail) {
+    body.innerHTML = `<tr><td colspan="7"><div class="empty">${esc(d?.detail ? String(d.detail) : "API bilan bog'lanib bo'lmadi")}</div></td></tr>`;
+    foot.innerHTML = '';
+    return;
+  }
+  const t = d.totals || {}, c = d.config || {};
+  document.getElementById('tab-staff').classList.toggle('no-split', !c.split);
+  document.getElementById('stNoSplit').style.display = c.split ? 'none' : '';
+  document.getElementById('stNet').textContent     = fmt(t.net);
+  document.getElementById('stNetSub').textContent  = t.returns ? `vozvrat −${fmt(t.returns)}` : '';
+  document.getElementById('stMainNet').textContent = fmt(t.main_net);
+  document.getElementById('stSepNet').textContent  = fmt(t.separate_net);
+  document.getElementById('stSepCats').textContent = (c.categories || []).map(x => x.name).join(', ');
+
+  const items = d.items || [];
+  if (!items.length) {
+    body.innerHTML = '<tr><td colspan="7"><div class="empty">Bu davrda sotuv topilmadi</div></td></tr>';
+    foot.innerHTML = '';
+    return;
+  }
+  const neg = v => v < 0 ? ' neg' : '';
+  body.innerHTML = items.map(it => {
+    const key = String(it.seller_id);
+    const days = stOpen === key ? (it.days || []).map(dd => `
+      <tr style="font-size:.75rem;color:var(--text2)">
+        <td style="padding-left:1.5rem">${dd.date ? _dmy(dd.date) : '—'}</td><td></td><td></td><td></td>
+        <td class="num${neg(dd.net)}">${fmt(dd.net)}</td>
+        <td class="num st-split${neg(dd.net - dd.separate_net)}">${fmt(dd.net - dd.separate_net)}</td>
+        <td class="num st-split${neg(dd.separate_net)}">${fmt(dd.separate_net)}</td>
+      </tr>`).join('') : '';
+    return `<tr class="click" onclick="toggleStaffDays('${key}')">
+      <td style="font-weight:600">${stOpen === key ? '▾' : '▸'} ${esc(it.name)}</td>
+      <td class="num" style="color:var(--text2)">${it.orders_count}</td>
+      <td class="num">${fmt(it.sales)}</td>
+      <td class="num" style="color:var(--red)">${it.returns ? '−' + fmt(it.returns) : '—'}</td>
+      <td class="num${neg(it.net)}" style="font-weight:700">${fmt(it.net)}</td>
+      <td class="num st-split${neg(it.main_net)}">${fmt(it.main_net)}</td>
+      <td class="num gold st-split${neg(it.separate_net)}">${fmt(it.separate_net)}</td>
+    </tr>${days}`;
+  }).join('');
+  foot.innerHTML = `<tr style="font-weight:800">
+      <td>JAMI</td><td></td>
+      <td class="num">${fmt(t.sales)}</td>
+      <td class="num" style="color:var(--red)">${t.returns ? '−' + fmt(t.returns) : '—'}</td>
+      <td class="num">${fmt(t.net)}</td>
+      <td class="num st-split">${fmt(t.main_net)}</td>
+      <td class="num gold st-split">${fmt(t.separate_net)}</td>
+    </tr>`;
+}
+window.toggleStaffDays = key => { stOpen = stOpen === key ? null : key; loadStaff(); };
+
+async function loadStaffCfg() {
+  const box = document.getElementById('stCats');
+  box.innerHTML = '<span style="color:var(--text3)">Yuklanmoqda...</span>';
+  const g = await api.get('/settings/staff-split').catch(()=>null);
+  if (!g || g.detail) { box.innerHTML = `<span class="neg">${esc(g?.detail ? String(g.detail) : 'Xatolik')}</span>`; return; }
+  const sel = new Set(g.category_ids || []);
+  const cats = g.categories || [];
+  box.innerHTML = cats.length ? cats.map(ct => `
+    <label class="rec-toggle"><input type="checkbox" value="${Number(ct.id)}" ${sel.has(ct.id) ? 'checked' : ''}> ${esc(ct.name)}</label>`).join('')
+    : '<span style="color:var(--text3)">Kategoriya yo\'q</span>';
+}
+
+document.getElementById('stCfgBtn').addEventListener('click', () => {
+  const el = document.getElementById('stCfg');
+  const show = el.style.display === 'none';
+  el.style.display = show ? '' : 'none';
+  if (show) loadStaffCfg();
+});
+
+document.getElementById('stSave').addEventListener('click', async () => {
+  const ids = [...document.querySelectorAll('#stCats input:checked')].map(x => Number(x.value));
+  const btn = document.getElementById('stSave');
+  btn.disabled = true;
+  const res = await api.patch('/settings/staff-split', {category_ids: ids}).catch(()=>null);
+  btn.disabled = false;
+  if (!res || !res.ok) { alert(res?.data?.detail || 'Xatolik'); return; }
+  document.getElementById('stCfg').style.display = 'none';
+  loadStaff();
+});
+
 // ── Yorliqlar ─────────────────────────────────────────────────────────────────
 // Faqat ochilgan yorliq yuklanadi; davr o'zgarsa hammasi "eskirgan" deb
 // belgilanadi va qaysi biri ochilsa — o'sha qayta yuklanadi.
-const TABS = ['profit', 'margin', 'receipts', 'expenses'];
+const TABS = ['profit', 'margin', 'receipts', 'expenses', 'staff'];
 let activeTab = 'profit';
 const loaded = {};
 
@@ -925,6 +1055,7 @@ function loadTab(t) {
   if (t === 'margin')   return loadMargin();
   if (t === 'receipts') { rpPage = 1; return loadReceiptProfit(); }
   if (t === 'expenses') return loadExpenses();
+  if (t === 'staff')    return loadStaff();
 }
 
 // Marja va chek — CHEK (mahsulot) sotuvi asosida. Xizmat asosli bizneslarda

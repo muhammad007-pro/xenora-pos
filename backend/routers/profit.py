@@ -923,6 +923,178 @@ async def get_profit_by_category(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# XODIM BO'YICHA SAVDO  —  GET /profit/staff-sales
+# ══════════════════════════════════════════════════════════════════════════════
+# YANGI FORMULA YO'Q — `/profit/summary` bilan bir xil manbalar:
+#   • qator sof tushumi → `_REVENUE_EXPR` (chegirma proporsional ayirilgan)
+#   • davr/status       → `_sales_query` (completed + hisobot kuni)
+#   • vozvrat           → `returns_totals` bilan AYNAN bir filtr (approved,
+#                         QAYTARILGAN sana, `_dt_bounds`), faqat guruhlangan
+# Shu sabab Σ(xodimlar sof savdosi) = `/profit/summary` revenue (test qulfi).
+#
+# SOTUVCHI — `Order.waiter_id` (sotuvchi almashtirishda faol sotuvchi).
+# `Payment.cashier_id` EMAS: to'lovni boshqa kassir qabul qilgan bo'lishi
+# mumkin, hisobot esa SOTGAN odam bo'yicha.
+#
+# ASOSIY / ALOHIDA — `services/staff_split.py` sozlamasi (tanlangan
+# kategoriyalar "Alohida", qolgani "Asosiy"). Sotuv ham, vozvrat ham shu
+# qoida bo'yicha bo'linadi.
+#
+# VOZVRAT — qaytarilgan kunga, lekin o'sha tovarni SOTGAN xodimdan ayiriladi:
+#   ReturnItem.order_item_id → OrderItem.order_id, bo'lmasa Return.order_id →
+#   Order.waiter_id. Chek topilmasa (hujjatsiz vozvrat) — "Belgilanmagan".
+#   Vozvrat kategoriyasi — qaytgan MAHSULOTning kategoriyasi.
+_NO_SELLER = "Belgilanmagan"
+
+
+@router.get("/staff-sales")
+async def get_staff_sales(
+    period: str = Query("today", description="today | week (7 kun) | month (30 kun)"),
+    date_from: _DateFrom = None,
+    date_to:   _DateTo   = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """Xodim bo'yicha savdo, vozvrat, sof savdo — Asosiy / Alohida ustunlari bilan."""
+    from core.timeutils import to_local
+    from services import staff_split
+
+    bd = _business_day(db, current_user)
+    start, end = _period_range(period, None, None, date_from, date_to, today=bd.today())
+    tid = resolve_tenant_id(db, current_user)
+
+    sel_ids = staff_split.get_category_ids(db, tid)
+    cats = staff_split.tenant_categories(db, tid) if tid is not None else []
+    cat_names = {c.id: c.name for c in cats}
+    sep_cats = staff_split.expand_with_children(sel_ids, cats)
+
+    def is_sep(cat_id) -> bool:
+        return cat_id in sep_cats
+
+    sellers: dict = {}
+
+    def bucket(sid):
+        s = sellers.get(sid)
+        if s is None:
+            s = sellers[sid] = {
+                "orders": set(), "sales_main": 0.0, "sales_sep": 0.0,
+                "returns_main": 0.0, "returns_sep": 0.0, "returns_count": set(),
+                "days": {},
+            }
+        return s
+
+    def day_add(s, day, amount, sep):
+        d = s["days"].setdefault(day, {"net": 0.0, "separate_net": 0.0})
+        d["net"] += amount
+        if sep:
+            d["separate_net"] += amount
+
+    # ── Sotuv — chek × kategoriya kesimida (kun Python'da: bd.day_of) ────────
+    rows = (
+        _sales_query(db, current_user, start, end, bd=bd)
+        .with_entities(
+            OrderItem.order_id.label("order_id"),
+            Order.waiter_id.label("seller_id"),
+            Order.created_at.label("created_at"),
+            Order.shift_id.label("shift_id"),
+            Product.category_id.label("category_id"),
+            func.coalesce(func.sum(_REVENUE_EXPR), 0.0).label("revenue"),
+        )
+        .group_by(OrderItem.order_id, Order.waiter_id, Order.created_at,
+                  Order.shift_id, Product.category_id)
+        .all()
+    )
+    for r in rows:
+        s = bucket(r.seller_id)
+        amt = float(r.revenue or 0)
+        b = is_sep(r.category_id)
+        s["orders"].add(r.order_id)
+        s["sales_sep" if b else "sales_main"] += amt
+        day = bd.day_of(r.created_at, r.shift_id)
+        day_add(s, day.isoformat() if day else None, amt, b)
+
+    # ── Vozvrat — `returns_totals` filtri, sotuvchi va kategoriya bo'yicha ───
+    r_start, r_end = _dt_bounds(start, end)
+    dt = return_date_expr()
+    rq = (
+        db.query(
+            Return.id.label("return_id"),
+            dt.label("dt"),
+            Order.waiter_id.label("seller_id"),
+            Product.category_id.label("category_id"),
+            func.coalesce(func.sum(ReturnItem.total), 0.0).label("revenue"),
+        )
+        .select_from(ReturnItem)
+        .join(Return, Return.id == ReturnItem.return_id)
+        .outerjoin(OrderItem, OrderItem.id == ReturnItem.order_item_id)
+        # many-to-one: qator soni o'zgarmaydi → jami `returns_totals` bilan teng
+        .outerjoin(Order, Order.id == func.coalesce(OrderItem.order_id, Return.order_id))
+        .outerjoin(Product, Product.id == ReturnItem.product_id)
+        .filter(Return.status.in_(RETURN_COUNTED_STATUSES), dt >= r_start, dt <= r_end)
+        .group_by(Return.id, dt, Order.waiter_id, Product.category_id)
+    )
+    rq = apply_tenant_filter(rq, Return, current_user)
+    for r in rq.all():
+        s = bucket(r.seller_id)
+        amt = float(r.revenue or 0)
+        b = is_sep(r.category_id)
+        s["returns_sep" if b else "returns_main"] += amt
+        s["returns_count"].add(r.return_id)
+        day_add(s, to_local(r.dt).date().isoformat() if r.dt else None, -amt, b)
+
+    # ── Ismlar ───────────────────────────────────────────────────────────────
+    ids = [sid for sid in sellers if sid is not None]
+    users = db.query(User.id, User.full_name, User.username).filter(User.id.in_(ids)).all() if ids else []
+    names = {u.id: (u.full_name or u.username or f"#{u.id}") for u in users}
+
+    items = []
+    tot = {"sales": 0.0, "returns": 0.0, "main_net": 0.0, "separate_net": 0.0}
+    for sid, s in sellers.items():
+        sales   = s["sales_main"] + s["sales_sep"]
+        returns = s["returns_main"] + s["returns_sep"]
+        main_net = s["sales_main"] - s["returns_main"]
+        sep_net  = s["sales_sep"]  - s["returns_sep"]
+        tot["sales"] += sales
+        tot["returns"] += returns
+        tot["main_net"] += main_net
+        tot["separate_net"] += sep_net
+        items.append({
+            "seller_id":     sid,
+            "name":          names.get(sid, _NO_SELLER) if sid is not None else _NO_SELLER,
+            "orders_count":  len(s["orders"]),
+            "returns_count": len(s["returns_count"]),
+            "sales":         round(sales, 0),
+            "returns":       round(returns, 0),
+            "net":           round(sales - returns, 0),
+            "main_net":      round(main_net, 0),
+            "separate_net":  round(sep_net, 0),
+            "days": [
+                {"date": d, "net": round(v["net"], 0), "separate_net": round(v["separate_net"], 0)}
+                for d, v in sorted(s["days"].items(), key=lambda kv: kv[0] or "")
+            ],
+        })
+    items.sort(key=lambda x: (x["seller_id"] is None, -x["net"]))
+
+    return {
+        "period": {"from": start.isoformat(), "to": end.isoformat()},
+        "config": {
+            "split":        bool(sel_ids),     # False → "Alohida" ustuni bo'sh, UI yashiradi
+            "category_ids": sel_ids,
+            "categories":   [{"id": c, "name": cat_names.get(c, f"#{c}")} for c in sel_ids],
+        },
+        "items": items,
+        "totals": {
+            "sales":        round(tot["sales"], 0),
+            "returns":      round(tot["returns"], 0),
+            # = `/profit/summary` revenue (mahsulot asosli do'konlarda)
+            "net":          round(tot["sales"] - tot["returns"], 0),
+            "main_net":     round(tot["main_net"], 0),
+            "separate_net": round(tot["separate_net"], 0),
+        },
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CHEK BO'YICHA FOYDA  —  GET /profit/by-receipt  va  /by-receipt/{order_id}
 # ══════════════════════════════════════════════════════════════════════════════
 # FAQAT KO'RSATISH: bu panel hech narsa yozmaydi va YANGI FORMULA KIRITMAYDI.

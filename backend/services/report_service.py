@@ -46,49 +46,58 @@ class ReportService:
         2) KUNLIK QATORLAR tenant zonasida. Ilgari `func.date(created_at)` UTC
            bo'yicha guruhlardi (kun 05:00 dan), jami esa Toshkent 00:00 dan —
            bitta hisobotda ikki qoida. Endi ikkalasi `bd` (ish kuni) qoidasida.
+        3) QAYTARISH QAYTARILGAN KUNDA (2026-10-21, MANHATTAN). Ilgari `paid`
+           filtri to'liq qaytarilgan sotuvni O'TGAN kundan o'chirardi (asl to'lov
+           `refunded` bo'ladi), qaytarish esa hech qaysi kunda ko'rinmasdi;
+           qisman qaytarish umuman ko'rinmasdi. Endi qoida
+           `utils/cashflow.period_tenders` da (Z va dashboard bilan bitta):
+           `total_sales` — sotuv o'z kunida, `returns_total` — qaytarilgan kunda,
+           `net_sales` = ikkalasining farqi.
         """
         from deps import apply_tenant_filter
-        from sqlalchemy import or_, and_
-        from models import PaymentMethod, PaymentStatus
+        from sqlalchemy import or_
+        from models import PaymentStatus
         from core.business_day import shift_of_payment
+        from core.timeutils import to_local
+        from utils.cashflow import period_tenders, tenders_by_method
 
         bd = _bd(self.db, current_user)
-        shift_col = shift_of_payment()
-        is_credit = and_(
-            Payment.method == PaymentMethod.CREDIT,
-            Payment.status == PaymentStatus.PENDING,
-            Payment.order.has(Order.status == "completed"),
-        )
-        q = self.db.query(
-            Payment.created_at, shift_col.label("shift_id"), Payment.method, Payment.amount,
-        ).filter(
-            bd.window(Payment.created_at, shift_col, date_from, date_to),
-            or_(Payment.status == "paid", is_credit),
+        q = self.db.query(Payment).filter(
+            bd.window(Payment.created_at, shift_of_payment(), date_from, date_to),
+            # nasiya (pending) tenderi faqat `completed` buyurtmada (avvalgi qoida)
+            or_(Payment.status != PaymentStatus.PENDING, Payment.order.has(Order.status == "completed")),
         )
         if current_user:
             q = apply_tenant_filter(q, Payment, current_user)
         if branch_id:
             q = q.filter(Payment.branch_id == branch_id)
 
+        tenders = period_tenders(self.db, current_user, q, date_from, date_to, branch_id=branch_id)
+        sales = tenders["sales"]
+        order_ids = {p.order_id for p in sales if p.order_id}
+        shift_of = dict(self.db.query(Order.id, Order.shift_id).filter(
+            Order.id.in_(order_ids)).all()) if order_ids else {}
+
         total = 0.0
         credit_total = 0.0
-        daily: Dict[str, list] = {}
-        methods: Dict[str, list] = {}
-        rows = q.all()
-        for created_at, shift_id, method, amount in rows:
-            amt = float(amount or 0)
+        daily: Dict[str, list] = {}       # kun -> [sotuv, tranzaksiya, qaytarish]
+        for p in sales:
+            amt = float(p.amount or 0)
             total += amt
-            m = _method_name(method)
-            if m == "credit":
+            if _method_name(p.method) == "credit":
                 credit_total += amt
-            day = bd.day_of(created_at, shift_id)
-            key = day.isoformat() if day else "None"
-            d = daily.setdefault(key, [0.0, 0])
+            day = bd.day_of(p.created_at, shift_of.get(p.order_id))
+            d = daily.setdefault(day.isoformat() if day else "None", [0.0, 0, 0.0])
             d[0] += amt
             d[1] += 1
-            mm = methods.setdefault(m, [0.0, 0])
-            mm[0] += amt
-            mm[1] += 1
+        returns_total = money_refunds = 0.0
+        for r in tenders["refunds"]:
+            returns_total += r.amount
+            if r.money:
+                money_refunds += r.amount
+            # Vozvrat kalendar kuniga (`returns_by_day` bilan bir qoida)
+            daily.setdefault(to_local(r.at).date().isoformat(), [0.0, 0, 0.0])[2] += r.amount
+        methods = tenders_by_method(tenders)
 
         oq = self.db.query(Order).filter(
             bd.window(Order.created_at, Order.shift_id, date_from, date_to),
@@ -107,11 +116,20 @@ class ReportService:
             # Shundan nasiya (pul hali kelmagan) — UI alohida ko'rsatishi uchun.
             "credit_sales": float(credit_total),
             "paid_sales": float(total - credit_total),
-            "transactions_count": len(rows),
+            # Shu davrda QAYTARILGAN (sotuv kuni qaysi bo'lishidan qat'i nazar).
+            # `money_refunds` — shundan naqd/karta bilan qaytgan pul.
+            "returns_total": round(returns_total, 2),
+            "money_refunds": round(money_refunds, 2),
+            "net_sales": round(total - returns_total, 2),
+            "transactions_count": len(sales),
             "orders_count": orders_count,
             "avg_check": float(total) / orders_count if orders_count else 0,
-            "daily_sales": [{"date": k, "total": daily[k][0], "count": daily[k][1]} for k in sorted(daily)],
-            "payment_methods": [{"method": k, "total": v[0], "count": v[1]} for k, v in methods.items()],
+            "daily_sales": [{"date": k, "total": daily[k][0], "count": daily[k][1],
+                             "returns": round(daily[k][2], 2), "net": round(daily[k][0] - daily[k][2], 2)}
+                            for k in sorted(daily)],
+            "payment_methods": [{"method": k, "total": v["sales"], "count": v["count"],
+                                 "returns": round(v["refunds"], 2), "net": round(v["net"], 2)}
+                                for k, v in methods.items()],
         }
 
     # ── FOYDA ─────────────────────────────────────────────────────────────────────

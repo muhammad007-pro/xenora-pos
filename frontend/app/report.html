@@ -408,6 +408,9 @@ async function renderSales(params){
   const mLabels=d.payment_methods.map(m=>mName[m.method]||m.method||'?');
   const mValues=d.payment_methods.map(m=>m.total);
   const creditNote=d.credit_sales?`shundan nasiya ${fmtN(d.credit_sales)}`:'so\'m';
+  // Qaytarish QAYTARILGAN kunda (sotuv o'z kunida qoladi). Eski server javobida maydon yo'q → 0.
+  const retTotal=d.returns_total||0;
+  const netSales=d.net_sales!=null?d.net_sales:d.total_sales-retTotal;
 
   area.innerHTML=`
   <div class="sg">
@@ -415,6 +418,7 @@ async function renderSales(params){
     <div class="sc"><div class="sl">Buyurtmalar</div><div class="sv">${d.orders_count}</div><div class="ss">ta</div></div>
     <div class="sc"><div class="sl">O'rtacha chek</div><div class="sv">${fmtN(d.avg_check)}</div><div class="ss">so'm</div></div>
     <div class="sc"><div class="sl">Tranzaksiyalar</div><div class="sv">${d.transactions_count}</div><div class="ss">ta</div></div>
+    <div class="sc"><div class="sl">Qaytarish</div><div class="sv">${retTotal?'−'+fmtN(retTotal):'0'}</div><div class="ss">sof savdo ${fmtN(netSales)}</div></div>
   </div>
   <div class="g2">
     <div class="chart-wrap">
@@ -428,8 +432,8 @@ async function renderSales(params){
   </div>
   <div class="tbl-wrap">
     <div class="tbl-title">Kunlik taqsimot</div>
-    <table class="tbl"><thead><tr><th>Sana</th><th>Jami (so'm)</th><th>Tranzaksiyalar</th></tr></thead>
-    <tbody>${d.daily_sales.map(r=>`<tr><td>${r.date}</td><td class="amt">${fmtN(r.total)}</td><td>${r.count}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
+    <table class="tbl"><thead><tr><th>Sana</th><th>Jami (so'm)</th><th>Qaytarish</th><th>Sof</th><th>Tranzaksiyalar</th></tr></thead>
+    <tbody>${d.daily_sales.map(r=>`<tr><td>${r.date}</td><td class="amt">${fmtN(r.total)}</td><td class="amt">${r.returns?'−'+fmtN(r.returns):'—'}</td><td class="amt">${fmtN(r.net!=null?r.net:r.total)}</td><td>${r.count}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Maʼlumot yoq</td></tr>'}</tbody>
     </table>
   </div>`;
 

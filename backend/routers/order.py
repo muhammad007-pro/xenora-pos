@@ -816,6 +816,11 @@ async def get_order_receipt(
                 "balance":         (cust.points if cust else None),
             }
 
+    # Kelishilgan narx (biz_meta['cart'] snapshot) — chek qatori shu summa bilan.
+    # None → chek AVVALGIDEK (kalitlar umuman qo'shilmaydi). routers/returns.py izohi.
+    from routers.returns import receipt_line_totals
+    _neg = receipt_line_totals(order, list(order.items))
+
     return {
         "receipt_number": order.order_number,
         "date": _fmt_local(order.created_at),
@@ -833,9 +838,15 @@ async def get_order_receipt(
                 # BOSQICH B6 (pachka/dona): chek yorlig'i uchun
                 "unit_sold": item.unit_sold,
                 "base_qty": item.base_qty,
+                # Chekda o'ngdagi summa (kelishilgan narx × soni), faqat snapshot bo'lsa
+                **({"line_total": _neg["lines"][item.id]} if _neg else {}),
             }
             for item in order.items
         ],
+        # Faqat kelishilgan narxli chekda: "Chegirmasiz" = qatorlar yig'indisi,
+        # "Chegirma" = qolgan chegirma (qo'lda %/mijoz/aksiya), UMUMIY o'zgarmaydi.
+        **({"receipt_subtotal": _neg["subtotal"],
+            "discount_other": _neg["other_discount"]} if _neg else {}),
         "subtotal": order.total_amount,
         "discount": order.discount_amount,
         "tax": order.tax_amount,
@@ -911,6 +922,9 @@ async def print_order_receipt(
 
     store_name = (rs.store_name if rs and rs.store_name else (cafe.name if cafe else None)) or "Do'kon"
     store_address = (rs.address if rs and rs.address else (getattr(cafe, "address", None) if cafe else None))
+    # Kelishilgan narx — /receipt bilan bir manba (routers/returns.py)
+    from routers.returns import receipt_line_totals
+    _neg = receipt_line_totals(order, list(order.items))
 
     data = {
         "store_name":    store_name,
@@ -941,12 +955,14 @@ async def print_order_receipt(
                             if it.unit_sold == "pachka" and it.base_qty and it.quantity else "")),
                 "quantity": it.quantity,
                 "unit_price": it.unit_price,
-                "total": it.total_price,
+                "total": _neg["lines"][it.id] if _neg else it.total_price,
             }
             for it in order.items
         ],
-        "subtotal": order.total_amount,
-        "discount": order.discount_amount or 0,
+        "subtotal": _neg["subtotal"] if _neg else order.total_amount,
+        "discount": _neg["other_discount"] if _neg else (order.discount_amount or 0),
+        # "Jami:" → "Chegirmasiz:" (chekda chegirma bo'lsa; escpos_service)
+        "had_discount": (order.discount_amount or 0) > 0,
         "tax":      order.tax_amount or 0,
         "service":  order.service_charge or 0,
         "total":    order.final_amount,

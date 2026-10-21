@@ -472,11 +472,59 @@ export function payRowsHtml(pays, payTxt) {
   return `<div class="rt-row"><span>To'lov:</span><span>${_esc(payTxt)}</span></div>`;
 }
 
+/**
+ * KELISHILGAN NARX — jonli POS cheki uchun (savatdan). Backend
+ * `routers/returns.py:receipt_line_totals` ning AYNAN nusxasi (qayta chop etish
+ * serverdan keladi); ikkalasining mosligi testda qulflangan.
+ *
+ * items — savat qatorlari {price, qty, _priceNew}. Og'irlik qatorida `price` =
+ * qator jami, `qty` = 1 — formula bir xil: (_priceNew ?? price) × qty.
+ * discountAmount — buyurtmaning BUTUN chegirmasi (qo'lda + aksiya + kelishuv).
+ *
+ * Qaytaradi {lines:[so'm], subtotal, other_discount, negotiated} yoki null —
+ * narx tushirilmagan / ma'lumot buzuq: chek AVVALGIDEK (GOLDEN).
+ */
+const _roundSom = x => Math.floor(x + 0.5);   // Python `_round_som` bilan bir xil
+export function negotiatedLines(items, discountAmount) {
+  if (!Array.isArray(items) || !items.length) return null;
+  const lines = [];
+  let neg = 0, sub = 0;
+  const ok = v => isFinite(v) && v >= 0;
+  for (const it of items) {
+    const price = Number(it && it.price), qty = Number(it && it.qty);
+    const n = (it && it._priceNew != null) ? Number(it._priceNew) : null;
+    if (!ok(price) || !ok(qty) || (n != null && !ok(n))) return null;
+    const unit = n != null ? n : price;
+    if (n != null && n < price) neg += (price - n) * qty;
+    sub += Math.max(price, unit) * qty;
+    lines.push(_roundSom(unit * qty));
+  }
+  if (neg < 0.5) return null;
+  const disc = Math.max(Number(discountAmount) || 0, 0);
+  if (neg > disc + 1) return null;
+  const shown = lines.reduce((a, b) => a + b, 0);
+  let other = Math.round((shown - (sub - disc)) * 100) / 100;
+  if (other < -1) return null;
+  if (other < 1) other = 0;
+  return { lines, subtotal: shown, other_discount: other, negotiated: Math.round(neg * 100) / 100 };
+}
+
+/** Jami qatori yorlig'i — chekda chegirma bo'lsa "Chegirmasiz:" (chegirmasiz chek o'zgarmaydi). */
+export function subtotalLabel(hadDiscount) {
+  return hadDiscount ? 'Chegirmasiz:' : 'Jami:';
+}
+
 export function buildReceipt58(rec) {
   rec = rec || {};
   const items = rec.items || [];
-  const sub = rec.subtotal != null ? rec.subtotal : rec.total_amount;
-  const disc = rec.discount_amount != null ? rec.discount_amount : (rec.discount || 0);
+  // Kelishilgan narxli chek: server qator summasini (line_total), qatorlar
+  // yig'indisini (receipt_subtotal) va QOLGAN chegirmani (discount_other)
+  // beradi. Kalitlar yo'q bo'lsa (eski chek, snapshotsiz) — avvalgidek.
+  const negotiated = rec.receipt_subtotal != null;
+  const origDisc = rec.discount_amount != null ? rec.discount_amount : (rec.discount || 0);
+  const sub = negotiated ? rec.receipt_subtotal
+            : (rec.subtotal != null ? rec.subtotal : rec.total_amount);
+  const disc = negotiated ? (rec.discount_other || 0) : origDisc;
   const tax = rec.tax_amount != null ? rec.tax_amount : (rec.tax || 0);
   const service = rec.service_amount || 0;
   const total = rec.final_amount != null ? rec.final_amount : rec.total;
@@ -489,7 +537,8 @@ export function buildReceipt58(rec) {
     const qty = it.quantity != null ? it.quantity : (it.qty || 1);
     if (isGiftItem(it)) return giftRow(it.name || it.product_name || '', qty);   // FAZA 3b
     const name = _esc(it.name || it.product_name || '');
-    const line = it.total != null ? it.total : (it.total_price || 0);
+    const line = (negotiated && it.line_total != null) ? it.line_total
+               : (it.total != null ? it.total : (it.total_price || 0));
     // Pachka yorlig'i (1 pachka = base_qty/quantity dona) — POS bilan bir xil
     let sub2 = '';
     if (it.unit_sold === 'pachka' && it.base_qty && qty) {
@@ -500,7 +549,10 @@ export function buildReceipt58(rec) {
     }
     // "11 x 5 000" — miqdor × birlik narx (v1.8.7). LAN yo'li shu katakchani
     // DOM'dan o'qiydi, shuning uchun USB va LAN bir xil ko'rinadi.
-    const qtyTxt = qtyPriceLabel(qty, unitPriceOf(it, line, qty), _money);
+    // Kelishilgan chekda birlik narx — KATALOG narxi ("1 x 245 000   220 000"),
+    // jami/miqdor emas (u kelishilgan narxni chiqarib qo'yardi).
+    const unit = (negotiated && Number(it.unit_price) > 0) ? Number(it.unit_price) : unitPriceOf(it, line, qty);
+    const qtyTxt = qtyPriceLabel(qty, unit, _money);
     return `<tr><td>${name}${sub2}</td><td>${_esc(qtyTxt)}</td>`
       + `<td style="text-align:right">${_money(line)}</td></tr>`;
   }).join('');
@@ -519,7 +571,7 @@ export function buildReceipt58(rec) {
       <tbody>${rowsHtml || '<tr><td colspan="3">—</td></tr>'}</tbody>
     </table>
     <div class="receipt-totals">
-      <div class="rt-row"><span>Jami:</span><span>${_money(sub)}</span></div>
+      <div class="rt-row"><span>${subtotalLabel(origDisc > 0)}</span><span>${_money(sub)}</span></div>
       ${(disc > 0) ? `<div class="rt-row"><span>Chegirma:</span><span>-${_money(disc)}</span></div>` : ''}
       ${(tax > 0) ? `<div class="rt-row"><span>Soliq (12%):</span><span>${_money(tax)}</span></div>` : ''}
       ${(service > 0) ? `<div class="rt-row"><span>Xizmat (10%):</span><span>${_money(service)}</span></div>` : ''}

@@ -487,6 +487,65 @@ async def update_report_day(
     return {"mode": mode, "grace_hours": SHIFT_GRACE_HOURS, "message": "Hisobot kuni sozlamasi saqlandi"}
 
 
+# ── Xodim bonusi: bonusli kategoriyalar + stavka (services/staff_bonus.py) ─────
+# MOLIYAVIY — view_finance (bonus hisoboti /profit/staff-sales bilan bir ruxsat).
+# ⚠️ `/{config_name}` dan OLDIN turishi SHART (report-day izohiga qara).
+@router.get("/staff-bonus")
+async def get_staff_bonus(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """Bonus sozlamasi + tanlash uchun do'kon kategoriyalari."""
+    from services import staff_bonus
+    tid = resolve_tenant_id(db, current_user)
+    cfg = staff_bonus.get_config(db, tid)
+    cats = staff_bonus.tenant_categories(db, tid) if tid is not None else []
+    return {
+        **cfg,
+        "all_bonus": not cfg["category_ids"],
+        "categories": [{"id": c.id, "name": c.name, "parent_id": c.parent_id} for c in cats],
+    }
+
+
+@router.patch("/staff-bonus")
+async def update_staff_bonus(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(has_permission("view_finance")),
+):
+    """{"category_ids": [..], "rate_per_million": 50000}. Bo'sh ro'yxat = hammasi bonusli."""
+    from services import staff_bonus
+    tid = resolve_tenant_id(db, current_user)
+    if tid is None:
+        raise HTTPException(status_code=400, detail="Sozlama saqlash uchun do'kon aniqlanmadi")
+    old = staff_bonus.get_config(db, tid)
+
+    raw_ids = payload.get("category_ids", old["category_ids"])
+    if not isinstance(raw_ids, list):
+        raise HTTPException(status_code=400, detail="category_ids ro'yxat bo'lishi kerak")
+    try:
+        ids = {int(x) for x in raw_ids}
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Kategoriya id noto'g'ri")
+    # Faqat SHU do'kon kategoriyalari — begona tenant id'si yozilmasin
+    own = {c.id for c in staff_bonus.tenant_categories(db, tid)}
+    foreign = ids - own
+    if foreign:
+        raise HTTPException(status_code=400, detail=f"Kategoriya topilmadi: {sorted(foreign)}")
+
+    try:
+        rate = float(payload.get("rate_per_million", old["rate_per_million"]))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Stavka noto'g'ri")
+    if rate < 0 or rate > staff_bonus.MAX_RATE:
+        raise HTTPException(status_code=400, detail="Stavka 0 dan 1 000 000 gacha bo'lishi kerak")
+
+    saved = staff_bonus.save_config(db, tid, ids, rate)
+    log_audit(current_user, "settings", "UPDATE", "staff_bonus", tenant_id=tid,
+              detail={"from": old, "to": saved})
+    return {**saved, "all_bonus": not saved["category_ids"], "message": "Bonus sozlamasi saqlandi"}
+
+
 @router.get("/{config_name}")
 async def get_settings(
     config_name: str,

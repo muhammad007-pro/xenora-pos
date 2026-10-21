@@ -3,6 +3,22 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.4] — 2026-10-21 — Vozvrat qaytarilgan kunda, xodim bo'yicha savdo
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+kassa `.exe` lariga yangi build bilan (APK qurilmagan).
+
+### 📊 Hisobotlar
+* pul hisobotlarida (Hisobotlar → Savdo, to'lov usullari) vozvrat **qaytarilgan kunga** yoziladi,
+  sotuv o'z kunida qoladi (ilgari to'liq vozvratda sotuv o'tgan kundan yo'qolardi);
+  "Qaytarish" kartasi va kunlik ustunlar. Foyda, Moliya, Z-hisobot o'zgarmadi
+
+### 💰 Moliya → "Xodimlar"
+* xodim (sotuvchi) bo'yicha savdo, vozvrat, sof savdo; kunlar bo'yicha bo'linish; yagona davr
+* "Alohida kategoriyalar" sozlamasi: tanlangan kategoriyalar savdosi alohida ustunda
+  (Asosiy / Alohida). Jami "Foyda tahlili" savdosi bilan bir xil
+* sotuvchi — chekdagi sotuvchi (POS'da 🔒 bilan almashtiriladi), to'lovni olgan kassir emas
+
 ## [1.14.3] — 2026-10-19 — Ombor aniqligi, monoblok tugmalari, chek navbati himoyasi
 
 **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;

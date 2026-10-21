@@ -130,6 +130,8 @@ export default [
     ignores: [
       'frontend/js/admin/**',
       'frontend/js/core/money.js',
+      'frontend/js/core/help-content.js',
+      'frontend/js/core/help-center.js',
       'frontend/js/ui/searchable-select.js',
     ],
     languageOptions: {
@@ -142,7 +144,13 @@ export default [
 
   // ── CLASSIC skriptlar (<script src>, import/export YO'Q) ───────────────────
   {
-    files: ['frontend/js/core/money.js', 'frontend/js/ui/searchable-select.js'],
+    files: [
+      'frontend/js/core/money.js',
+      'frontend/js/ui/searchable-select.js',
+      // Yordam oynasi — pos.html/admin.html da classic <script src> (window.XenoraHelp)
+      'frontend/js/core/help-content.js',
+      'frontend/js/core/help-center.js',
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',

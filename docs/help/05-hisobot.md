@@ -34,13 +34,64 @@ Ular har xil narsani sanaydi:
 
 - **Dashboard → Bugungi savdo** — sotilgan tovar summasi. **Nasiya ham kiradi**, garchi pul hali kelmagan bo'lsa ham.
 - **Smena / Z-hisobot** — kassaga tushgan **pul** (naqd, karta). Nasiya bu yerga kirmaydi.
-- **Moliya → Savdo** — chegirma va vozvrat ayirilgan summa.
+- **Moliya** → **Foyda tahlili** → **Jami savdo** — chegirma va vozvrat ayirilgan summa.
 
 Yana sabablar:
 
 - **Vozvrat qaytarilgan kunda ayriladi.** Kecha sotilgan tovar bugun qaytsa — bugungi savdo kamayadi.
 - **Davr har xil.** Bir joyda "Bugun", boshqasida "7 kun" tanlangan bo'lishi mumkin — sanalarni tekshiring.
 - **Tungi savdo.** Yarim tundan keyingi savdo odatda keyingi kalendar kunga yoziladi. Kechasi ishlasangiz, "smena bo'yicha" hisobot kuni sozlamasi bor — yoqish uchun qo'ng'iroq qiling.
+
+## Qaysi xodim qancha sotdi?
+Kalit: xodim, xodimlar, sotuvchi, ishchi, kim sotdi, xodim savdosi, bonus, premiya, foiz, ish haqi
+
+1. Admin panel → **Moliya** → **Xodimlar** yorlig'i.
+2. Davrni tanlang: **Bugun**, **7 kun**, **30 kun** yoki ikkita sana → **Ko'rsatish**.
+3. Jadvalda har xodim: **Chek** soni, **Savdo**, **Vozvrat**, **Sof savdo**.
+4. Xodim qatorini bosing — kunlar bo'yicha ochiladi. Yana bossangiz yopiladi.
+
+- **Savdo** — chegirma ayirilgan summa.
+- **Vozvrat** qaytarilgan kunda, tovarni **sotgan** xodimdan ayriladi (vozvratni rasmiylashtirgan kassirdan emas).
+- Jami **Sof savdo** — **Foyda tahlili** dagi savdo bilan bir xil.
+- **Belgilanmagan** qatori — sotuvchisi noma'lum: chekka bog'lanmagan vozvrat yoki sotuvchisiz chek.
+
+Xodimga foiz yoki mukofot hisoblamoqchi bo'lsangiz — **Sof savdo** (yoki **Alohida** ustuni) dan hisoblang. Dastur summani o'zi hisoblamaydi.
+
+> **Hisobotlar** → **Xodimlar** yorlig'ida ham jadval bor, lekin u oddiy: vozvrat ayirilmaydi. Hisob-kitob uchun **Moliya** → **Xodimlar** dan foydalaning.
+
+## Ma'lum kategoriya savdosini alohida ko'rish
+Kalit: kategoriya, alohida, asosiy, kiyim, atir, kategoriya bo'yicha, ajratish, alohida hisob
+
+Masalan, kiyim savdosini atir va boshqa tovarlardan alohida ko'rish:
+
+1. Admin panel → **Moliya** → **Xodimlar**.
+2. **⚙️ Alohida kategoriyalar** tugmasini bosing.
+3. Kerakli kategoriyalarni belgilang. Ichidagi kichik kategoriyalar ham avtomatik kiradi.
+4. **Saqlash**.
+
+Endi jadvalda ikki ustun chiqadi: **Alohida** — belgilangan kategoriyalar savdosi, **Asosiy** — qolgani. Yuqorida ham shu ikki karta. Vozvrat ham tovar kategoriyasi bo'yicha o'z ustunidan ayriladi.
+
+- Hech narsa belgilanmasa — bu ustunlar ko'rinmaydi.
+- Butun do'kon bo'yicha kategoriyalar savdosi: **Moliya** → **Foyda tahlili** → **Kategoriya bo'yicha foyda**.
+
+## Hamma savdo bitta xodimga yozilyapti
+Kalit: hamma savdo bitta odamda, sotuvchi almashtirish, pin, qulf, xodim qo'shish, sotuvchi kirishi
+
+Sotuv POS'ga **kim kirgan bo'lsa** o'shaning nomiga yoziladi. Hamma bitta login bilan ishlasa, hammasi bir odamga tushadi.
+
+Har sotuvchiga o'z hisobi:
+
+1. Admin panel → **Xodimlar** → **Xodim qo'shish**.
+2. **Ism familiya**, **Parol**, **Rol** (masalan, Kassir) va **PIN kod** (4 raqam) ni yozing.
+3. **Saqlash**.
+
+Bitta kassada sotuvchilar almashganda:
+
+1. POS tepasidagi qulf tugmasini bosing (unda hozirgi sotuvchi ismi yozilgan).
+2. **Sotuvchi kirishi** oynasida o'z **PIN** kodingizni tering.
+3. Shundan keyingi sotuvlar sizning nomingizga yoziladi.
+
+> Admin panel → **Xodimlar** — xodim hisoblari. **Moliya** → **Xodimlar** — ularning savdosi. Ikkalasi boshqa-boshqa joy.
 
 ## Xarajat qanday kiritaman?
 Kalit: xarajat, rasxod, ijara, oylik, maosh, kommunal, svet, gaz

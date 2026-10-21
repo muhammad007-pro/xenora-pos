@@ -26,11 +26,24 @@ Kalit: z-hisobot, z-otchet, x-hisobot, smena hisoboti, kun yakuni, z-chek
 - **Jami savdo**, buyurtmalar soni, chegirmalar;
 - **Kassaga tushgan** pul: naqd va karta alohida;
 - **Yashikda bo'lishi kerak** — dastur hisoblagan naqd;
-- **Farq** — siz sanagan pul bilan farqi.
+- **Sanaldi** — siz sanab yozgan pul;
+- **Kamomad** yoki **Ortiqcha** — ikkalasining farqi (teng bo'lsa **Mos ✓**).
 
 Qog'ozga chiqarish: smena yopilgandan keyin **🖨 Z-chek chiqarish**. Keyinroq: Admin panel → **Smenalar** → yopilgan smena qatorida **Z-hisobot** yoki **🖨 Z-chek**.
 
-**X-hisobot** — o'sha hisobot, lekin smena **yopilmaydi** (kun o'rtasida tekshirish uchun): Admin panel → **Smenalar** → ochiq smena qatorida **X-hisobot**.
+Kun o'rtasida smenani yopmasdan ko'rish — **X-hisobot** (keyingi savol).
+
+## X-hisobot nima?
+Kalit: x-hisobot, x-otchet, oraliq hisobot, smena yopmasdan, hozir kassada qancha, tekshirish
+
+**X-hisobot** — Z-hisobotning o'zi, lekin smena **yopilmaydi**. Kun o'rtasida "hozir kassada qancha bo'lishi kerak?" ni bilish uchun.
+
+1. Admin panel → **Smenalar**.
+2. Ochiq smena qatorida **X-hisobot** ni bosing.
+
+- Raqamlar Z-hisobot bilan bir xil hisoblanadi: savdo, naqd va karta, **Yashikda bo'lishi kerak**.
+- Hech narsa yozmaydi va o'zgartirmaydi — xohlagancha ochish mumkin.
+- Pul sanalmaydi, shuning uchun **Sanaldi** va **Kamomad** qatorlari yo'q — ular faqat smena yopilganda (Z-hisobotda) chiqadi.
 
 ## Kamomad chiqdi — nega?
 Kalit: kamomad, nedostacha, pul kam, pul ortiqcha, farq, kassa to'g'ri kelmadi
@@ -47,8 +60,8 @@ Ko'p uchraydigan sabablar:
 
 Ortiqcha chiqsa — ko'pincha teskari holat: naqd olingan, lekin **Karta** bosilgan.
 
-## Kassadan pul olsam nima qilaman?
-Kalit: kassadan pul olish, inkassatsiya, egasiga topshirdim, razmen, mayda pul, pul qo'shish
+## Kassa harakati: kassadan pul olsam nima qilaman?
+Kalit: kassa harakati, kassadan pul olish, inkassatsiya, egasiga topshirdim, razmen, mayda pul, pul qo'shish, kassadan olingan
 
 Har safar yozib qo'ying — aks holda smena yopilganda kamomad chiqadi.
 

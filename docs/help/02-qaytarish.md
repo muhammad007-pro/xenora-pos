@@ -42,6 +42,25 @@ Tasdiqlash:
 - **Kim tasdiqladi** ustunida ⚠ belgisi — vozvratni yozgan odamning o'zi tasdiqlagan.
 - Sariq ogohlantirish — vozvrat chekka bog'lanmagan (qo'lda kiritilgan). Tasdiqlashdan oldin chekni tekshiring.
 
+## Vozvrat qaysi kunga yoziladi?
+Kalit: vozvrat kuni, qaysi kun, kechagi sotuv, eski chek, hisobot o'zgardi, savdo kamaydi, qaytarilgan kun
+
+Vozvrat **tasdiqlangan kunga** yoziladi. Sotuv esa **o'z kunida** qoladi — o'tgan kunlarning hisoboti o'zgarmaydi.
+
+Misol: 16-oktabrda 900 000 so'mlik tovar sotildi, mijoz uni 17-oktabrda qaytardi.
+
+- 16-oktabr: savdo 900 000 bo'lib qoladi.
+- 17-oktabr: **Qaytarish** −900 000, sof savdo shuncha kamayadi.
+
+Qayerda ko'rinadi:
+
+- **Dashboard** → **Bugungi savdo** → **Qaytarish** qatori.
+- **Hisobotlar** → **Savdo**: **Qaytarish** kartasi, kunlik jadvalda **Qaytarish** va **Sof** ustunlari.
+- **Moliya** → **Xodimlar**: **Vozvrat** ustuni — tovarni **sotgan** xodimdan ayriladi.
+- Smena (Z-hisobot): naqd vozvrat qaysi smenada berilgan bo'lsa, o'sha smena kassasidan ayriladi.
+
+> Vozvrat **Kutilmoqda** holatida turgan bo'lsa, u hali hech qayerda ayrilmaydi. Ertasi kuni tasdiqlansa — tasdiqlangan kunga yoziladi.
+
 ## Brak tovarni qanday qaytaraman?
 Kalit: brak, buzuq, yaroqsiz, singan, omborga qaytmasin, defekt
 

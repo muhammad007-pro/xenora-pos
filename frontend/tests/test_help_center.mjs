@@ -3,7 +3,8 @@
  *
  * Qotiriladi:
  *   1) Matn: docs/help/*.md == js/core/help-content.js (build_help.py --check);
- *      7 bo'lim, 30 savol — egasi bergan ro'yxat bilan AYNAN; HTML ekranlangan
+ *      7 bo'lim, 35 savol — egasi bergan ro'yxat bilan AYNAN; HTML ekranlangan;
+ *      yordamdagi asosiy UI nomlari kodda BOR (nom o'zgarsa test yiqiladi)
  *   2) Ulanish: admin.html (sidebar pasti) va pos.html (header) da `data-help-open`
  *      tugma; skriptlar tartibi (content → center); SW keshida; .exe ichida
  *      (electron extraResources `../frontend/**`)
@@ -54,25 +55,47 @@ vm.runInContext(rd('frontend/js/core/help-content.js'), hctx);
 const HELP = hctx.window.XENORA_HELP;
 const SECS = HELP.sections;
 
-// Egasi bergan ro'yxat (2026-10-19). Savol qo'shilsa/o'zgarsa — shu yerni ham yangilang.
+// Egasi bergan ro'yxat (2026-10-19, +2026-10-21: Xodimlar, vozvrat kuni, kassa
+// harakati, X-hisobot). Savol qo'shilsa/o'zgarsa — shu yerni ham yangilang.
 const EXPECT = {
   'Sotuv': ['Kg/metr mahsulotni qanday sotaman?', 'Pachka va dona farqi nima?', 'Chegirma qanday beraman?',
             'Nasiyaga qanday sotaman?', 'Aralash to\'lov (naqd + nasiya)'],
   'Qaytarish': ['Vozvrat qanday qilinadi?', 'Chek raqamini qayerdan topaman?', 'Nega "tasdiqlash kerak" deydi?',
-                'Brak tovarni qanday qaytaraman?'],
+                'Vozvrat qaysi kunga yoziladi?', 'Brak tovarni qanday qaytaraman?'],
   'Printer': ['Chek chiqmayapti', 'Chek kichik chiqyapti (57mm o\'rniga 80mm)', 'Etiketka printeridan chek chiqdi',
               'Printer qog\'ozi tugasa nima bo\'ladi?'],
   'Ombor': ['Yangi mahsulot qanday qo\'shaman?', 'Kirim qanday kiritaman?', 'Qoldiq noto\'g\'ri — nima qilay?',
             'Hisobdan chiqarish qachon kerak?', 'Etiketka qanday chop etaman?'],
   'Hisobot': ['Bugun qancha sotdim?', 'Foyda qayerda ko\'rinadi?', 'Dashboard va hisobot nega farq qiladi?',
+              'Qaysi xodim qancha sotdi?', 'Ma\'lum kategoriya savdosini alohida ko\'rish',
+              'Hamma savdo bitta xodimga yozilyapti',
               'Xarajat qanday kiritaman?', 'Sana oralig\'ini qanday tanlayman?'],
-  'Smena': ['Smena nima uchun kerak?', 'Z-hisobot nima?', 'Kamomad chiqdi — nega?', 'Kassadan pul olsam nima qilaman?'],
+  'Smena': ['Smena nima uchun kerak?', 'Z-hisobot nima?', 'X-hisobot nima?', 'Kamomad chiqdi — nega?',
+            'Kassa harakati: kassadan pul olsam nima qilaman?'],
   'Mijoz va nasiya': ['Mijoz qanday qo\'shaman?', 'Qarzni qanday to\'layman?', 'Qarz kartochkasi nima?'],
 };
 check('1_bolimlar', SECS.map(s => s.title), Object.keys(EXPECT));
 for (const s of SECS) check(`1_savollar_${s.id}`, s.items.map(i => i.q), EXPECT[s.title] || []);
 const ALL = SECS.flatMap(s => s.items);
-check('1_jami_30_savol', ALL.length, 30);
+check('1_jami_35_savol', ALL.length, 35);
+
+// UI nomlari KODDAN olingan — kod tomonda nom o'zgarsa yordam eskiradi. Bu ro'yxat
+// yordamda ishlatilgan asosiy ekran matnlari va ular turgan fayl (2026-10-21 tekshirildi).
+const HTEXT = ALL.map(i => i.text).join('\n');
+const UI_NAMES = [
+  ['frontend/app/profit.html', '⚙️ Alohida kategoriyalar'], ['frontend/app/profit.html', 'data-tab="staff" data-product-only="1">Xodimlar<'],
+  ['frontend/app/profit.html', '>Asosiy<'], ['frontend/app/profit.html', '>Alohida<'],
+  ['frontend/app/profit.html', 'Kategoriya bo\'yicha foyda'], ['frontend/app/profit.html', 'Ko\'rsatish'],
+  ['frontend/js/admin/core.js', 'staff:"Xodim qo\'shish"'], ['frontend/app/admin.html', 'PIN kod'],
+  ['frontend/app/pos.html', 'Sotuvchi kirishi'], ['frontend/app/pos.html', 'title="Sotuvchi almashtirish (PIN)"'],
+  ['frontend/js/admin/core.js', '>X-hisobot</button>'], ['frontend/app/shift.html', '💵 Kassa harakati'],
+  ['frontend/app/shift.html', 'Kassadan olindi (inkassatsiya)'], ['frontend/app/shift.html', 'Kassaga qo\'shildi (razmen)'],
+  ['frontend/app/shift.html', 'Yashikda bo\'lishi kerak'], ['frontend/app/shift.html', 'Sanaldi'],
+  ['frontend/app/report.html', 'data-tab="sales">Savdo'], ['frontend/app/report.html', '<div class="sl">Qaytarish</div>'],
+  ['frontend/app/report.html', 'data-tab="staff">Xodimlar'], ['electron/spool-guard.js', "Printer javob bermayapti — qog'ozni tekshiring"],
+];
+check('1_ui_nomlari_kodda_bor', UI_NAMES.filter(([f, s]) => !rd(f).includes(s)).map(x => x.join(' :: ')), []);
+check('1_yordamda_bonus_sozi_korinmaydi', /bonus/i.test(HTEXT.replace(/^Kalit:.*$/gm, '')), false);
 check('1_id_takrorlanmaydi', new Set(ALL.map(i => i.id)).size, ALL.length);
 // Ekranlash: faqat ruxsat etilgan teglar (p, ol, ul, li, b, code, div.xh-note)
 const tags = new Set(ALL.flatMap(i => [...i.html.matchAll(/<\/?([a-z0-9]+)/g)].map(m => m[1])));
@@ -187,6 +210,17 @@ console.log('\n── 3) Admin panel ──');
   r = await searchFor(page, 'zakaz qilish uchun kosmik kema');
   check('3_topilmadi_telefon', [r.notFound, /Topolmadingizmi\? Qo'ng'iroq qiling:/.test(r.notFoundText),
                                 /\+998 94 997 47 70/.test(r.notFoundText), r.tel], [true, true, true, 'tel:+998949974770']);
+  // 2026-10-21 qo'shilgan mavzular qidiruvda topiladi
+  r = await searchFor(page, 'xodim');
+  check('3_qidiruv_xodim', r.ids.includes('hisobot-4'), true);
+  r = await searchFor(page, 'inkassatsiya');
+  check('3_qidiruv_inkassatsiya', r.ids[0], 'smena-5');
+  r = await searchFor(page, 'x-hisobot');
+  check('3_qidiruv_x_hisobot', r.ids[0], 'smena-3');
+  r = await searchFor(page, 'vozvrat qaysi kun');
+  check('3_qidiruv_vozvrat_kuni', r.ids[0], 'qaytarish-4');
+  r = await searchFor(page, 'kiyim alohida');
+  check('3_qidiruv_kiyim_alohida', r.ids[0], 'hisobot-5');
   r = await searchFor(page, '');
   check('3_bosh_qidiruv_bolimga_qaytadi', [r.notFound, r.ids.length > 0], [false, true]);
   check('3_pastda_doim_telefon', /\+998 94 997 47 70/.test(await page.textContent('.xh-foot')), true);

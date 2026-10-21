@@ -487,40 +487,39 @@ async def update_report_day(
     return {"mode": mode, "grace_hours": SHIFT_GRACE_HOURS, "message": "Hisobot kuni sozlamasi saqlandi"}
 
 
-# ── Xodim bonusi: bonusli kategoriyalar + stavka (services/staff_bonus.py) ─────
-# MOLIYAVIY — view_finance (bonus hisoboti /profit/staff-sales bilan bir ruxsat).
+# ── Xodim hisoboti: alohida hisoblanadigan kategoriyalar (services/staff_split.py)
+# MOLIYAVIY — view_finance (/profit/staff-sales bilan bir ruxsat).
 # ⚠️ `/{config_name}` dan OLDIN turishi SHART (report-day izohiga qara).
-@router.get("/staff-bonus")
-async def get_staff_bonus(
+@router.get("/staff-split")
+async def get_staff_split(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
-    """Bonus sozlamasi + tanlash uchun do'kon kategoriyalari."""
-    from services import staff_bonus
+    """Tanlangan kategoriyalar + tanlash uchun do'kon kategoriyalari."""
+    from services import staff_split
     tid = resolve_tenant_id(db, current_user)
-    cfg = staff_bonus.get_config(db, tid)
-    cats = staff_bonus.tenant_categories(db, tid) if tid is not None else []
+    ids = staff_split.get_category_ids(db, tid)
+    cats = staff_split.tenant_categories(db, tid) if tid is not None else []
     return {
-        **cfg,
-        "all_bonus": not cfg["category_ids"],
+        "category_ids": ids,
         "categories": [{"id": c.id, "name": c.name, "parent_id": c.parent_id} for c in cats],
     }
 
 
-@router.patch("/staff-bonus")
-async def update_staff_bonus(
+@router.patch("/staff-split")
+async def update_staff_split(
     payload: Dict[str, Any],
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
-    """{"category_ids": [..], "rate_per_million": 50000}. Bo'sh ro'yxat = hammasi bonusli."""
-    from services import staff_bonus
+    """{"category_ids": [..]}. Bo'sh ro'yxat = ajratish yo'q (hammasi "Asosiy")."""
+    from services import staff_split
     tid = resolve_tenant_id(db, current_user)
     if tid is None:
         raise HTTPException(status_code=400, detail="Sozlama saqlash uchun do'kon aniqlanmadi")
-    old = staff_bonus.get_config(db, tid)
+    old = staff_split.get_category_ids(db, tid)
 
-    raw_ids = payload.get("category_ids", old["category_ids"])
+    raw_ids = payload.get("category_ids", old)
     if not isinstance(raw_ids, list):
         raise HTTPException(status_code=400, detail="category_ids ro'yxat bo'lishi kerak")
     try:
@@ -528,22 +527,15 @@ async def update_staff_bonus(
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Kategoriya id noto'g'ri")
     # Faqat SHU do'kon kategoriyalari — begona tenant id'si yozilmasin
-    own = {c.id for c in staff_bonus.tenant_categories(db, tid)}
+    own = {c.id for c in staff_split.tenant_categories(db, tid)}
     foreign = ids - own
     if foreign:
         raise HTTPException(status_code=400, detail=f"Kategoriya topilmadi: {sorted(foreign)}")
 
-    try:
-        rate = float(payload.get("rate_per_million", old["rate_per_million"]))
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Stavka noto'g'ri")
-    if rate < 0 or rate > staff_bonus.MAX_RATE:
-        raise HTTPException(status_code=400, detail="Stavka 0 dan 1 000 000 gacha bo'lishi kerak")
-
-    saved = staff_bonus.save_config(db, tid, ids, rate)
-    log_audit(current_user, "settings", "UPDATE", "staff_bonus", tenant_id=tid,
+    saved = staff_split.save_category_ids(db, tid, ids)
+    log_audit(current_user, "settings", "UPDATE", "staff_split", tenant_id=tid,
               detail={"from": old, "to": saved})
-    return {**saved, "all_bonus": not saved["category_ids"], "message": "Bonus sozlamasi saqlandi"}
+    return {"category_ids": saved, "message": "Sozlama saqlandi"}
 
 
 @router.get("/{config_name}")

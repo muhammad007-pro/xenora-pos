@@ -923,7 +923,7 @@ async def get_profit_by_category(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# XODIM BO'YICHA SAVDO VA BONUS  —  GET /profit/staff-sales
+# XODIM BO'YICHA SAVDO  —  GET /profit/staff-sales
 # ══════════════════════════════════════════════════════════════════════════════
 # YANGI FORMULA YO'Q — `/profit/summary` bilan bir xil manbalar:
 #   • qator sof tushumi → `_REVENUE_EXPR` (chegirma proporsional ayirilgan)
@@ -934,7 +934,11 @@ async def get_profit_by_category(
 #
 # SOTUVCHI — `Order.waiter_id` (sotuvchi almashtirishda faol sotuvchi).
 # `Payment.cashier_id` EMAS: to'lovni boshqa kassir qabul qilgan bo'lishi
-# mumkin, bonus esa SOTGAN odamga.
+# mumkin, hisobot esa SOTGAN odam bo'yicha.
+#
+# ASOSIY / ALOHIDA — `services/staff_split.py` sozlamasi (tanlangan
+# kategoriyalar "Alohida", qolgani "Asosiy"). Sotuv ham, vozvrat ham shu
+# qoida bo'yicha bo'linadi.
 #
 # VOZVRAT — qaytarilgan kunga, lekin o'sha tovarni SOTGAN xodimdan ayiriladi:
 #   ReturnItem.order_item_id → OrderItem.order_id, bo'lmasa Return.order_id →
@@ -951,22 +955,21 @@ async def get_staff_sales(
     db: Session = Depends(get_db),
     current_user: User = Depends(has_permission("view_finance")),
 ):
-    """Xodim bo'yicha sof savdo (bonusli / boshqa) va bonus summasi."""
+    """Xodim bo'yicha savdo, vozvrat, sof savdo — Asosiy / Alohida ustunlari bilan."""
     from core.timeutils import to_local
-    from services import staff_bonus
+    from services import staff_split
 
     bd = _business_day(db, current_user)
     start, end = _period_range(period, None, None, date_from, date_to, today=bd.today())
     tid = resolve_tenant_id(db, current_user)
 
-    cfg  = staff_bonus.get_config(db, tid)
-    cats = staff_bonus.tenant_categories(db, tid) if tid is not None else []
+    sel_ids = staff_split.get_category_ids(db, tid)
+    cats = staff_split.tenant_categories(db, tid) if tid is not None else []
     cat_names = {c.id: c.name for c in cats}
-    all_bonus = not cfg["category_ids"]
-    bonus_cats = staff_bonus.expand_with_children(cfg["category_ids"], cats)
+    sep_cats = staff_split.expand_with_children(sel_ids, cats)
 
-    def is_bonus(cat_id) -> bool:
-        return all_bonus or (cat_id in bonus_cats)
+    def is_sep(cat_id) -> bool:
+        return cat_id in sep_cats
 
     sellers: dict = {}
 
@@ -974,17 +977,17 @@ async def get_staff_sales(
         s = sellers.get(sid)
         if s is None:
             s = sellers[sid] = {
-                "orders": set(), "sales_bonus": 0.0, "sales_other": 0.0,
-                "returns_bonus": 0.0, "returns_other": 0.0, "returns_count": set(),
+                "orders": set(), "sales_main": 0.0, "sales_sep": 0.0,
+                "returns_main": 0.0, "returns_sep": 0.0, "returns_count": set(),
                 "days": {},
             }
         return s
 
-    def day_add(s, day, amount, bonus):
-        d = s["days"].setdefault(day, {"net": 0.0, "bonus_net": 0.0})
+    def day_add(s, day, amount, sep):
+        d = s["days"].setdefault(day, {"net": 0.0, "separate_net": 0.0})
         d["net"] += amount
-        if bonus:
-            d["bonus_net"] += amount
+        if sep:
+            d["separate_net"] += amount
 
     # ── Sotuv — chek × kategoriya kesimida (kun Python'da: bd.day_of) ────────
     rows = (
@@ -1004,9 +1007,9 @@ async def get_staff_sales(
     for r in rows:
         s = bucket(r.seller_id)
         amt = float(r.revenue or 0)
-        b = is_bonus(r.category_id)
+        b = is_sep(r.category_id)
         s["orders"].add(r.order_id)
-        s["sales_bonus" if b else "sales_other"] += amt
+        s["sales_sep" if b else "sales_main"] += amt
         day = bd.day_of(r.created_at, r.shift_id)
         day_add(s, day.isoformat() if day else None, amt, b)
 
@@ -1034,8 +1037,8 @@ async def get_staff_sales(
     for r in rq.all():
         s = bucket(r.seller_id)
         amt = float(r.revenue or 0)
-        b = is_bonus(r.category_id)
-        s["returns_bonus" if b else "returns_other"] += amt
+        b = is_sep(r.category_id)
+        s["returns_sep" if b else "returns_main"] += amt
         s["returns_count"].add(r.return_id)
         day_add(s, to_local(r.dt).date().isoformat() if r.dt else None, -amt, b)
 
@@ -1044,20 +1047,17 @@ async def get_staff_sales(
     users = db.query(User.id, User.full_name, User.username).filter(User.id.in_(ids)).all() if ids else []
     names = {u.id: (u.full_name or u.username or f"#{u.id}") for u in users}
 
-    rate = cfg["rate_per_million"]
     items = []
-    tot = {"sales": 0.0, "returns": 0.0, "bonus_net": 0.0, "other_net": 0.0, "bonus": 0.0}
+    tot = {"sales": 0.0, "returns": 0.0, "main_net": 0.0, "separate_net": 0.0}
     for sid, s in sellers.items():
-        sales   = s["sales_bonus"] + s["sales_other"]
-        returns = s["returns_bonus"] + s["returns_other"]
-        bonus_net = s["sales_bonus"] - s["returns_bonus"]
-        other_net = s["sales_other"] - s["returns_other"]
-        bonus = staff_bonus.bonus_amount(bonus_net, rate)
+        sales   = s["sales_main"] + s["sales_sep"]
+        returns = s["returns_main"] + s["returns_sep"]
+        main_net = s["sales_main"] - s["returns_main"]
+        sep_net  = s["sales_sep"]  - s["returns_sep"]
         tot["sales"] += sales
         tot["returns"] += returns
-        tot["bonus_net"] += bonus_net
-        tot["other_net"] += other_net
-        tot["bonus"] += round(bonus, 0)     # jami = ko'rsatilgan qatorlar yig'indisi
+        tot["main_net"] += main_net
+        tot["separate_net"] += sep_net
         items.append({
             "seller_id":     sid,
             "name":          names.get(sid, _NO_SELLER) if sid is not None else _NO_SELLER,
@@ -1066,11 +1066,10 @@ async def get_staff_sales(
             "sales":         round(sales, 0),
             "returns":       round(returns, 0),
             "net":           round(sales - returns, 0),
-            "bonus_net":     round(bonus_net, 0),
-            "other_net":     round(other_net, 0),
-            "bonus":         round(bonus, 0),
+            "main_net":      round(main_net, 0),
+            "separate_net":  round(sep_net, 0),
             "days": [
-                {"date": d, "net": round(v["net"], 0), "bonus_net": round(v["bonus_net"], 0)}
+                {"date": d, "net": round(v["net"], 0), "separate_net": round(v["separate_net"], 0)}
                 for d, v in sorted(s["days"].items(), key=lambda kv: kv[0] or "")
             ],
         })
@@ -1079,20 +1078,18 @@ async def get_staff_sales(
     return {
         "period": {"from": start.isoformat(), "to": end.isoformat()},
         "config": {
-            "all_bonus":        all_bonus,
-            "category_ids":     cfg["category_ids"],
-            "categories":       [{"id": c, "name": cat_names.get(c, f"#{c}")} for c in cfg["category_ids"]],
-            "rate_per_million": rate,
+            "split":        bool(sel_ids),     # False → "Alohida" ustuni bo'sh, UI yashiradi
+            "category_ids": sel_ids,
+            "categories":   [{"id": c, "name": cat_names.get(c, f"#{c}")} for c in sel_ids],
         },
         "items": items,
         "totals": {
-            "sales":     round(tot["sales"], 0),
-            "returns":   round(tot["returns"], 0),
+            "sales":        round(tot["sales"], 0),
+            "returns":      round(tot["returns"], 0),
             # = `/profit/summary` revenue (mahsulot asosli do'konlarda)
-            "net":       round(tot["sales"] - tot["returns"], 0),
-            "bonus_net": round(tot["bonus_net"], 0),
-            "other_net": round(tot["other_net"], 0),
-            "bonus":     tot["bonus"],
+            "net":          round(tot["sales"] - tot["returns"], 0),
+            "main_net":     round(tot["main_net"], 0),
+            "separate_net": round(tot["separate_net"], 0),
         },
     }
 

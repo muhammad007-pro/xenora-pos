@@ -1,12 +1,13 @@
-"""XODIM BO'YICHA SAVDO VA BONUS — `/profit/staff-sales` + `/settings/staff-bonus`.
+"""XODIM BO'YICHA SAVDO — `/profit/staff-sales` + `/settings/staff-split`.
 
-MANHATTAN (2026-10): bonus har 1 mln sof savdoga 50 000, faqat bonusli
-kategoriyalardan (kiyim ha, atir yo'q). Qulflanadigan qoidalar:
+MANHATTAN (2026-10): egasi kiyim savdosini xodim bo'yicha ALOHIDA ko'radi
+(hisob-kitobni o'zi qiladi). Qulflanadigan qoidalar:
 
   • sotuvchi — `Order.waiter_id` (to'lovni olgan kassir EMAS)
   • qator sof tushumi — `_REVENUE_EXPR` (chegirma proporsional)
   • vozvrat QAYTARILGAN kunda, o'sha tovarni SOTGAN xodimdan ayiriladi
-  • sozlama bo'sh → hammasi bonusli; ichki kategoriya ham bonusli
+  • tanlangan kategoriya (+ ichki) → "Alohida", qolgani → "Asosiy";
+    sozlama bo'sh → hammasi "Asosiy"
   • Σ xodimlar sof savdosi = `/profit/summary` revenue (GOLDEN)
   • `/analytics/cashier-report` o'zgarmagan (Payment.cashier_id bo'yicha)
 
@@ -36,8 +37,8 @@ from models import (
     Product, Return, ReturnItem, Role, User,
 )
 
-ADMIN_PW,  ADMIN_PHONE  = "AdminBonus8", "+998900000081"
-KASSIR_PW, KASSIR_PHONE = "KassirBon8",  "+998900000082"
+ADMIN_PW,  ADMIN_PHONE  = "AdminXodim8", "+998900000081"
+KASSIR_PW, KASSIR_PHONE = "KassirXod8",  "+998900000082"
 
 NOW = tenant_now()
 YESTERDAY = NOW - timedelta(days=1)
@@ -207,9 +208,8 @@ def _row(d, seller_id):
     return rows[0]
 
 
-def _set_bonus(client, hdr, ids, rate=50_000):
-    r = client.patch("/api/v1/settings/staff-bonus", headers=hdr,
-                     json={"category_ids": ids, "rate_per_million": rate})
+def _set_split(client, hdr, ids):
+    r = client.patch("/api/v1/settings/staff-split", headers=hdr, json={"category_ids": ids})
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -274,7 +274,6 @@ def test_vozvrat_qaytarilgan_kunda_sotgan_xodimdan_ayriladi(client, shop):
     today = _row(_report(client, hdr), shop["ali"])
     assert today["sales"] == 200_000 and today["returns"] == 500_000
     assert today["net"] == -300_000 and today["returns_count"] == 1
-    assert today["bonus"] == 0                                # manfiy baza → 0
 
     yd = YESTERDAY.date().isoformat()
     kecha = _row(_report(client, hdr, date_from=yd, date_to=yd), shop["ali"])
@@ -292,50 +291,52 @@ def test_tasdiqlanmagan_vozvrat_ayrilmaydi(client, shop):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3) BONUSLI / BOSHQA
+# 3) ASOSIY / ALOHIDA
 # ══════════════════════════════════════════════════════════════════════════════
 
-def test_sozlama_bosh_bolsa_hammasi_bonusli(client, shop):
+def test_sozlama_bosh_bolsa_hammasi_asosiy(client, shop):
     _sale(shop, shop["ali"], [(shop["shim"], 1, 500_000.0), (shop["parf"], 1, 300_000.0),
                               (shop["nocat"], 2, 1_000.0)])
     hdr = _login(client, ADMIN_PHONE, ADMIN_PW)
 
     d = _report(client, hdr)
-    assert d["config"]["all_bonus"] is True and d["config"]["rate_per_million"] == 50_000
+    assert d["config"]["split"] is False and d["config"]["categories"] == []
     ali = _row(d, shop["ali"])
-    assert ali["bonus_net"] == 802_000 and ali["other_net"] == 0
-    assert ali["bonus"] == round(802_000 * 0.05)
+    assert ali["main_net"] == 802_000 and ali["separate_net"] == 0
 
 
-def test_bonusli_va_boshqa_ajratiladi_ichki_kategoriya_bilan(client, shop):
-    """KIYIM tanlandi → KO'YLAK (ichki) ham bonusli; ATIR va kategoriyasiz — boshqa.
+def test_alohida_ajratiladi_ichki_kategoriya_bilan(client, shop):
+    """KIYIM tanlandi → KO'YLAK (ichki) ham alohida; ATIR va kategoriyasiz — asosiy.
     Chegirma qatorlarga proporsional: 1 000 000 subtotal, 100 000 chegirma (10%)."""
     hdr = _login(client, ADMIN_PHONE, ADMIN_PW)
-    _set_bonus(client, hdr, [shop["kiyim"]])
+    _set_split(client, hdr, [shop["kiyim"]])
     _sale(shop, shop["ali"], [(shop["shim"], 1, 500_000.0), (shop["kyl"], 1, 200_000.0),
-                              (shop["parf"], 1, 300_000.0)], discount=100_000.0)
+                              (shop["parf"], 1, 300_000.0), (shop["nocat"], 1, 1_000.0)],
+          discount=100_100.0)
 
     d = _report(client, hdr)
     ali = _row(d, shop["ali"])
-    assert ali["bonus_net"] == 630_000          # (500k+200k) × 0.9
-    assert ali["other_net"] == 270_000          # 300k × 0.9
-    assert ali["bonus"] == 31_500               # 630 000 × 50 000 / 1 000 000
-    assert d["config"]["all_bonus"] is False
+    assert ali["separate_net"] == 630_000       # (500k+200k) × 0.9
+    assert ali["main_net"] == 270_900           # (300k+1k) × 0.9
+    assert d["config"]["split"] is True
     assert d["config"]["categories"] == [{"id": shop["kiyim"], "name": "KIYIM"}]
+    day = _row(d, shop["ali"])["days"][0]
+    assert day["net"] == 900_900 and day["separate_net"] == 630_000
 
 
-def test_bonus_stavkasi_va_vozvrat_kategoriyasi(client, shop):
-    """2 mln kiyim sotuvi, 0.5 mln kiyim vozvrati, atir vozvrati boshqadan ayriladi."""
+def test_vozvrat_oz_ustunidan_ayriladi(client, shop):
+    """Kiyim vozvrati Alohidadan, atir vozvrati Asosiydan ayriladi."""
     hdr = _login(client, ADMIN_PHONE, ADMIN_PW)
-    _set_bonus(client, hdr, [shop["kiyim"]], rate=50_000)
+    _set_split(client, hdr, [shop["kiyim"]])
     oid = _sale(shop, shop["vali"], [(shop["shim"], 4, 500_000.0), (shop["parf"], 1, 300_000.0)])
     _ret(shop, oid, shop["shim"], 1, 500_000.0)
     _ret(shop, oid, shop["parf"], 1, 300_000.0)
 
     v = _row(_report(client, hdr), shop["vali"])
-    assert v["bonus_net"] == 1_500_000 and v["other_net"] == 0
-    assert v["bonus"] == 75_000
+    assert v["separate_net"] == 1_500_000 and v["main_net"] == 0
     assert v["returns"] == 800_000 and v["returns_count"] == 2
+    assert set(v) == {"seller_id", "name", "orders_count", "returns_count", "sales",
+                      "returns", "net", "main_net", "separate_net", "days"}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -345,7 +346,7 @@ def test_bonus_stavkasi_va_vozvrat_kategoriyasi(client, shop):
 @pytest.mark.parametrize("period", ["today", "week", "month"])
 def test_jami_profit_summary_bilan_teng(client, shop, period):
     hdr = _login(client, ADMIN_PHONE, ADMIN_PW)
-    _set_bonus(client, hdr, [shop["kiyim"]])
+    _set_split(client, hdr, [shop["kiyim"]])
     o1 = _sale(shop, shop["ali"], [(shop["shim"], 1, 500_000.0), (shop["parf"], 1, 300_000.0)],
                discount=33_333.0, when=YESTERDAY)
     _sale(shop, shop["vali"], [(shop["kyl"], 3, 200_000.0)], discount=1_234.0)
@@ -356,7 +357,7 @@ def test_jami_profit_summary_bilan_teng(client, shop, period):
     s = client.get(f"/api/v1/profit/summary?period={period}", headers=hdr).json()
     assert d["totals"]["net"] == s["revenue"], (d["totals"], s)
     assert d["totals"]["returns"] == s["returns"]
-    assert abs(d["totals"]["bonus_net"] + d["totals"]["other_net"] - d["totals"]["net"]) <= 1
+    assert abs(d["totals"]["main_net"] + d["totals"]["separate_net"] - d["totals"]["net"]) <= 1
     assert sum(i["net"] for i in d["items"]) == pytest.approx(d["totals"]["net"], abs=len(d["items"]))
     assert any(i["seller_id"] is None and i["name"] == "Belgilanmagan" for i in d["items"])
 
@@ -367,32 +368,31 @@ def test_jami_profit_summary_bilan_teng(client, shop, period):
 
 def test_sozlama_saqlanadi_va_oqiladi(client, shop):
     hdr = _login(client, ADMIN_PHONE, ADMIN_PW)
-    g = client.get("/api/v1/settings/staff-bonus", headers=hdr).json()
-    assert g["category_ids"] == [] and g["all_bonus"] is True and g["rate_per_million"] == 50_000
+    g = client.get("/api/v1/settings/staff-split", headers=hdr).json()
+    assert g["category_ids"] == []
     names = {c["name"] for c in g["categories"]}
     assert names == {"KIYIM", "ATIR", "KO'YLAK"}                    # begona do'kon YO'Q
 
-    _set_bonus(client, hdr, [shop["kiyim"], shop["kiyim"]], rate=40_000)
-    g = client.get("/api/v1/settings/staff-bonus", headers=hdr).json()
-    assert g["category_ids"] == [shop["kiyim"]] and g["rate_per_million"] == 40_000
+    _set_split(client, hdr, [shop["kiyim"], shop["kiyim"]])
+    g = client.get("/api/v1/settings/staff-split", headers=hdr).json()
+    assert g["category_ids"] == [shop["kiyim"]]
 
-    _set_bonus(client, hdr, [])                                     # tozalash → hammasi bonusli
-    assert client.get("/api/v1/settings/staff-bonus", headers=hdr).json()["all_bonus"] is True
+    _set_split(client, hdr, [])                                     # tozalash → ajratish yo'q
+    assert client.get("/api/v1/settings/staff-split", headers=hdr).json()["category_ids"] == []
 
 
-def test_begona_kategoriya_va_notogri_stavka_rad_etiladi(client, shop):
+def test_begona_va_notogri_kategoriya_rad_etiladi(client, shop):
     hdr = _login(client, ADMIN_PHONE, ADMIN_PW)
-    r = client.patch("/api/v1/settings/staff-bonus", headers=hdr,
+    r = client.patch("/api/v1/settings/staff-split", headers=hdr,
                      json={"category_ids": [shop["begona_cat"]]})
     assert r.status_code == 400
-    r = client.patch("/api/v1/settings/staff-bonus", headers=hdr,
-                     json={"category_ids": [], "rate_per_million": -1})
+    r = client.patch("/api/v1/settings/staff-split", headers=hdr, json={"category_ids": "abc"})
     assert r.status_code == 400
 
 
 def test_moliyasiz_xodim_403(client, shop):
     hdr = _login(client, KASSIR_PHONE, KASSIR_PW)
     assert client.get("/api/v1/profit/staff-sales?period=today", headers=hdr).status_code == 403
-    assert client.get("/api/v1/settings/staff-bonus", headers=hdr).status_code == 403
-    assert client.patch("/api/v1/settings/staff-bonus", headers=hdr,
+    assert client.get("/api/v1/settings/staff-split", headers=hdr).status_code == 403
+    assert client.patch("/api/v1/settings/staff-split", headers=hdr,
                         json={"category_ids": []}).status_code == 403

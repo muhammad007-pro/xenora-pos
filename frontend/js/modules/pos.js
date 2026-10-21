@@ -8,7 +8,7 @@ import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
 import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow,
-         qtyPriceLabel, unitPriceOf,
+         qtyPriceLabel, unitPriceOf, negotiatedLines, subtotalLabel,
          packKind, packSizeLabel, fmtPackQty, unitChoiceLabel } from '../core/receipt-print.js';
 import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
 import { createPrintConfig, showPrintConfigAlert } from '../core/print-config.js';
@@ -2712,6 +2712,13 @@ function _rcptDiscountLabel() {
 function renderReceiptData(rec) {
   const t    = computeTotals();
   const body = document.getElementById('receiptBody');
+  // KELISHILGAN NARX: narx savatda tushirilgan bo'lsa qator o'ngida kelishilgan
+  // summa ("1 x 245,000   220,000"), pastda faqat QOLGAN chegirma. Qoida
+  // server qayta chop etishi bilan BIR XIL (receipt-print.js negotiatedLines ↔
+  // routers/returns.py receipt_line_totals). null → chek avvalgidek.
+  const _ng = rec.items ? null : negotiatedLines(state.cart, t.totalDisc);
+  const _discAll   = rec.discount_amount || (t.disc + t.editDisc);
+  const _discShown = _ng ? _ng.other_discount : _discAll;
   body.innerHTML = `
     <div class="receipt-center">
       <h4>${rec.cafe_name || 'XENORA'}</h4>
@@ -2725,7 +2732,7 @@ function renderReceiptData(rec) {
     <table class="receipt-table">
       <thead><tr><th>Mahsulot</th><th>Soni</th><th>Narxi</th></tr></thead>
       <tbody>
-        ${(rec.items || state.cart).map(i => {
+        ${(rec.items || state.cart).map((i, idx) => {
           if (isGiftItem(i)) return giftRow(i.name || i.product_name || '', i.quantity || i.qty);   // FAZA 3b
           const d   = MODE.isPharmacy ? (i._dosage || i.dosage || '') : '';
           const m   = MODE.isService  ? (i._master?.name || '') : '';
@@ -2751,7 +2758,7 @@ function renderReceiptData(rec) {
           // effPrice 0 bersa (server reprint ma'lumotida `price` yo'q) — eski
           // yo'l: `unitPriceOf` jami/miqdordan hisoblaydi.
           const qv   = i.quantity || i.qty;
-          const line = i.total || (effPrice(i) * qv);
+          const line = _ng ? _ng.lines[idx] : (i.total || (effPrice(i) * qv));
           const unit = effPrice(i) || unitPriceOf(i, line, qv);
           const qtyTxt = qtyPriceLabel(qv, unit, fmtNum);
           return `<tr><td>${i.name||i.product_name||''}${sub?`<br><small style="font-size:.65rem;color:#9a9ab8">${sub}</small>`:''}</td><td>${qtyTxt}</td>
@@ -2760,13 +2767,13 @@ function renderReceiptData(rec) {
       </tbody>
     </table>
     <div class="receipt-totals">
-      <div class="rt-row"><span>Jami:</span><span>${fmtNum(rec.subtotal||t.sub)}</span></div>
+      <div class="rt-row"><span>${subtotalLabel(_ng ? true : _discAll > 0)}</span><span>${fmtNum(_ng ? _ng.subtotal : (rec.subtotal||t.sub))}</span></div>
       ${/* Chegirma qatori O'ZGARMADI - narx kelishuvi shu yerda ko'rinadi va mijoz
             "qancha tushdi" ni shundan biladi. Server qaytargan discount_amount
             kelishuvni ham o'z ichiga oladi (u chegirma kanalidan ketgan); server
             javobi bo'lmagan LOKAL/OFFLINE chekda esa t.disc + t.editDisc.
             Chek renderer'iga (USB/SumatraPDF, LAN/ESC-POS) TEGILMADI. */''}
-      ${(rec.discount_amount||(t.disc+t.editDisc))>0 ? `<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(rec.discount_amount||(t.disc+t.editDisc))}</span></div>` : ''}
+      ${_discShown>0 ? `<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(_discShown)}</span></div>` : ''}
       ${(rec.tax_amount||t.tax)>0?`<div class="rt-row"><span>Soliq (12%):</span><span>${fmtNum(rec.tax_amount||t.tax)}</span></div>`:''}
       ${(rec.service_amount||t.service)>0?`<div class="rt-row"><span>Xizmat (10%):</span><span>${fmtNum(rec.service_amount||t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(rec.final_amount||t.total)} UZS</span></div>
@@ -2934,7 +2941,7 @@ async function showSalesDetail(id) {
     if (!rec) { det.innerHTML = '<div style="color:var(--danger);padding:1rem">Chek topilmadi</div>'; return; }
     const rows = (rec.items || []).map(it =>
       `<tr><td style="padding:2px 0">${_shEsc(it.name || '')}</td><td style="text-align:center">${_shEsc(it.quantity)}</td>
-       <td style="text-align:right">${fmtNum(it.total)}</td></tr>`).join('');
+       <td style="text-align:right">${fmtNum(it.line_total != null ? it.line_total : it.total)}</td></tr>`).join('');
     const pay = (rec.payment_methods || []).map(p => _shPay[p.method] || p.method).join(', ') || '—';
     det.innerHTML =
       `<button data-sh-back="1" style="background:var(--bg3);border:1px solid var(--border2);border-radius:.4rem;padding:.35rem .6rem;cursor:pointer;color:var(--text);font-size:.8rem;margin-bottom:.6rem">← Orqaga</button>

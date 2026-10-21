@@ -11,6 +11,8 @@ Endpointlar:
   POST /returns/{id}/reject   — rad etish
 """
 
+import math
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, case
@@ -226,15 +228,133 @@ def net_line_totals(order, items) -> dict:
     return net
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# CHEKDAGI KELISHILGAN NARX (2026-10, MANHATTAN) — `biz_meta['cart']` snapshot
+#
+# Kassir savatda qator narxini tushirsa (245 000 → 220 000), bu tushirish
+# serverga UMUMIY chegirma (`Order.discount_amount`) bo'lib boradi —
+# `OrderItem` da qatorning kelishilgan narxi YO'Q. Lekin POS har sotuvda
+# savatcha snapshot'ini yuboradi (`cart_snapshot` → `biz_meta['cart']`,
+# order_service), unda har qatorning katalog (`price`) va kelishilgan
+# (`_priceNew`) narxi bor. Chek va vozvrat shundan oladi:
+#     qator = (_priceNew yoki price) × qty    — butun so'mga yaxlitlangan
+# Og'irlik qatorida savat `price` = qator jami, `qty` = 1 — formula bir xil.
+#
+# ⚠️ HISOBOTLAR BUNGA TEGMAYDI — ular ulush qoidasida (`net_line_totals`,
+#    `utils/revenue.net_revenue_expr`) qoladi. Bu faqat CHEK ko'rinishi va
+#    mijozga QAYTARILADIGAN pul uchun (mijoz chekka qaraydi).
+#
+# ZAXIRA (None → chek va vozvrat AVVALGIDEK): snapshot yo'q (eski chek),
+# qatorlar soni/mahsuloti mos emas, snapshot qatori `total_price` dan farq
+# qiladi (>1 so'm), kelishuvlar yig'indisi `discount_amount` dan katta, yoki
+# narx umuman TUSHIRILMAGAN (chegirmasiz va faqat umumiy % chegirmali cheklar
+# o'zgarishsiz — GOLDEN).
+#
+# JS nusxasi: frontend/js/core/receipt-print.js `negotiatedLines` (jonli POS
+# cheki savatdan) — ikkalasining mosligi testda qulflangan.
+# ═══════════════════════════════════════════════════════════════════════════
+_SNAP_EPS = 1.0   # so'm: og'irlik qatori 2 xonaga yaxlitlanadi, snapshot esa yo'q
+
+
+def _round_som(x: float) -> float:
+    """Butun so'mga, yarmi YUQORIGA (JS `Math.round` bilan bir xil, banker's emas)."""
+    return float(math.floor(x + 0.5))
+
+
+def receipt_line_totals(order, items):
+    """Chekdagi qatorlar kelishilgan narx bilan, yoki None (zaxira yo'l).
+
+    Qaytaradi: {"lines": {order_item_id: so'm}, "subtotal": Σ qatorlar,
+                "other_discount": qolgan chegirma (qo'lda %/mijoz/aksiya),
+                "negotiated": kelishuvlar yig'indisi}
+    Kafolat: subtotal − other_discount = Σ total_price − discount_amount
+    (1 so'mdan kichik yaxlitlash qoldig'idan tashqari).
+    """
+    meta = getattr(order, "biz_meta", None) if order is not None else None
+    snap = meta.get("cart") if isinstance(meta, dict) else None
+    items = sorted(items or [], key=lambda oi: oi.id)
+    if not isinstance(snap, list) or not items or len(snap) != len(items):
+        return None
+
+    lines: dict = {}
+    neg = 0.0
+    sub = 0.0
+    for oi, s in zip(items, snap):
+        if not isinstance(s, dict):
+            return None
+        try:
+            pid = int(s.get("id"))
+            price = float(s.get("price"))
+            qty = float(s.get("qty"))
+            new = s.get("_priceNew")
+            new = None if new is None else float(new)
+        except (TypeError, ValueError):
+            return None
+        vals = (price, qty) if new is None else (price, qty, new)
+        if any(not math.isfinite(v) or v < 0 for v in vals) or pid != oi.product_id:
+            return None
+        unit = new if new is not None else price
+        total = float(oi.total_price or 0)
+        # Server qator summasi kelishuvGACHA (oshirilgan narx esa serverda ham bor)
+        if abs(max(price, unit) * qty - total) > _SNAP_EPS:
+            return None
+        if new is not None and new < price:
+            neg += (price - new) * qty
+        sub += total
+        lines[oi.id] = _round_som(unit * qty)
+
+    if neg < 0.5:                       # narx tushirilmagan — chek avvalgidek
+        return None
+    disc = max(float(getattr(order, "discount_amount", 0) or 0), 0.0)
+    if neg > disc + _SNAP_EPS:
+        return None
+    shown = sum(lines.values())
+    other = round(shown - (sub - disc), 2)
+    if other < -_SNAP_EPS:
+        return None
+    if other < 1.0:                     # yaxlitlash qoldig'i — "Chegirma" qatori chiqmaydi
+        other = 0.0
+    return {"lines": lines, "subtotal": shown, "other_discount": other,
+            "negotiated": round(neg, 2)}
+
+
+def refund_line_totals(order, items) -> dict:
+    """VOZVRAT uchun qatorning mijoz TO'LAGAN summasi.
+
+    Snapshot to'g'ri bo'lsa — chekda yozilgan summa (kelishilgan narx); ustiga
+    qo'shimcha chegirma (qo'lda %/aksiya) bo'lsa, u qatorlarga ULUSH bilan
+    bo'linadi va Σ qatorlar AYNAN `subtotal − chegirma` (to'langan pul).
+    Aks holda — `net_line_totals` (avvalgidek).
+    """
+    r = receipt_line_totals(order, items)
+    if r is None:
+        return net_line_totals(order, items)
+    base = {i: float(v) for i, v in r["lines"].items()}
+    shown = sum(base.values())
+    sub = sum(float(oi.total_price or 0) for oi in items)
+    disc = min(max(float(getattr(order, "discount_amount", 0) or 0), 0.0), sub)
+    target = round(sub - disc, 2)
+    if shown <= 0 or abs(shown - target) < 0.005:
+        return base
+    factor = target / shown
+    out = {i: round(t * factor, 2) for i, t in base.items()}
+    qoldiq = round(target - sum(out.values()), 2)
+    if qoldiq:
+        katta = max(base, key=lambda i: (base[i], -i))
+        out[katta] = round(out[katta] + qoldiq, 2)
+    return out
+
+
 def _net_totals_for(db: Session, order_items) -> dict:
     """Bir nechta sotuv qatori uchun chegirmali summa — har BUYURTMA o'zi bo'yicha
-    taqsimlanadi (taqsimlash uchun buyurtmaning BARCHA qatorlari kerak)."""
+    taqsimlanadi (taqsimlash uchun buyurtmaning BARCHA qatorlari kerak).
+    Kelishilgan narxli chekda — chekda yozilgan summa (`refund_line_totals`)."""
     order_ids = {oi.order_id for oi in order_items if oi.order_id}
     out: dict = {}
     for oid in order_ids:
         order = db.query(Order).filter(Order.id == oid).first()
         all_items = db.query(OrderItem).filter(OrderItem.order_id == oid).all()
-        out.update(net_line_totals(order, all_items))
+        out.update(refund_line_totals(order, all_items))
     return out
 
 
@@ -602,7 +722,8 @@ def lookup_order(
 
     items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
     qaytarilgan = _returned_qty_map(db, [oi.id for oi in items])
-    net = net_line_totals(order, items)
+    # Kelishilgan narxli chekda — chekda yozilgan summa (mijoz chekka qaraydi)
+    net = refund_line_totals(order, items)
 
     rows = []
     for oi in items:

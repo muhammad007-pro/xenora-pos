@@ -55,6 +55,14 @@ def _row(left: str, right: str, width: int) -> str:
     return f"{left}{' ' * space}{right}"
 
 
+def _sub_label(data) -> str:
+    """Chekda chegirma bo'lsa "Chegirmasiz:", aks holda "Jami:" (chegirmasiz chek o'zgarmaydi).
+    `had_discount` — kelishilgan narxli chekda qolgan chegirma 0 bo'lsa ham true."""
+    if data.get("had_discount") or (data.get("discount") or 0) > 0:
+        return "Chegirmasiz:"
+    return "Jami:"
+
+
 def _disc_label(data) -> str:
     """BOSQICH S3: chegirma yorlig'iga foiz (discount/subtotal'dan hosila).
 
@@ -152,7 +160,7 @@ def build_receipt(data: Dict[str, Any], width_mm: int = 80) -> bytes:
     d.text("-" * w + "\n")
 
     # ── Jami / soliq / chegirma ──
-    d.text(_row("Jami:", _money(data.get("subtotal")), w) + "\n")
+    d.text(_row(_sub_label(data), _money(data.get("subtotal")), w) + "\n")
     if (data.get("discount") or 0) > 0:
         d.text(_row(_disc_label(data), "-" + _money(data["discount"]), w) + "\n")
     if (data.get("tax") or 0) > 0:
@@ -254,7 +262,7 @@ def render_text(data: Dict[str, Any], width_mm: int = 80) -> str:
         left = f"  {qty} x {_money(unit)}" if unit else f"  {qty} dona"
         L.append(_row(left, _money(total), w))
     L.append("-" * w)
-    L.append(_row("Jami:", _money(data.get("subtotal")), w))
+    L.append(_row(_sub_label(data), _money(data.get("subtotal")), w))
     if (data.get("discount") or 0) > 0:
         L.append(_row(_disc_label(data), "-" + _money(data["discount"]), w))
     if (data.get("tax") or 0) > 0:

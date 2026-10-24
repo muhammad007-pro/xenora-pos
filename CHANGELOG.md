@@ -3,6 +3,20 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.7] — 2026-10-24 — Kech ochilgan smena, smenalar ro'yxati vaqti
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+kassa `.exe` lariga yangi build bilan (APK qurilmagan).
+
+### 🌙 Kech ochilgan smena (do'kon sozlamasi, standart O'CHIQ)
+* `tenant_settings.report_day.late_open = "HH:MM"` — shu vaqtdan keyin ochilgan smena
+  ertangi ish kuniga tegishli (smena rejimida). MANHATTAN: 22.10 23:57 da ochilgan smena,
+  24.10 00:02 dagi chek endi 23.10 ga tushadi
+* o'chiq bo'lsa hisobot xulqi o'zgarmaydi (BARAKA kabi 24/7 do'konlar)
+
+### 🕒 Smenalar ro'yxati
+* ochilish/yopilish vaqti va sana filtri Toshkent vaqtida (ilgari UTC ko'rinardi)
+
 ## [1.14.6] — 2026-10-24 — Og'irlik × miqdor, narx chegarasi
 
 **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;

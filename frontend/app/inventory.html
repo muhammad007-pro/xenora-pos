@@ -725,6 +725,9 @@ async function saveNewProduct() {
   // server qoldiqni rad etib, mahsulot qoldiqsiz yaratilib qolardi.
   const stockErr = stockQtyError(document.getElementById('npStock').value);
   if (stockErr) { showT(stockErr, 'error'); return; }
+  // Narx chegarasi (qty-guard.js): > 1 mlrd rad, 8+ raqam tasdiq — mahsulot yaratilmasdan OLDIN.
+  if (!guardPrice(document.getElementById('npPrice').value, 'Sotuv narxi')) return;
+  if (!guardPrice(document.getElementById('npCost').value, 'Tan narx')) return;
 
   const btn = document.getElementById('npSaveBtn');
   btn.disabled = true; btn.textContent = '...';

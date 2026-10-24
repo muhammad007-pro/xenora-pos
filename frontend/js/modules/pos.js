@@ -298,7 +298,7 @@ const state = {
 //     `unit_price_override` yuboriladi - server uni FAQAT katalogdan KATTA
 //     bo'lsa qabul qiladi (order_service), ya'ni client narxni o'zi uchun
 //     arzonlashtira olmaydi.
-const PRICE_MAX = 999999999;   // fat-finger himoyasi
+const PRICE_MAX = 1000000000;  // server bilan BIR chegara (schemas le=1e9, price_guard.py)
 
 // Hisob-kitob uchun AMALDAGI birlik narx. Oshirilgan bo'lsa - yangi narx
 // (server ham shuni ishlatadi), aks holda katalog narxi. Tushirish bu yerda
@@ -1132,6 +1132,32 @@ function _warnIfShort(product, weight, isPack) {
 // lineTotal — SUMMA REJIMIDA kassir tergan summa (15 000). Berilsa qator summasi
 // SHU bo'ladi (og'irlikdan qayta hisoblanmaydi: 0.566 × 26 500 = 14 999 —
 // 1 so'm yo'qolardi). Server uni og'irlik yaxlitlash oralig'ida tekshiradi.
+/**
+ * Savat qatorining SERVERGA ketadigan miqdori.
+ *
+ * Og'irlik/hajm qatori (`_weight`) — har doim `qty: 1` bilan yaratiladi, lekin
+ * savatdagi −/+ tugmalari unga ham ishlaydi ("1 kg lik 2 qadoq"). Ekrandagi summa
+ * `narx × qty` edi, serverga esa faqat `_weight` ketardi: jonli BARAKA chek #4094 —
+ * 2 × 1 kg = 140 000 to'langan, 70 000 va 1 kg yozilgan, ombordan 1 kg kam ayirilgan.
+ *
+ * Endi: quantity = JAMI og'irlik.
+ *   • qty = 1 → `_weight` AYNAN (avvalgi qiymat — oddiy sotuv o'zgarmaydi)
+ *   • summa rejimi → round3(summa × qty / narx): server `line_total` ni og'irlikning
+ *     ±0.0005 yaxlitlash oralig'ida tekshiradi; round3(w) × qty xatoni ikki
+ *     baravar qilib to'g'ri sotuvni 400 ga tushirardi
+ *   • aks holda → round3(_weight × qty)
+ */
+function _lineQty(i) {
+  if (i._weight == null) return i.qty;
+  const n = Number(i.qty) || 1;
+  if (n === 1) return i._weight;
+  const r3 = v => Math.round(v * 1000) / 1000;
+  if (i._lineTotal != null && i._priceNew == null && Number(i._unitPrice) > 0) {
+    return r3(i._lineTotal * n / Number(i._unitPrice));
+  }
+  return r3(i._weight * n);
+}
+
 function doAddToCart(product, modifiers, weight = null, unitMode = null, lineTotal = null) {
   const modKey   = modifiers.map(m => m.modifier_id).sort().join(',');
   const modDelta = modifiers.reduce((s, m) => s + (m.price_delta || 0), 0);
@@ -1427,7 +1453,7 @@ function _commitPrice(inp) {
   let err = null;
   if (!hasDigit || !Number.isFinite(n)) err = "Narx son bo'lishi kerak";
   else if (n < 0)                       err = "Narx manfiy bo'lmaydi";
-  else if (n > PRICE_MAX)               err = 'Narx juda katta';
+  else if (n > PRICE_MAX)               err = "Narx juda katta — shtrix-kod narx maydoniga tushib qolmadimi?";
 
   if (err) {
     toast(err, 'warning');
@@ -1436,6 +1462,18 @@ function _commitPrice(inp) {
     return;
   }
   if (n === cur) { inp.value = fmtNum(cur); return; }   // o'zgarmadi
+
+  // 8+ xonali butun son — bo'sh katakka skanerlangan EAN-8 bo'lishi mumkin
+  // (chegaradan o'tadi). To'smaymiz, so'raymiz. confirm() paytida focusout yana
+  // commit chaqirmasin — bayroq.
+  if (/^\d{8,}$/.test(String(Math.trunc(n)))) {
+    _priceCommitting = true;
+    let yes;
+    try {
+      yes = window.confirm(`"${raw}" — bu shtrix-kodga o'xshaydi (8+ xonali son).\n\nHaqiqatan ${fmtNum(n)} so'm kiritmoqchimisiz?`);
+    } finally { _priceCommitting = false; }
+    if (!yes) { inp.value = fmtNum(cur); return; }
+  }
 
   item._priceNew = (n === old) ? null : n;   // katalog narxiga qaytsa - tahrir olib tashlanadi
 
@@ -2168,7 +2206,7 @@ function isOfflineResult(res) {
 async function checkGiftPromos() {
   giftAccepted = [];
   try {
-    const cart = state.cart.map(i => ({ product_id: i.id, quantity: i._weight != null ? i._weight : i.qty }));
+    const cart = state.cart.map(i => ({ product_id: i.id, quantity: _lineQty(i) }));
     const res  = await api.post('/promotions/gift-suggestions', cart);
     const data = res && res.data;
     if (!data) return;
@@ -2262,9 +2300,9 @@ function buildOrderPayload() {
     courses_enabled: MODE.hasCourses && state.cart.some(i => i.course_number > 1),
     items          : state.cart.map(i => ({
       product_id    : i.id,
-      // Og'irlik mahsulot: qty = og'irlik (masalan, 0.35), price = umumiy summa
+      // Og'irlik mahsulot: quantity = JAMI og'irlik (porsiya × soni, `_lineQty`)
       // Oddiy mahsulot: qty = dona soni, price = dona narxi
-      quantity      : i._weight != null ? i._weight : i.qty,
+      quantity      : _lineQty(i),
       price         : i._weight != null ? i._unitPrice : i.price,
       // Narx kelishuvi - FAQAT OSHIRISH. Tushirish bu yerdan EMAS, chegirma
       // kanalidan (pastdagi discount_type/discount_value) ketadi. Server
@@ -2276,7 +2314,10 @@ function buildOrderPayload() {
         : null,
       // Summa rejimi: kassir tergan qator summasi (faqat shunday qatorda, narx
       // kelishuvisiz). Boshqa qatorlarda kalit UMUMAN yo'q — payload avvalgidek.
-      ...(i._lineTotal != null && i._priceNew == null ? { line_total: i._lineTotal } : {}),
+      // Porsiya soni > 1 bo'lsa — jami summa (quantity ham jami og'irlik).
+      ...(i._lineTotal != null && i._priceNew == null
+          ? { line_total: (Number(i.qty) || 1) === 1 ? i._lineTotal : roundMoney(i._lineTotal * Number(i.qty)) }
+          : {}),
       weight_unit   : i._unit     || null,
       unit_sold     : i._unitSold || null,   // BOSQICH B4: "pachka"|"dona"|null (server base_qty/narx hisoblaydi)
       course_number : MODE.hasCourses ? (i.course_number || 1) : 1,
@@ -2742,7 +2783,8 @@ function renderReceiptData(rec) {
             : '';
           const pk  = _rcptPackLabel(i);
           // #20 atir: ml sotuvi — "10 ml" (client: _weight; server: sale_unit=ml, unit_sold≠pachka)
-          const ml  = i._weight != null ? `${i._weight} ${i._unit || 'ml'}`
+          // qty > 1 (bir xil porsiya bir necha marta) — "1 kg × 2", aks holda summa bilan mos kelmasdi
+          const ml  = i._weight != null ? `${i._weight} ${i._unit || 'ml'}${(Number(i.qty) || 1) > 1 ? ` × ${i.qty}` : ''}`
                     : (i.sale_unit === 'ml' && i.unit_sold !== 'pachka' && (i.quantity || i.qty) ? `${i.quantity || i.qty} ml` : '');
           const sub = [pk ? `📦 ${pk}` : '', ml ? `🧴 ${ml}` : '', d, m ? `✂️ ${m}` : '', dur ? `⏱ ${dur}` : '', per].filter(Boolean).join(' · ');
           // "11 x 5,000" — miqdor × birlik narx (v1.8.7, mijoz talabi).

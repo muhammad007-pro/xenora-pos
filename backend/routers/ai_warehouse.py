@@ -36,6 +36,7 @@ from models import Category, Inventory, Product, StockMovement, User
 from routers.price_history import record_price_change, REASON_AI_WAREHOUSE
 from services import ai_warehouse as ai
 from services.quantity_guard import check_items
+from services.price_guard import check_item_prices
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,7 @@ async def confirm(
     if not body.items:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Mahsulot ro'yxati bo'sh.")
     check_items(body.items, "quantity")
+    check_item_prices(body.items, "unit_price", "sell_price")
 
     tenant_id = resolve_tenant_id(db, current_user)
     branch_id = getattr(current_user, "_active_branch_id", None)

@@ -322,6 +322,8 @@ async function saveRestock() {
   // Shtrix-kod miqdor maydoniga tushib qolsa (prodda 8 marta) — omborga yetmasin.
   const tooBig = stockQtyError(qty);
   if (tooBig) { toast(tooBig, 'error'); return; }
+  // Narx maydoniga shtrix-kod qo'shilsa (RIZQ 4,7 trln) — kiritilgan qiymatning O'ZI tekshiriladi.
+  if (!guardPrice(document.getElementById('rmUnitPrice').value, 'Tan narx')) return;
 
   const btn = document.getElementById('rmSaveBtn');
   btn.disabled = true; btn.textContent = 'Saqlanmoqda...';

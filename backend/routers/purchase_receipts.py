@@ -18,6 +18,7 @@ from schemas import (
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 from routers.price_history import record_price_change, REASON_RECEIPT
 from services.quantity_guard import check_items
+from services.price_guard import check_item_prices
 
 router = APIRouter()
 
@@ -101,7 +102,8 @@ async def create_receipt(
 ):
     """Yangi priyomka yaratish (draft holat — omborga kirmagunча)"""
     check_items(data.items, "quantity", "brak_qty")
-    supplier = apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
+    check_item_prices(data.items, "unit_price")   # tasdiqda mahsulot cost_price shundan
+    supplier =apply_tenant_filter(db.query(Supplier), Supplier, current_user) \
                    .filter(Supplier.id == data.supplier_id).first()
     if not supplier:
         raise HTTPException(status_code=404, detail="Firma topilmadi")

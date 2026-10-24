@@ -2711,6 +2711,14 @@ async function saveProduct() {
     payload.pack_size  = null;
   }
 
+  // NARX QO'RIQCHISI (qty-guard.js): skaner shtrix-kodni narx maydoniga QO'SHIB
+  // yuboradi ("12000" + "478…" = 1.2e17 — BARAKA "Ombor qiymati" 95,6 trln).
+  // > 1 mlrd → rad (server ham 400), 8+ raqam → tasdiq. Hech narsa yuborilmaydi.
+  for (const [k, label] of [['price', 'Narx'], ['cost_price', 'Tan narx'],
+                            ['wholesale_price', "Ko'tara narx"], ['pack_price', 'Pachka narxi']]) {
+    if (payload[k] != null && payload[k] !== '' && window.guardPrice && !window.guardPrice(payload[k], label)) return;
+  }
+
   // Kategoriya majburiy (backend category_id talab qiladi). Tanlanmagan bo'lsa —
   // "Umumiy" default kategoriya avtomatik ishlatiladi; yaratib bo'lmasa ochiq xato.
   if (allFields.includes('category') && !payload.category_id) {

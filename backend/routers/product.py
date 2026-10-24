@@ -18,6 +18,7 @@ from routers.price_history import record_price_change, REASON_MANUAL
 from core.audit import log_audit  # xodim harakatlarini yozish (audit)
 from core.barcode import gen_internal_barcode  # ichki EAN-13 (AI-Ombor bilan AYNI generator)
 from services.unit_converter import inventory_unit  # sotuv birligi → ombor birligi (pcs→dona)
+from services.price_guard import check_product_prices  # narx chegarasi (shtrix-kod narxga)
 from core.catalog import record_candidate, is_shareable_barcode  # umumiy katalog
 from core.rate_limit import WindowLimiter
 from core import product_images
@@ -143,6 +144,8 @@ async def create_product(
     current_user: User = Depends(has_permission("manage_menu"))
 ):
     """Yangi mahsulot yaratish"""
+    # Narx chegarasi — HECH NARSA YOZILMASDAN OLDIN (skaner shtrix-kodni narxga qo'shadi)
+    check_product_prices(product_data.model_dump())
     # Kategoriya tekshirish — FAQAT o'z do'koni ichida (bulk_set_category va
     # AI-ombor allaqachon shunday qiladi). Filtrsiz bo'lsa mahsulotni boshqa
     # do'konning kategoriyasiga biriktirib yuborish mumkin edi.
@@ -423,6 +426,7 @@ async def update_product(
 
     _old = {"price": product.price, "cost_price": product.cost_price, "name": product.name}
     update_data = product_data.model_dump(exclude_unset=True)
+    check_product_prices(update_data)   # narx tarixi/audit yozilishidan OLDIN
 
     new_price = update_data.get("price", product.price)
     new_cost  = update_data.get("cost_price", product.cost_price)

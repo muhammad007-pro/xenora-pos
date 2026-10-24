@@ -93,6 +93,9 @@ const SHARED_GLOBALS = {
   fmtNum: 'readonly',
   // frontend/js/core/qty-guard.js (classic) — xuddi shu `g.X = ...` naqshi.
   stockQtyError: 'readonly',
+  priceError: 'readonly',
+  guardPrice: 'readonly',
+  PRICE_MAX: 'readonly',
   looksLikeBarcode: 'readonly',
   confirmIfBarcode: 'readonly',
 };

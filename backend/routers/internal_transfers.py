@@ -17,6 +17,7 @@ from schemas import (
 )
 from deps import resolve_tenant_id, get_current_active_user, apply_tenant_filter, has_permission
 from services.quantity_guard import check_items
+from services.price_guard import check_item_prices
 
 from deps import require_feature  # funksiya-flag himoyasi (O'ZGARISH 3)
 router = APIRouter(dependencies=[Depends(require_feature("internal_transfer"))])
@@ -70,6 +71,7 @@ async def create_transfer(
     if not data.items:
         raise HTTPException(status_code=400, detail="Kamida 1 ta tovar kiritilsin")
     check_items(data.items, "quantity")
+    check_item_prices(data.items, "cost_price")
     if data.from_branch_id and data.to_branch_id and data.from_branch_id == data.to_branch_id:
         raise HTTPException(status_code=400, detail="Bir xil filiallar orasida ko'chirish mumkin emas")
 

@@ -764,7 +764,14 @@ async def print_z_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Z-hisobotni ESC/POS printerga chiqarish (z_report flagi talab qilinadi)."""
+    """Z-hisobotni SERVER ESC/POS printerga chiqarish (z_report flagi talab qilinadi).
+
+    ⚠️ UI bu endpointni ISHLATMAYDI (2026-10): server do'kon printeriga yeta
+    olmaydi, `mock` rejimda faylga yozib `printed: true` qaytarardi — kassir
+    "printerga yuborildi" ko'rib, chek chiqmasdi (MANHATTAN). Z-chek endi
+    lokal: /x-report + js/core/z-report.js + printReceiptDoc. Endpoint server
+    printeri (tarmoqdagi) bo'lgan holat uchun qoldirildi.
+    """
     _require_z_report(db, current_user)
 
     shift = apply_tenant_filter(db.query(Shift), Shift, current_user) \

@@ -100,6 +100,7 @@ const STATIC_ASSETS = [
     '/js/core/theme.js',
     '/js/core/theme-boot.js',      // har sahifa <head> da (tema chizishdan oldin)
     '/js/core/print-config.js',    // pos.js IMPORT qiladi — offline'da yo'q bo'lsa POS moduli yuklanmaydi
+    '/js/core/z-report.js',        // admin.html/shift.html classic <script> — Z-chek mazmuni
     '/styles/theme-light.css',
     '/js/core/features.js',
     '/js/core/sidebar.js',

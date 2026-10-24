@@ -11,13 +11,19 @@ MANHATTAN (2026-10): egasi kiyim savdosini xodim bo'yicha ALOHIDA ko'radi
   • Σ xodimlar sof savdosi = `/profit/summary` revenue (GOLDEN)
   • `/analytics/cashier-report` o'zgarmagan (Payment.cashier_id bo'yicha)
 
-Seed vaqti `tenant_now()` — sababi test_receipt_profit.py boshidagi izohda.
+⚠️ VAQT: mahalliy zona testda UTC ga qotiriladi (`_utc_local`), seed `utc_now()`.
+Endpoint ARALASH asosda: davr filtri — mahalliy devor vaqti chegarasi
+(`day_bounds`), kun ajratish — `bd.day_of` → `to_local()` (naive'ni UTC deb oladi).
+SQLite zonani tashlaydi, shuning uchun +5 zonada ikkalasiga birdan mos seed YO'Q:
+`tenant_now()` bilan Toshkent 19:00 dan keyin bugungi sotuv ertangi kunga o'tardi,
+`utc_now()` bilan 00:00–05:00 da "bugun" filtridan chiqib qolardi. Zona = UTC
+bo'lsa ikki asos bir xil. Qoida: docs/TESTING-TIME.md
 
 Ishga tushirish:  cd backend && py -m pytest tests/test_staff_sales.py -v
 """
 import os
 import sys
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -29,7 +35,7 @@ from sqlalchemy.pool import StaticPool
 
 import database
 from core.security import get_password_hash
-from core.timeutils import tenant_now
+import core.timeutils as tu
 from database import Base, get_db
 from main import app
 from models import (
@@ -40,8 +46,14 @@ from models import (
 ADMIN_PW,  ADMIN_PHONE  = "AdminXodim8", "+998900000081"
 KASSIR_PW, KASSIR_PHONE = "KassirXod8",  "+998900000082"
 
-NOW = tenant_now()
+NOW = tu.utc_now()
 YESTERDAY = NOW - timedelta(days=1)
+
+
+@pytest.fixture(autouse=True)
+def _utc_local(monkeypatch):
+    """Mahalliy zona = UTC (yuqoridagi izoh): `NOW.date()` == hisobot "bugun"i."""
+    monkeypatch.setattr(tu, "_local_tz", lambda tz_name=None: timezone.utc)
 
 
 @pytest.fixture()

@@ -3,6 +3,18 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.8] — 2026-10-25 — Z-chek lokal printerga
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Faqat frontend (+ izoh) — kassa
+sahifasi `.exe` ichida, ya'ni tuzatish kassaga YANGI `.exe` bilan yetadi (APK qurilmagan).
+
+### 🖨️ Z-chek
+* kassa smena oynasi, admin yopish oynasi va smenalar ro'yxatidagi Z-chek endi kassa
+  printeriga chiqadi (oddiy chek kabi: printer nomi, usb/lan, IP, port, qog'oz kengligi).
+  Ilgari server yo'liga ketardi va chek chiqmasa ham "printerga yuborildi" derdi
+* printer javob bermasa aniq xato: "Z-chek chiqmadi: Printer javob bermayapti"
+* chek mazmuni o'zgarmagan (admin va kassa bitta manbadan — `js/core/z-report.js`)
+
 ## [1.14.7] — 2026-10-24 — Kech ochilgan smena, smenalar ro'yxati vaqti
 
 **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;

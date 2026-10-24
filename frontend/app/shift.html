@@ -207,6 +207,9 @@ body{font-family:'Inter',sans-serif;background:#070f1e;color:#e8eef5;min-height:
   </div>
 </div>
 
+<!-- Z-chek mazmuni (admin bilan umumiy) — fmtNum money.js dan -->
+<script src="../js/core/money.js"></script>
+<script src="../js/core/z-report.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';
@@ -497,23 +500,41 @@ async function showReport(shiftId) {
           <span>${s < 0 ? 'Kamomad' : s > 0 ? 'Ortiqcha' : 'Farq'}</span><span>${s ? fmt(Math.abs(s)) : 'Mos ✓'}</span></div>`; })()}
 
     ${topRows?`<div class="rep-section">Top mahsulotlar</div>${topRows}`:''}
-    <div style="margin-top:1rem;text-align:center">
+    ${_zReportAllowed() ? `<div style="margin-top:1rem;text-align:center">
       <button class="btn btn-gold" id="printZBtn">🖨 Z-chek chiqarish</button>
-    </div>`;
+    </div>` : ''}`;
 
   const pz = document.getElementById('printZBtn');
   if (pz) pz.onclick = () => printZ(shiftId, pz);
 }
 
-// ── Z-chek chiqarish (ESC/POS printer) ───────────────────────────────────────
+// z_report flagi (JWT features) — admin `hasFeature` bilan bir qoida. Ilgari
+// to'siq serverda edi (`/print-z` 403); lokal yo'lda tugma o'zi yashiriladi.
+function _zReportAllowed() {
+  try {
+    const p = JSON.parse(atob((token() || '').split('.')[1] || ''));
+    return !Array.isArray(p.features) || !p.features.length || p.features.includes('z_report');
+  } catch { return true; }
+}
+
+// ── Z-chek chiqarish (LOKAL printer) ─────────────────────────────────────────
+// Ilgari `/print-z` (server ESC/POS) edi: server do'kon printeriga yeta olmaydi,
+// `mock` rejimda faylga yozib "printerga yuborildi" derdi — chek chiqmasdi
+// (MANHATTAN, 2026-10). Endi oddiy cheklar kabi kassa printeriga; matn admin
+// bilan bir manbadan (js/core/z-report.js), ma'lumot /x-report (close bilan bir hisob).
+// "Chiqarildi" faqat Electron ok:true bersa (spool-guard: printer offline / 10s
+// da chiqmasa → ok:false "Printer javob bermayapti ...").
 async function printZ(shiftId, btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Chop etilmoqda...'; }
   try {
-    const res = await api.post(`/shifts/${shiftId}/print-z`);
-    if (res.printed) toast('Z-chek printerga yuborildi', 'success');
-    else if (res.printer?.reason === 'disabled') toast('Printer o\'chiq (sozlamalardan yoqing)', 'error');
-    else toast(res.detail || 'Z-chek chiqmadi', 'error');
-  } catch { toast('Z-chek chiqmadi', 'error'); }
+    const r = await api.get(`/shifts/${shiftId}/x-report`);
+    if (!r || r.shift_id == null) { toast(r?.detail || 'Z-chek ma\'lumoti olinmadi', 'error'); return; }
+    if (!window.printReceiptDoc) { toast('Print servis topilmadi', 'error'); return; }
+    const res = await window.printReceiptDoc(buildZReport58({ id: r.shift_id, ...r }),
+                                             { title: 'Z-hisobot #' + r.shift_id });
+    if (res && res.ok) { if (!res.browser) toast('Z-chek chiqarildi', 'success'); }
+    else toast('Z-chek chiqmadi: ' + ((res && res.error) || 'Printer javob bermayapti'), 'error');
+  } catch (e) { toast('Z-chek chiqmadi: ' + (e?.message || 'Printer javob bermayapti'), 'error'); }
   finally { if (btn) { btn.disabled = false; btn.textContent = '🖨 Z-chek chiqarish'; } }
 }
 
@@ -575,6 +596,28 @@ async function init() {
   await Promise.all([loadActive(), loadHistory()]);
 }
 init();
+</script>
+<!-- Z-chek LOKAL printerga — admin.html `printReceiptDoc` bilan bir xil o'ram:
+     printer nomi + print_type/IP/port + paper_width + shrift (js/core/print-config.js). -->
+<script type="module">
+import { printReceiptHTML } from '../js/core/receipt-print.js';
+import { createPrintConfig, showPrintConfigAlert } from '../js/core/print-config.js';
+
+const _printCfg = createPrintConfig({
+  fetchStatus:  () => api.get('/settings/printer/status'),
+  fetchReceipt: () => api.get('/receipt-settings/'),
+});
+_printCfg.load();
+const _isElectronPrint = () => !!(window.electronAPI && window.electronAPI.isElectron && window.electronAPI.printReceipt);
+
+window.printReceiptDoc = async (innerHTML, opts = {}) => {
+  const ok = await _printCfg.ensure();
+  if (!ok && _isElectronPrint()) {
+    showPrintConfigAlert(() => window.printReceiptDoc(innerHTML, opts));
+    return { ok: false, error: 'printer sozlamasi olinmadi' };
+  }
+  return printReceiptHTML(innerHTML, Object.assign(_printCfg.printOpts() || {}, opts));
+};
 </script>
 </body>
 </html>

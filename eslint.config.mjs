@@ -49,6 +49,7 @@ function classicBundleGlobals() {
   const files = [
     path.join(dir, 'core', 'money.js'),
     path.join(dir, 'core', 'product-photo.js'),
+    path.join(dir, 'core', 'z-report.js'),
     path.join(dir, 'ui', 'searchable-select.js'),
     ...fs.readdirSync(path.join(dir, 'admin'))
          .filter(f => f.endsWith('.js'))
@@ -133,6 +134,7 @@ export default [
     ignores: [
       'frontend/js/admin/**',
       'frontend/js/core/money.js',
+      'frontend/js/core/z-report.js',
       'frontend/js/core/help-content.js',
       'frontend/js/core/help-center.js',
       'frontend/js/ui/searchable-select.js',
@@ -150,6 +152,8 @@ export default [
     files: [
       'frontend/js/core/money.js',
       'frontend/js/ui/searchable-select.js',
+      // Z/X-hisobot chek mazmuni — admin.html va shift.html da classic <script src>
+      'frontend/js/core/z-report.js',
       // Yordam oynasi — pos.html/admin.html da classic <script src> (window.XenoraHelp)
       'frontend/js/core/help-content.js',
       'frontend/js/core/help-center.js',

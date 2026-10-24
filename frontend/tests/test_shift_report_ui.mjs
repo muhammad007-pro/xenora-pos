@@ -132,7 +132,7 @@ await browser.close();
 server.close();
 
 console.log('\n── 5) Admin ──');
-const SHIFT = rd('js/admin/shift.js');
+const SHIFT = rd('js/core/z-report.js');   // zMoneyBlocks shu yerga ko'chdi (kassa bilan umumiy)
 const zctx = { fmtNum: n => String(Math.round(n)) };
 vm.createContext(zctx);
 vm.runInContext(grab(SHIFT, /function zMoneyBlocks\(r, fmt\) \{[\s\S]*?\n}/, 'zMoneyBlocks'), zctx);

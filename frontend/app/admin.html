@@ -2060,8 +2060,8 @@
           </div>
           <div class="modal-footer">
             <button class="tb-btn" onclick="closeModal('shiftReceiptModal')">Yopish</button>
-            <button class="tb-btn" onclick="printShiftReceipt()">🖨 Chop etish</button>
-            <button class="tb-btn tb-btn-primary" id="shiftReceiptPrintZBtn">🖨 Z-chek (printer)</button>
+            <button class="tb-btn" id="shiftReceiptPrintBtn" onclick="printShiftReceipt()">🖨 Chop etish</button>
+            <button class="tb-btn tb-btn-primary" id="shiftReceiptPrintZBtn">🖨 Z-chek</button>
           </div>
         </div>
       </div>
@@ -3747,6 +3747,7 @@ window.__xenoraApi = new API();
 <script src="../js/admin/reports.js"></script>
 <script src="../js/admin/store.js"></script>
 <script src="../js/admin/modifiers.js"></script>
+<script src="../js/core/z-report.js"></script>
 <script src="../js/admin/shift.js"></script>
 <script src="../js/admin/food.js"></script>
 <script src="../js/admin/settings.js"></script>

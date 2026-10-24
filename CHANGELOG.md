@@ -3,6 +3,22 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.6] — 2026-10-24 — Og'irlik × miqdor, narx chegarasi
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+kassa `.exe` lariga yangi build bilan (APK qurilmagan).
+
+### ⚖️ Og'irlik sotuvi (chek #4094)
+* savatda og'irlik qatori −/+ bilan ko'paytirilsa (1 kg × 2) serverga **jami og'irlik** ketadi —
+  ilgari faqat 1 kg yozilib, summa va ombor kam chiqardi; summa rejimida jami summa
+* chekda "1 kg × 2" ko'rinadi
+
+### 🛡️ Narx chegarasi (shtrix-kod narx maydoniga tushsa)
+* server: narx/tan narx 1 000 000 000 so'mdan katta bo'lsa 400 — mahsulot, ombor kirimi,
+  priyomka, AI-ombor, spisaniye, ko'chirish (`services/price_guard.py`)
+* frontend: 1 mlrd dan katta → rad, 8+ xonali son → "shtrix-kodga o'xshaydi" tasdig'i —
+  admin mahsulot/kirim oynasi, ombor sahifasi, priyomka, POS narx kelishuvi
+
 ## [1.14.5] — 2026-10-21 — Chekda kelishilgan narx, Yordam bo'limi
 
 **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;

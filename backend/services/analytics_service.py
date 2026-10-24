@@ -40,14 +40,20 @@ class AnalyticsService:
         # (services/payment_service.py) — pul hali kelmagan.
         # Accrual (sotuv/foyda) tomoni butunlay boshqa manbada:
         # `utils/revenue.py` + `/analytics/store-dashboard`.
+        # Qoida `utils/cashflow.period_tenders` da (/reports/sales va
+        # /analytics/summary bilan bitta): sotuv o'z kunida, pul qaytarish
+        # qaytarilgan kunda ayiriladi → `sales_paid` = SOF kelgan pul.
+        from utils.cashflow import period_tenders
         payments_query = self.db.query(Payment).filter(
             bd.window(Payment.created_at, shift_of_payment(), start_date, end_date),
-            Payment.status == "paid"
         )
         if current_user is not None:
             payments_query = apply_tenant_filter(payments_query, Payment, current_user)
 
-        sales_paid = payments_query.with_entities(func.sum(Payment.amount)).scalar() or 0
+        tenders = period_tenders(self.db, current_user, payments_query, start_date, end_date, money_only=True)
+        sales_gross = sum(float(p.amount or 0) for p in tenders["sales"])
+        refunds = sum(r.amount for r in tenders["refunds"])
+        sales_paid = sales_gross - refunds
 
         # Nasiya qarzi to'lovlari — ilgari HECH QAYERDA ko'rinmasdi. Ular
         # `Payment` yozuvi yaratmaydi, ya'ni yuqoridagi so'rov ularni ko'rmaydi.
@@ -72,8 +78,9 @@ class AnalyticsService:
         total_customers = customers_query.count()
         
         # O'rtacha chek — FAQAT sotuv qismidan. Qarz to'lovi buyurtma emas,
-        # uni bo'linmaga qo'shsak o'rtacha chek soxta oshib ketardi.
-        average_check = float(sales_paid or 0) / completed_orders if completed_orders > 0 else 0
+        # uni bo'linmaga qo'shsak o'rtacha chek soxta oshib ketardi. Qaytarish
+        # ham kirmaydi (u boshqa kunning chekidan bo'lishi mumkin).
+        average_check = sales_gross / completed_orders if completed_orders > 0 else 0
 
         return {
             # Nomi orqaga moslik uchun saqlandi (frontend shu kalitni o'qiydi),
@@ -82,6 +89,7 @@ class AnalyticsService:
             "total_revenue": total_cash_in,
             "total_cash_in": total_cash_in,   # aniq nom — yangi kod shuni o'qisin
             "sales_paid": float(sales_paid or 0),
+            "refunds": refunds,               # shu davrda qaytarilgan pul (naqd+karta)
             "debt_payments": float(debt_paid or 0),
             "total_orders": total_orders,
             "total_customers": total_customers,

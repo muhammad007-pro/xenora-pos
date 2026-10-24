@@ -97,7 +97,10 @@ def seeded(db_session):
 
     D = tu.tenant_now().date() - timedelta(days=3)
     N = D + timedelta(days=1)
-    s_old = Shift(tenant_id=cafe.id, user_id=user.id, start_time=_at(D - timedelta(days=5), 10))
+    # `/shifts/open-alerts` O'TGAN SOATNI `utc_now()` dan hisoblaydi → seed ham
+    # shu asosda (kalendar "kun 10:00" UTC 10:00 gacha 7 kun berardi).
+    s_old = Shift(tenant_id=cafe.id, user_id=user.id,
+                  start_time=tu.utc_now() - timedelta(days=8, hours=1))
     s_day = Shift(tenant_id=cafe.id, user_id=user.id, start_time=_at(D, 9),
                   end_time=_at(N, 1, 30))
     s_next = Shift(tenant_id=cafe.id, user_id=user.id, start_time=_at(N, 10),
@@ -258,7 +261,7 @@ def test_uzoq_ochiq_smena_ogohlantirishi(db_session, seeded, client):
     h = _hdr(client)
     a = _get(client, h, "/shifts/open-alerts")["alerts"]
     assert [x["shift_id"] for x in a] == [seeded["s_old"]]
-    assert a[0]["days_open"] >= 8
+    assert a[0]["days_open"] == 8
     assert a[0]["message"] == f"Smena {a[0]['days_open']} kundan beri ochiq"
 
 

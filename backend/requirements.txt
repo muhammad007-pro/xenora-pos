@@ -36,6 +36,9 @@ aiofiles==23.2.1
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.25.2
+# freezegun 1.5.1 ga QADALGAN: tests/conftest.py FAKE_NOW rejimi FakeDatetime.now
+# ichki tuzilishini qo'lda almashtiradi (docs/TESTING-TIME.md) — boshqa versiyada buzilishi mumkin.
+freezegun==1.5.1
 
 # PDF va Excel generatsiya
 reportlab==4.0.7

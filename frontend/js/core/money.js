@@ -31,7 +31,16 @@
     });
   }
 
+  // MIQDOR (ombor qoldig'i, kg/l) — 3 xonagacha, oxiridagi nollarsiz:
+  // 8.665000000000001 → "8.665", 2.5 → "2.5", 3 → "3". Float qo'shish xatosi
+  // (0.265 + 8.4) ekranga uzun son bo'lib chiqmasin. Server ham 3 xonada saqlaydi.
+  function fmtQty(n) {
+    var v = Math.round((Number(n) || 0) * 1000) / 1000;
+    return String(v === 0 ? 0 : v);   // -0 → "0"
+  }
+
   g.fmtMoney = fmtMoney;
+  g.fmtQty = fmtQty;
   g.fmtNum = fmtMoney;          // POS/eski moslik
   g.parseMoney = parseMoney;
   g.attachMoneyInput = attachMoneyInput;

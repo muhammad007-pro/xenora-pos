@@ -89,6 +89,7 @@ const SHARED_GLOBALS = {
   // Avtomatik yig'uvchi ularni ko'rmaydi: IIFE ichida `g.fmtMoney = ...` shaklida
   // berilgan (`window.` emas), shuning uchun ATAYLAB shu yerda e'lon qilinadi.
   fmtMoney: 'readonly',
+  fmtQty: 'readonly',
   fmtNum: 'readonly',
   // frontend/js/core/qty-guard.js (classic) — xuddi shu `g.X = ...` naqshi.
   stockQtyError: 'readonly',
@@ -132,6 +133,8 @@ export default [
     ignores: [
       'frontend/js/admin/**',
       'frontend/js/core/money.js',
+      'frontend/js/core/help-content.js',
+      'frontend/js/core/help-center.js',
       'frontend/js/ui/searchable-select.js',
     ],
     languageOptions: {
@@ -144,7 +147,13 @@ export default [
 
   // ── CLASSIC skriptlar (<script src>, import/export YO'Q) ───────────────────
   {
-    files: ['frontend/js/core/money.js', 'frontend/js/ui/searchable-select.js'],
+    files: [
+      'frontend/js/core/money.js',
+      'frontend/js/ui/searchable-select.js',
+      // Yordam oynasi — pos.html/admin.html da classic <script src> (window.XenoraHelp)
+      'frontend/js/core/help-content.js',
+      'frontend/js/core/help-center.js',
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'script',

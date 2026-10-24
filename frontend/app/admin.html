@@ -426,6 +426,11 @@
         Sozlamalar
       </a>
     </nav>
+    <!-- Yordam — `data-page` YO'Q (SPA tutmaydi); js/core/help-center.js `data-help-open` ni ulaydi -->
+    <button type="button" class="sb-help" id="helpBtn" data-help-open title="Yordam — savol-javob">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" stroke="currentColor" stroke-width="1.8"/><path d="M9.3 9.2a2.8 2.8 0 015.4 1c0 1.9-2.7 2.4-2.7 4.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.1" fill="currentColor"/></svg>
+      Yordam
+    </button>
     <div class="sb-user">
       <div class="sb-avatar" id="sbAvatar">A</div>
       <div class="sb-user-info">
@@ -2279,7 +2284,7 @@
               </div>
             </div>
           </div>
-          <table>
+          <table class="inv-table">
             <thead>
               <tr>
                 <th>Mahsulot</th><th>Barkod</th><th>Qoldiq / Holat</th><th>Narx</th><th>Min / Max</th><th>Oxirgi kirim</th><th>Amallar</th>
@@ -3707,6 +3712,9 @@
 <script src="../js/core/qty-guard.js"></script>
 <script src="../js/core/product-photo.js"></script>
 <script src="../js/core/sales-history.js"></script>
+<!-- Yordam oynasi: matn (docs/help → build_help.py) + umumiy modul (pos.html bilan bir xil) -->
+<script src="../js/core/help-content.js"></script>
+<script src="../js/core/help-center.js"></script>
 <script type="module">
 import { AuthGuard }       from '../js/core/auth-guard.js';
 import { initErrorHandler } from '../js/core/error-handler.js';

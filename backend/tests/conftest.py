@@ -32,6 +32,56 @@ from sqlalchemy.pool import StaticPool
 from database import Base, get_db
 from main import app
 
+# SOAT MOCK'I — soatga bog'liq testlarni istalgan vaqtda sinash uchun:
+#     $env:FAKE_NOW = "2026-10-21T23:30:00+05:00"; py -m pytest tests/...
+# Butun sessiya shu paytdan boshlanadi (tick=True — vaqt oqadi, tartib saqlanadi).
+# Test modullaridagi `NOW = ...` konstantalari ham shu vaqtni oladi: ular
+# yig'ish (collection) paytida, ya'ni shu yerdan KEYIN hisoblanadi.
+# ⚠️ Ilova importidan KEYIN boshlanadi: oldin boshlansa pydantic `datetime`
+# vorislari FakeDatetime bilan to'qnashadi (metaclass conflict).
+# Naive `datetime.now()` = shu mashina zonasidagi devor vaqti (standart: mashina
+# ofseti, Toshkentda +5). Server (UTC) kabi sinash: $env:FAKE_TZ_OFFSET = "0".
+# `pip install freezegun` kerak (faqat shu rejimda). Qoida: docs/TESTING-TIME.md
+# ⚠️ freezegun'ning `tz_offset=` parametri ISHLATILMAYDI: u aware `now(tz)` ni
+# ham suradi (`utc_now()` 5 soat oldinda bo'lib qoladi) — faqat naive qismi
+# shu yerda qo'lda suriladi.
+if os.environ.get("FAKE_NOW"):
+    import time as _time
+    from datetime import timedelta as _td
+    import freezegun.api as _fz
+    from pydantic import BaseModel as _BM
+    _off = _td(hours=float(os.environ.get("FAKE_TZ_OFFSET", -_time.timezone / 3600)))
+    # Pydantic chala modellarni (forward ref) BIRINCHI chaqiruvda quradi — u paytda
+    # modul `datetime` i FakeDatetime bo'ladi va qurish yiqiladi (/users/ → 500).
+    # Shuning uchun hammasi freezer'dan OLDIN quriladi.
+    _stack = [_BM]
+    while _stack:
+        for _m in _stack.pop().__subclasses__():
+            _stack.append(_m)
+            if not getattr(_m, "__pydantic_complete__", True):
+                _m.model_rebuild(raise_errors=False)
+    app.openapi()   # /openapi.json sxemasi ham (u ham birinchi so'rovda quriladi, keshlanadi)
+    _fz.freeze_time(os.environ["FAKE_NOW"], tick=True).start()
+    _fz_now = _fz.FakeDatetime.now.__func__
+    _fz.FakeDatetime.now = classmethod(lambda cls, tz=None: _fz_now(cls, tz) if tz else _fz_now(cls) + _off)
+    _fz.FakeDate.today = classmethod(lambda cls: _fz.FakeDatetime.now().date())
+
+    # `server_default=func.now()` → SQLite CURRENT_TIMESTAMP HAQIQIY soatni yozadi
+    # (freezegun bazaga yetmaydi): yozuv haqiqiy sanada, kod soxta sanada qidiradi.
+    # Shuning uchun ORM orqali yangi qatordagi bo'sh "now" ustunlari shu yerda
+    # soxta UTC bilan to'ldiriladi (CURRENT_TIMESTAMP kabi naive UTC).
+    from sqlalchemy import event as _ev
+    from sqlalchemy.orm import Session as _S
+
+    @_ev.listens_for(_S, "before_flush")
+    def _fake_server_now(session, ctx, instances):
+        for obj in session.new:
+            for col in obj.__mapper__.columns:
+                sd = col.server_default
+                if (sd is not None and "now" in str(getattr(sd, "arg", "")).lower()
+                        and getattr(obj, col.key, None) is None):
+                    setattr(obj, col.key, _fz.FakeDatetime.utcnow())
+
 # Test uchun SQLite (fayl) bazasi
 TEST_DATABASE_URL = "sqlite:///./test.db"
 

@@ -51,7 +51,7 @@
 //      Versiya boshqa faylda bo'lsa bu fayl o'zgarmaydi va yangilanish
 //      aniqlanishi brauzer tafsilotiga (import'larni revalidatsiya qilishiga)
 //      bog'lanib qoladi. Literal qiymat — kafolat.
-const APP_VERSION   = '1.14.2';
+const APP_VERSION   = '1.14.5';
 const STATIC_CACHE  = `xenora-static-${APP_VERSION}`;
 const API_CACHE     = `xenora-api-${APP_VERSION}`;
 const API_BASE      = '/api';
@@ -94,6 +94,8 @@ const STATIC_ASSETS = [
     '/js/core/sync.js',
     '/js/core/tenant-backup.js',
     '/js/core/sales-history.js',   // pos.html/admin.html classic <script> (sotuvlar tarixi)
+    '/js/core/help-content.js',    // pos.html/admin.html — yordam matni (docs/help → build_help.py)
+    '/js/core/help-center.js',     // pos.html/admin.html — "? Yordam" oynasi (offline'da ham ochilsin)
     '/js/core/qty-guard.js',       // miqdor qo'riqchisi (shtrix-kod miqdor maydoniga tushsa)
     '/js/core/theme.js',
     '/js/core/theme-boot.js',      // har sahifa <head> da (tema chizishdan oldin)

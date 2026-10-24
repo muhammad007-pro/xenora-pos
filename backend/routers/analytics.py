@@ -64,13 +64,15 @@ async def get_summary(
 
     total_customers = apply_tenant_filter(db.query(Customer), Customer, current_user).count()
 
-    payments = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
+    # Kassaga tushgan pul usul kesimida — `utils/cashflow.period_tenders` (bitta
+    # qoida /reports/sales va get_period_data bilan): sotuv o'z kunida, qaytarish
+    # qaytarilgan kunda. `amount` = sof (sotuv − qaytarish). Ilgari `paid` filtri
+    # to'liq qaytarilgan sotuvni o'tgan kundan o'chirardi, qaytarish esa ko'rinmasdi.
+    from utils.cashflow import period_tenders, tenders_by_method
+    pay_q = apply_tenant_filter(db.query(Payment), Payment, current_user).filter(
         bd.window(Payment.created_at, shift_of_payment(), start, end),
-        Payment.status == "paid",
-    ).all()
-    by_method: dict = {}
-    for p in payments:
-        by_method[p.method] = by_method.get(p.method, 0) + (p.amount or 0)
+    )
+    by_method = tenders_by_method(period_tenders(db, current_user, pay_q, start, end, money_only=True))
 
     # Kunlik daromad grafigi — TANLANGAN period bo'yicha, KPI filtridan MUSTAQIL
     # so'rov bilan. (Ilgari `orders` period=today bilan filtrlangani uchun 7 kunlik
@@ -119,7 +121,11 @@ async def get_summary(
         "total_orders"       : total_orders,
         "total_customers"    : total_customers,
         "avg_order"          : avg_order,
-        "by_payment_method"  : [{"method": k, "amount": v} for k, v in by_method.items()],
+        "by_payment_method"  : [{"method": k, "amount": v["net"]} for k, v in by_method.items()],
+        # QO'SHIMCHA (2026-10-21): shu davrda qaytarilgan pul usul kesimida —
+        # `by_payment_method[].amount` undan allaqachon ayirilgan.
+        "payment_refunds"    : [{"method": k, "amount": v["refunds"]}
+                                for k, v in by_method.items() if v["refunds"]],
         "daily_revenue"      : daily,
         # QO'SHIMCHA (2026-10): dashboard savdo kartasi qatorlari. Yuqoridagi
         # kalitlar O'ZGARMADI.

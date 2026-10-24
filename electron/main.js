@@ -4,7 +4,10 @@ const fs = require('fs');
 const os = require('os');
 const { execFile } = require('child_process');
 const { buildReceiptBytes, buildTestReceiptBytes, DRAWER_KICK } = require('./escpos-builder');
-const { sendRawTcp } = require('./lan-socket');
+const { sendRawTcp, sendRawTcpWithRetry } = require('./lan-socket');
+// Windows spooler qo'riqchisi — USB chek navbatga yig'ilmasin (BARAKA "2 kunlik navbat")
+const { createSpoolGuard } = require('./spool-guard');
+const spoolGuard = createSpoolGuard();
 // USB etiketka printeri — Windows RAW spooler (native addon YO'Q, PowerShell+C#).
 const { sendRawToPrinter } = require('./raw-print');
 // Etiketka printeri (TSPL) — chek yadrosidan (escpos-builder) MUSTAQIL fayl.
@@ -162,14 +165,26 @@ const usbTransport = {
             await _delay(60);
 
             const sumatra = _sumatraExe();
+            // ── SPOOLER QO'RIQCHISI (oldin) — printer offline/qog'ozsiz yoki oldingi
+            // chek hali chiqmagan bo'lsa NAVBATGA QO'YILMAYDI, darrov xato.
+            // Sotuv bu yerga kelguncha allaqachon yozilgan — faqat chop etish rad etiladi.
+            const _guarded = !!sumatra && process.platform === 'win32';
+            if (_guarded) {
+                const pre = await spoolGuard.before(dev);
+                if (!pre.ok) return { ok: false, error: pre.error, device: dev || '(OS default)', engine: 'pdf' };
+            }
             if (sumatra) {
                 // ── PDF yo'li (ISHONCHLI — Chrome kabi raster) ──
+                // Spooler'dagi ish nomi: SumatraPDF fayl nomini YOKI PDF sarlavhasini
+                // beradi — ikkalasi ham shu nom bo'lsin (spool-guard o'z chekini topsin).
+                const pdfName = 'xenora_chek_' + Date.now() + '.pdf';
+                try { await wc.executeJavaScript('document.title=' + JSON.stringify(pdfName)); } catch { /* sarlavhasiz ham bosiladi */ }
                 const pdf = await wc.printToPDF({
                     printBackground: true,
                     preferCSSPageSize: true,
                     margins: { top: 0, bottom: 0, left: 0, right: 0 },
                 });
-                pdfPath = path.join(os.tmpdir(), 'xenora_chek_' + Date.now() + '.pdf');
+                pdfPath = path.join(os.tmpdir(), pdfName);
                 fs.writeFileSync(pdfPath, Buffer.from(pdf));
                 // SumatraPDF PDF'ni RASTER qilib GDI orqali bosadi (matn bayt yo'q → krakozyabra yo'q).
                 // `noscale` — 1:1 bosiladi (PDF sahifasi allaqachon to'g'ri o'lchamda).
@@ -181,6 +196,14 @@ const usbTransport = {
                     ? ['-print-to', dev, '-silent', '-print-settings', 'noscale', pdfPath]
                     : ['-print-to-default', '-silent', '-print-settings', 'noscale', pdfPath];
                 await _runExe(sumatra, args);
+                // ── SPOOLER QO'RIQCHISI (keyin) — SumatraPDF ishni spooler'ga
+                // topshirgan zahoti tugaydi; printer bosmasa ish CHEKSIZ turardi va
+                // printer qaytganda hammasi birdan chiqardi. Endi chek WAIT_MS ichida
+                // navbatdan chiqmasa — BEKOR qilinadi, kassirga aniq xato.
+                if (_guarded) {
+                    const post = await spoolGuard.after(dev, path.basename(pdfPath));
+                    if (!post.ok) return { ok: false, error: post.error, device: dev || '(OS default)', engine: 'pdf' };
+                }
                 return { ok: true, device: dev || '(OS default)', engine: 'pdf' };
             }
 
@@ -314,7 +337,8 @@ const lanTransport = {
             console.error('lanTransport build error', err);
             return { ok: false, engine: 'lan-tcp', error: 'Chek formatlashda xato: ' + err.message };
         }
-        return sendRawTcp(ip, port, bytes, 5000);
+        // Navbat YO'Q: ulanib bo'lmasa 3 marta (3s), keyin darrov xato (lan-socket.js).
+        return sendRawTcpWithRetry(ip, port, bytes);
     },
 };
 
@@ -756,6 +780,11 @@ app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
 
     createWindow();
+
+    // Eski XENORA cheklari (TTL 5 daqiqa) spooler'dan tozalanadi — avvalgi
+    // versiyalarda yig'ilib qolgan navbat (BARAKA: 2 kunlik) dastur ochilganda
+    // kutilmaganda bosilib ketmasin. Boshqa dasturlar ishlariga tegilmaydi.
+    if (process.platform === 'win32') spoolGuard.purgeStaleAll();
 
     // F11 = to'liq ekran toggle (klaviatura uchun; menyu yo'q, shuning uchun globalShortcut)
     globalShortcut.register('F11', () => {

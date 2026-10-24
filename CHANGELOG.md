@@ -3,6 +3,58 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [1.14.5] — 2026-10-21 — Chekda kelishilgan narx, Yordam bo'limi
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+kassa `.exe` lariga yangi build bilan (APK qurilmagan).
+
+### 🧾 Chek va vozvrat
+* savatda narx kelishilgan bo'lsa, chek qatorida **kelishilgan summa** chiqadi
+  (`biz_meta.cart` snapshot'dan); mos kelmasa — avvalgidek. Chegirmali chekda "Jami:" → "Chegirmasiz:"
+* vozvrat chekdagi summa bo'yicha hisoblanadi (lookup'da chekdagi summa ko'rinadi)
+* hisobotlar o'zgarmadi (Foyda, Moliya, Xodimlar)
+
+### ❓ Yordam
+* POS header va admin sidebar'da "? Yordam" oynasi: 7 bo'lim, 35 savol, qidiruv, offline ishlaydi
+  (`docs/help` → `scripts/build_help.py` → `js/core/help-content.js`)
+
+## [1.14.4] — 2026-10-21 — Vozvrat qaytarilgan kunda, xodim bo'yicha savdo
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+kassa `.exe` lariga yangi build bilan (APK qurilmagan).
+
+### 📊 Hisobotlar
+* pul hisobotlarida (Hisobotlar → Savdo, to'lov usullari) vozvrat **qaytarilgan kunga** yoziladi,
+  sotuv o'z kunida qoladi (ilgari to'liq vozvratda sotuv o'tgan kundan yo'qolardi);
+  "Qaytarish" kartasi va kunlik ustunlar. Foyda, Moliya, Z-hisobot o'zgarmadi
+
+### 💰 Moliya → "Xodimlar"
+* xodim (sotuvchi) bo'yicha savdo, vozvrat, sof savdo; kunlar bo'yicha bo'linish; yagona davr
+* "Alohida kategoriyalar" sozlamasi: tanlangan kategoriyalar savdosi alohida ustunda
+  (Asosiy / Alohida). Jami "Foyda tahlili" savdosi bilan bir xil
+* sotuvchi — chekdagi sotuvchi (POS'da 🔒 bilan almashtiriladi), to'lovni olgan kassir emas
+
+## [1.14.3] — 2026-10-19 — Ombor aniqligi, monoblok tugmalari, chek navbati himoyasi
+
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+printer o'zgarishlari faqat yangi `.exe` bilan (APK qurilmagan).
+
+### 📦 Ombor
+* miqdor bazaga yozilishda yaxlitlanadi: ombor qoldig'i 3 xona, harakatlar 6 xona
+  (8.665000000000001 kabi qoldiqlar endi paydo bo'lmaydi); qoldiq ko'rinishi 3 xonagacha
+* sensor monoblokda (1024px) "Amallar" ustunidagi + / − tugmalari kesilmaydi:
+  jadval o'z o'ramida suriladi, Amallar ustuni o'ngda qotgan, tugmalar 40px
+* POS kartasidagi qoldiq 3 xonagacha
+
+### 🖨 Printer (.exe)
+* USB chek Windows navbatida osilib qolmaydi: printer o'chiq/xato bo'lsa yoki oldingi chek
+  navbatda tursa — rad etiladi; 10 soniyada chiqmasa bekor qilinadi; eski cheklar 5 daqiqadan
+  keyin tozalanadi
+* LAN printer: cheklangan qayta urinish (3 × 3s), yuborilgan chek qayta yuborilmaydi
+
+### 🗄 SQL (bir martalik)
+* `docs/sql/2026-10-14_kasr_qoldiq_tozalash.sql`, `docs/sql/2026-10-14_mahsulot_narx_astronomik.sql`
+
 ## [1.14.2] — 2026-10-14 — Savdo kartasi, admin smenalar, tema barqarorligi, printer himoyasi
 
 Asosan frontend; backend'da faqat qo'shimcha kalit. **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`).

@@ -125,6 +125,23 @@ async function loadShiftsPage() {
   }
   renderShifts();
 }
+// API vaqti UTC ("...Z"; zonasiz satr ham UTC — backend shartnomasi). Ilgari
+// satr kesib olinardi → ro'yxat UTC ko'rsatardi (MANHATTAN #89 "23.10 19:32"
+// da yopilgandek ko'rindi, aslida 24.10 00:32). Qurilma zonasiga ham
+// bog'lanmaydi — hisobotlar Toshkent kuni bo'yicha.
+const _SHIFT_TK_FMT = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Tashkent', year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+function _shiftTk(iso) {
+  if (!iso) return { ymd: '', text: '' };
+  const s = String(iso);
+  const d = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(s) ? s : s + 'Z');
+  if (isNaN(d)) return { ymd: s.slice(0, 10), text: s };
+  const p = {};
+  _SHIFT_TK_FMT.formatToParts(d).forEach(x => { p[x.type] = x.value; });
+  return { ymd: `${p.year}-${p.month}-${p.day}`, text: `${p.day}.${p.month}.${p.year} ${p.hour}:${p.minute}` };
+}
 function renderShifts() {
   const tb = document.getElementById('shiftsTbody');
   if (!tb) return;
@@ -135,7 +152,7 @@ function renderShifts() {
     const name = (s.user && s.user.full_name) || s.user_name || s.cashier || '';
     if (fCashier && name !== fCashier) return false;
     if (fRegister && String(s.register_id) !== String(fRegister)) return false;
-    if (fDate && (s.start_time || '').slice(0, 10) !== fDate) return false;
+    if (fDate && _shiftTk(s.start_time).ymd !== fDate) return false;
     return true;
   });
   if (!shifts.length) { tb.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#888">Smena topilmadi</td></tr>'; return; }
@@ -147,8 +164,8 @@ function renderShifts() {
     return `<tr style="${open?'background:#f0fdf4':''}">
       <td>${escH(cashier)}</td>
       <td style="font-size:.82rem">${escH(regName)}</td>
-      <td style="font-size:.82rem">${(s.start_time||'').slice(0,16).replace('T',' ')}</td>
-      <td style="font-size:.82rem">${s.end_time?(s.end_time.slice(0,16).replace('T',' ')):'<span style="color:#22c55e">Faol</span>'}</td>
+      <td style="font-size:.82rem">${_shiftTk(s.start_time).text}</td>
+      <td style="font-size:.82rem">${s.end_time?_shiftTk(s.end_time).text:'<span style="color:#22c55e">Faol</span>'}</td>
       <td>${fmtNum(s.starting_cash||0)}</td>
       <td>${fmtNum(s.cash_sales||0)}</td>
       <td>${fmtNum(s.card_sales||0)}</td>

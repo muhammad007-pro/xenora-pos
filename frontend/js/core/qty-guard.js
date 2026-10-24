@@ -75,7 +75,7 @@
     }
     var intPart = s.split('.')[0].replace(/^-/, '');
     if (/^\d{8,}$/.test(intPart)) {
-      return g.confirm((label ? label + ': ' : '') + '"' + s + '" — 8 xonali son, shtrix-kodga o\'xshaydi.\n\n' +
+      return g.confirm((label ? label + ': ' : '') + '"' + s + '" — bu shtrix-kodga o\'xshaydi (8+ xonali son).\n\n' +
                        'Haqiqatan ' + Number(s).toLocaleString('en-US') + ' so\'m kiritmoqchimisiz?');
     }
     return true;

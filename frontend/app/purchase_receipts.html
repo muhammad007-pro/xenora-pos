@@ -250,6 +250,7 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text1)}
 <!-- Qidiruvli select (classic — window.searchableSelect; modul bloki undan keyin ishlaydi) -->
 <script src="../js/ui/searchable-select.js"></script>
 <script src="../js/core/product-photo.js"></script>
+<script src="../js/core/qty-guard.js"></script>
 <script type="module">
 import { Sidebar } from '../js/core/sidebar.js';
 import { API } from '../js/core/api.js';
@@ -436,6 +437,10 @@ window.createReceipt = async () => {
     });
   });
   if (!ok || !items.length) { showToast('Tovarlarni to\'liq kiriting', 'error'); return; }
+  // Narx katagiga shtrix-kod qo'shilsa (qty-guard.js) — nakladnoy saqlanmasin.
+  for (let i = 0; i < items.length; i++) {
+    if (!guardPrice(items[i].unit_price, `${i + 1}-qator narxi`)) return;
+  }
 
   const btn = document.getElementById('btnCreate');
   btn.disabled = true;
@@ -657,6 +662,8 @@ window.saveNewProduct = async () => {
   const price = parseFloat(document.getElementById('npPrice').value);
   if (!name)               { showToast('Nom kiriting', 'error'); return; }
   if (!price || price <= 0) { showToast('Sotuv narxini kiriting', 'error'); return; }
+  if (!guardPrice(document.getElementById('npPrice').value, 'Sotuv narxi')) return;
+  if (!guardPrice(document.getElementById('npCost').value, 'Tan narx')) return;
 
   const btn = document.getElementById('npSaveBtn');
   btn.disabled = true; btn.textContent = '...';

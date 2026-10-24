@@ -298,7 +298,7 @@ const state = {
 //     `unit_price_override` yuboriladi - server uni FAQAT katalogdan KATTA
 //     bo'lsa qabul qiladi (order_service), ya'ni client narxni o'zi uchun
 //     arzonlashtira olmaydi.
-const PRICE_MAX = 999999999;   // fat-finger himoyasi
+const PRICE_MAX = 1000000000;  // server bilan BIR chegara (schemas le=1e9, price_guard.py)
 
 // Hisob-kitob uchun AMALDAGI birlik narx. Oshirilgan bo'lsa - yangi narx
 // (server ham shuni ishlatadi), aks holda katalog narxi. Tushirish bu yerda
@@ -1453,7 +1453,7 @@ function _commitPrice(inp) {
   let err = null;
   if (!hasDigit || !Number.isFinite(n)) err = "Narx son bo'lishi kerak";
   else if (n < 0)                       err = "Narx manfiy bo'lmaydi";
-  else if (n > PRICE_MAX)               err = 'Narx juda katta';
+  else if (n > PRICE_MAX)               err = "Narx juda katta — shtrix-kod narx maydoniga tushib qolmadimi?";
 
   if (err) {
     toast(err, 'warning');
@@ -1462,6 +1462,18 @@ function _commitPrice(inp) {
     return;
   }
   if (n === cur) { inp.value = fmtNum(cur); return; }   // o'zgarmadi
+
+  // 8+ xonali butun son — bo'sh katakka skanerlangan EAN-8 bo'lishi mumkin
+  // (chegaradan o'tadi). To'smaymiz, so'raymiz. confirm() paytida focusout yana
+  // commit chaqirmasin — bayroq.
+  if (/^\d{8,}$/.test(String(Math.trunc(n)))) {
+    _priceCommitting = true;
+    let yes;
+    try {
+      yes = window.confirm(`"${raw}" — bu shtrix-kodga o'xshaydi (8+ xonali son).\n\nHaqiqatan ${fmtNum(n)} so'm kiritmoqchimisiz?`);
+    } finally { _priceCommitting = false; }
+    if (!yes) { inp.value = fmtNum(cur); return; }
+  }
 
   item._priceNew = (n === old) ? null : n;   // katalog narxiga qaytsa - tahrir olib tashlanadi
 

@@ -50,6 +50,7 @@ vm.runInContext([
   grab(/function computeTotals\(\) \{[\s\S]*?\n}/, 'computeTotals'),
   grab(/function doAddToCart\(product, modifiers, weight = null, unitMode = null, lineTotal = null\) \{[\s\S]*?\n}\n/, 'doAddToCart'),
   grab(/function _weightFromSum\(sum\) \{[\s\S]*?\n}/, '_weightFromSum'),
+  grab(/function _lineQty\(i\) \{[\s\S]*?\n}/, '_lineQty'),
   'let _weightProduct = null;',
   grab(/function _heldDeleteMessage\(order\) \{[\s\S]*?\n}/, '_heldDeleteMessage'),
 ].join('\n'), ctx);
@@ -77,7 +78,8 @@ check('2_jami_15000', ctx.computeTotals().total, 15000);
 
 // payload: HAQIQIY buildOrderPayload ichidagi qator xaritasi
 const itemMap = grab(/items          : state\.cart\.map\(i => \(\{[\s\S]*?\n    \}\)\),/, 'payload items');
-check('2_payload_line_total_shartli', /\.\.\.\(i\._lineTotal != null && i\._priceNew == null \? \{ line_total: i\._lineTotal \} : \{\}\)/.test(itemMap), true);
+// qty 1 da line_total = _lineTotal AYNAN; qty > 1 (#4094) — jami summa
+check('2_payload_line_total_shartli', /\.\.\.\(i\._lineTotal != null && i\._priceNew == null\s*\? \{ line_total: \(Number\(i\.qty\) \|\| 1\) === 1 \? i\._lineTotal : roundMoney\(i\._lineTotal \* Number\(i\.qty\)\) \}\s*: \{\}\)/.test(itemMap), true);
 const mapper = vm.runInContext(
   `(i) => (${itemMap.match(/state\.cart\.map\(i => \((\{[\s\S]*?\n    \})\)\),/)[1]})`,
   Object.assign(ctx, { MODE: { ...ctx.MODE, hasCourses: false } }));
@@ -89,6 +91,12 @@ check('2_GOLDEN_dona_qatorida_kalit_yoq', 'line_total' in p2, false);
 check('2_GOLDEN_ogirlik_rejimida_kalit_yoq', 'line_total' in p3, false);
 const p4 = mapper({ id: 1, _weight: 0.566, _unitPrice: 26500, price: 15000, _lineTotal: 15000, _priceNew: 16000 });
 check('2_narx_kelishuvida_line_total_yoq', 'line_total' in p4, false);
+check('2_GOLDEN_qty1_quantity_ogirlik', p1.quantity, 0.566);
+// #4094: 2 porsiya — quantity jami og'irlik, line_total jami summa
+const p5 = mapper({ id: 1, qty: 2, _weight: 0.566, _unitPrice: 26500, price: 15000, _lineTotal: 15000, _priceNew: null });
+check('2_qty2_summa_rejimi', [p5.quantity, p5.line_total], [1.132, 30000]);
+const p6 = mapper({ id: 1, qty: 2, _weight: 1, _unitPrice: 70000, price: 70000, _lineTotal: null });
+check('2_qty2_x_1kg_4094', [p6.quantity, 'line_total' in p6], [2, false]);
 
 console.log('\n── 3) To\'lov va split ──');
 check('3_doPayment_roundMoney', /const due   = roundMoney\(payableTotal\(\)\);/.test(POS), true);

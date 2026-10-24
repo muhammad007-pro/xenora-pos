@@ -993,6 +993,10 @@ window.recCreate = async () => {
     const e = stockQtyError(items[i].quantity) || stockQtyError(items[i].brak_qty);
     if (e) { showToast(`${i + 1}-qator: ${e}`, 'error'); return; }
   }
+  // Narx katagiga shtrix-kod qo'shilsa — tasdiqda mahsulot tan narxi shundan yangilanadi.
+  for (let i = 0; i < items.length; i++) {
+    if (!guardPrice(items[i].unit_price, `${i + 1}-qator narxi`)) return;
+  }
   const btn = document.getElementById('btnCreate');
   btn.disabled = true;
   const res = await api.post('/purchase-receipts/', {
@@ -1155,6 +1159,8 @@ window.recSaveNewProduct = async () => {
   const price = parseFloat(document.getElementById('npPrice').value);
   if (!name)               { showToast('Nom kiriting', 'error'); return; }
   if (!price || price <= 0) { showToast('Sotuv narxini kiriting', 'error'); return; }
+  if (!guardPrice(document.getElementById('npPrice').value, 'Sotuv narxi')) return;
+  if (!guardPrice(document.getElementById('npCost').value, 'Tan narx')) return;
   const btn = document.getElementById('npSaveBtn');
   btn.disabled = true; btn.textContent = '...';
   try {
@@ -1499,6 +1505,7 @@ window.debtSaveRet = async () => {
   if (!supId || !prodId || !qty || !price || !date) { showToast("Barcha maydonlarni to'ldiring", 'error'); return; }
   const tooBig = stockQtyError(qty);
   if (tooBig) { showToast(tooBig, 'error'); return; }
+  if (!guardPrice(document.getElementById('retPrice').value, 'Narx')) return;
   const btn = document.getElementById('btnRetSave'); btn.disabled = true;
   const res = await api.post('/supplier-returns/', {
     supplier_id: parseInt(supId), product_id: parseInt(prodId), quantity: qty, unit_price: price,

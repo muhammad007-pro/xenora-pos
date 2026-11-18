@@ -3,10 +3,10 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
-## [Reliz qilinmagan] — Skaner tezligi (branch `fix/scan-speed`)
+## [1.14.9] — 2026-11-19 — Skaner tezligi, Sof savdo, Toshkent sanasi
 
-**MIGRATSIYA YO'Q.** Backend + frontend. Versiya ko'tarilmagan — reliz paytida
-`bump_version.py` (service worker keshi ham shu bilan yangilanadi).
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;
+kassa `.exe` lariga yangi build bilan (APK qurilmagan). Service worker keshi 1.14.9.
 
 ### ⚡ Skaner (FAZZA shikoyati: "mahsulot kech chiqadi")
 * modifikatorlar POS ochilganda bir marta yuklanadi — modifikatorsiz mahsulot skanerda
@@ -18,10 +18,27 @@ Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version)
 * qadoqdagi QR havolalar (t.me, sayt) serverga yuborilmaydi — "bu QR havola" deyiladi
 * `/barcodes/lookup` javobiga POS uchun maydonlar qo'shildi (pachka, ko'tara narx,
   birlik) — eski kalitlar o'zgarmagan
+* `/barcodes/lookup` **o'chirilgan mahsulotni qaytarmaydi** (shtrix-kod, qo'shimcha kod,
+  tarozi PLU, SKU). Ilgari kodi saqlangan nofaol mahsulot skanerda savatga tushardi
 
 ### 📦 Qoldiq yorlig'i
-* POS qoldiq xaritasi butun katalogni oladi (`pos-stock` chegarasi 2000 → 10000,
-  POS 1000 → 10000). FAZZA (1716 mahsulot) da ~700 ta mahsulotda yorliq chiqmasdi
+* POS va admin mahsulotlar ro'yxati qoldiq xaritasini butun katalog bo'yicha oladi
+  (`pos-stock` chegarasi 2000 → 10000; POS 1000 → 10000, admin 2000 → 10000).
+  FAZZA (1716 mahsulot) da ~700 ta mahsulotda yorliq chiqmasdi
+
+### 💰 Foyda tahlili: "Sof savdo"
+* "Jami savdo" → **"Sof savdo"** (vozvrat ayirilgan). Vozvrat bo'lsa kartada
+  "savdo X − vozvrat Y". Ilgari Dashboard "Bugungi savdo" (vozvratdan oldin) bilan bir
+  xil nomda ikki son chiqardi — MANHATTAN 24.10: 3 905 000 vs 3 675 000 (230 000 naqd vozvrat)
+
+### 🕒 Toshkent sanasi
+* sana maydonlari va "bugun" filtrlari Toshkent vaqtida (`js/core/tk-date.js`).
+  Ilgari 00:00–05:00 oralig'ida kechagi sana chiqardi (UTC)
+
+### 🧪 Ichki
+* testlar: o'ldirilgan yugurishdan qolgan test bazasi endi tozalanadi (katalog testlari
+  "yuklamada yiqiladi, alohida o'tadi" sababi); `perf` markeri
+* `requirements.txt` izohlarida faqat ASCII
 
 ## [1.14.8] — 2026-10-25 — Z-chek lokal printerga
 

@@ -29,6 +29,14 @@ kassa `.exe` lariga yangi build bilan (APK qurilmagan). Service worker keshi 1.1
   butun katalogni oladi — `/products/` `page_size` chegarasi 1000 → 10000. Ilgari 1000 dan
   keyingi mahsulotni aksiya/modifikatorga tanlab bo'lmasdi
 
+### 🏭 Firmalar: qarz ro'yxati yangilanadi (FAZZA shikoyati)
+* Qarzlar va Buxgalteriya tablari har ochilganda serverdan olinadi. Ilgari bir marta
+  yuklanib eskirardi: firma "Boshlang'ich qarz" bilan qo'shilsa ko'rinmasdi (FAZZA 13.11,
+  "KKKK" 50 000) — faqat oynani yopib qayta kirsa chiqardi
+* firma saqlash/arxivlash va priyomka tasdig'idan keyin ochilgan qarz ro'yxatlari yangilanadi
+* admin **"Yangilash"** tugmasi Firmalar sahifasida ishlaydi (ilgari hech narsa qilmasdi):
+  ochiq tab qayta yuklanadi, tab va scroll joyida qoladi. Sahifaga qayta kirilganda ham shunday
+
 ### 💰 Foyda tahlili: "Sof savdo"
 * "Jami savdo" → **"Sof savdo"** (vozvrat ayirilgan). Vozvrat bo'lsa kartada
   "savdo X − vozvrat Y". Ilgari Dashboard "Bugungi savdo" (vozvratdan oldin) bilan bir

@@ -1892,6 +1892,10 @@ async function viewShiftReport(shiftId) {
 
 // ── Page load dispatcher ──────────────────────────────────────────────────────
 function loadPageData(page) {
+  // Firmalar — iframe (bir marta yuklanadi, switchPage). "Yangilash" va sahifaga
+  // QAYTA kirish iframe ichidagi ochiq tabni serverdan qayta oladi. Birinchi
+  // kirishda iframe hali yuklanmagan — `?.` jim o'tadi, masterInit o'zi yuklaydi.
+  if (page === 'suppliers') document.getElementById('suppliersFrame')?.contentWindow?.supRefresh?.();
   if (page==='dashboard')  loadDashboard();
   if (page==='orders')     loadOrders();
   if (page==='salesHistory') loadSalesHistory();

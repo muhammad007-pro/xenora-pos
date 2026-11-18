@@ -755,18 +755,27 @@ function hasFeat(flag) {
 
 // ── Asosiy tab almashtirish (lazy-load) ─────────────────────────────────────
 const PANELS = ['firmalar','priyomka','qarzlar','vozvrat','buxgalteriya'];
+// Qarz raqamlari BOSHQA tablardagi amallardan o'zgaradi (firma "Boshlang'ich
+// qarz", priyomka tasdig'i, arxiv) — shuning uchun bu ikki tab HAR ochilganda
+// serverdan olinadi (~12 ms). Ilgari bir marta yuklanib eskirib qolardi:
+// FAZZA 13.11 "KKKK" firmasini 50 000 qarz bilan qo'shdi, Qarzlar ko'rsatmadi.
+// Firmalar/Priyomka/Vozvrat ro'yxatlari esa o'z tabidagi amallardan keyin
+// o'zi yangilanadi — ular avvalgidek bir marta.
+const ALWAYS_FRESH = { qarzlar: true, buxgalteriya: true };
+let currentTab = 'firmalar';
 window.supTab = (name) => {
   // Buxgalteriya — PRO gating
   if (name === 'buxgalteriya' && !hasFeat('supplier_accounting')) {
     showToast('Buxgalteriya — PRO funksiya. Super-admin bilan bog\'laning.', 'error');
     return;
   }
+  currentTab = name;
   PANELS.forEach(p => {
     document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1)).style.display = (p===name) ? '' : 'none';
     document.getElementById('st-' + p).classList.toggle('active', p===name);
   });
-  // Lazy-load — har tab birinchi ochilganda
-  if (!loaded[name]) {
+  // Lazy-load — har tab birinchi ochilganda (qarz tablari — har safar)
+  if (!loaded[name] || ALWAYS_FRESH[name]) {
     loaded[name] = true;
     if (name==='firmalar')      loadFirms();
     else if (name==='priyomka') loadReceipts();
@@ -774,6 +783,33 @@ window.supTab = (name) => {
     else if (name==='vozvrat')  debtLoadReturns();
     else if (name==='buxgalteriya') buxLoad();
   }
+};
+
+// Qarz raqamiga ta'sir qiluvchi amaldan keyin — ochilgan qarz ro'yxatlari
+// yangilansin (vozvratdagi `if (loaded.qarzlar) loadDebt()` naqshi).
+function refreshDebtViews() {
+  if (loaded.qarzlar) loadDebt();
+  if (loaded.buxgalteriya) buxLoad();
+}
+
+/**
+ * ADMIN "Yangilash" tugmasi (core.js `loadPageData('suppliers')`) shu yerni
+ * chaqiradi: OCHIQ tab serverdan qayta yuklanadi. `location.reload()` EMAS —
+ * tab, filtrlar va scroll joyi saqlanadi. Boshqa tablar "yuklanmagan" deb
+ * belgilanadi: ularga o'tilganda ham yangi ma'lumot keladi.
+ */
+window.supRefresh = () => {
+  PANELS.forEach(p => { if (p !== currentTab) loaded[p] = false; });
+  loaded[currentTab] = true;
+  reloadSupplierList();          // dropdownlar ham yangi firmani ko'rsin
+  if (currentTab === 'firmalar')          loadFirms();
+  else if (currentTab === 'priyomka')     loadReceipts();
+  else if (currentTab === 'qarzlar') {
+    loadDebt();
+    if (document.getElementById('dPanelHistory').style.display !== 'none') debtLoadHistory();
+  }
+  else if (currentTab === 'vozvrat')      debtLoadReturns();
+  else if (currentTab === 'buxgalteriya') buxLoad();
 };
 
 // ════════════════ FIRMALAR TAB ════════════════
@@ -863,6 +899,7 @@ window.saveFirm = async () => {
   if (apiOk(res) && apiData(res, {}).id) {
     showToast(editId ? 'Yangilandi' : "Qo'shildi", 'success');
     closeFirmModal(); loadFirms(); reloadSupplierList();
+    refreshDebtViews();   // "Boshlang'ich qarz" — Qarzlar/Buxgalteriya raqami o'zgaradi
   } else {
     showToast(apiErr(res, "Firma saqlanmadi"), 'error');
   }
@@ -886,7 +923,7 @@ window.archiveFirm = async (id) => {
   } catch { /* qoldiqni olib bo'lmasa — oddiy tasdiq bilan davom etamiz */ }
   if (!confirm(ogoh)) return;
   const res = await api.patch(`/suppliers-b2b/${id}`, { is_active: false });
-  if (apiOk(res)) { showToast('Arxivlandi', 'success'); loadFirms(); reloadSupplierList(); }
+  if (apiOk(res)) { showToast('Arxivlandi', 'success'); loadFirms(); reloadSupplierList(); refreshDebtViews(); }
   else showToast(apiErr(res, "Arxivlab bo'lmadi"), 'error');
 };
 
@@ -1057,6 +1094,7 @@ window.recConfirm = async () => {
   // tasdiqlashni "xato" deb ko'rsatardi.
   if (apiOk(res) && ['confirmed', 'paid'].includes(apiData(res, {}).status)) {
     showToast('Priyomka tasdiqlandi! Ombor yangilandi.', 'success'); recCloseDetail(); loadReceipts();
+    refreshDebtViews();   // tasdiqlangan priyomka = yangi qarz
   } else {
     showToast(apiErr(res, 'Priyomka tasdiqlanmadi'), 'error');
   }

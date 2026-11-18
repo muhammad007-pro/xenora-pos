@@ -25,6 +25,9 @@ kassa `.exe` lariga yangi build bilan (APK qurilmagan). Service worker keshi 1.1
 * POS va admin mahsulotlar ro'yxati qoldiq xaritasini butun katalog bo'yicha oladi
   (`pos-stock` chegarasi 2000 → 10000; POS 1000 → 10000, admin 2000 → 10000).
   FAZZA (1716 mahsulot) da ~700 ta mahsulotda yorliq chiqmasdi
+* qidiruvsiz tanlov ro'yxatlari (aksiya, modifikator, yaroqlilik muddati, ombor sahifasi)
+  butun katalogni oladi — `/products/` `page_size` chegarasi 1000 → 10000. Ilgari 1000 dan
+  keyingi mahsulotni aksiya/modifikatorga tanlab bo'lmasdi
 
 ### 💰 Foyda tahlili: "Sof savdo"
 * "Jami savdo" → **"Sof savdo"** (vozvrat ayirilgan). Vozvrat bo'lsa kartada

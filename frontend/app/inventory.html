@@ -424,7 +424,7 @@ let addingInventoryId = null;
 async function load() {
   const [invRes, prodRes, catRes] = await Promise.all([
     api.get('/inventory/?page_size=500').catch(()=>null),
-    api.get('/products/all?limit=2000').catch(()=>null),   // 500 default -> katalog to'liq
+    api.get('/products/all?limit=10000').catch(()=>null),   // backend chegarasi — katalog to'liq
     api.get('/categories/all').catch(()=>null),
   ]);
   items      = invRes?.items ?? (Array.isArray(invRes)?invRes:invRes?.data?.items??[]);

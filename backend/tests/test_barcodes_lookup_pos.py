@@ -221,3 +221,14 @@ def test_pos_stock_10000_qabul_qilinadi(client, seeded):
     hdr = _hdr(client)
     assert client.get("/api/v1/inventory/pos-stock?limit=10000", headers=hdr).status_code == 200
     assert client.get("/api/v1/inventory/pos-stock?limit=10001", headers=hdr).status_code == 422
+
+
+def test_products_page_size_10000_qabul_qilinadi(client, seeded):
+    # Qidiruvsiz tanlov ro'yxatlari (aksiya, modifikator, yaroqlilik) shu chegarani so'raydi.
+    # B tenant: A dagi "NARXSIZ" (price=0) `ProductInDB` (price > 0) da 500 beradi — bu
+    # chegara emas, alohida holat (prodda price<=0 mahsulot 0 ta, yaratish uni to'sadi).
+    hdr = _hdr(client, PHONE_B)
+    r = client.get("/api/v1/products/?page_size=10000", headers=hdr)
+    assert r.status_code == 200, r.text
+    assert r.json()["page_size"] == 10000
+    assert client.get("/api/v1/products/?page_size=10001", headers=hdr).status_code == 422

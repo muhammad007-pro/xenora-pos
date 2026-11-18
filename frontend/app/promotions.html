@@ -243,7 +243,8 @@ window.setTab = function(el, filter) {
 let PRODUCTS = {};   // nom(lower) → id (mahsulot picker uchun)
 async function loadProductsForPicker() {
   try {
-    const res   = await api.get('/products/?page_size=1000&is_active=true');
+    // datalist — server qidiruvi YO'Q, shuning uchun butun katalog (backend chegarasi)
+    const res   = await api.get('/products/?page_size=10000&is_active=true');
     const items = res?.items || res?.data?.items || (Array.isArray(res?.data)?res.data:null) || (Array.isArray(res)?res:[]);
     let opts = '';
     (items||[]).forEach(p => { if (p && p.name) { PRODUCTS[p.name.trim().toLowerCase()] = p.id; opts += `<option value="${p.name}"></option>`; } });

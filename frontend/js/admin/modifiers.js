@@ -9,7 +9,8 @@ function _modEsc(s){ return String(s==null?'':s).replace(/[<>"'&]/g,c=>({'<':'&l
 
 async function _modLoadProducts() {
   try {
-    const data = await apiFetch('/products/?page_size=1000&is_active=true');
+    // datalist — server qidiruvi YO'Q, shuning uchun butun katalog (backend chegarasi)
+    const data = await apiFetch('/products/?page_size=10000&is_active=true');
     const items = data.items || data || [];
     _modProducts = {};
     let opts = '';

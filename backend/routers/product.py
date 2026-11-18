@@ -62,7 +62,10 @@ class BarcodeLookupResponse(BaseModel):
 @router.get("/", response_model=PaginatedResponse)
 async def get_products(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=1000),
+    # 10000 = `/products/all` bilan bir xil. Qidiruvsiz tanlov ro'yxatlari
+    # (aksiya, modifikator, yaroqlilik muddati) butun katalogni oladi —
+    # 1000 da FAZZA (1716) ning 700+ mahsulotini tanlab bo'lmasdi.
+    page_size: int = Query(20, ge=1, le=10000),
     category_id: Optional[int] = None,
     is_active: Optional[bool] = True,
     is_available: Optional[bool] = None,

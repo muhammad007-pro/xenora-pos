@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Auto servis | XENORA</title>
 <link rel="stylesheet" href="../styles/main.css">
@@ -372,7 +373,7 @@ function openOrderModal(vehicleId=null) {
   f.description.value  = '';
   f.total_amount.value = '0';
   f.notes.value        = '';
-  f.intake_date.value  = new Date().toISOString().slice(0,16);
+  f.intake_date.value  = tkYmdHm();
   const sel = document.getElementById('ordVehicleSel');
   sel.innerHTML = '<option value="">— Tanlang —</option>' +
     vehicles.map(v=>`<option value="${v.id}" ${v.id===vehicleId?'selected':''}>${v.plate_number} · ${v.brand||''}</option>`).join('');

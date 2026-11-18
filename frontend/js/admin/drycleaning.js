@@ -56,7 +56,7 @@ async function loadDryReady() {
         <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${meta.cleaning_items||itemList||'—'}</td>
         <td class="td-sub" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${meta.cleaning_notes||'—'}</td>
         <td style="font-weight:700">${fmtMoney(o.final_amount||0)} UZS</td>
-        <td class="td-sub">${(o.updated_at||o.created_at||'').slice(0,10)}</td>
+        <td class="td-sub">${tkYmd(o.updated_at||o.created_at)}</td>
         <td class="td-actions">
           <button class="act-btn" title="Topshirildi" onclick="clNextStatus(${o.id},'completed')">✓</button>
         </td>
@@ -111,7 +111,7 @@ async function loadDryClients() {
       if (!clientMap[key]) clientMap[key] = { name: cname, phone: cphone, count: 0, total: 0, last: null };
       clientMap[key].count++;
       clientMap[key].total += o.final_amount || 0;
-      const d = (o.created_at||'').slice(0,10);
+      const d = tkYmd(o.created_at);
       if (!clientMap[key].last || d > clientMap[key].last) clientMap[key].last = d;
     });
     let items = Object.values(clientMap).sort((a,b)=>b.total-a.total);

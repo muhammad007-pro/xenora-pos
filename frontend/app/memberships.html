@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Abonementlar | XENORA</title>
 <link rel="stylesheet" href="../styles/main.css">
@@ -392,8 +393,8 @@ function openNewModal() {
   document.getElementById('nmCust').value   = '';
   document.getElementById('nmPlan').value   = '';
   document.getElementById('nmPrice').value  = '';
-  const today = new Date().toISOString().split('T')[0];
-  const month = new Date(Date.now()+30*86400000).toISOString().split('T')[0];
+  const today = tkYmd();
+  const month = tkAddDays(today, 30);
   document.getElementById('nmStart').value  = today;
   document.getElementById('nmEnd').value    = month;
   document.getElementById('nmVisits').value = '0';

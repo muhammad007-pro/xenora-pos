@@ -48,7 +48,7 @@ async function loadSchoolTopStudents() {
       if (!studentMap[key]) studentMap[key] = { name, phone: meta.student_phone||'—', group: meta.student_group||'—', count: 0, total: 0, last: null };
       studentMap[key].count++;
       studentMap[key].total += o.final_amount || 0;
-      const d = (o.created_at||'').slice(0,10);
+      const d = tkYmd(o.created_at);
       if (!studentMap[key].last || d > studentMap[key].last) studentMap[key].last = d;
     });
     let items = Object.values(studentMap).sort((a,b) => b.total - a.total);
@@ -98,7 +98,7 @@ async function loadSchoolGroupDetail() {
       if (!stuMap[key]) stuMap[key] = { name: meta.student_name||'—', phone: meta.student_phone||'—', count: 0, total: 0, last: null };
       stuMap[key].count++;
       stuMap[key].total += o.final_amount || 0;
-      const d = (o.created_at||'').slice(0,10);
+      const d = tkYmd(o.created_at);
       if (!stuMap[key].last || d > stuMap[key].last) stuMap[key].last = d;
     });
     const students = Object.values(stuMap).sort((a,b) => b.total - a.total);
@@ -308,7 +308,7 @@ async function loadGroups() {
       if (meta.student_name) groupMap[g].students.add(meta.student_name + (meta.student_phone || ''));
       groupMap[g].orders++;
       groupMap[g].revenue += o.final_amount || 0;
-      const d = (o.created_at || '').slice(0, 10);
+      const d = tkYmd(o.created_at);
       if (d > groupMap[g].lastDate) groupMap[g].lastDate = d;
     });
     const rows = Object.entries(groupMap).sort((a, b) => b[1].revenue - a[1].revenue);

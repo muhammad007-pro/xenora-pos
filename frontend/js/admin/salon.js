@@ -4,13 +4,8 @@
 
 async function loadSalonSchedule() {
   const inp = document.getElementById('ssWeekStart');
-  const today = new Date();
-  if (!inp.value) inp.value = today.toISOString().slice(0, 10);
-  const start = new Date(inp.value);
-  const days = Array.from({length: 7}, (_, i) => {
-    const d = new Date(start); d.setDate(start.getDate() + i);
-    return d.toISOString().slice(0, 10);
-  });
+  if (!inp.value) inp.value = tkYmd();
+  const days = Array.from({length: 7}, (_, i) => tkAddDays(inp.value, i));
   const DAY_NAMES = ['Yak', 'Du', 'Se', 'Cho', 'Pay', 'Ju', 'Sha'];
   try {
     const results = await Promise.all(days.map(d => apiFetch('/appointments/?date=' + d + '&page_size=100')));
@@ -77,7 +72,7 @@ async function loadSalonServices() {
 
 async function loadSalonPeakHours() {
   const inp = document.getElementById('phDate');
-  if (!inp.value) inp.value = new Date().toISOString().slice(0, 10);
+  if (!inp.value) inp.value = tkYmd();
   try {
     const data = await apiFetch('/analytics/hourly?date=' + inp.value + 'T12:00:00');
     const hours = Array.isArray(data) ? data : (data.hourly || []);
@@ -124,7 +119,7 @@ async function loadSalonExpiring() {
       const end = new Date(m.end_date); end.setHours(0,0,0,0);
       return end <= cutoff;
     }).sort((a, b) => a.end_date.localeCompare(b.end_date));
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = tkYmd();
     const todayCount = expiring.filter(m => m.end_date <= todayStr).length;
     document.getElementById('seTotal').textContent    = expiring.length;
     document.getElementById('seToday').textContent    = todayCount;

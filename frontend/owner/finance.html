@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Moliya | XENORA Owner</title>
 <link rel="stylesheet" href="../styles/main.css">
@@ -141,9 +142,8 @@ let rawData=null;
 
 async function load(){
   const days=parseInt(document.getElementById('periodSel').value)||30;
-  const now=new Date();
-  const from=new Date(now-days*86400000).toISOString().slice(0,10);
-  const to=now.toISOString().slice(0,10);
+  const to=tkYmd();
+  const from=tkAddDays(to,-days);
 
   // Load analytics and cafes in parallel
   const [analytics, cafesRes] = await Promise.all([
@@ -218,7 +218,7 @@ function exportCSV(){
   const rows=['Sana,Buyurtmalar,Daromad',...daily.map(d=>`${d.date},${d.orders||0},${d.revenue||0}`)];
   const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download=`moliya_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  a.download=`moliya_${tkYmd()}.csv`; a.click();
 }
 
 const BTLABELS={restaurant:'🍽️ Restoran',cafe:'☕ Kafe',fast_food:'🍔 Fast Food',store:'🏪 Magazin',supermarket:'🛒 Supermarket',pharmacy:'💊 Dorixona',salon:'💇 Salon',fitness:'💪 Fitnes',auto_service:'🔧 Auto',school:'📚 Kurs',hotel:'🏨 Mehmonxona',dry_cleaning:'👔 Kimyoviy'};

@@ -167,6 +167,12 @@ def _seed(db):
     db.commit()
 
 
+def pytest_configure(config):
+    # Vaqt o'lchaydigan testlar — mashina yuklamasiga sezgir. Standart yugurishda
+    # ISHLAYDI; og'ir yuklamada: py -m pytest -m "not perf"
+    config.addinivalue_line("markers", "perf: vaqt/tezlik o'lchaydigan test (yuklamaga sezgir)")
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _sessionlocal_test_bazaga_yonaltirilsin():
     """`database.SessionLocal` ni TEST bazasiga yo'naltiradi.
@@ -193,6 +199,14 @@ def _sessionlocal_test_bazaga_yonaltirilsin():
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database(_sessionlocal_test_bazaga_yonaltirilsin):
+    # ⚠️ AVVAL TOZALASH. test.db — FAYL; oxiridagi drop_all faqat sessiya
+    # NORMAL tugasa ishlaydi. Jarayon o'ldirilsa (xotira tanqisligi, 600s
+    # chegarasi) jadvallar ma'lumot bilan QOLADI va keyingi yugurish ularni
+    # ko'radi: 2+ faol kafe → superuser'ning `resolve_tenant_id` None →
+    # mahsulot tenant'siz → katalog nomzodi yozilmaydi; qolgan nomzod/barkod
+    # → unique to'qnashuv. Aynan shu "yuklamada 9 ta katalog testi yiqiladi,
+    # alohida o'tadi" ko'rinishini bergan (2026-10, qayta tiklandi).
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:

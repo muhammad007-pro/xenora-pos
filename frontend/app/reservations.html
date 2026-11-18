@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Bronlar | XENORA</title>
 <style>
@@ -155,7 +156,7 @@ function esc(s){const d=document.createElement('div');d.textContent=s;return d.i
 const ST_LBL={pending:'Kutilmoqda',confirmed:'Tasdiqlangan',completed:'Yakunlangan',cancelled:'Bekor'};
 const ST_CL={pending:'b-pending',confirmed:'b-confirmed',completed:'b-completed',cancelled:'b-cancelled'};
 
-let curDate=new Date().toISOString().split('T')[0],reservations=[],tables=[];
+let curDate=tkYmd(),reservations=[],tables=[];
 document.getElementById('dateInp').value=curDate;
 
 async function load(){
@@ -203,9 +204,9 @@ async function upd(id,status){
   showT('Holat yangilandi','success');load();
 }
 
-function updateDateLabel(){const d=new Date(curDate);const today=new Date().toISOString().split('T')[0];document.getElementById('dateLbl').textContent=curDate===today?'Bugun':d.toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});}
-function shiftDay(n){const d=new Date(curDate);d.setDate(d.getDate()+n);curDate=d.toISOString().split('T')[0];document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
-function goToday(){curDate=new Date().toISOString().split('T')[0];document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
+function updateDateLabel(){const d=new Date(curDate);const today=tkYmd();document.getElementById('dateLbl').textContent=curDate===today?'Bugun':d.toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function shiftDay(n){curDate=tkAddDays(curDate,n);document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
+function goToday(){curDate=tkYmd();document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
 document.getElementById('dateInp').addEventListener('change',e=>{curDate=e.target.value;updateDateLabel();load();});
 document.getElementById('stFilter').addEventListener('change',render);
 

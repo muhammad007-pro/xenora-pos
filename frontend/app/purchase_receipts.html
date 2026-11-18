@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Priyomka — XENORA</title>
 <link rel="stylesheet" href="../css/main.css">
@@ -275,7 +276,7 @@ function apiErr(res, fallback = 'Amal bajarilmadi') {
 function apiOk(res) { return !!(res && res.success); }
 
 async function init() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = tkYmd();
   document.getElementById('nDate').value = today;
   document.getElementById('filterFrom').value = today.slice(0,7) + '-01';
   document.getElementById('filterTo').value = today;

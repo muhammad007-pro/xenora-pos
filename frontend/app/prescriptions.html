@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Retsept Arxivi | XENORA</title>
 <link rel="stylesheet" href="../styles/main.css">
@@ -307,7 +308,7 @@ function openModal(rx = null) {
   document.getElementById('fPhone').value = rx?.patient_phone || '';
   document.getElementById('fDoctor').value = rx?.doctor_name || '';
   document.getElementById('fClinic').value = rx?.clinic_name || '';
-  document.getElementById('fDate').value = rx?.prescription_date || new Date().toISOString().slice(0,10);
+  document.getElementById('fDate').value = rx?.prescription_date || tkYmd();
   document.getElementById('fNotes').value = rx?.notes || '';
   meds = (rx?.medicines || []).map(m => ({...m}));
   renderMeds();

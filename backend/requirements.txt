@@ -37,7 +37,7 @@ pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.25.2
 # freezegun 1.5.1 ga QADALGAN: tests/conftest.py FAKE_NOW rejimi FakeDatetime.now
-# ichki tuzilishini qo'lda almashtiradi (docs/TESTING-TIME.md) — boshqa versiyada buzilishi mumkin.
+# ichki tuzilishini qo'lda almashtiradi (docs/TESTING-TIME.md) - boshqa versiyada buzilishi mumkin.
 freezegun==1.5.1
 
 # PDF va Excel generatsiya
@@ -52,10 +52,10 @@ pillow==10.4.0
 python-escpos==2.2.0
 pyusb==1.2.1
 
-# AI-Ombor (Claude API — rasmdan mahsulot o'qish). Pillow (rasm siqish) yuqorida bor.
+# AI-Ombor (Claude API - rasmdan mahsulot o'qish). Pillow (rasm siqish) yuqorida bor.
 anthropic>=0.40,<1.0
 
 # Xato kuzatuvi (Sentry). SENTRY_DSN bo'sh bo'lsa ishga tushmaydi (dev/opt-in).
-# jinja2 — Sentry StarletteIntegration init uchun zarur (aks holda init xato beradi).
+# jinja2 - Sentry StarletteIntegration init uchun zarur (aks holda init xato beradi).
 sentry-sdk[fastapi]==2.42.0
 jinja2==3.1.6

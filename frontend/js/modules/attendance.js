@@ -9,7 +9,7 @@ class AttendanceModule {
         this.employees = [];
         this.cafes = [];
         this.attendance = [];
-        this.selectedDate = new Date().toISOString().split('T')[0];
+        this.selectedDate = tkYmd();
         
         this.init();
     }
@@ -104,7 +104,7 @@ class AttendanceModule {
     createAttendanceRow(att) {
         const employee = this.employees.find(e => e.id === att.employee_id);
         const cafe = this.cafes.find(c => c.id === employee?.cafe_id);
-        const canCheckout = !att.check_out && this.selectedDate === new Date().toISOString().split('T')[0];
+        const canCheckout = !att.check_out && this.selectedDate === tkYmd();
         
         return `
             <tr>
@@ -134,7 +134,7 @@ class AttendanceModule {
     
     createEmptyRow(emp) {
         const cafe = this.cafes.find(c => c.id === emp.cafe_id);
-        const canCheckin = this.selectedDate === new Date().toISOString().split('T')[0];
+        const canCheckin = this.selectedDate === tkYmd();
         
         return `
             <tr>
@@ -252,9 +252,7 @@ class AttendanceModule {
     }
     
     changeDate(days) {
-        const date = new Date(this.selectedDate);
-        date.setDate(date.getDate() + days);
-        this.selectedDate = date.toISOString().split('T')[0];
+        this.selectedDate = tkAddDays(this.selectedDate, days);
         this.loadData().then(() => {
             this.renderAttendance();
             this.updateSummary();
@@ -262,7 +260,7 @@ class AttendanceModule {
     }
     
     setToday() {
-        this.selectedDate = new Date().toISOString().split('T')[0];
+        this.selectedDate = tkYmd();
         this.loadData().then(() => {
             this.renderAttendance();
             this.updateSummary();

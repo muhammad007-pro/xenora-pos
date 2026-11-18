@@ -480,7 +480,7 @@ async function loadStockIn() {
       return;
     }
     body.innerHTML = items.map(mv => `<tr>
-      <td class="td-sub">${mv.created_at ? mv.created_at.slice(0,16).replace('T',' ') : '—'}</td>
+      <td class="td-sub">${mv.created_at ? tkDateTime(mv.created_at) : '—'}</td>
       <td class="td-bold">${mv.product_name || '—'}</td>
       <td><span style="color:${typeColors[mv.movement_type]||'var(--text2)'};font-weight:600;font-size:.8125rem">${typeLabels[mv.movement_type]||mv.movement_type}</span></td>
       <td>${fmtQty(mv.quantity)} ${mv.unit}</td>
@@ -549,7 +549,7 @@ async function loadStockOut() {
       hBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--text3)">Hech narsa topilmadi</td></tr>';
     } else {
       hBody.innerHTML = woItems.map(mv => `<tr>
-        <td class="td-sub">${mv.created_at ? mv.created_at.slice(0,16).replace('T',' ') : '—'}</td>
+        <td class="td-sub">${mv.created_at ? tkDateTime(mv.created_at) : '—'}</td>
         <td class="td-bold">${mv.product_name || '—'}</td>
         <td style="color:var(--danger);font-weight:600">−${fmtQty(mv.quantity)} ${mv.unit}</td>
         <td><span class="badge badge-red">${reasonLabels[mv.reason]||mv.reason||'—'}</span></td>
@@ -587,11 +587,11 @@ async function loadInvCountList() {
     }
     body.innerHTML = items.map(c => `<tr>
       <td class="td-bold">#${c.id}</td>
-      <td class="td-sub">${c.created_at ? c.created_at.slice(0,16).replace('T',' ') : '—'}</td>
+      <td class="td-sub">${c.created_at ? tkDateTime(c.created_at) : '—'}</td>
       <td><span class="badge ${statusColor[c.status]||''}">${statusMap[c.status]||c.status}</span></td>
       <td>${c.total_items}</td>
       <td style="color:${c.filled_items===c.total_items?'var(--success)':'var(--warning)'}">${c.filled_items}/${c.total_items}</td>
-      <td class="td-sub">${c.confirmed_at ? c.confirmed_at.slice(0,10) : '—'}</td>
+      <td class="td-sub">${c.confirmed_at ? tkYmd(c.confirmed_at) : '—'}</td>
       <td class="td-actions">
         <button class="act-btn" onclick="openInvCountDetail(${c.id},'${c.status}')">Ko'rish</button>
         ${c.status==='draft'?`<button class="act-btn act-danger" onclick="deleteInvCount(${c.id})">O'ch</button>`:''}

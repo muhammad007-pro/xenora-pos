@@ -60,7 +60,7 @@ async function loadAutoReady() {
       <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.description||'—'}</td>
       <td style="font-weight:700">${fmtMoney(o.total_amount||0)} UZS</td>
       <td style="color:${(o.paid_amount||0)>=(o.total_amount||0)?'var(--success)':'var(--warning)'}">${fmtMoney(o.paid_amount||0)} UZS</td>
-      <td class="td-sub">${(o.completion_date||o.updated_at||'').slice(0,10)}</td>
+      <td class="td-sub">${tkYmd(o.completion_date||o.updated_at)}</td>
       <td class="td-actions">
         <button class="act-btn" title="Topshirildi" onclick="soNextStatus(${o.id},'delivered')">✓</button>
       </td>
@@ -185,7 +185,7 @@ async function loadAutoClients() {
       clientMap[key].total += o.total_amount || 0;
       clientMap[key].paid  += o.paid_amount  || 0;
       if (o.vehicle?.plate_number) clientMap[key].plates.add(o.vehicle.plate_number);
-      const d = (o.created_at||'').slice(0,10);
+      const d = tkYmd(o.created_at);
       if (!clientMap[key].last || d > clientMap[key].last) clientMap[key].last = d;
     });
     let items = Object.values(clientMap).sort((a,b) => b.total - a.total);
@@ -270,7 +270,7 @@ async function loadServiceOrders() {
           <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.description || '—'}</td>
           <td style="font-weight:600;white-space:nowrap">${fmtMoney(o.total_amount)} UZS</td>
           <td><span class="badge ${st.cls}">${st.lbl}</span></td>
-          <td style="font-size:.75rem;color:var(--text2)">${(o.created_at||'').slice(0,10)}</td>
+          <td style="font-size:.75rem;color:var(--text2)">${tkYmd(o.created_at)}</td>
           <td class="td-actions">
             ${nextLbl ? `<button class="act-btn" title="${nextLbl}" onclick="soNextStatus(${o.id},'${nextKey}')">›</button>` : ''}
           </td>

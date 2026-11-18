@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Hisobotlar | XENORA</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -277,18 +278,16 @@ function fmtN(n){return window.fmtMoney(n);}
 function fmtD(d){if(!d)return'—';return new Date(d).toLocaleDateString('uz-UZ');}
 
 // ── Dates ──────────────────────────────────────────────────────────────────────
-const today=new Date().toISOString().split('T')[0];
+const today=tkYmd();
 document.getElementById('dateFrom').value=today;
 document.getElementById('dateTo').value=today;
 
 function setPeriod(days,btn){
   document.querySelectorAll('.pb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  const to=new Date();
-  const from=new Date();
-  from.setDate(from.getDate()-days);
-  document.getElementById('dateTo').value=to.toISOString().split('T')[0];
-  document.getElementById('dateFrom').value=from.toISOString().split('T')[0];
+  const to=tkYmd();
+  document.getElementById('dateTo').value=to;
+  document.getElementById('dateFrom').value=tkAddDays(to,-days);
 }
 
 // Remove active from period btns when date manually changed

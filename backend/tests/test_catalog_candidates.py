@@ -394,6 +394,7 @@ def test_qoshimcha_sorovlar_soni_chegaralangan(client, auth_headers, category_id
         f"(o'chiq {ochiq}, yoqiq {yoqiq}) — N+1 yoki ortiqcha so'rov kirdimi?")
 
 
+@pytest.mark.perf   # vaqt o'lchaydi — og'ir yuklamada `-m "not perf"` bilan chiqarish mumkin
 def test_yigish_tezligi_bazaviy_sorovga_nisbatan(client, auth_headers, category_id, cafe_id):
     """Nomzod yozuvi oddiy SELECT'dan necha barobar sekin.
 

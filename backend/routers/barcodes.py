@@ -19,6 +19,14 @@ async def lookup_barcode(
     """Barcode bo'yicha mahsulot topish (asosiy yoki qo'shimcha barcode)"""
     tid = resolve_tenant_id(db, current_user)
 
+    # O'CHIRILGAN (is_active=false) mahsulot HECH BIR yo'lda qaytmaydi. Ilgari
+    # qaytardi: POS xotirasida yo'q kod lookup'ga borib, o'chirilgan mahsulotni
+    # savatga qo'shardi. Ilova o'zi o'chirganda barcode/sku NULL bo'ladi, lekin
+    # PATCH is_active=false yoki qo'lda SQL bilan nofaol qilingan mahsulot
+    # kodini saqlab qoladi — shu sabab filtr kodga emas, holatga tayanadi.
+    def _faol(q):
+        return q.filter(Product.tenant_id == tid, Product.is_active == True)  # noqa: E712
+
     # Avval product_barcodes jadvalidan qidirish
     pb = db.query(ProductBarcode).filter(
         ProductBarcode.barcode == barcode,
@@ -26,15 +34,12 @@ async def lookup_barcode(
     ).first()
 
     if pb:
-        product = db.query(Product).filter(Product.id == pb.product_id).first()
+        product = _faol(db.query(Product).filter(Product.id == pb.product_id)).first()
         if product:
             return _product_dict(product, pb)
 
     # Asosiy barcode (products.barcode ustuni)
-    product = db.query(Product).filter(
-        Product.barcode == barcode,
-        Product.tenant_id == tid,
-    ).first()
+    product = _faol(db.query(Product).filter(Product.barcode == barcode)).first()
     if product:
         return _product_dict(product, None)
 
@@ -48,7 +53,7 @@ async def lookup_barcode(
             ProductBarcode.tenant_id == tid,
         ).first()
         if pb2:
-            product = db.query(Product).filter(Product.id == pb2.product_id).first()
+            product = _faol(db.query(Product).filter(Product.id == pb2.product_id)).first()
             if product:
                 result = _product_dict(product, pb2)
                 result["weight_kg"] = weight_g / 1000
@@ -59,10 +64,7 @@ async def lookup_barcode(
     # (qisman moslik, ikkinchi tarmoq aylanishi) qidirardi. Endi BITTA so'rov.
     # Eng OXIRIDA: mavjud ustuvorlik (qo'shimcha → asosiy → tarozi) o'zgarmaydi.
     # `uq_products_tenant_sku (tenant_id, sku)` indeksi bor.
-    product = db.query(Product).filter(
-        Product.sku == barcode,
-        Product.tenant_id == tid,
-    ).first()
+    product = _faol(db.query(Product).filter(Product.sku == barcode)).first()
     if product:
         return _product_dict(product, None)
 

@@ -29,7 +29,7 @@ from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
 from main import app
-from models import Cafe, Category, Product, User, Role, Permission
+from models import Cafe, Category, Product, ProductBarcode, User, Role, Permission
 from core.security import get_password_hash
 
 PW = "ScanSpeed9x"
@@ -95,7 +95,22 @@ def seeded(db_session):
                     category_id=kat_a.id, tenant_id=cafe_a.id, is_active=True)
     begona = Product(name="BEGONA SKU", price=7000, sku="BEG777",
                      category_id=kat_b.id, tenant_id=cafe_b.id, is_active=True)
-    db.add_all([pachka, skuli, ustun_bc, ustun_sku, bepul, begona]); db.flush()
+    # O'CHIRILGAN, lekin kodlari SAQLANGAN (PATCH is_active=false / qo'lda SQL
+    # yo'li — ilovaning "O'chirish" tugmasi esa kodni NULL qiladi)
+    ochirilgan = Product(name="OCHIRILGAN", price=3000, barcode="9990001112223",
+                         sku="DEL001", category_id=kat_a.id, tenant_id=cafe_a.id,
+                         is_active=False, is_available=False)
+    # Boshqa tenantda AYNI shtrix-kod FAOL — o'z tenantida topiladi, A ga sizmaydi
+    begona_faol = Product(name="BEGONA FAOL", price=4000, barcode="9990001112223",
+                          category_id=kat_b.id, tenant_id=cafe_b.id, is_active=True)
+    db.add_all([pachka, skuli, ustun_bc, ustun_sku, bepul, begona,
+                ochirilgan, begona_faol]); db.flush()
+    # Qo'shimcha kod (product_barcodes) va tarozi PLU ham o'chirilganga ishora qiladi
+    db.add_all([
+        ProductBarcode(tenant_id=cafe_a.id, product_id=ochirilgan.id, barcode="7770001"),
+        ProductBarcode(tenant_id=cafe_a.id, product_id=ochirilgan.id, barcode="12345",
+                       weight_variable=True),
+    ])
 
     for phone, cafe in ((PHONE_A, cafe_a), (PHONE_B, cafe_b)):
         db.add(User(username=f"u{phone[-3:]}", email=f"{phone[-3:]}@x.uz",
@@ -104,7 +119,7 @@ def seeded(db_session):
                     role_id=role.id))
     db.commit()
     return {"pachka": pachka.id, "skuli": skuli.id, "ustun_bc": ustun_bc.id,
-            "bepul": bepul.id}
+            "bepul": bepul.id, "begona_faol": begona_faol.id}
 
 
 @pytest.fixture()
@@ -177,6 +192,27 @@ def test_begona_tenant_SKU_si_topilmaydi(client, seeded):
 ])
 def test_qisman_moslik_404(client, seeded, kod):
     assert _lookup(client, _hdr(client), kod).status_code == 404
+
+
+# ── 3b) ⚠️ O'CHIRILGAN mahsulot HECH BIR yo'lda qaytmaydi ────────────────────
+# Ilgari qaytardi: POS xotirasida yo'q kod → lookup → o'chirilgan mahsulot savatga.
+
+@pytest.mark.parametrize("kod,yol", [
+    ("9990001112223", "asosiy shtrix-kod"),
+    ("DEL001",        "SKU"),
+    ("7770001",       "qo'shimcha kod (product_barcodes)"),
+    ("2112345005007", "tarozi PLU (12345, 500 g)"),
+])
+def test_ochirilgan_mahsulot_404(client, seeded, kod, yol):
+    r = _lookup(client, _hdr(client), kod)
+    assert r.status_code == 404, f"{yol}: {r.status_code} {r.text}"
+
+
+def test_ochirilgan_filtri_boshqa_tenantga_tegmaydi(client, seeded):
+    # B da ayni kod FAOL — B o'zinikini topadi (A dagi o'chirilgan aralashmaydi)
+    r = _lookup(client, _hdr(client, PHONE_B), "9990001112223")
+    assert r.status_code == 200, r.text
+    assert r.json()["id"] == seeded["begona_faol"]
 
 
 # ── 4) pos-stock chegarasi — butun katalog bir so'rovda ─────────────────────

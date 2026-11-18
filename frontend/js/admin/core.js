@@ -1500,7 +1500,8 @@ async function loadProducts() {
     const [data, stock] = await Promise.all([
       apiFetch('/products/?' + params),
       _needStock
-        ? apiFetch('/inventory/pos-stock?limit=2000').catch(() => { _stockFailed = true; return null; })
+        // 10000 = backend chegarasi (`/products/all` bilan bir xil) — butun katalog
+        ? apiFetch('/inventory/pos-stock?limit=10000').catch(() => { _stockFailed = true; return null; })
         : Promise.resolve(null),
     ]);
     if (_needStock) {

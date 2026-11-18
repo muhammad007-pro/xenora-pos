@@ -181,7 +181,9 @@ async def get_inventory_items(
 @router.get("/pos-stock")
 async def get_pos_stock(
     search: Optional[str] = None,
-    limit: int = Query(400, ge=1, le=2000),
+    # Yuqori chegara `/products/all` bilan bir xil: POS qoldiq xaritasi BUTUN
+    # katalogni bir so'rovda oladi (2000 da katta do'konning bir qismi tushardi).
+    limit: int = Query(400, ge=1, le=10000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):

@@ -55,6 +55,17 @@ async def lookup_barcode(
                 result["calculated_price"] = round(product.price * weight_g / 1000, 0)
                 return result
 
+    # Aniq SKU — POS ilgari buni alohida `/products/?search` so'rovi bilan
+    # (qisman moslik, ikkinchi tarmoq aylanishi) qidirardi. Endi BITTA so'rov.
+    # Eng OXIRIDA: mavjud ustuvorlik (qo'shimcha → asosiy → tarozi) o'zgarmaydi.
+    # `uq_products_tenant_sku (tenant_id, sku)` indeksi bor.
+    product = db.query(Product).filter(
+        Product.sku == barcode,
+        Product.tenant_id == tid,
+    ).first()
+    if product:
+        return _product_dict(product, None)
+
     raise HTTPException(status_code=404, detail="Barcode topilmadi")
 
 
@@ -154,6 +165,25 @@ def _product_dict(p: Product, pb: Optional[ProductBarcode]) -> dict:
         "image_url": p.image_url,
         "barcode_type": pb.barcode_type if pb else "CODE128",
         "weight_variable": pb.weight_variable if pb else False,
+        # POS topilgan mahsulotni `state.products` ga qo'shib, keyin savat
+        # mantiqini (pachka tanlovi, ko'tara narx, kasrli birlik, retsept) SHU
+        # obyekt ustida yuritadi. Ilgari bu maydonlar faqat ikkinchi
+        # `/products/?search` so'rovidan kelardi. Faqat QO'SHILDI — yuqoridagi
+        # kalitlar (inventory/kirim/firma sahifalari o'qiydi) tegilmadi.
+        # ⚠️ `ProductInDB.model_validate` ATAYIN ishlatilmadi: u `price > 0` ni
+        # tekshiradi va narxi 0 mahsulotda lookup 500 berardi.
+        "sale_unit": p.sale_unit,
+        "sku": p.sku,
+        "category_id": p.category_id,
+        "is_active": p.is_active,
+        "is_available": p.is_available,
+        "pack_size": p.pack_size,
+        "pack_price": p.pack_price,
+        "wholesale_price": p.wholesale_price,
+        "wholesale_min_qty": p.wholesale_min_qty,
+        "requires_prescription": p.requires_prescription,
+        "active_ingredient": p.active_ingredient,
+        "dosage": p.dosage,
     }
 
 

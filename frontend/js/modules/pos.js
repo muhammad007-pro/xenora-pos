@@ -773,11 +773,18 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
     return;
   }
 
-  let groups = [];
-  try {
-    const res = await api.get(`/modifiers/groups?product_id=${productId}`);
-    groups = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
-  } catch {}
+  // Modifikatorlar POS ochilganda BIR marta keshlanadi (`loadModifierGroups`).
+  // Kesh bor → tarmoqsiz, darhol. Kesh yo'q (yuklash yiqilgan) → eski yo'l:
+  // har mahsulotga alohida so'rov. Skanerda bu so'rov ~200 ms (Amsterdam)
+  // kutdirardi, garchi atir do'konida modifikator umuman yo'q bo'lsa ham.
+  let groups = _modGroupsFor(productId);
+  if (groups === null) {
+    groups = [];
+    try {
+      const res = await api.get(`/modifiers/groups?product_id=${productId}`);
+      groups = _unwrapGroups(res);
+    } catch {}
+  }
 
   if (groups.length) {
     _modUnitMode = unitMode;
@@ -785,6 +792,37 @@ async function addToCart(productId, presetWeight = null, unitMode = null) {
   } else {
     doAddToCart(p, [], null, unitMode);
   }
+}
+
+// ─── Modifikator keshi ────────────────────────────────────────────────────────
+// `null` = yuklanmagan (yoki yuklash yiqilgan) → addToCart eski yo'lga tushadi.
+// Massiv = tenantning BARCHA faol guruhlari (product_id bilan). Yangilanish:
+// POS qayta ochilganda (`loadData`), katalog bilan birga.
+let _modGroupsCache = null;
+
+function _unwrapGroups(res) {
+  const g = Array.isArray(res) ? res : (res?.data ?? res?.items ?? []);
+  return Array.isArray(g) ? g : [];
+}
+
+async function loadModifierGroups() {
+  try {
+    const res = await api.get('/modifiers/groups');
+    // api.js xatoni otmaydi, {success:false} qaytaradi — uni "bo'sh" deb
+    // keshlasak modifikatorli mahsulot jimgina modalsiz sotilardi.
+    if (!res || res.success === false) { _modGroupsCache = null; return; }
+    _modGroupsCache = _unwrapGroups(res);
+  } catch { _modGroupsCache = null; }
+}
+
+/**
+ * Mahsulotga tegishli guruhlar — server filtri bilan AYNAN bir xil:
+ * `product_id == X` YOKI `product_id IS NULL` (umumiy guruh), tartib
+ * serverdagi `display_order` (filter tartibni saqlaydi). Kesh yo'q → null.
+ */
+function _modGroupsFor(productId) {
+  if (_modGroupsCache === null) return null;
+  return _modGroupsCache.filter(g => g.product_id == null || g.product_id === productId);
 }
 
 // ─── Weight / tarozi modal ────────────────────────────────────────────────────
@@ -1036,7 +1074,9 @@ let _guardOn   = false;
 
 async function refreshStockMap() {
   try {
-    const res = await api.get('/inventory/pos-stock?limit=1000');
+    // Butun katalog (`/products/all` bilan bir xil chegara). 1000 da FAZZA
+    // (1716 mahsulot) ning ~700 tasida qoldiq yorlig'i chiqmasdi.
+    const res = await api.get('/inventory/pos-stock?limit=10000');
     const d = res?.data ?? res;
     if (!d || !Array.isArray(d.items)) return;
     _guardOn = !!d.block_oversell;
@@ -3396,18 +3436,33 @@ document.getElementById('custDisplayBtn')?.addEventListener('click', () => {
 // ─── Barcode scanner ──────────────────────────────────────────────────────────
 let _bcTimer = null;
 
+// Mahsulot qadog'idagi QR (sayt, Telegram, soliq havolasi) — shtrix-kod emas.
+// Prodda 7 kunda shunday 20+ "kod" serverga borib 404 olardi.
+const _URL_LIKE = /:\/\/|^(https?:|www\.)|(^|[^a-z0-9])t\.me\//i;
+function _isUrlLikeCode(code) { return _URL_LIKE.test(code); }
+
 async function handleBarcodeScan(code) {
   if (!code || code.length < 2) return;
   const statusEl = document.getElementById('barcodeStatus');
   statusEl.textContent = 'Qidirilmoqda...';
   statusEl.className   = '';
 
-  // Avval xotiradagi mahsulotlardan qidirish (offline-first)
-  let found = state.products.find(p => p.barcode === code);
+  // Avval xotiradagi mahsulotlardan qidirish (offline-first).
+  // URL/QR — serverga UMUMAN yuborilmaydi, darhol "topilmadi".
+  const isUrl = _isUrlLikeCode(code);
+  let found = isUrl ? null : state.products.find(p => p.barcode === code);
   let weightKg = null;
   let calcPrice = null;
 
-  if (!found) {
+  // Xotirada yo'q → serverga BITTA so'rov. `/barcodes/lookup` asosiy va
+  // qo'shimcha shtrix-kod, aniq SKU va tarozi kodini o'zi tekshiradi.
+  //
+  // ⚠️ Ilgari bu yerdan keyin `/products/?search=<kod>&page_size=1` ham
+  // chaqirilardi va `items[0]` olinardi. Bu NOMI/KODI qisman mos keladigan
+  // TASODIFIY mahsulotni savatga qo'shardi (prod, 7 kun: 133 ta 404 kodning
+  // birortasi ham u yerda to'g'ri topilmagan; "82" → 44 ta qisman moslik).
+  // Qaytarmang — aniq SKU lookup ichiga ko'chirildi.
+  if (!found && !isUrl) {
     try {
       // Ko'p barcode tizimi orqali qidirish (multi-barcode + tarozi barcode)
       const _r = await api.get(`/barcodes/lookup/${encodeURIComponent(code)}`);
@@ -3419,18 +3474,6 @@ async function handleBarcodeScan(code) {
         // lookup `unit` qaytaradi; addToCart/isFractionalUnit `sale_unit` ni o'qiydi → moslab qo'yamiz
         if (bcRes.sale_unit == null && bcRes.unit != null) bcRes.sale_unit = bcRes.unit;
         if (!state.products.find(p => p.id === bcRes.id)) state.products.push(bcRes);
-      }
-    } catch {}
-  }
-
-  if (!found) {
-    try {
-      const res = await api.get(`/products/?search=${encodeURIComponent(code)}&page_size=1`);
-      const d   = res && res.data;
-      const items = (d && d.items) || (Array.isArray(d) ? d : []);
-      found = items.find(p => p.barcode === code) || items[0] || null;
-      if (found && !state.products.find(p => p.id === found.id)) {
-        state.products.push(found);
       }
     } catch {}
   }
@@ -3447,6 +3490,11 @@ async function handleBarcodeScan(code) {
       statusEl.className   = 'found';
       addToCart(found.id);
     }
+  } else if (isUrl) {
+    statusEl.textContent = 'Topilmadi: QR havola';
+    statusEl.className   = 'notfound';
+    toast('Mahsulot topilmadi: bu QR havola, shtrix-kod emas', 'warning');
+    beep('error');
   } else {
     statusEl.textContent = 'Topilmadi: ' + code;
     statusEl.className   = 'notfound';
@@ -3945,6 +3993,9 @@ async function loadData() {
   // Ombor xaritasi — savatga qo'shishda erta ogohlantirish uchun (ixtiyoriy,
   // `await` qilinmaydi: sekin javob POS ochilishini kechiktirmasin).
   refreshStockMap();
+  // Modifikator keshi — katalog bilan birga, `await`siz. Javob kelguncha
+  // skanerlansa addToCart eski yo'l bilan (mahsulot bo'yicha so'rov) ishlaydi.
+  loadModifierGroups();
   document.getElementById('ldBar').style.width = '65%';
 
   const tblsRes = await api.get('/tables/').catch(() => null);

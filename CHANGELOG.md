@@ -3,6 +3,26 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [Reliz qilinmagan] — Skaner tezligi (branch `fix/scan-speed`)
+
+**MIGRATSIYA YO'Q.** Backend + frontend. Versiya ko'tarilmagan — reliz paytida
+`bump_version.py` (service worker keshi ham shu bilan yangilanadi).
+
+### ⚡ Skaner (FAZZA shikoyati: "mahsulot kech chiqadi")
+* modifikatorlar POS ochilganda bir marta yuklanadi — modifikatorsiz mahsulot skanerda
+  **tarmoqsiz** qo'shiladi. Ilgari har skanerda serverga so'rov ketib, ~200 ms (ba'zan
+  1 s) kutilardi. Modifikatorli taomda modal avvalgidek; kesh yuklanmasa eski yo'l
+* xotirada yo'q kod — serverga **bitta** so'rov (ilgari ikki ketma-ket). Ikkinchi so'rov
+  (`/products/?search`) qisman moslik bilan **tasodifiy mahsulotni** savatga qo'shardi —
+  olib tashlandi; aniq SKU endi `/barcodes/lookup` ichida tekshiriladi
+* qadoqdagi QR havolalar (t.me, sayt) serverga yuborilmaydi — "bu QR havola" deyiladi
+* `/barcodes/lookup` javobiga POS uchun maydonlar qo'shildi (pachka, ko'tara narx,
+  birlik) — eski kalitlar o'zgarmagan
+
+### 📦 Qoldiq yorlig'i
+* POS qoldiq xaritasi butun katalogni oladi (`pos-stock` chegarasi 2000 → 10000,
+  POS 1000 → 10000). FAZZA (1716 mahsulot) da ~700 ta mahsulotda yorliq chiqmasdi
+
 ## [1.14.8] — 2026-10-25 — Z-chek lokal printerga
 
 **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Faqat frontend (+ izoh) — kassa

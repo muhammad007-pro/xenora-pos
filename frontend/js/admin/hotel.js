@@ -154,7 +154,7 @@ async function updateHotelDebtBadge() {
 }
 
 async function loadHotelArrivals() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = tkYmd();
   try {
     const data = await apiFetch('/rooms/bookings/?page_size=500');
     const bookings = data.items || data || [];
@@ -325,7 +325,7 @@ const HB_NEXT_LBL = { pending:'Tasdiqlash', confirmed:"Ro'yxatdan o'tkazish", ch
 
 async function loadHotelBookings() {
   const search = document.getElementById('hbSearch')?.value || '';
-  const today  = new Date().toISOString().slice(0, 10);
+  const today  = tkYmd();
   const params = new URLSearchParams({ page: hbCurrentPage, page_size: 20 });
   if (hbStatusVal) params.set('status', hbStatusVal);
   if (search)      params.set('search', search);

@@ -31,7 +31,7 @@ class PaymentsModule {
     }
     
     getDefaultDate() {
-        return new Date().toISOString().split('T')[0];
+        return tkYmd();
     }
     
     async loadPayments() {

@@ -92,6 +92,12 @@ const SHARED_GLOBALS = {
   fmtMoney: 'readonly',
   fmtQty: 'readonly',
   fmtNum: 'readonly',
+  // frontend/js/core/tk-date.js (classic) — Toshkent sanasi, `g.X = ...` naqshi.
+  tkYmd: 'readonly',
+  tkYmdHm: 'readonly',
+  tkDateTime: 'readonly',
+  tkMonthStart: 'readonly',
+  tkAddDays: 'readonly',
   // frontend/js/core/qty-guard.js (classic) — xuddi shu `g.X = ...` naqshi.
   stockQtyError: 'readonly',
   priceError: 'readonly',
@@ -134,6 +140,7 @@ export default [
     ignores: [
       'frontend/js/admin/**',
       'frontend/js/core/money.js',
+      'frontend/js/core/tk-date.js',
       'frontend/js/core/z-report.js',
       'frontend/js/core/help-content.js',
       'frontend/js/core/help-center.js',
@@ -151,6 +158,7 @@ export default [
   {
     files: [
       'frontend/js/core/money.js',
+      'frontend/js/core/tk-date.js',
       'frontend/js/ui/searchable-select.js',
       // Z/X-hisobot chek mazmuni — admin.html va shift.html da classic <script src>
       'frontend/js/core/z-report.js',

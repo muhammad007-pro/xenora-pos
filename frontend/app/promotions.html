@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aksiya / Skidka — XENORA</title>
 <link rel="stylesheet" href="../css/main.css">
@@ -275,7 +276,7 @@ window.load = async function() {
   const res = await api.get(url);
   promos = res.items || res || [];
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = tkYmd();
   document.getElementById('kpiTotal').textContent   = promos.length;
   document.getElementById('kpiActive').textContent  = promos.filter(p=>p.is_active).length;
   document.getElementById('kpiExpired').textContent = promos.filter(p=>p.end_date && p.end_date < today).length;
@@ -285,7 +286,7 @@ window.load = async function() {
 };
 
 function renderGrid() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = tkYmd();
   let list = promos;
   if (activeFilter === 'active')   list = promos.filter(p=>p.is_active);
   if (activeFilter === 'inactive') list = promos.filter(p=>!p.is_active);

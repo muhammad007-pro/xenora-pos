@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Salon Tahlili — XENORA</title>
 <link rel="stylesheet" href="../css/main.css">
@@ -189,8 +190,8 @@ document.querySelectorAll('.atab').forEach(btn => {
 });
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
-const today = new Date().toISOString().slice(0,10);
-const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+const today = tkYmd();
+const firstOfMonth = tkMonthStart();
 document.getElementById('commFrom').value = firstOfMonth;
 document.getElementById('commTo').value   = today;
 

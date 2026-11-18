@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Narx Tarixi — XENORA</title>
 <link rel="stylesheet" href="../css/main.css">
@@ -187,7 +188,7 @@ window.loadPage = async function(page) {
   }
 
   if (rows.length) {
-    document.getElementById('lastUpdate').textContent = 'Oxirgi yangilanish: ' + (rows[0].changed_at||rows[0].created_at||'').slice(0,10);
+    document.getElementById('lastUpdate').textContent = 'Oxirgi yangilanish: ' + tkYmd(rows[0].changed_at||rows[0].created_at);
   }
 
   document.getElementById('histTbody').innerHTML = rows.length === 0
@@ -234,9 +235,8 @@ window.resetFilters = function() {
 };
 
 // Default: joriy oy
-const now = new Date();
-const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-const today    = now.toISOString().split('T')[0];
+const firstDay = tkMonthStart();
+const today    = tkYmd();
 document.getElementById('filterDateFrom').value = firstDay;
 document.getElementById('filterDateTo').value   = today;
 

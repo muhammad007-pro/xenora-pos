@@ -93,6 +93,7 @@ const UI_NAMES = [
   ['frontend/app/shift.html', 'Yashikda bo\'lishi kerak'], ['frontend/app/shift.html', 'Sanaldi'],
   ['frontend/app/report.html', 'data-tab="sales">Savdo'], ['frontend/app/report.html', '<div class="sl">Qaytarish</div>'],
   ['frontend/app/report.html', 'data-tab="staff">Xodimlar'], ['electron/spool-guard.js', "Printer javob bermayapti — qog'ozni tekshiring"],
+  ['frontend/app/profit.html', "sc('Sof savdo'"],
 ];
 check('1_ui_nomlari_kodda_bor', UI_NAMES.filter(([f, s]) => !rd(f).includes(s)).map(x => x.join(' :: ')), []);
 check('1_yordamda_bonus_sozi_korinmaydi', /bonus/i.test(HTEXT.replace(/^Kalit:.*$/gm, '')), false);

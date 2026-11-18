@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bonus Kartalar — XENORA</title>
 <style>
@@ -395,7 +396,7 @@ window.openHistory = async function(id, num) {
         <div>
           <div class="tx-type-${t.tx_type}">${typeLabel[t.tx_type]||t.tx_type}</div>
           <div style="font-size:.75rem;color:var(--text2)">${t.description||''}</div>
-          <div style="font-size:.7rem;color:var(--text2)">${t.created_at?.split('T')[0]||''}</div>
+          <div style="font-size:.7rem;color:var(--text2)">${tkYmd(t.created_at)}</div>
         </div>
         <div class="tx-type-${t.tx_type}" style="font-size:1rem;font-weight:800">
           ${t.amount > 0 ? '+' : ''}${t.amount.toFixed(2)} ball

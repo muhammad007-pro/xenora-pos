@@ -101,7 +101,7 @@ console.log('\n── 1) Moliya sana filtri ──');
     if (path === '/profit/timeline') return { points: [] };
     return [];
   } });
-  await t.page.waitForFunction(() => /Jami savdo/.test(document.getElementById('sg').textContent), null, { timeout: 8000 });
+  await t.page.waitForFunction(() => /Sof savdo/.test(document.getElementById('sg').textContent), null, { timeout: 8000 });
   check('1_tugma_bor', await t.page.isVisible('#pApply'), true);
   t.calls.length = 0;
   await t.page.fill('#pFrom', '2026-10-01');
@@ -133,13 +133,30 @@ console.log('\n── 1) Moliya sana filtri ──');
   const t = await ochish(browser, '/app/profit.html', { chart: false, api: (path) =>
     path === '/profit/summary' ? { business_type: 'store', revenue: 1000, cost: 0, gross_profit: 0, expenses: 0, net_profit: 0 }
       : path === '/profit/timeline' ? { points: [] } : [] });
-  await t.page.waitForFunction(() => /Jami savdo/.test(document.getElementById('sg').textContent), null, { timeout: 8000 }).catch(() => {});
-  check('1_chartsiz_raqamlar_chiqadi', /Jami savdo/.test(await t.page.textContent('#sg')), true);
+  await t.page.waitForFunction(() => /Sof savdo/.test(document.getElementById('sg').textContent), null, { timeout: 8000 }).catch(() => {});
+  check('1_chartsiz_raqamlar_chiqadi', /Sof savdo/.test(await t.page.textContent('#sg')), true);
   t.calls.length = 0;
   await t.page.fill('#pFrom', '2026-10-02');
   await t.page.click('#pApply');
   await kut(400);
   check('1_chartsiz_filtr_ishlaydi', t.calls.some(c => c.q.includes('date_from=2026-10-02')), true);
+  await t.ctx.close();
+}
+
+// ═══ 1b) Foyda "Sof savdo" = Dashboard "Sof savdo" (MANHATTAN 24.10) ═══════════
+// revenue vozvratdan KEYIN — ilgari "Jami savdo" deb chiqib Dashboard "Bugungi
+// savdo" (vozvratdan OLDIN) bilan bir nomda ikki son edi.
+console.log('\n── 1b) Foyda: Sof savdo + vozvrat izohi ──');
+{
+  const t = await ochish(browser, '/app/profit.html', { api: (path) =>
+    path === '/profit/summary' ? { business_type: 'store', revenue: 3675000, sales_gross: 3905000, returns: 230000,
+                                   returns_count: 1, cost: 0, gross_profit: 0, expenses: 0, net_profit: 0, orders_count: 10 }
+      : path === '/profit/timeline' ? { points: [] } : [] });
+  await t.page.waitForFunction(() => /Sof savdo/.test(document.getElementById('sg').textContent), null, { timeout: 8000 });
+  const first = (await t.page.textContent('#sg .sc')).replace(/\s+/g, ' ');
+  check('1b_nom_sof_savdo', /Sof savdo/.test(first) && !/Jami savdo/.test(first), true);
+  check('1b_son_vozvratdan_keyin', /3.?675.?000/.test(first), true);
+  check('1b_izoh_savdo_minus_vozvrat', /savdo 3.?905.?000 − vozvrat 230.?000/.test(first), true);
   await t.ctx.close();
 }
 

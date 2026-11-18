@@ -946,7 +946,7 @@ function showMembershipModal(product) {
     if (startLbl)  startLbl.textContent = "Boshlanish sanasi";
     if (endLbl)    endLbl.textContent   = "Tugash sanasi";
   }
-  const today = new Date().toISOString().split('T')[0];
+  const today = tkYmd();
   const startInp = document.getElementById('membershipStartDate');
   if (startInp) startInp.value = today;
   updateMembershipEnd();
@@ -960,7 +960,7 @@ function updateMembershipEnd() {
   if (!startVal || !days) return;
   const end = new Date(startVal);
   end.setDate(end.getDate() + days);
-  const endStr = end.toISOString().split('T')[0];
+  const endStr = tkAddDays(startVal, days);
   const endFmt = end.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const el = document.getElementById('membershipEndDateLbl');
   const hid = document.getElementById('membershipEndDateVal');

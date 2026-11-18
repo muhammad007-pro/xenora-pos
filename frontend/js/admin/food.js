@@ -7,7 +7,7 @@ let editingSpecialId = null;
 
 async function loadSpecials() {
   const dateEl = document.getElementById('specialsDate');
-  if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
+  if (!dateEl.value) dateEl.value = tkYmd();
   const d = dateEl.value;
   try {
     const specials = await apiFetch('/daily-specials/?target_date=' + d);
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function openSpecialModal(special = null) {
   editingSpecialId = special?.id || null;
   document.getElementById('smTitle').textContent = special ? 'Maxsus taom tahrirlash' : "Maxsus taom qo'shish";
-  document.getElementById('smDate').value        = special?.date || new Date().toISOString().slice(0,10);
+  document.getElementById('smDate').value        = special?.date || tkYmd();
   document.getElementById('smSpecialPrice').value= special?.special_price || '';
   document.getElementById('smDescription').value = special?.special_description || '';
   document.getElementById('smActive').checked    = special ? special.is_active !== false : true;
@@ -101,7 +101,7 @@ function rcSetView(v) {
 }
 async function loadReservCalendar() {
   const el = document.getElementById('rcCalendar');
-  const dateVal = document.getElementById('rcDate').value || new Date().toISOString().slice(0,10);
+  const dateVal = document.getElementById('rcDate').value || tkYmd();
   el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text3)">Yuklanmoqda...</div>';
   try {
     const STATUS = { pending:'Kutmoqda', confirmed:'Tasdiqlangan', cancelled:'Bekor', completed:'Bajarildi' };
@@ -124,8 +124,7 @@ async function loadReservCalendar() {
       </table></div>`;
     } else {
       // Hafta ko'rinishi: 7 kun, paralel so'rovlar
-      const base = new Date(dateVal); base.setHours(0,0,0,0);
-      const days = Array.from({length:7}, (_,i) => { const d=new Date(base); d.setDate(d.getDate()+i); return d.toISOString().slice(0,10); });
+      const days = Array.from({length:7}, (_,i) => tkAddDays(dateVal, i));
       const results = await Promise.all(days.map(d => apiFetch('/reservations/?date='+d+'&page_size=50').catch(()=>({items:[]}))));
       const weekDays = ['Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba','Yakshanba'];
       el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem">
@@ -147,7 +146,7 @@ async function loadReservCalendar() {
 }
 document.addEventListener('DOMContentLoaded', () => {
   const rcDate = document.getElementById('rcDate');
-  if (rcDate) rcDate.value = new Date().toISOString().slice(0,10);
+  if (rcDate) rcDate.value = tkYmd();
 });
 
 // ── Sodiqlik darajalari ────────────────────────────────────────────────────────
@@ -410,9 +409,8 @@ async function loadStaffMeals() {
   if (dateTo)   params.set('date_to', dateTo);
 
   // Oylik umumiy stats (joriy oy)
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
-  const lastDay  = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+  const firstDay = tkMonthStart();
+  const lastDay  = tkAddDays(tkAddDays(firstDay, 31).slice(0, 8) + '01', -1);
   const repParams = new URLSearchParams({ date_from: firstDay, date_to: lastDay });
   if (empId) repParams.set('employee_id', empId);
 

@@ -473,7 +473,7 @@ async function loadDebts() {
       document.getElementById('debtPagInfo').textContent = '0 ta yozuv';
       return;
     }
-    const today = new Date().toISOString().slice(0,10);
+    const today = tkYmd();
     body.innerHTML = list.map(d => {
       const overdue = d.due_date && d.due_date < today && d.status !== 'paid';
       const statusBadge = d.status === 'paid'

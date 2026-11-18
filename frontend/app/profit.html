@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Foyda tahlili | XENORA</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -283,7 +284,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
   <!-- ══ 5. XODIMLAR — /profit/staff-sales ══
        Sotuvchi = chekdagi sotuvchi (Order.waiter_id), to'lovni olgan kassir emas.
-       Jami "Sof savdo" — Foyda tahlili "Jami savdo" bilan AYNAN bir xil. -->
+       Jami "Sof savdo" — Foyda tahlili "Sof savdo" bilan AYNAN bir xil. -->
   <div class="tab-pane" id="tab-staff">
     <div class="sg">
       <div class="sc net"><div class="sl">Sof savdo</div><div class="sv" id="stNet">—</div><div class="ss" id="stNetSub"></div></div>
@@ -435,8 +436,15 @@ async function loadSummary() {
 
   if (PRODUCT_TYPES.has(bizType)) {
     // ── Mahsulot asosli ──────────────────────────────────────────────────────
+    // `revenue` — vozvratdan KEYIN. Ilgari "Jami savdo" deb chiqardi, Dashboard
+    // "Bugungi savdo" esa vozvratdan OLDIN → bir nom, ikki son (MANHATTAN 24.10:
+    // 3 905 000 vs 3 675 000, farq 230 000 naqd vozvrat). Endi Dashboard'dagi
+    // "Sof savdo" va Xodimlar "Sof savdo" bilan bir nom; vozvrat bo'lsa izohda.
+    const ordSub = `${d.orders_count||0} ta buyurtma`;
+    const revSub = d.sales_gross != null && d.returns > 0
+      ? `savdo ${fmt(d.sales_gross)} − vozvrat ${fmt(d.returns)} · ${ordSub}` : ordSub;
     let cards = ''
-      + sc('Jami savdo',     d.revenue,      `${d.orders_count||0} ta buyurtma`, 'gold-border')
+      + sc('Sof savdo',      d.revenue,      revSub, 'gold-border')
       + sc('Jami tan narx',  d.cost)
       + sc('Yalpi foyda',    d.gross_profit, `marja ${d.margin_pct||0}%`)
       + sc('Xarajatlar',    -d.expenses, expSub(d))
@@ -1137,7 +1145,7 @@ pClear.addEventListener('click', () => {
 });
 
 // ── Init ─────────────────────────────────────────────────────────────────────
-document.getElementById('exDate').value = new Date().toISOString().slice(0,10);
+document.getElementById('exDate').value = tkYmd();
 
 // "Foyda tahlili" har doim yuklanadi (bizType shu yerdan); keyin #hash yorlig'i
 loadTab('profit');

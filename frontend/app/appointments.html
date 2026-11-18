@@ -4,6 +4,7 @@
 <script>/*XENORA_SERVER_CAP*/if(window.Capacitor&&!window.XENORA_SERVER)window.XENORA_SERVER='https://xenora.uz';</script>
 <meta charset="UTF-8">
 <script src="../js/core/theme-boot.js"></script>
+<script src="../js/core/tk-date.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Uchrashuvlar | XENORA</title>
 <style>
@@ -153,7 +154,7 @@ const ST_NEXT_LBL={pending:'Tasdiqlash',confirmed:'Tugallash'};
 function fmtN(n){return new Intl.NumberFormat('uz-UZ').format(Math.round(n||0));}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
-let curDate=new Date().toISOString().split('T')[0], curSt='', all=[], services=[];
+let curDate=tkYmd(), curSt='', all=[], services=[];
 document.getElementById('dateInp').value=curDate;
 
 async function load(){
@@ -198,9 +199,9 @@ function render(){
 async function advance(id,st){await api.patch(`/appointments/${id}`,{status:st}).catch(()=>null);load();}
 async function cancel(id){if(!confirm('Bekor qilinsinmi?'))return;await api.patch(`/appointments/${id}`,{status:'cancelled'}).catch(()=>null);load();}
 
-function updateDateLabel(){const d=new Date(curDate);const today=new Date().toISOString().split('T')[0];document.getElementById('dateLbl').textContent=curDate===today?'Bugun':d.toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});}
-function shiftDay(n){const d=new Date(curDate);d.setDate(d.getDate()+n);curDate=d.toISOString().split('T')[0];document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
-function goToday(){curDate=new Date().toISOString().split('T')[0];document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
+function updateDateLabel(){const d=new Date(curDate);const today=tkYmd();document.getElementById('dateLbl').textContent=curDate===today?'Bugun':d.toLocaleDateString('uz-UZ',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function shiftDay(n){curDate=tkAddDays(curDate,n);document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
+function goToday(){curDate=tkYmd();document.getElementById('dateInp').value=curDate;updateDateLabel();load();}
 document.getElementById('dateInp').addEventListener('change',e=>{curDate=e.target.value;updateDateLabel();load();});
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');curSt=t.dataset.st;render();}));
 

@@ -34,7 +34,7 @@ Ular har xil narsani sanaydi:
 
 - **Dashboard → Bugungi savdo** — sotilgan tovar summasi. **Nasiya ham kiradi**, garchi pul hali kelmagan bo'lsa ham.
 - **Smena / Z-hisobot** — kassaga tushgan **pul** (naqd, karta). Nasiya bu yerga kirmaydi.
-- **Moliya** → **Foyda tahlili** → **Jami savdo** — chegirma va vozvrat ayirilgan summa.
+- **Moliya** → **Foyda tahlili** → **Sof savdo** — chegirma va vozvrat ayirilgan summa. Dashboard'dagi **Sof savdo** bilan bir xil; vozvrat bo'lsa kartada "savdo − vozvrat" yoziladi.
 
 Yana sabablar:
 
@@ -52,7 +52,7 @@ Kalit: xodim, xodimlar, sotuvchi, ishchi, kim sotdi, xodim savdosi, bonus, premi
 
 - **Savdo** — chegirma ayirilgan summa.
 - **Vozvrat** qaytarilgan kunda, tovarni **sotgan** xodimdan ayriladi (vozvratni rasmiylashtirgan kassirdan emas).
-- Jami **Sof savdo** — **Foyda tahlili** dagi savdo bilan bir xil.
+- Jami **Sof savdo** — **Foyda tahlili** dagi **Sof savdo** bilan bir xil.
 - **Belgilanmagan** qatori — sotuvchisi noma'lum: chekka bog'lanmagan vozvrat yoki sotuvchisiz chek.
 
 Xodimga foiz yoki mukofot hisoblamoqchi bo'lsangiz — **Sof savdo** (yoki **Alohida** ustuni) dan hisoblang. Dastur summani o'zi hisoblamaydi.

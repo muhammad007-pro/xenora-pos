@@ -3,9 +3,9 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
-## [Reliz qilinmagan]
+## [1.14.10] — 2026-11-25 — Chekda kelishuv chegirmasi, chek nomi
 
-**MIGRATSIYA YO'Q.** Faqat chek KO'RINISHI: summalar, to'lovlar, hisobotlar, vozvrat
+**MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Android versionCode 81. Faqat chek KO'RINISHI: summalar, to'lovlar, hisobotlar, vozvrat
 hisobi (`net_line_totals`, `refund_line_totals`, `period_tenders`) o'zgarmagan. Jonli
 chek kassada quriladi — `pos.js`/`receipt-print.js` uchun SW versiyasi + yangi `.exe` kerak.
 

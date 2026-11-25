@@ -266,9 +266,14 @@ def receipt_line_totals(order, items):
 
     Qaytaradi: {"lines": {order_item_id: so'm}, "subtotal": Σ qatorlar,
                 "other_discount": qolgan chegirma (qo'lda %/mijoz/aksiya),
-                "negotiated": kelishuvlar yig'indisi}
+                "negotiated": kelishuvlar yig'indisi,
+                "gross_subtotal": katalog yig'indisi (chekda "Chegirmasiz"),
+                "negotiated_discount": gross_subtotal − subtotal
+                                       (chekda "Chegirma (kelishuv)")}
     Kafolat: subtotal − other_discount = Σ total_price − discount_amount
     (1 so'mdan kichik yaxlitlash qoldig'idan tashqari).
+    `gross_subtotal`/`negotiated_discount` — faqat chek KO'RINISHI; vozvrat
+    (`refund_line_totals`) ularni o'qimaydi.
     """
     meta = getattr(order, "biz_meta", None) if order is not None else None
     snap = meta.get("cart") if isinstance(meta, dict) else None
@@ -279,6 +284,7 @@ def receipt_line_totals(order, items):
     lines: dict = {}
     neg = 0.0
     sub = 0.0
+    gross = 0.0
     for oi, s in zip(items, snap):
         if not isinstance(s, dict):
             return None
@@ -301,6 +307,7 @@ def receipt_line_totals(order, items):
         if new is not None and new < price:
             neg += (price - new) * qty
         sub += total
+        gross += max(price, unit) * qty
         lines[oi.id] = _round_som(unit * qty)
 
     if neg < 0.5:                       # narx tushirilmagan — chek avvalgidek
@@ -314,8 +321,13 @@ def receipt_line_totals(order, items):
         return None
     if other < 1.0:                     # yaxlitlash qoldig'i — "Chegirma" qatori chiqmaydi
         other = 0.0
+    # "Chegirmasiz" butun so'mda, kelishuv qatori = farq: chekda
+    # Chegirmasiz − kelishuv − chegirma = Σ qatorlar − chegirma (UMUMIY) aniq.
+    gross_shown = _round_som(gross)
     return {"lines": lines, "subtotal": shown, "other_discount": other,
-            "negotiated": round(neg, 2)}
+            "negotiated": round(neg, 2),
+            "gross_subtotal": gross_shown,
+            "negotiated_discount": max(gross_shown - shown, 0.0)}
 
 
 def refund_line_totals(order, items) -> dict:

@@ -55,6 +55,10 @@ def _row(left: str, right: str, width: int) -> str:
     return f"{left}{' ' * space}{right}"
 
 
+# Kelishilgan narx (savatda tushirilgan) chegirmasi qatori — JS bilan bir xil matn
+NEG_LABEL = "Chegirma (kelishuv):"
+
+
 def _sub_label(data) -> str:
     """Chekda chegirma bo'lsa "Chegirmasiz:", aks holda "Jami:" (chegirmasiz chek o'zgarmaydi).
     `had_discount` — kelishilgan narxli chekda qolgan chegirma 0 bo'lsa ham true."""
@@ -161,6 +165,8 @@ def build_receipt(data: Dict[str, Any], width_mm: int = 80) -> bytes:
 
     # ── Jami / soliq / chegirma ──
     d.text(_row(_sub_label(data), _money(data.get("subtotal")), w) + "\n")
+    if (data.get("negotiated_discount") or 0) > 0:
+        d.text(_row(NEG_LABEL, "-" + _money(data["negotiated_discount"]), w) + "\n")
     if (data.get("discount") or 0) > 0:
         d.text(_row(_disc_label(data), "-" + _money(data["discount"]), w) + "\n")
     if (data.get("tax") or 0) > 0:
@@ -263,6 +269,8 @@ def render_text(data: Dict[str, Any], width_mm: int = 80) -> str:
         L.append(_row(left, _money(total), w))
     L.append("-" * w)
     L.append(_row(_sub_label(data), _money(data.get("subtotal")), w))
+    if (data.get("negotiated_discount") or 0) > 0:
+        L.append(_row(NEG_LABEL, "-" + _money(data["negotiated_discount"]), w))
     if (data.get("discount") or 0) > 0:
         L.append(_row(_disc_label(data), "-" + _money(data["discount"]), w))
     if (data.get("tax") or 0) > 0:

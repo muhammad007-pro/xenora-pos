@@ -3,6 +3,29 @@
 Versiya raqami har build'da oshiriladi. Manba: `electron/package.json` (version),
 `android/android/app/build.gradle` (versionName/versionCode), `frontend/shared/version.js` (APP_VERSION).
 
+## [Reliz qilinmagan]
+
+**MIGRATSIYA YO'Q.** Faqat chek KO'RINISHI: summalar, to'lovlar, hisobotlar, vozvrat
+hisobi (`net_line_totals`, `refund_line_totals`, `period_tenders`) o'zgarmagan. Jonli
+chek kassada quriladi — `pos.js`/`receipt-print.js` uchun SW versiyasi + yangi `.exe` kerak.
+
+### 🧾 Chekda kelishuv chegirmasi (NICE SHOPPING shikoyati: "chek chegirmasiz chiqyapti")
+* kelishilgan narxli chekda qatorlar avvalgidek kelishilgan summada, lekin endi
+  "Chegirmasiz" = **katalog yig'indisi** va alohida **"Chegirma (kelishuv): −X"** qatori.
+  Ilgari "Chegirmasiz" qatorlar yig'indisi edi va chegirma qatori chiqmasdi
+  (#6972: 6 × 18 000 → 17 500 — chekda faqat 105 000 ko'rinardi)
+* qo'lda/foiz/aksiya chegirmasi kelishuv bilan birga bo'lsa — o'z "Chegirma" qatorida
+* aksiya chegirmasi kelishuvsiz chekda ham chiqadi (ilgari UMUMIY uni ayirardi-yu,
+  "Chegirma" qatori yo'q edi). Aksiya + qo'lda birga bo'lsa yorliq foizsiz
+* bir qoida uch joyda: jonli POS cheki, qayta chop (`/orders/{id}/receipt` →
+  `receipt_gross`/`receipt_negotiated`), server ESC/POS (`/print`). Eski server javobi
+  (yangi kalitlarsiz) — chek avvalgi ko'rinishda. Kelishuvsiz chek HTML'i bayt-bayt bir xil
+
+### 🏷 Chek nomi
+* qayta chop etilgan chek va X/Z-hisobot sarlavhasi endi chek sozlamasidagi
+  "Do'kon nomi" dan (bo'sh bo'lsa tenant nomi) — jonli chek va `/print` bilan bir xil.
+  Ilgari u yerlarda doim `cafes.name` chiqardi. Tenant nomi (login, billing) tegilmaydi
+
 ## [1.14.9] — 2026-11-19 — Skaner tezligi, Sof savdo, Toshkent sanasi
 
 **MIGRATSIYA YO'Q** (alembic head: `e7a3c5d91b24`). Backend + frontend serverda darhol;

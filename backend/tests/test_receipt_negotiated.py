@@ -342,6 +342,104 @@ def test_GOLDEN_vozvrat_eski_chek_ulush(client, shop):
     assert r.json()["total_amount"] == round(245_000 * (1 - 25_000 / 625_000), 2)   # 235 200
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 3) fix/receipt-discount — chekda kelishuv chegirmasi qatori + chek nomi
+#    NICE SHOPPING (28) #6972: 6 × 18 000 → 17 500, chegirma 3 000 —
+#    chekda "Chegirmasiz 105 000", chegirma qatori YO'Q edi.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_6972_kelishuv_qatori():
+    r = receipt_line_totals(_o(3_000.0, [_s(7, 18_000, 17_500, qty=6)]), [_i(1, 7, 108_000.0, qty=6, unit=18_000.0)])
+    assert r["lines"] == {1: 105_000.0}
+    assert r["gross_subtotal"] == 108_000.0             # "Chegirmasiz"
+    assert r["negotiated_discount"] == 3_000.0          # "Chegirma (kelishuv)"
+    assert r["other_discount"] == 0.0
+    # Chegirmasiz − kelishuv − chegirma = UMUMIY (108 000 − 3 000 = 105 000)
+    assert r["gross_subtotal"] - r["negotiated_discount"] - r["other_discount"] == 105_000.0
+
+
+def test_kelishuv_va_qolda_alohida_qatorlar():
+    items = [_i(1, 3864, 245_000.0), _i(2, 4115, 100_000.0)]
+    r = receipt_line_totals(_o(59_500.0, [_s(3864, 245_000, 220_000), _s(4115, 100_000)]), items)
+    assert (r["gross_subtotal"], r["negotiated_discount"], r["other_discount"]) == (345_000.0, 25_000.0, 34_500.0)
+    assert r["gross_subtotal"] - r["negotiated_discount"] - r["other_discount"] == 345_000.0 - 59_500.0
+
+
+def test_kasr_kelishuv_butun_somda():
+    """3 × 33 333.4: qator 100 000, Chegirmasiz 120 000, kelishuv = farq 20 000."""
+    r = receipt_line_totals(_o(19_999.8, [_s(1, 40_000, 33_333.4, qty=3)]),
+                            [_i(1, 1, 120_000.0, qty=3, unit=40_000.0)])
+    assert (r["gross_subtotal"], r["negotiated_discount"]) == (120_000.0, 20_000.0)
+
+
+def test_vozvrat_yangi_kalitlarga_bogliq_emas():
+    """Vozvrat (refund_line_totals) — avvalgidek chekdagi qator summasi."""
+    assert refund_line_totals(_o(70_000.0, CART_4804), ITEMS_4804) == {1: 220_000.0, 2: 360_000.0, 3: 270_000.0}
+
+
+def test_escpos_kelishuv_qatori():
+    from services.escpos_service import _money, render_text
+    base ={"store_name": "MEBEL FURNITURA", "receipt_number": "1", "datetime": "x",
+            "items": [{"name": "MACHALKA", "quantity": 6, "unit_price": 18_000, "total": 105_000}],
+            "subtotal": 108_000, "negotiated_discount": 3_000, "discount": 0, "had_discount": True,
+            "tax": 0, "service": 0, "total": 105_000, "payment_method": "cash"}
+    txt = render_text(base, 80)
+    lines = txt.splitlines()
+    assert any(ln.startswith("Chegirmasiz:") and ln.endswith(_money(108_000)) for ln in lines)
+    assert any(ln.startswith("Chegirma (kelishuv):") and ln.endswith("-" + _money(3_000)) for ln in lines)
+    # GOLDEN: kalit yo'q — qator yo'q
+    old = {**base, "subtotal": 105_000}
+    old.pop("negotiated_discount")
+    assert "kelishuv" not in render_text(old, 80)
+
+
+def test_api_receipt_6972_kalitlari(client, shop):
+    a = shop["prods"][0]
+    o, _ = _sold(shop, [(a, 6, 18_000.0, 17_500.0)], 3_000.0)
+    r = client.get(f"/api/v1/orders/{o.id}/receipt", headers=_h(client)).json()
+    assert r["items"][0]["line_total"] == 105_000.0
+    assert (r["receipt_gross"], r["receipt_negotiated"], r["discount_other"]) == (108_000.0, 3_000.0, 0.0)
+    assert r["receipt_subtotal"] == 105_000.0           # avvalgi kalit o'zgarmagan
+    assert r["final_amount"] == 105_000.0 and r["discount_amount"] == 3_000.0
+
+
+def test_api_receipt_GOLDEN_kelishuvsiz_yangi_kalit_yoq(client, shop):
+    a, b, _ = shop["prods"]
+    o, _ = _sold(shop, [(a, 1, 245_000.0, None), (b, 1, 380_000.0, None)], 25_000.0)
+    r = client.get(f"/api/v1/orders/{o.id}/receipt", headers=_h(client)).json()
+    assert not {"receipt_gross", "receipt_negotiated", "receipt_subtotal"} & set(r)
+
+
+def _set_store_name(db, cafe_id, name):
+    from models import ReceiptSettings
+    rs = db.query(ReceiptSettings).filter(ReceiptSettings.tenant_id == cafe_id).first()
+    if not rs:
+        rs = ReceiptSettings(tenant_id=cafe_id)
+        db.add(rs)
+    rs.store_name = name
+    db.commit()
+
+
+def test_chek_nomi_sozlamadan_keyin_tenant(client, shop, db_session):
+    """Qayta chop (/receipt) va X/Z-hisobot: chek sozlamasi ustun, bo'sh bo'lsa
+    cafes.name (avvalgidek). cafes.name o'zgarmaydi."""
+    h = _h(client)
+    a = shop["prods"][0]
+    o, _ = _sold(shop, [(a, 1, 245_000.0, None)], 0.0)
+    sid = db_session.query(Shift).filter(Shift.tenant_id == shop["cafe"]).first().id
+    # sozlama yo'q → tenant nomi (GOLDEN)
+    assert client.get(f"/api/v1/orders/{o.id}/receipt", headers=h).json()["cafe_name"] == "MANH"
+    assert client.get(f"/api/v1/shifts/{sid}/x-report", headers=h).json()["store_name"] == "MANH"
+    # sozlama bor → u
+    _set_store_name(db_session, shop["cafe"], "MEBEL FURNITURA")
+    assert client.get(f"/api/v1/orders/{o.id}/receipt", headers=h).json()["cafe_name"] == "MEBEL FURNITURA"
+    assert client.get(f"/api/v1/shifts/{sid}/x-report", headers=h).json()["store_name"] == "MEBEL FURNITURA"
+    # bo'sh satr → tenant nomi
+    _set_store_name(db_session, shop["cafe"], "")
+    assert client.get(f"/api/v1/orders/{o.id}/receipt", headers=h).json()["cafe_name"] == "MANH"
+    assert db_session.get(Cafe, shop["cafe"]).name == "MANH"
+
+
 def test_GOLDEN_hisobot_ulush_qoidasida(client, shop, db_session):
     """Snapshot hisobotga TA'SIR QILMAYDI: davr savdosi snapshot bilan ham,
     snapshotsiz ham aynan bir xil (Σ total_price − chegirma)."""

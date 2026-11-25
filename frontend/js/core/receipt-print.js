@@ -506,8 +506,16 @@ export function negotiatedLines(items, discountAmount) {
   let other = Math.round((shown - (sub - disc)) * 100) / 100;
   if (other < -1) return null;
   if (other < 1) other = 0;
-  return { lines, subtotal: shown, other_discount: other, negotiated: Math.round(neg * 100) / 100 };
+  // "Chegirmasiz" = katalog yig'indisi butun so'mda, kelishuv qatori = farq —
+  // Chegirmasiz − kelishuv − chegirma = Σ qatorlar − chegirma (UMUMIY) aniq.
+  // Python `receipt_line_totals` (gross_subtotal/negotiated_discount) bilan bir xil.
+  const gross = _roundSom(sub);
+  return { lines, subtotal: shown, other_discount: other, negotiated: Math.round(neg * 100) / 100,
+           gross_subtotal: gross, negotiated_discount: Math.max(gross - shown, 0) };
 }
+
+/** Kelishilgan narx chegirmasi qatori (escpos_service.NEG_LABEL bilan bir xil matn). */
+export const NEG_LABEL = 'Chegirma (kelishuv):';
 
 /** Jami qatori yorlig'i — chekda chegirma bo'lsa "Chegirmasiz:" (chegirmasiz chek o'zgarmaydi). */
 export function subtotalLabel(hadDiscount) {
@@ -517,13 +525,18 @@ export function subtotalLabel(hadDiscount) {
 export function buildReceipt58(rec) {
   rec = rec || {};
   const items = rec.items || [];
-  // Kelishilgan narxli chek: server qator summasini (line_total), qatorlar
-  // yig'indisini (receipt_subtotal) va QOLGAN chegirmani (discount_other)
-  // beradi. Kalitlar yo'q bo'lsa (eski chek, snapshotsiz) — avvalgidek.
+  // Kelishilgan narxli chek: server qator summasini (line_total), katalog
+  // yig'indisini (receipt_gross), kelishuv chegirmasini (receipt_negotiated) va
+  // QOLGAN chegirmani (discount_other) beradi. Kalitlar yo'q bo'lsa (eski chek,
+  // snapshotsiz) — avvalgidek. receipt_gross yo'q (eski server) — "Chegirmasiz"
+  // qatorlar yig'indisi, kelishuv qatorisiz (avvalgi ko'rinish).
   const negotiated = rec.receipt_subtotal != null;
+  const hasGross = negotiated && rec.receipt_gross != null;
   const origDisc = rec.discount_amount != null ? rec.discount_amount : (rec.discount || 0);
-  const sub = negotiated ? rec.receipt_subtotal
+  const sub = hasGross ? rec.receipt_gross
+            : negotiated ? rec.receipt_subtotal
             : (rec.subtotal != null ? rec.subtotal : rec.total_amount);
+  const negDisc = hasGross ? (Number(rec.receipt_negotiated) || 0) : 0;
   const disc = negotiated ? (rec.discount_other || 0) : origDisc;
   const tax = rec.tax_amount != null ? rec.tax_amount : (rec.tax || 0);
   const service = rec.service_amount || 0;
@@ -572,7 +585,7 @@ export function buildReceipt58(rec) {
     </table>
     <div class="receipt-totals">
       <div class="rt-row"><span>${subtotalLabel(origDisc > 0)}</span><span>${_money(sub)}</span></div>
-      ${(disc > 0) ? `<div class="rt-row"><span>Chegirma:</span><span>-${_money(disc)}</span></div>` : ''}
+      ${(negDisc > 0) ? `<div class="rt-row"><span>${NEG_LABEL}</span><span>-${_money(negDisc)}</span></div>` : ''}${(disc > 0) ? `<div class="rt-row"><span>Chegirma:</span><span>-${_money(disc)}</span></div>` : ''}
       ${(tax > 0) ? `<div class="rt-row"><span>Soliq (12%):</span><span>${_money(tax)}</span></div>` : ''}
       ${(service > 0) ? `<div class="rt-row"><span>Xizmat (10%):</span><span>${_money(service)}</span></div>` : ''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${_money(total)} UZS</span></div>

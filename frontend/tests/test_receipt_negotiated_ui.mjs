@@ -49,6 +49,9 @@ const browser = await chromium.launch({ headless: true });
 
 try {
   const page = await browser.newPage();
+  // Tashqi shrift (Google Fonts) osilib qolsa goto 30s timeout beradi — chek
+  // mantig'iga aloqasi yo'q, bloklanadi.
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await page.goto(`${BASE}/shared/login.html`, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ type: 'module', content: `
     import * as R from '${BASE}/js/core/receipt-print.js';
@@ -84,7 +87,8 @@ for k, v in C.items():
              for i, c in enumerate(v['cart'])]
     r = receipt_line_totals(N(discount_amount=v['disc'], biz_meta={'cart': v['cart']}), items)
     out[k] = None if r is None else {'lines': [r['lines'][i + 1] for i in range(len(items))], 'subtotal': r['subtotal'],
-                                     'other_discount': r['other_discount'], 'negotiated': r['negotiated']}
+                                     'other_discount': r['other_discount'], 'negotiated': r['negotiated'],
+                                     'gross_subtotal': r['gross_subtotal'], 'negotiated_discount': r['negotiated_discount']}
 print(json.dumps(out))`;
   let py = null;
   for (const cmd of ['py', 'python3', 'python']) {
@@ -94,7 +98,8 @@ print(json.dumps(out))`;
     break;
   }
   for (const k of Object.keys(CASES)) check(`1_${k}`, js[k], py && py[k]);
-  check('1_4804_qiymat', js.chek_4804, { lines: [220000, 360000, 270000], subtotal: 850000, other_discount: 0, negotiated: 70000 });
+  check('1_4804_qiymat', js.chek_4804, { lines: [220000, 360000, 270000], subtotal: 850000, other_discount: 0, negotiated: 70000,
+                                   gross_subtotal: 920000, negotiated_discount: 70000 });
   check('1_foiz_qolgan_chegirma', js.foiz_ustiga && js.foiz_ustiga.other_discount, 34500);
   check('1_zaxira_null', [js.kelishuvsiz, js.katta_kelish, js.manfiy], [null, null, null]);
 
@@ -108,7 +113,7 @@ print(json.dumps(out))`;
       { name: 'SVITR', quantity: 1, unit_price: 295000, total: 295000, line_total: 270000 },
     ],
     subtotal: 920000, discount_amount: 70000, discount: 70000, final_amount: 850000,
-    receipt_subtotal: 850000, discount_other: 0,
+    receipt_subtotal: 850000, receipt_gross: 920000, receipt_negotiated: 70000, discount_other: 0,
     payment_methods: [{ method: 'cash', amount: 850000 }],
   };
   const REC_FOIZ = {
@@ -116,7 +121,7 @@ print(json.dumps(out))`;
     items: [{ name: 'SHIM', quantity: 1, unit_price: 245000, total: 245000, line_total: 220000 },
             { name: 'KEPKA', quantity: 1, unit_price: 100000, total: 100000, line_total: 100000 }],
     subtotal: 345000, discount_amount: 59500, discount: 59500, final_amount: 285500,
-    receipt_subtotal: 320000, discount_other: 34500,
+    receipt_subtotal: 320000, receipt_gross: 345000, receipt_negotiated: 25000, discount_other: 34500,
   };
   const parse = (html) => page.evaluate((h) => {
     const d = document.createElement('div'); d.innerHTML = h;
@@ -128,9 +133,15 @@ print(json.dumps(out))`;
   const build = (rec, mod = '__R') => page.evaluate(([r, m]) => window[m].buildReceipt58(r), [rec, mod]);
   let p = await parse(await build(REC_4804));
   check('2_qatorlar', p.rows.map(r => [r[1], r[2]]), [['1 x 245 000', '220 000'], ['1 x 380 000', '360 000'], ['1 x 295 000', '270 000']]);
-  check('2_jami_yorliq', p.totals.slice(0, 2), [['Chegirmasiz:', '850 000'], ['UMUMIY:', '850 000 UZS']]);
+  // fix/receipt-discount: "Chegirmasiz" = katalog yig'indisi + kelishuv qatori
+  check('2_jami_yorliq', p.totals.slice(0, 3), [['Chegirmasiz:', '920 000'], ['Chegirma (kelishuv):', '-70 000'], ['UMUMIY:', '850 000 UZS']]);
   p = await parse(await build(REC_FOIZ));
-  check('2_foiz_qolgan_chegirma', p.totals.slice(0, 3), [['Chegirmasiz:', '320 000'], ['Chegirma:', '-34 500'], ['UMUMIY:', '285 500 UZS']]);
+  check('2_foiz_qolgan_chegirma', p.totals.slice(0, 4), [['Chegirmasiz:', '345 000'], ['Chegirma (kelishuv):', '-25 000'],
+                                                         ['Chegirma:', '-34 500'], ['UMUMIY:', '285 500 UZS']]);
+  // Eski server (receipt_gross yo'q) — avvalgi ko'rinish, kelishuv qatorisiz
+  const { receipt_gross: _g, receipt_negotiated: _n, ...REC_OLD_SRV } = REC_4804;
+  p = await parse(await build(REC_OLD_SRV));
+  check('2_eski_server_zaxira', p.totals.slice(0, 2), [['Chegirmasiz:', '850 000'], ['UMUMIY:', '850 000 UZS']]);
 
   // ── 3) GOLDEN — main bilan solishtirish ────────────────────────────────────
   console.log('\n── 3) GOLDEN (main) ──');

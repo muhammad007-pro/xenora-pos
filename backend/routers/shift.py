@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from database import get_db
-from models import Shift, User, Order, Payment, OrderItem, CashRegister, Return, Cafe, CashMovement
+from models import Shift, User, Order, Payment, OrderItem, CashRegister, Return, Cafe, CashMovement, ReceiptSettings
 from schemas import ShiftCreate, ShiftUpdate, ShiftInDB, MessageResponse
 from deps import (
     resolve_tenant_id, get_current_user, get_current_active_user,
@@ -194,6 +194,14 @@ def _returns_in_range(db, current_user, start, end):
         dt <= end,
     )
     return apply_tenant_filter(q, Return, current_user).all()
+
+
+def _store_name(db, tenant_id, cafe, default):
+    """Z/X-hisobot sarlavhasi: chek sozlamasi (Do'kon nomi) ustun, bo'lmasa
+    tenant nomi — chek (`order.py` /receipt, /print) bilan bir qoida.
+    cafes.name TEGILMAYDI."""
+    rs = db.query(ReceiptSettings).filter(ReceiptSettings.tenant_id == tenant_id).first() if tenant_id else None
+    return (rs.store_name if rs and rs.store_name else (cafe.name if cafe else None)) or default
 
 
 def _fmt_local(dt):
@@ -387,7 +395,7 @@ async def close_shift(
     cafe = db.query(Cafe).filter(Cafe.id == shift.tenant_id).first()
     return {
         "id":             shift.id,
-        "store_name":     (cafe.name if cafe else None) or "XENORA",
+        "store_name":     _store_name(db, shift.tenant_id, cafe, "XENORA"),
         "start_time":     to_utc(shift.start_time).isoformat(),
         "end_time":       to_utc(shift.end_time).isoformat(),
         "cashier":        shift.user.full_name if shift.user else None,
@@ -726,7 +734,7 @@ def _build_zreport_data(shift: Shift, db: Session, current_user: User) -> dict:
     cafe = db.query(Cafe).filter(Cafe.id == shift.tenant_id).first()
 
     return {
-        "store_name":     (cafe.name if cafe else None) or "RestoPOS",
+        "store_name":     _store_name(db, shift.tenant_id, cafe, "RestoPOS"),
         "datetime":       _fmt_local(now),
         "shift_id":       shift.id,
         "cashier":        shift.user.full_name if shift.user else None,

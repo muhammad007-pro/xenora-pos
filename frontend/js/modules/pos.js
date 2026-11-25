@@ -8,7 +8,7 @@ import { localDB, STORES }  from '../core/db.js';
 import { syncEngine }       from '../core/sync.js';
 import { WS_BASE, API_BASE } from '../core/config.js';
 import { printReceiptHTML, buildReceipt58, loyaltyRows, isGiftItem, giftRow,
-         qtyPriceLabel, unitPriceOf, negotiatedLines, subtotalLabel,
+         qtyPriceLabel, unitPriceOf, negotiatedLines, subtotalLabel, NEG_LABEL,
          packKind, packSizeLabel, fmtPackQty, unitChoiceLabel } from '../core/receipt-print.js';
 import { isCameraScanAvailable, openCameraScanner } from './camera-scanner.js';
 import { createPrintConfig, showPrintConfigAlert } from '../core/print-config.js';
@@ -2794,12 +2794,19 @@ function renderReceiptData(rec) {
   const t    = computeTotals();
   const body = document.getElementById('receiptBody');
   // KELISHILGAN NARX: narx savatda tushirilgan bo'lsa qator o'ngida kelishilgan
-  // summa ("1 x 245,000   220,000"), pastda faqat QOLGAN chegirma. Qoida
-  // server qayta chop etishi bilan BIR XIL (receipt-print.js negotiatedLines ↔
-  // routers/returns.py receipt_line_totals). null → chek avvalgidek.
+  // summa ("1 x 245,000   220,000"), pastda "Chegirmasiz" = katalog yig'indisi,
+  // "Chegirma (kelishuv)" va QOLGAN chegirma alohida. Qoida server qayta chop
+  // etishi bilan BIR XIL (receipt-print.js negotiatedLines ↔ routers/returns.py
+  // receipt_line_totals). null → chek avvalgidek.
   const _ng = rec.items ? null : negotiatedLines(state.cart, t.totalDisc);
-  const _discAll   = rec.discount_amount || (t.disc + t.editDisc);
+  // t.totalDisc = qo'lda/mijoz + AKSIYA + kelishuv (subtotal bilan cheklangan).
+  // Ilgari `t.disc + t.editDisc` edi — aksiya chegirmasi chekda chiqmasdi,
+  // UMUMIY esa uni ayirgan holda (savat bilan chek ziddiyatda edi).
+  const _discAll   = rec.discount_amount || t.totalDisc;
   const _discShown = _ng ? _ng.other_discount : _discAll;
+  // "-10% (qo'lda)" yorlig'i faqat chegirma o'sha yagona manbadan bo'lsa —
+  // aksiya qo'shilganda summa foizga mos kelmaydi.
+  const _discLbl   = t.autoDisc > 0 ? '' : _rcptDiscountLabel();
   body.innerHTML = `
     <div class="receipt-center">
       <h4>${rec.cafe_name || 'XENORA'}</h4>
@@ -2849,13 +2856,14 @@ function renderReceiptData(rec) {
       </tbody>
     </table>
     <div class="receipt-totals">
-      <div class="rt-row"><span>${subtotalLabel(_ng ? true : _discAll > 0)}</span><span>${fmtNum(_ng ? _ng.subtotal : (rec.subtotal||t.sub))}</span></div>
-      ${/* Chegirma qatori O'ZGARMADI - narx kelishuvi shu yerda ko'rinadi va mijoz
-            "qancha tushdi" ni shundan biladi. Server qaytargan discount_amount
-            kelishuvni ham o'z ichiga oladi (u chegirma kanalidan ketgan); server
-            javobi bo'lmagan LOKAL/OFFLINE chekda esa t.disc + t.editDisc.
-            Chek renderer'iga (USB/SumatraPDF, LAN/ESC-POS) TEGILMADI. */''}
-      ${_discShown>0 ? `<div class="rt-row disc"><span>Chegirma${_rcptDiscountLabel()}:</span><span>-${fmtNum(_discShown)}</span></div>` : ''}
+      <div class="rt-row"><span>${subtotalLabel(_ng ? true : _discAll > 0)}</span><span>${fmtNum(_ng ? _ng.gross_subtotal : (rec.subtotal||t.sub))}</span></div>
+      ${/* Kelishuvli chek: Chegirmasiz − kelishuv − chegirma = UMUMIY. Ilgari
+            "Chegirmasiz" qatorlar yig'indisi edi va kelishuv qatori yo'q edi —
+            chek mijozga chegirmasiz ko'rinardi. Faqat KO'RINISH: summalar,
+            payload, vozvrat tegilmadi. LAN/ESC-POS yo'li .rt-row larni DOM'dan
+            o'qiydi — yangi qator o'zi tushadi. */''}
+      ${_ng && _ng.negotiated_discount > 0 ? `<div class="rt-row disc"><span>${NEG_LABEL}</span><span>-${fmtNum(_ng.negotiated_discount)}</span></div>` : ''}
+      ${_discShown>0 ? `<div class="rt-row disc"><span>Chegirma${_discLbl}:</span><span>-${fmtNum(_discShown)}</span></div>` : ''}
       ${(rec.tax_amount||t.tax)>0?`<div class="rt-row"><span>Soliq (12%):</span><span>${fmtNum(rec.tax_amount||t.tax)}</span></div>`:''}
       ${(rec.service_amount||t.service)>0?`<div class="rt-row"><span>Xizmat (10%):</span><span>${fmtNum(rec.service_amount||t.service)}</span></div>`:''}
       <div class="rt-row bold"><span>UMUMIY:</span><span>${fmtNum(rec.final_amount||t.total)} UZS</span></div>

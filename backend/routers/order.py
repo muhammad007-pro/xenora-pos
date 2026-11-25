@@ -843,9 +843,13 @@ async def get_order_receipt(
             }
             for item in order.items
         ],
-        # Faqat kelishilgan narxli chekda: "Chegirmasiz" = qatorlar yig'indisi,
-        # "Chegirma" = qolgan chegirma (qo'lda %/mijoz/aksiya), UMUMIY o'zgarmaydi.
+        # Faqat kelishilgan narxli chekda: qatorlar kelishilgan summada,
+        # "Chegirmasiz" = katalog yig'indisi (receipt_gross), "Chegirma (kelishuv)"
+        # = receipt_negotiated, "Chegirma" = qolgan chegirma (qo'lda %/mijoz/aksiya).
+        # UMUMIY o'zgarmaydi. receipt_subtotal — qatorlar yig'indisi (avvalgidek).
         **({"receipt_subtotal": _neg["subtotal"],
+            "receipt_gross": _neg["gross_subtotal"],
+            "receipt_negotiated": _neg["negotiated_discount"],
             "discount_other": _neg["other_discount"]} if _neg else {}),
         "subtotal": order.total_amount,
         "discount": order.discount_amount,
@@ -878,7 +882,10 @@ async def get_order_receipt(
         # pos.js renderReceiptData uchun
         "order_id":        order.id,
         "order_number":    order.order_number,
-        "cafe_name":       order.cafe.name if hasattr(order, 'cafe') and order.cafe else None,
+        # Chek nomi: chek sozlamasi (Do'kon nomi) ustun, bo'lmasa tenant nomi —
+        # /print va POS jonli cheki bilan bir qoida. cafes.name TEGILMAYDI.
+        "cafe_name":       (rs.store_name if rs and rs.store_name
+                            else (order.cafe.name if hasattr(order, 'cafe') and order.cafe else None)),
         "subtotal":        order.total_amount,
         "discount_amount": order.discount_amount,
         "tax_amount":      order.tax_amount,
@@ -959,7 +966,9 @@ async def print_order_receipt(
             }
             for it in order.items
         ],
-        "subtotal": _neg["subtotal"] if _neg else order.total_amount,
+        "subtotal": _neg["gross_subtotal"] if _neg else order.total_amount,
+        # Kelishuv alohida qator (escpos_service), "Chegirma" — qolgani
+        "negotiated_discount": _neg["negotiated_discount"] if _neg else 0,
         "discount": _neg["other_discount"] if _neg else (order.discount_amount or 0),
         # "Jami:" → "Chegirmasiz:" (chekda chegirma bo'lsa; escpos_service)
         "had_discount": (order.discount_amount or 0) > 0,
